@@ -8,7 +8,6 @@ Created on Sun Jul 30 22:16:35 2023
 """
 System modules
 """
-import sys, os
 
 """
 Third-party Modules
@@ -51,6 +50,8 @@ class ImageUdsData2or3D(GuiFrame):
         self.ui_img_widget_main = ImageUdsData2or3DWidget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- MAIN ---</b>")
         self.ui_img_widget_main.sendMsgSignal.connect(self.getMsgFromImgMainWidget)
+        self.ui_img_widget_main.sendMsgSignal.connect(self.getMouseMoveMsgFromImgMainWidget)
+        self.ui_img_widget_main.sendMsgSignal.connect(self.getPickedPointsMsgFromImgMainWidget)
         
         self.ui_img_widget_slave = ImageUdsData2or3DWidget()
         self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- SLAVE ---</b>")
@@ -58,11 +59,11 @@ class ImageUdsData2or3D(GuiFrame):
         
         # dockWiget Plot1D
         self.ui_dockWidget_plot1D = QtWidgets.QDockWidget()
-        self.ui_dockWidget_plot1D_Content = QtWidgets.QPushButton("Ok")
+        self.ui_dockWidget_plot1D_Content = Plot1DWidget()
 
         self.ui_dockWidget_plot1D.setWidget(self.ui_dockWidget_plot1D_Content)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_plot1D)
-        #self.ui_dockWidget_plot1D.close()
+        self.ui_dockWidget_plot1D.close()
         
         #
         self.ui_lw_uds_variable_name_list.doubleClicked.connect(self.ui_lw_uds_variable_name_list_doulbeClicked)
@@ -97,10 +98,10 @@ class ImageUdsData2or3D(GuiFrame):
         for s in screens:
             if s == QtWidgets.QApplication.screenAt(self.pos()):                
                 width = int(0.33 * (s.size().width() + s.size().height())/2)
-                height = width                
+                height = width
                 self.ui_img_widget_main.setCanvasWidgetSize(width, height)
-                self.ui_img_widget_slave.setCanvasWidgetSize(width, height) 
-    
+                self.ui_img_widget_slave.setCanvasWidgetSize(width, height)
+                
     # from child windows
     @QtCore.pyqtSlot(int)
     def getMsgFromImgMainWidget(self, msgTypeIdx):
@@ -108,7 +109,11 @@ class ImageUdsData2or3D(GuiFrame):
         if self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SELECT_USD_VARIABLE' :
             selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
             selected_var = self.uds_variable_pt_list[selected_var_index]
-            self.ui_img_widget_main.setUdsData(selected_var)            
+            self.ui_img_widget_main.setUdsData(selected_var)
+            
+            #give uds data to Plot1D dock
+            if 'dIdV' in selected_var.name and 'fwd' not in selected_var.name:
+                self.ui_dockWidget_plot1D_Content.setDataFromImage2or3D(self.ui_img_widget_main.uds_variable)           
             
             # Check the data is not FFT
             if not selected_var.name.split('_')[-1] == 'fft':
@@ -136,9 +141,23 @@ class ImageUdsData2or3D(GuiFrame):
                     else:
                         self.uds_variable_name_prefix_list[i] = 's'
                     
-            self.updateVarList()       
+            self.updateVarList() 
+        
+    def getMouseMoveMsgFromImgMainWidget(self, msgTypeIdx):
+        if msgTypeIdx ==1 and 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+            x = self.ui_img_widget_main.msg_type[1][0]
+            y = self.ui_img_widget_main.msg_type[1][1]
+            self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
+    
+    def getPickedPointsMsgFromImgMainWidget(self, msgTypeIdx):
+        if msgTypeIdx ==2 and 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+            picked_points_list = self.ui_img_widget_main.msg_type[2]
+            self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
             
             
+    
+    
+    
     @QtCore.pyqtSlot(int)
     def getMsgFromImgSlaveWidget(self, msgTypeIdx):
         
@@ -199,6 +218,7 @@ class ImageUdsData2or3D(GuiFrame):
         processMenu.addAction(self.cropRegion)
         processMenu.addAction(self.perfectLattice)
         processMenu.addAction(self.lfCorrection)
+        processMenu.addAction(self.lineCut)
         fourierFilterMenu = processMenu.addMenu("Fourier Filter")
         fourierFilterMenu.addAction(self.fourierFilterOut)
         fourierFilterMenu.addAction(self.fourierFilterIsolate)
@@ -222,6 +242,7 @@ class ImageUdsData2or3D(GuiFrame):
         pointsMenu.addAction(self.setBraggPeaks)
         pointsMenu.addAction(self.setFilterPoints)
         pointsMenu.addAction(self.setLockInPoints)
+        pointsMenu.addAction(self.setLineCutPoints)
         
         # Simulate Menu
         generateCurveMenu = simulateMenu.addMenu("Generate Curve")
@@ -251,6 +272,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.cropRegion = QtWidgets.QAction("Crop Region",self)
         self.perfectLattice = QtWidgets.QAction("Perfect Lattice",self)
         self.lfCorrection = QtWidgets.QAction("LF Correction",self)
+        self.lineCut = QtWidgets.QAction('Line Cut',self)
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
         self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
         self.mathAdd = QtWidgets.QAction("+",self)
@@ -270,6 +292,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.setBraggPeaks = QtWidgets.QAction("Set Bragg Peaks",self)
         self.setFilterPoints = QtWidgets.QAction("Set Filter Points",self)
         self.setLockInPoints = QtWidgets.QAction("Set 2D Lock-in Points",self)
+        self.setLineCutPoints = QtWidgets.QAction("Set Line Cut Points",self)
         
         # Simulate Menu
         self.generateHeavisideCurve = QtWidgets.QAction("Heaviside2D")
@@ -291,6 +314,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.cropRegion.triggered.connect(self.actCropRegion)
         self.perfectLattice.triggered.connect(self.actPerfectLattice)
         self.lfCorrection.triggered.connect(self.actLFCorrection)
+        self.lineCut.triggered.connect(self.actLineCut)
         self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
         self.fourierFilterIsolate.triggered.connect(self.actFourierFilterIsolate)
         self.mathAdd.triggered.connect(self.actMathAdd)
@@ -310,6 +334,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.setBraggPeaks.triggered.connect(self.actSetBraggPeaks)
         self.setFilterPoints.triggered.connect(self.actSetFilterPoints)
         self.setLockInPoints.triggered.connect(self.actSetLockInPoints)
+        self.setLineCutPoints.triggered.connect(self.actSetLineCutPoints)
         
         # Simulate Menu
         self.generateHeavisideCurve.triggered.connect(self.actGenerateHeavisideCurve)
@@ -460,6 +485,8 @@ class ImageUdsData2or3D(GuiFrame):
         # update var list
         self.appendToLocalVarList(uds_data_processed)
         
+    def actLineCut(self):
+        self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'])
     def actFourierFilterOut(self):
         self.status_bar.showMessage("Params(kSigma=1.0)",5000)
         
@@ -607,19 +634,19 @@ class ImageUdsData2or3D(GuiFrame):
             # update var list
             self.appendToLocalVarList(uds_data_analysed)
             
-
+        #
+        self.clearWidgetsContents()
         
     def actLockIn2DAmplitudeMap(self):
         self.actLockIn2D("Amplitude")
         
         #
         self.clearWidgetsContents()
-
         
     def actLockIn2DPhaseMap(self):
         self.actLockIn2D("Phase")
         self.actLockIn2D("Phase", False)
-        
+                
         #
         self.clearWidgetsContents()
 
@@ -656,6 +683,25 @@ class ImageUdsData2or3D(GuiFrame):
                 
         #
         self.clearWidgetsContents()
+        
+    def actSetLineCutPoints(self):
+        var_name = self.ui_img_widget_main.uds_variable.name
+        bp_var_index = self.uds_variable_name_list.index(var_name)
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        picked_points = []
+        if   points > 1:
+            for pt in self.ui_img_widget_main.img_picked_points_list:
+                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
+
+                
+            self.uds_variable_pt_list[bp_var_index].info['LineCutPoints'] = picked_points
+            
+            #
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['LineCutPoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+        
     
     def actSetFilterPoints(self):
         var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
@@ -716,7 +762,7 @@ class ImageUdsData2or3D(GuiFrame):
 
         #
         self.clearWidgetsContents()
-        
+    
     def actGenerateCircleCurve(self):
         self.status_bar.showMessage("Params(size=512, radius=10, center_x=0, center_y=0)",5000)
         
