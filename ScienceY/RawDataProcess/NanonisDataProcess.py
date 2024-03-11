@@ -108,7 +108,7 @@ class LoadSxm():
                 s_val = ''  #reset value
             else: #if not caption, it is content
                 s_val = s_val + line + '\n'
-            header.update({s_key : s_val})
+            header.update({s_key : s_val.strip()})
         f.close()
         
         data_info = header['DATA_INFO']
@@ -149,6 +149,8 @@ class LoadSxm():
         for i in range(self.header['channels_num']):
             if i%2 == 1:
                 data3D[i, :, :] = data3D[i, :, :][:,::-1] # Reverse column for backward scanning
+        if self.header['SCAN_DIR'] == 'up':
+            data3D = data3D[:,::-1,:]
         
         return data3D
 
