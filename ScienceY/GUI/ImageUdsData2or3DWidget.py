@@ -8,8 +8,7 @@ Created on Mon Jul 31 16:21:57 2023
 """
 System modules
 """
-import sys, os
-import math
+import ctypes
 
 """
 Third-party Modules
@@ -74,7 +73,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
     def initUiMembers(self):
         # Canvas
-        self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10)))
+        #hdc = ctypes.windll.user32.GetDC(0)
+        #device_dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
+        self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = 100)) # device_dpi))
         self.static_canvas.figure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
         self.static_canvas.figure.patch.set_visible( False )
 
@@ -103,6 +104,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_sb_image_layers = QtWidgets.QSpinBox()
         self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged)
         self.ui_sb_image_layers.setEnabled(False)
+        self.ui_lb_image_layer = QtWidgets.QLabel("Layer: ")
         self.ui_le_layer_value = QtWidgets.QLineEdit()
         self.ui_le_layer_value.setEnabled(False)
         
@@ -215,9 +217,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.uds_variable = 0
         self.selected_var_name = ''
         
-        self.uds_varibale_type = ''
+        self.uds_variable_type = ''
         
-        self.uds_varibale_dataCopy = 0
+        self.uds_variable_dataCopy = 0
         self.uds_variable_dataAcCopy = 0
         
         self.uds_var_layer_value = []
@@ -237,8 +239,13 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
         self.selected_data_pt_x = 0
         self.selected_data_pt_y = 0
+        
+        self.msg_type.append([self.selected_data_pt_x, self.selected_data_pt_y])
+
 
         self.img_picked_points_list = []
+        
+        self.msg_type.append(self.img_picked_points_list)
         
         self.img_current_layer = 0
         
@@ -271,18 +278,18 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     #
     def imageDataTypeChanged(self):
         if self.ui_cb_image_data_type.currentIndex() == 0: #Abs
-            self.uds_varibale_dataCopy = np.abs(self.uds_variable.data)
+            self.uds_variable_dataCopy = np.abs(self.uds_variable.data)
         elif self.ui_cb_image_data_type.currentIndex() == 1: #Angle
-            self.uds_varibale_dataCopy = np.angle(self.uds_variable.data)
+            self.uds_variable_dataCopy = np.angle(self.uds_variable.data)
         elif self.ui_cb_image_data_type.currentIndex() == 2: #Real
-            self.uds_varibale_dataCopy = np.real(self.uds_variable.data)
+            self.uds_variable_dataCopy = np.real(self.uds_variable.data)
         elif self.ui_cb_image_data_type.currentIndex() == 3: #Image
-            self.uds_varibale_dataCopy = np.imag(self.uds_variable.data)
+            self.uds_variable_dataCopy = np.imag(self.uds_variable.data)
         else:
             print("Error display data type!")
             
-        self.uds_variable_dataAcCopy = self.uds_varibale_dataCopy.copy()
-        if self.uds_varibale_type == 'fft':
+        self.uds_variable_dataAcCopy = self.uds_variable_dataCopy.copy()
+        if self.uds_variable_type == 'fft':
             Ox = int( (self.uds_variable.data.shape[-1] - self.uds_variable.data.shape[-1]%2)/2 )
             Oy = int( (self.uds_variable.data.shape[-2] - self.uds_variable.data.shape[-2]%2)/2 )
             self.uds_variable_dataAcCopy[:,Oy,Ox] = np.zeros(self.uds_variable.data.shape[-0])
@@ -302,12 +309,12 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         if len(self.uds_var_layer_value) > 0:
             self.ui_le_layer_value.setText(str(self.uds_var_layer_value[self.img_current_layer]))
         
-        if self.uds_varibale_type == 'fft':
+        if self.uds_variable_type == 'fft':
             layer_data_minimum = np.min(self.uds_variable_dataAcCopy [self.img_current_layer, :, :])
             layer_data_maximum = np.max(self.uds_variable_dataAcCopy[self.img_current_layer, :, :])
         else:
-            layer_data_minimum = np.min(self.uds_varibale_dataCopy[self.img_current_layer, :, :])
-            layer_data_maximum = np.max(self.uds_varibale_dataCopy[self.img_current_layer, :, :])
+            layer_data_minimum = np.min(self.uds_variable_dataCopy[self.img_current_layer, :, :])
+            layer_data_maximum = np.max(self.uds_variable_dataCopy[self.img_current_layer, :, :])
         
         self.ui_sb_image_scale_min.setMinimum(layer_data_minimum)
         self.ui_sb_image_scale_min.setMaximum (layer_data_maximum)
@@ -323,7 +330,6 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_sb_image_scale_max.valueChanged.connect(self.imgeScaleChanged)                
         self.ui_sb_image_scale_min.valueChanged.connect(self.imgeScaleChanged)
         
-        
     def imageColorMapChanged(self):
         self.updateImage()
         
@@ -335,6 +341,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
         if current_idx >= 0:
             self.img_picked_points_list.pop(current_idx)
+            
+            self.msg_type[2] = self.img_picked_points_list
+            self.sendMsgSignalEmit(self.msg_type.index(self.img_picked_points_list))
+            
             self.ui_lw_img_picked_points_list_widgets.clear()
             self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
             if current_idx == len(self.img_picked_points_list):
@@ -357,9 +367,13 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             d_c = self.uds_variable.data.shape[-1]
             
             if s_pt_x >= 0 and s_pt_x < d_c and s_pt_y >= 0 and s_pt_y < d_r :
+                
+                self.msg_type[1] = [s_pt_x, s_pt_y]
+                self.sendMsgSignalEmit(self.msg_type.index([s_pt_x, s_pt_y]))
+                
                 self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = %f' % 
                                                      (self.selected_data_pt_x,self.selected_data_pt_y,
-                                                      self.uds_varibale_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)]))
+                                                      self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)]))
             else:
                 self.ui_le_img_to_data_coordinate.setText('( %d : %d )' % (self.selected_data_pt_x,self.selected_data_pt_y))
         else:
@@ -391,6 +405,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.ui_lw_img_picked_points_list_widgets.clear()
             self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
             self.ui_lw_img_picked_points_list_widgets.setCurrentRow(len(self.img_picked_points_list)-1)
+            
+            self.msg_type[2] = self.img_picked_points_list
+            self.sendMsgSignalEmit(self.msg_type.index(self.img_picked_points_list))
             
             self.updateImage()
             
@@ -469,14 +486,14 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
         self.uds_variable = usd_variable
-        self.uds_varibale_dataCopy = np.abs(self.uds_variable.data)
-        self.uds_varibale_type = usd_variable.name.split('_')[-1]
+        self.uds_variable_dataCopy = np.abs(self.uds_variable.data)
+        self.uds_variable_type = usd_variable.name.split('_')[-1]
         
         #
-        if self.uds_varibale_type == 'fft':
+        if self.uds_variable_type == 'fft':
             Ox = int( (self.uds_variable.data.shape[-1] - self.uds_variable.data.shape[-1]%2)/2 )
             Oy = int( (self.uds_variable.data.shape[-2] - self.uds_variable.data.shape[-2]%2)/2 )
-            self.uds_variable_dataAcCopy = self.uds_varibale_dataCopy.copy()
+            self.uds_variable_dataAcCopy = self.uds_variable_dataCopy.copy()
             self.uds_variable_dataAcCopy[:,Oy,Ox] = np.zeros(self.uds_variable.data.shape[-0])
             
         #
@@ -514,13 +531,13 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.imageLayerChanged()
         else:
             self.ui_sb_image_layers.setValue(0)
-            
-        if not self.uds_varibale_type == 'fft':
+        
+        if not self.uds_variable_type == 'fft':
             if self.ui_cb_image_data_type.currentIndex() == 2: #real
                 self.imageDataTypeChanged()
             else:
                 self.ui_cb_image_data_type.setCurrentIndex(2) #real
-
+                
         self.ui_sb_image_layers.setEnabled(True)
         
         self.ui_cb_image_data_type.setEnabled(True)
@@ -545,7 +562,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.static_ax.clear()
         
         # plot data
-        self.static_ax.imshow(self.uds_varibale_dataCopy[self.img_current_layer, :, :], vmin = scale_min, vmax = scale_max, 
+        self.static_ax.imshow(self.uds_variable_dataCopy[self.img_current_layer, :, :], vmin = scale_min, vmax = scale_max, 
                               cmap= color_map,interpolation = 'nearest',aspect = 'auto')
         self.static_ax.set(xlim=(self.st_img_xlim_l,self.st_img_xlim_u),ylim=(self.st_img_ylim_u,self.st_img_ylim_l))
         self.static_ax.axis('off')
