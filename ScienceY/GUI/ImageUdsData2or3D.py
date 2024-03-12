@@ -304,7 +304,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.generateLatticeWithPeriodicDistortion = QtWidgets.QAction("Lattice with Periodic Distortions",self)
         
         # Widgets Menu
-        self.showVarDockWidget = QtWidgets.QAction("Varibals DockWidget",self)
+        self.showVarDockWidget = QtWidgets.QAction("Variabls DockWidget",self)
         self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D DockWidget",self)
         
     def connect_actions(self):
