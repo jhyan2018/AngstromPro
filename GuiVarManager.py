@@ -302,8 +302,12 @@ class GuiVarManager(QtWidgets.QMainWindow):
         elif file_type == 'sxm':
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path)
             #dataSxm = NanonisDataProcess.DataSxmStru(full_path)
-            globals()['uds3D_'+file_name+'_topo'] = dataSxm.get_Topo_fwd()
-            globals()['uds3D_'+file_name+'_dIdV'] = dataSxm.get_dIdV_fwd()
+            globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
+            globals()['uds3D_'+file_name+'_topo_bwd'] = dataSxm.get_Topo_bwd()
+            globals()['uds3D_'+file_name+'_dIdV_fwd'] = dataSxm.get_dIdV_fwd()
+            globals()['uds3D_'+file_name+'_dIdV_bwd'] = dataSxm.get_dIdV_bwd()
+            globals()['uds3D_'+file_name+'_Currrent_fwd'] = dataSxm.get_Current_fwd()
+            globals()['uds3D_'+file_name+'_Current_bwd'] = dataSxm.get_Current_bwd()
         elif file_type == 'TFR':
             data1fl = LFDataProcess.Data1FLStru(full_path)
             globals()['uds3D_'+file_name+'_topo'] = data1fl.get_data()       

@@ -136,6 +136,14 @@ class LoadSxm():
         header.update({'xPixels': xPixels})
         header.update({'yPixels': yPixels})
         
+        ZController = header['Z-CONTROLLER']
+        header['Z-CONTROLLER'] = {} #change the type to dictionary
+        lines = ZController.split('\n')
+        keys = lines[0].split('\t')
+        vals = lines[1].split('\t')
+        for i in range(len(keys)):
+            header['Z-CONTROLLER'].update({keys[i]:vals[i]})
+        
         return header
     
     def load_data(self):
@@ -190,11 +198,11 @@ class Data3dsStru():
         index = par_num + dIdV_channel_index * points
         
         if n == 0:
-            dIdV = self.data3D[index:index+points, :, :] * 10000000000
+            dIdV = self.data3D[index:index+points, :, :] * 1e10
         elif (n > points) | (n < 0):
             raise Exception('wrong number, n should >0 and <={}'.format(points))
         else:
-            dIdV = self.data3D[index + n - 1, :, :] * 10000000000
+            dIdV = self.data3D[index + n - 1, :, :] * 1e10
             
         ###
         uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
@@ -238,7 +246,7 @@ class Data3dsStru():
         
         index = fixed_par_num + Z_index
         
-        Topo = self.data3D[index, :, :] * 10000000000
+        Topo = self.data3D[index, :, :] * 1e10
         
         ###
         uds_Topo = UdsDataStru3D(Topo[np.newaxis,:,:], 'uds3D_' + self.name+'_Topo')
@@ -280,7 +288,7 @@ class DataSxmStru():
     def get_Topo_fwd(self):
         
         index = self.header['channels'].index('Z')
-        Topo_fwd = self.data3D[index, :, :]* 10000000000
+        Topo_fwd = self.data3D[index, :, :]* 1e10
         
         ###
         uds_Topo_fwd = UdsDataStru3D(Topo_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_fwd')
@@ -294,9 +302,9 @@ class DataSxmStru():
         
         index = self.header['channels'].index('Z')
         if self.header['DATA_INFO'][index][3] == 'both':
-            Topo_bwd = self.data3D[index+1, :, :]* 10000000000
+            Topo_bwd = self.data3D[index+1, :, :]* 1e10
         else:
-            raise Exception('no backward channel!')
+            Topo_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_Topo_bwd = UdsDataStru3D(Topo_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_bwd')
@@ -309,7 +317,7 @@ class DataSxmStru():
     def get_dIdV_fwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_X')
-        dIdV_fwd = self.data3D[index*2, :, :]* 10000000000
+        dIdV_fwd = self.data3D[index*2, :, :]* 1e10
         
         ###
         uds_dIdV_fwd = UdsDataStru3D(dIdV_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_fwd')
@@ -323,9 +331,9 @@ class DataSxmStru():
         
         index = self.header['channels'].index('LI_Demod_1_X')
         if self.header['DATA_INFO'][index][3] == 'both':
-            dIdV_bwd = self.data3D[index*2 + 1, :, :]* 10000000000
+            dIdV_bwd = self.data3D[index*2 + 1, :, :]* 1e10
         else:
-            raise Exception('no backward channel!')
+            dIdV_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_dIdV_bwd = UdsDataStru3D(dIdV_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_bwd')
@@ -333,6 +341,37 @@ class DataSxmStru():
         uds_dIdV_bwd.info['LayerValue'] = ['?']
         
         return uds_dIdV_bwd
+    
+    def get_Current_fwd(self):
+        
+        if 'Current' in self.header['channels']:
+            index = self.header['channels'].index('Current')
+            Current_fwd = self.data3D[index*2, :, :]* 1e10
+        else:
+            Current_fwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
+        
+        ###
+        uds_Current_fwd = UdsDataStru3D(Current_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_fwd')
+        
+        uds_Current_fwd.info['LayerValue'] = ['?']
+        
+        return uds_Current_fwd
+    
+    def get_Current_bwd(self):
+        
+        if 'Current' in self.header['channels']:
+            index = self.header['channels'].index('Current')
+            if self.header['DATA_INFO'][index][3] == 'both':
+                Current_bwd = self.data3D[index*2 + 1, :, :]* 1e10
+        else:
+            Current_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
+        
+        ###
+        uds_Current_bwd = UdsDataStru3D(Current_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_bwd')
+        
+        uds_Current_bwd.info['LayerValue'] = ['?']
+        
+        return uds_Current_bwd
 
 
 
