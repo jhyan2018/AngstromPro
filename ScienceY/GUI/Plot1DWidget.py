@@ -3,6 +3,7 @@
 Created on Sun Sep 24 13:59:01 2023
 
 @author: zhaohuiyu
+the dIdV unit is uS only when lock-in amplitude is 100uV
 """
 
 """
@@ -103,7 +104,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.ax.plot(self.energy, data_1D, color = 'k', linewidth = 1.0)
         
             self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-            self.ax.set_ylabel('dI/dV', size = self.frontsize)
+            self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
             self.ax.minorticks_on()
             #self.ax.yaxis.get_major_formatter().set_powerlimits((0,1))
             self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
@@ -132,7 +133,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.ax.plot(self.energy, dIdV_set[i,:], linewidth = 1.0)
         
         self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-        self.ax.set_ylabel('dI/dV', size = self.frontsize)
+        self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
         self.ax.minorticks_on()
         self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
         self.ax.set_ylim(ylim_min, yavg + 3*ystd)
@@ -172,7 +173,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.ax.plot(self.energy, dIdV_set[i,:] + i * 0.1 * delta_Y, color = 'k', linewidth = 1.0)
         
         self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-        self.ax.set_ylabel('dI/dV', size = self.frontsize)
+        self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
         self.ax.minorticks_on()
         self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
         self.canvas.figure.tight_layout()
