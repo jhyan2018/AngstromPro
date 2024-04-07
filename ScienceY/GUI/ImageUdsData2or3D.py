@@ -13,10 +13,12 @@ System modules
 Third-party Modules
 """
 import numpy as np
+from io import BytesIO
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
+import imageio
 
 """
 User Modules
@@ -205,12 +207,23 @@ class ImageUdsData2or3D(GuiFrame):
         menuBar = QtWidgets.QMenuBar(self)
         
         # Top Menu
+        FileMenu = menuBar.addMenu("&File")
         processMenu = menuBar.addMenu("&Process")
         analysisMenu = menuBar.addMenu("&Analysis")
         pointsMenu = menuBar.addMenu("Points")
         simulateMenu = menuBar.addMenu("&Simulate")
         widgetssMenu = menuBar.addMenu("&Widgets")
-
+        
+        # Image Menu
+        exportMenu = FileMenu.addMenu("Export")
+        exportMenu.addAction(self.exportMainToImage)
+        exportMenu.addAction(self.exportSlaveToImage)
+        exportMenu.addAction(self.exportMainToClipboard)
+        exportMenu.addAction(self.exportSlaveToClipboard)
+        makeMovieMenu = FileMenu.addMenu("Make Movie form")
+        makeMovieMenu.addAction(self.makeMovieFromMain)
+        makeMovieMenu.addAction(self.makeMovieFromSlave)
+        
         # Process Menu
         backgdSubtractMenu = processMenu.addMenu("Background Subtract")
         backgdSubtractMenu.addAction(self.backgdSubtract2DPlane)
@@ -266,6 +279,14 @@ class ImageUdsData2or3D(GuiFrame):
         self.status_bar = self.statusBar()
         
     def creat_actions(self):
+        # Image Menu
+        self.exportMainToImage = QtWidgets.QAction("Main to Image",self)
+        self.exportSlaveToImage = QtWidgets.QAction("Slave to Image",self)
+        self.exportMainToClipboard = QtWidgets.QAction("Main to Clipboard",self)
+        self.exportSlaveToClipboard = QtWidgets.QAction("Slave to Clipboard",self)
+        self.makeMovieFromMain = QtWidgets.QAction("Main",self)
+        self.makeMovieFromSlave = QtWidgets.QAction("Slave",self)
+        
         # Process Menu
         self.backgdSubtract2DPlane = QtWidgets.QAction("2D Plane",self)
         self.backgdSubtractPerLine = QtWidgets.QAction("per line",self)
@@ -308,6 +329,13 @@ class ImageUdsData2or3D(GuiFrame):
         self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D DockWidget",self)
         
     def connect_actions(self):
+        # Image Menu
+        self.exportMainToImage.triggered.connect(self.actExportMainToImage)
+        self.exportSlaveToImage.triggered.connect(self.actExportSlaveToImage)
+        self.exportMainToClipboard.triggered.connect(self.actExportMainToClipboard)
+        self.exportSlaveToClipboard.triggered.connect(self.actExportSlaveToClipboard)
+        self.makeMovieFromMain.triggered.connect(self.actMakeMovieFromMain)
+        self.makeMovieFromSlave.triggered.connect(self.actMakeMovieFromSlave)
         # Process Menu
         self.backgdSubtract2DPlane.triggered.connect(self.actBackgdSubtract2DPlane)
         self.backgdSubtractPerLine.triggered.connect(self.actBackgdSubtractPerLine)
@@ -349,7 +377,92 @@ class ImageUdsData2or3D(GuiFrame):
         self.showVarDockWidget.triggered.connect(self.actShowVarDockWidget)
         self.showPlot1DDockWidget.triggered.connect(self.actShowPlot1DDockWidget)
     
-    """   Slots for Menu Actions   """    
+    """   Slots for Menu Actions   """ 
+    # Image Menu
+    def actExportMainToImage(self):
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Image', "", "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;All Files (*)")
+        if file_path:
+            self.ui_img_widget_main.static_canvas.figure.savefig(file_path)
+            
+    def actExportSlaveToImage(self):
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Image', "", "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;All Files (*)")
+        if file_path:
+            self.ui_img_widget_slave.static_canvas.figure.savefig(file_path)
+    
+    def actExportMainToClipboard(self):
+        pixmap = QtGui.QPixmap(self.ui_img_widget_main.static_canvas.size())
+        self.ui_img_widget_main.static_canvas.render(pixmap)
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        
+    def actExportSlaveToClipboard(self):
+        pixmap = QtGui.QPixmap(self.ui_img_widget_slave.static_canvas.size())
+        self.ui_img_widget_slave.static_canvas.render(pixmap)
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        
+    def actMakeMovieFromMain(self):
+        self.ui_img_widget_main.imageLayerChangedSlotDisconnect()
+        
+        #
+        frames = []
+        layers = self.ui_img_widget_main.ui_sb_image_layers.maximum()
+        for frame_num in range(layers+1):
+            self.ui_img_widget_main.ui_sb_image_layers.setValue(frame_num)
+            self.ui_img_widget_main.imageLayerChanged()
+            
+            # This force matplot to update within the loop 
+            self.ui_img_widget_main.static_canvas.flush_events()
+            
+            # Save the plot to a BytesIO object in memory
+            buf = BytesIO()
+            self.ui_img_widget_main.static_canvas.figure.savefig(buf, format='png')
+            buf.seek(0)
+            
+            # Read the image from the in-memory buffer and append to the list of frames
+            frame = imageio.imread(buf)
+            frames.append(frame)
+            
+            buf.close()
+                  
+        # Write the frames to a video file
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
+        if file_path:
+            imageio.mimsave(file_path, frames, fps=5)
+        
+        #
+        self.ui_img_widget_main.imageLayerChangedSlotConnect()
+        
+    def actMakeMovieFromSlave(self):
+        self.ui_img_widget_slave.imageLayerChangedSlotDisconnect()
+        
+        #
+        frames = []
+        layers = self.ui_img_widget_slave.ui_sb_image_layers.maximum()
+        for frame_num in range(layers+1):
+            self.ui_img_widget_slave.ui_sb_image_layers.setValue(frame_num)
+            self.ui_img_widget_slave.imageLayerChanged()
+            
+            # This force matplot to update within the loop 
+            self.ui_img_widget_slave.static_canvas.flush_events()
+            
+            # Save the plot to a BytesIO object in memory
+            buf = BytesIO()
+            self.ui_img_widget_slave.static_canvas.figure.savefig(buf, format='png')
+            buf.seek(0)
+            
+            # Read the image from the in-memory buffer and append to the list of frames
+            frame = imageio.imread(buf)
+            frames.append(frame)
+            
+            buf.close()
+                  
+        # Write the frames to a video file
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
+        if file_path:
+            imageio.mimsave(file_path, frames, fps=5)
+        
+        #
+        self.ui_img_widget_slave.imageLayerChangedSlotConnect()
+    
     # Process Menu
     def actBackgdSubtract2DPlane(self):
         self.status_bar.showMessage("Params(Order=1)",5000)
