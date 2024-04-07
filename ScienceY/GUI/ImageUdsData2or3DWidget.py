@@ -300,6 +300,12 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.img_current_layer = self.ui_sb_image_layers.value()
         
         self.updateImage()
+    
+    def imageLayerChangedSlotConnect(self):
+        self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged)
+        
+    def imageLayerChangedSlotDisconnect(self):
+        self.ui_sb_image_layers.valueChanged.disconnect()
         
     def imageLayerChanged(self):        
         self.ui_sb_image_scale_max.valueChanged.disconnect()               
@@ -569,7 +575,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.static_ax.get_xaxis().set_visible(False)
         self.static_ax.get_yaxis().set_visible(False)
         self.static_ax.set_frame_on(False)
-        
+
         # plot markers        
         pt_len = len(self.img_picked_points_list)
         if pt_len > 0:
