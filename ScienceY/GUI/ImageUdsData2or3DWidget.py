@@ -75,7 +75,8 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         # Canvas
         #hdc = ctypes.windll.user32.GetDC(0)
         #device_dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
-        self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = 100)) # device_dpi))
+        #self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = device_dpi))
+        self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = 100))
         self.static_canvas.figure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
         self.static_canvas.figure.patch.set_visible( False )
 
