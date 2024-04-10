@@ -116,41 +116,31 @@ def perfectLatticeHexagonal(data3D, bPx1, bPy1, bPx2, bPy2):
     
     # angle between the Q1 and Q_ref
     theta1 = np.arccos( (Q1_x*Q_ref_x + Q1_y*Q_ref_y ) / (Q1_mag*Q_ref_mag))
-    print("theta1:",theta1)
     
+    # arccos range from [0,pi]
     if Q1_y > 0:
-        theta1 = theta1
-        theta = -np.pi/3
+        theta1 = -theta1
     elif Q1_y < 0:
-        if theta1 > np.pi/4:
-            theta1 = -theta1
-            theta = np.pi/3
-        else:
-            theta1 = -theta1
-            theta = 0
+        theta1 = theta1
     else:
         theta1 = 0
-        theta = 0
     
     # angle between the Q1 and Q2
     theta2 = np.arccos( (Q1_x*Q2_x + Q1_y*Q2_y ) / (Q1_mag*Q2_mag))
-    print("theta2:",theta2)
     
     # shear
     by = 0
     if not theta2 == np.pi/3:
         by = 1/np.tan(theta2) - Q1_mag * np.cos(np.pi/3)/(Q2_mag * np.sin(theta2))
-    print("by:",by)
     
     # scale
     sy = Q2_mag * np.sin(theta2)/(Q1_mag * np.sin(np.pi/3))
-    print("sy:",sy)
     
     # set Affine Parameters
-    affine.setRotateOfAffineMatrix(theta1)
+    affine.setRotateOfAffineMatrix(-theta1)
     affine.setShearOfAffineMatrix(0, by)
     affine.setScaleOfAffineMatrix(1, sy)
-    affine.setRotateOfAffineMatrix(-theta1)
+    affine.setRotateOfAffineMatrix(theta1)
     
     #
     affine.srcMappedPoints(data3D.shape[-2], data3D.shape[-1])
