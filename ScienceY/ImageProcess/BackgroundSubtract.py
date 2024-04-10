@@ -22,10 +22,23 @@ User Modules
 function Module
 """
 def backgroundSubtract2DPlane(data2D, order=1):
-    """ data shoud only have 2 axis/dimensions"""
+    '''
+    Parameters
+    ----------
+    data2D : Two-dimensional data needed to be processed.
     
-    """ least square fitting"""
-    """
+    order : int
+        1: Subtracting the linear background.
+        2: Subtracting the second-order background.
+        ......
+        The default is 1.
+
+    Return the two-dimensional data without background.
+    -------
+    Subtract a background, which is an n-th order two-dimensional surface.
+    
+    ### least square fitting ###
+    
     fitting curve/surface:
         z = b 
             + k1 x + k2 y 
@@ -38,12 +51,12 @@ def backgroundSubtract2DPlane(data2D, order=1):
     In the matrix form:
     A p = q, A is a matrix, p and q are vectors
     
-    A = (1->, x_>, y_>, x^2_>, y^2_>, xy_>, ... ),  x_> is a vector inlcuding all the known points on x axis
+    A = (1_>, x_>, y_>, x^2_>, y^2_>, xy_>, ... ),  x_> is a vector inlcuding all the known points on x axis
     p = (b, k1, k2, k3, k4, k5, ...)^T, T means transpose
     q = z_> , z_> is a vector including all the z value of all corresponding known points for fitting
     
     then, fitting of p = (A^T A)^-1 A^T q
-    """
+    '''
     
     rows_data = data2D.shape[-2]
     columns_data = data2D.shape[-1]
@@ -101,9 +114,9 @@ def backgroundSubtractPerLine(data2D, order=1):
         ......
         The default is 1.
 
-    Returns Two-dimensional data without background
+    Returns the two-dimensional data without background
     -------
-    subtract the baackground and average for each line.
+    subtract the background line by line.
 
     '''
     rows_data = data2D.shape[-2]
@@ -149,7 +162,7 @@ def backgroundSubtractPerLine(data2D, order=1):
             
         # Subtract background & average
         Z_bg_subtracted[row_idx,:] = Z1D - Z1D_bg
-        Z_average[row_idx] = np.average(Z_bg_subtracted[row_idx,:])
+        Z_average[row_idx] = np.average(Z_bg_subtracted[row_idx,:]) # Z_average is almost zero
         Z_processed[row_idx,:] = Z_bg_subtracted[row_idx,:]-Z_average[row_idx]  
     
     return Z_processed

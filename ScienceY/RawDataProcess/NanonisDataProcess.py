@@ -207,31 +207,24 @@ class Data3dsStru():
         ###
         uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
         
+        # get the Layer Value
         sweepSgnUnit = self.header['sweep signal'].split('(')[-1].split(')')[0]
-        layer_value_start = 0
-        layer_value_stop = 0
-        layer_value_interval = 0
         uds_var_layer_value = []
+        Bias_start_index = self.header['fixed parameters'].index('Sweep Start')
+        Bias_end_index = self.header['fixed parameters'].index('Sweep End')
+        Bias = np.zeros((points))
+        
         if sweepSgnUnit == 'V':
             uds_dIdV.info['LayerSignal'] = self.header['sweep signal'].split('(')[0]+'(mV)'
-            layer_value_start = int(self.data3D[0,0,0] * 1e6) / 1e3
-            layer_value_stop = int(self.data3D[1,0,0] * 1e6) / 1e3
+            for i in range(points):
+                Bias[i] = ((self.data3D[Bias_end_index, 0, 0] - self.data3D[Bias_start_index, 0, 0]) / (points - 1) * i + self.data3D[Bias_start_index, 0, 0])*1e3
+            uds_var_layer_value = Bias
         else:
             uds_dIdV.info['LayerSignal'] = self.header['sweep signal']
-            layer_value_start = int(self.data3D[0,0,0] * 1e3) / 1e3
-            layer_value_stop = int(self.data3D[1,0,0] * 1e3) / 1e3
-                    
-        if uds_dIdV.data.shape[0] > 1:
-            layer_value_interval = (layer_value_stop - layer_value_start) / (uds_dIdV.data.shape[0]-1)
-            for i in range(uds_dIdV.data.shape[0]):
-                layer_value = int( (layer_value_start + i * layer_value_interval) * 1e3 ) / 1e3
-                uds_var_layer_value.append(layer_value)
-        else:
-            layer_value = int( (layer_value_start + (n-1) * layer_value_interval) * 1e3 ) / 1e3
-            uds_var_layer_value.append(layer_value)
-            
+            uds_var_layer_value = 0
+        
         uds_dIdV.info['LayerValue'] = uds_var_layer_value
-            
+        
         return uds_dIdV
     
     def get_Topo(self):

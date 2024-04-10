@@ -25,6 +25,7 @@ from .PerfectLattice import perfectLatticeSqure, perfectLatticeHexagonal
 from .FourierFilter import FourierFilter
 from .LockIn2D import LockIn2D
 from .LFCorrection import LFCorrection
+from .GapMap import GapMap
 
 """
 function Module
@@ -321,6 +322,21 @@ def ipRmap(uds3D_data):
             uds3D_data_processed.proc_history.append(i)
     
     uds3D_data_processed.proc_history.append("ImgProc.ipRmap:")
+    
+    return uds3D_data_processed
+
+
+def ipGapMap(uds3D_data, order=2):
+
+    data_processed = GapMap(uds3D_data.data, uds3D_data.info['LayerValue'], order)  
+
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_gm')
+    
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.proc_history.append("ImgProc.ipGamMap:order=%d" % (order))
     
     return uds3D_data_processed
         

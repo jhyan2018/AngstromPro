@@ -250,6 +250,7 @@ class ImageUdsData2or3D(GuiFrame):
         lockIn2DMenu.addAction(self.lockIn2DAmplitudeMap)
         lockIn2DMenu.addAction(self.lockIn2DPhaseMap)
         analysisMenu.addAction(self.rMap)
+        analysisMenu.addAction(self.gapMap)
         
         # Points Menu
         pointsMenu.addAction(self.setBraggPeaks)
@@ -308,6 +309,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.lockIn2DAmplitudeMap = QtWidgets.QAction("Amplitude Map",self)
         self.lockIn2DPhaseMap = QtWidgets.QAction("Phase Map",self)
         self.rMap = QtWidgets.QAction("R-Map",self)
+        self.gapMap = QtWidgets.QAction("Gap-Map",self)
         
         # Points Menu
         self.setBraggPeaks = QtWidgets.QAction("Set Bragg Peaks",self)
@@ -357,6 +359,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.lockIn2DAmplitudeMap.triggered.connect(self.actLockIn2DAmplitudeMap)
         self.lockIn2DPhaseMap.triggered.connect(self.actLockIn2DPhaseMap)
         self.rMap.triggered.connect(self.actRMap)
+        self.gapMap.triggered.connect(self.actGapMap)
         
         # Points Menu
         self.setBraggPeaks.triggered.connect(self.actSetBraggPeaks)
@@ -774,6 +777,27 @@ class ImageUdsData2or3D(GuiFrame):
          
         #
         self.clearWidgetsContents()    
+        
+    def actGapMap(self):
+        self.status_bar.showMessage("Params(Order=2)",5000)
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 2
+        if len(params) != 0:
+            order = int(params)
+        # process
+        uds_data_processed = ImgProc.ipGapMap(
+                                self.uds_variable_pt_list[ct_var_index], order) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+
+
+
     
     # Points Menu
     def actSetBraggPeaks(self):     
