@@ -54,8 +54,13 @@ class Plot1DWidget(QtWidgets.QWidget):
         self.canvas.figure.subplots_adjust(left=0.1, bottom=0.09, right=0.95, top=0.93)
         self.canvas.figure.patch.set_visible(True)
         
-        self.ui_pb_real_time_dIdV = QtWidgets.QPushButton('Real time dI/dV curve')
+        self.ui_pb_real_time_dIdV = QtWidgets.QPushButton('Real time')
         self.ui_pb_real_time_dIdV.setCheckable(True)
+        self.ui_pb_real_time_dIdV.clicked.connect(self.pbRealTimeClicked)
+        
+        self.ui_pb_dIdV_spectra_on_off = QtWidgets.QPushButton('selected points')
+        self.ui_pb_dIdV_spectra_on_off.setCheckable(True)
+        self.ui_pb_dIdV_spectra_on_off.clicked.connect(self.pbOnOffClicked)
         
         self.ax = self.canvas.figure.add_subplot(1,1,1)
         self.curve = self.ax.plot(self.energy, [])
@@ -65,7 +70,10 @@ class Plot1DWidget(QtWidgets.QWidget):
         # Layout       
         self.ui_verticalLayout = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout.setContentsMargins(0,0,0,0) # left, top, right, bottom
-        self.ui_verticalLayout.addWidget(self.ui_pb_real_time_dIdV)
+        self.ui_horizontalLayout = QtWidgets.QHBoxLayout()
+        self.ui_horizontalLayout.addWidget(self.ui_pb_real_time_dIdV)
+        self.ui_horizontalLayout.addWidget(self.ui_pb_dIdV_spectra_on_off)
+        self.ui_verticalLayout.addLayout(self.ui_horizontalLayout)
         self.ui_verticalLayout.addWidget(self.canvas)
         
         self.ui_gridlayout = QtWidgets.QGridLayout()
@@ -82,6 +90,12 @@ class Plot1DWidget(QtWidgets.QWidget):
         self.frontsize = 11
         self.labelsize = 9
         
+    def pbRealTimeClicked(self):
+        self.ui_pb_dIdV_spectra_on_off.setChecked(False)
+        
+    def pbOnOffClicked(self):
+        self.ui_pb_real_time_dIdV.setChecked(False)
+        
         
     def setDataFromImage2or3D(self, uds_Var):
         self.uds_Var = uds_Var
@@ -90,10 +104,10 @@ class Plot1DWidget(QtWidgets.QWidget):
         
     
     def setXYFromImage2or3D(self, x, y):
-        x_Position = x
-        y_Position = y
-        
         if self.ui_pb_real_time_dIdV.isChecked():
+            x_Position = x
+            y_Position = y
+            
             data_1D = self.data_3D[ :, y_Position, x_Position]
         
             yavg = np.max(self.data_3D, axis = 0).mean()
@@ -114,31 +128,32 @@ class Plot1DWidget(QtWidgets.QWidget):
             
         
     def setPickedPointsListFromImage2or3D(self, picked_points_list):
-        dIdV_set = np.zeros((len(picked_points_list), len(self.energy)))
-        for i in range(len(picked_points_list)):
-            x = int(picked_points_list[i].split(',')[0])
-            y = int(picked_points_list[i].split(',')[1])
+        if self.ui_pb_dIdV_spectra_on_off.isChecked():
+            dIdV_set = np.zeros((len(picked_points_list), len(self.energy)))
+            for i in range(len(picked_points_list)):
+                x = int(picked_points_list[i].split(',')[0])
+                y = int(picked_points_list[i].split(',')[1])
+                
+                d_r = self.data_3D.shape[-2]
+                d_c = self.data_3D.shape[-1]
+                if x >= 0 and x < d_c and y >= 0 and y < d_r :
+                    dIdV_set[i,:] = self.data_3D[ :, y, x]
+                
+            yavg = np.max(self.data_3D, axis = 0).mean()
+            ystd = np.max(self.data_3D, axis = 0).std()
+            ylim_min = np.min(self.data_3D)
             
-            d_r = self.data_3D.shape[-2]
-            d_c = self.data_3D.shape[-1]
-            if x >= 0 and x < d_c and y >= 0 and y < d_r :
-                dIdV_set[i,:] = self.data_3D[ :, y, x]
+            self.ax.clear()
+            for i in range(len(picked_points_list)):
+                self.ax.plot(self.energy, dIdV_set[i,:], linewidth = 1.0)
             
-        yavg = np.max(self.data_3D, axis = 0).mean()
-        ystd = np.max(self.data_3D, axis = 0).std()
-        ylim_min = np.min(self.data_3D)
-        
-        self.ax.clear()
-        for i in range(len(picked_points_list)):
-            self.ax.plot(self.energy, dIdV_set[i,:], linewidth = 1.0)
-        
-        self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-        self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
-        self.ax.minorticks_on()
-        self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
-        self.ax.set_ylim(ylim_min, yavg + 3*ystd)
-        self.canvas.figure.tight_layout()
-        self.ax.figure.canvas.draw()
+            self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
+            self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
+            self.ax.minorticks_on()
+            self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
+            self.ax.set_ylim(ylim_min, yavg + 3*ystd)
+            self.canvas.figure.tight_layout()
+            self.ax.figure.canvas.draw()
         
         
     def setLineCutStartAndEndPoints(self, Points_list): 
