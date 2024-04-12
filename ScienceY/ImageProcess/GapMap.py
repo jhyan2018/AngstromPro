@@ -16,11 +16,23 @@ import numpy as np
 
 
     
-def GapMap(data3D, LayerValue, order=2):
-    '''' data shoud only have 2 axis/dimensions'''
-    
-    ''' least square fitting'''
+def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
     '''
+    Parameters 
+	---------- 
+	data3D : Three-dimensional dI/dV data 
+    LayerValue : Bias for each layer in data3D
+	order : int 
+        2: Fitting superconducting coherence peaks using second-order polynomials
+        3: Fitting superconducting coherence peaks using third-order polynomials
+	        ...... 
+	        The default is 2. 
+    energy_start: Fitting starts from the 'energy_start'th layer of energy
+    energy_end: Fitting ends from the 'energy_end'th layer of energy
+    returns the energy of the superconducting coherence peaks on each space point.
+    ----------
+    least square fitting
+    
     fitting curve/surface:
         z = b + k1 x + k2 x^2 + k3 x^3 + ...
             
@@ -30,7 +42,7 @@ def GapMap(data3D, LayerValue, order=2):
     In the matrix form:
     A p = q, A is a matrix, p and q are vectors
     
-    A = (1->, x_>, x^2_>, x^3_>, ... ),  x_> is a vector inlcuding all the known points on energy axis
+    A = (1_>, x_>, x^2_>, x^3_>, ... ),  x_> is a vector inlcuding all the known points on energy axis
     p = (b, k1, k2, k3, ...)^T, T means transpose
     q = z_> , z_> is a vector including all the dI/dV value of all corresponding known points for fitting
     
@@ -38,7 +50,7 @@ def GapMap(data3D, LayerValue, order=2):
     
     '''
     
-    energy = np.array(LayerValue)
+    energy = np.array(LayerValue)[energy_start:energy_end]
     energy_points = energy.shape[0]
     X_points = data3D.shape[-2] # real space x axis
     Y_points = data3D.shape[-1] # real space y axis
@@ -51,7 +63,7 @@ def GapMap(data3D, LayerValue, order=2):
     item_order = itertools.product(range(X_points), range(Y_points))
     for k, (X,Y) in enumerate(item_order): # iterate each space point
         
-        dIdV = data3D[:,X,Y]
+        dIdV = data3D[energy_start:energy_end,X,Y]
         
         # Determine the matrix A
         for i in range(A_matrix_columns):

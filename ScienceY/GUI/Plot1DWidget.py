@@ -100,7 +100,8 @@ class Plot1DWidget(QtWidgets.QWidget):
     def setDataFromImage2or3D(self, uds_Var):
         self.uds_Var = uds_Var
         self.data_3D = self.uds_Var.data
-        self.energy = uds_Var.info['LayerValue']
+        if 'LayerValue' in uds_Var.info.keys() & uds_Var.info['LayerValue'] != '?':
+            self.energy = uds_Var.info['LayerValue']
         
     
     def setXYFromImage2or3D(self, x, y):
