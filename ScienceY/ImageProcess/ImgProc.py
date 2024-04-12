@@ -326,9 +326,9 @@ def ipRmap(uds3D_data):
     return uds3D_data_processed
 
 
-def ipGapMap(uds3D_data, order=2):
+def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
 
-    data_processed = GapMap(uds3D_data.data, uds3D_data.info['LayerValue'], order)  
+    data_processed = GapMap(uds3D_data.data, uds3D_data.info['LayerValue'], order, enery_start, enery_end)  
 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_gm')
     

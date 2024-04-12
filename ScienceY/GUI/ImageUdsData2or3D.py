@@ -257,6 +257,9 @@ class ImageUdsData2or3D(GuiFrame):
         pointsMenu.addAction(self.setFilterPoints)
         pointsMenu.addAction(self.setLockInPoints)
         pointsMenu.addAction(self.setLineCutPoints)
+        registerMenu = pointsMenu.addMenu('set Register Points')
+        registerMenu.addAction(self.setRegisterPointsFromMain)
+        registerMenu.addAction(self.setRegisterPointsFromSlave)
         
         # Simulate Menu
         generateCurveMenu = simulateMenu.addMenu("Generate Curve")
@@ -316,6 +319,8 @@ class ImageUdsData2or3D(GuiFrame):
         self.setFilterPoints = QtWidgets.QAction("Set Filter Points",self)
         self.setLockInPoints = QtWidgets.QAction("Set 2D Lock-in Points",self)
         self.setLineCutPoints = QtWidgets.QAction("Set Line Cut Points",self)
+        self.setRegisterPointsFromMain = QtWidgets.QAction("Set Register Points from Main",self)
+        self.setRegisterPointsFromSlave = QtWidgets.QAction("Set Register Points from Slave",self)
         
         # Simulate Menu
         self.generateHeavisideCurve = QtWidgets.QAction("Heaviside2D")
@@ -366,6 +371,8 @@ class ImageUdsData2or3D(GuiFrame):
         self.setFilterPoints.triggered.connect(self.actSetFilterPoints)
         self.setLockInPoints.triggered.connect(self.actSetLockInPoints)
         self.setLineCutPoints.triggered.connect(self.actSetLineCutPoints)
+        self.setRegisterPointsFromMain.triggered.connect(self.actSetRegisterPointsFromMain)
+        self.setRegisterPointsFromSlave.triggered.connect(self.actSetRegisterPointsFromSlave)
         
         # Simulate Menu
         self.generateHeavisideCurve.triggered.connect(self.actGenerateHeavisideCurve)
@@ -603,6 +610,7 @@ class ImageUdsData2or3D(GuiFrame):
         
     def actLineCut(self):
         self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'])
+        
     def actFourierFilterOut(self):
         self.status_bar.showMessage("Params(kSigma=1.0)",5000)
         
@@ -784,11 +792,21 @@ class ImageUdsData2or3D(GuiFrame):
         # get param list
         params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
         order = 2
+        enery_start = 0
+        enery_end = -1
         if len(params) != 0:
-            order = int(params)
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                order = int(params[0])
+            elif param_numbers == 3:
+                order = int(params[0])
+                enery_start = int(params[1])
+                enery_end = int(params[2])
+                
         # process
         uds_data_processed = ImgProc.ipGapMap(
-                                self.uds_variable_pt_list[ct_var_index], order) 
+                                self.uds_variable_pt_list[ct_var_index], order, enery_start, enery_end) 
         
         # update var list
         self.appendToLocalVarList(uds_data_processed)
@@ -831,14 +849,55 @@ class ImageUdsData2or3D(GuiFrame):
             for pt in self.ui_img_widget_main.img_picked_points_list:
                 picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
 
-                
             self.uds_variable_pt_list[bp_var_index].info['LineCutPoints'] = picked_points
             
             #
             if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
                 self.ui_img_widget_main.uds_variable.info['LineCutPoints'] = picked_points
                 self.ui_img_widget_main.updateDataInfo()
+                
+                
+    def actSetRegisterPointsFromMain(self):
+        var_name = self.ui_img_widget_main.uds_variable.name
+        bp_var_index = self.uds_variable_name_list.index(var_name)
         
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        picked_points = []
+        if   points > 1:
+            for pt in self.ui_img_widget_main.img_picked_points_list:
+                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
+
+            self.uds_variable_pt_list[bp_var_index].info['RegisterPoints'] = picked_points
+            
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['RegisterPoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+                
+                
+    def actSetRegisterPointsFromSlave(self):
+        var_name_main = self.ui_img_widget_main.uds_variable.name
+        bp_var_index_main = self.uds_variable_name_list.index(var_name_main)
+        
+        var_name_slave = self.ui_img_widget_slave.uds_variable.name
+        bp_var_index_slave = self.uds_variable_name_list.index(var_name_slave)
+        
+        points = len (self.ui_img_widget_slave.img_picked_points_list)
+        picked_points = []
+        if   points > 1:
+            for pt in self.ui_img_widget_slave.img_picked_points_list:
+                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
+
+            self.uds_variable_pt_list[bp_var_index_main].info['RegisterPointsReference'] = picked_points
+            self.uds_variable_pt_list[bp_var_index_slave].info['RegisterPointsReference'] = picked_points
+            
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index_main].name:
+                self.ui_img_widget_main.uds_variable.info['RegisterPointsReference'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+            if self.ui_img_widget_slave.uds_variable.name == self.uds_variable_pt_list[bp_var_index_slave].name:
+                self.ui_img_widget_slave.uds_variable.info['RegisterPointsReference'] = picked_points
+                self.ui_img_widget_slave.updateDataInfo()
+    
+    
     
     def actSetFilterPoints(self):
         var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
