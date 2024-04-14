@@ -136,6 +136,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         # Color Maps 
         self.ui_cb_img_palette_list.addItems(self.img_color_map_customized_list)    
         self.ui_cb_img_palette_list.addItems(self.img_color_map_builtin_list)        
+        self.ui_cb_img_palette_list.setCurrentIndex(1)
         self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
         
         self.ui_cb_img_pk_pts_palette_list.addItems(self.img_marker_cn_list)       
@@ -254,12 +255,11 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         # Color maps
         self.img_color_map_builtin_list = ['Blues_r','viridis','plasma','inferno','cividis','PuBu','Purples','hsv','seismic']
         
-        self.customizedColorPalletFolder = 'E:/gdrive/Python/jhyanDataAnalysis/ScienceY/GUI/customizedColorPallets/'        
+        self.customizedColorPalletFolder = './ScienceY/GUI/customizedColorPallets/'
         self.customizedColorFiles = [entry.name for entry in os.scandir(self.customizedColorPalletFolder) if entry.is_file()]
         self.img_color_map_customized_list = []
         for cn in self.customizedColorFiles:
             self.img_color_map_customized_list.append(cn.split('.')[0])
-        self.img_color_map = self.img_color_map_customized_list[0]
         
         #
         self.img_marker_cv_list = ['#ff0000','#00ff00','#0000ff','#000000','#ffffff']
