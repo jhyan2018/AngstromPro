@@ -8,7 +8,7 @@ Created on Mon Jul 31 16:21:57 2023
 """
 System modules
 """
-import ctypes
+import ctypes, os
 
 """
 Third-party Modules
@@ -18,6 +18,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
+from matplotlib import colors
 
 """
 User Modules
@@ -70,7 +71,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
         self.initNonUiMembers()        
         self.initUiMembers()
-        self.initUiLayout()        
+        self.initUiLayout()   
+        
+        #
+        self.set_colormap()
         
     def initUiMembers(self):
         # Canvas
@@ -130,7 +134,8 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_lw_uds_data_info = QtWidgets.QListWidget()
         
         # Color Maps 
-        self.ui_cb_img_palette_list.addItems(self.img_color_map_list)        
+        self.ui_cb_img_palette_list.addItems(self.img_color_map_customized_list)    
+        self.ui_cb_img_palette_list.addItems(self.img_color_map_builtin_list)        
         self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
         
         self.ui_cb_img_pk_pts_palette_list.addItems(self.img_marker_cn_list)       
@@ -247,9 +252,16 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.var_data_type_list = ['Abs','Angle','Real','Image']
         
         # Color maps
-        self.img_color_map_list = ['viridis','plasma','inferno','cividis','PuBu','Purples']
+        self.img_color_map_builtin_list = ['Blues_r','viridis','plasma','inferno','cividis','PuBu','Purples','hsv','seismic']
         
+        self.customizedColorPalletFolder = 'E:/gdrive/Python/jhyanDataAnalysis/ScienceY/GUI/customizedColorPallets/'        
+        self.customizedColorFiles = [entry.name for entry in os.scandir(self.customizedColorPalletFolder) if entry.is_file()]
+        self.img_color_map_customized_list = []
+        for cn in self.customizedColorFiles:
+            self.img_color_map_customized_list.append(cn.split('.')[0])
+        self.img_color_map = self.img_color_map_customized_list[0]
         
+        #
         self.img_marker_cv_list = ['#ff0000','#00ff00','#0000ff','#000000','#ffffff']
         self.img_marker_cn_list = ['Red','Green','Blue','Black','White']
         
@@ -306,6 +318,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.updateImage()
         
     def imageColorMapChanged(self):
+        self.set_colormap()
         self.updateImage()
         
     def imageMarkerColorChanged(self):
@@ -522,12 +535,34 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_lw_uds_data_info.clear()
         for i in self.uds_variable.info:
             self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
+    
+    def set_colormap(self):
+        color_map_name = self.ui_cb_img_palette_list.currentText()
         
+        if color_map_name in self.img_color_map_customized_list:
+            self.img_color_map = self.make_colormap(color_map_name)
+        else:
+            self.img_color_map =color_map_name
+            
+    def make_colormap( self, cp ):
+        s = self.customizedColorPalletFolder
+        path = s + cp + '.txt'
+        #path = '/Users/Kazu/Documents/kpython/KFViewPyII/Color Palette/blue2.txt'
+        d = np.loadtxt( path, delimiter = "\t", skiprows = 1 ) / 256 / 256
+
+        cdict = {'red': [], 'green': [], 'blue': [] }
+        for i in range( 0,256 ):
+            cdict[ 'red' ].append( [ i / 255.0, d[ i, 0 ], d[ i, 0 ] ] )
+            cdict[ 'green' ].append( [ i / 255.0, d[ i, 1 ], d[ i, 1 ] ] )
+            cdict[ 'blue' ].append( [ i / 255.0, d[ i, 2 ], d[ i, 2 ] ] )
+        return colors.LinearSegmentedColormap( 'CustomMap', cdict )
+    
     def updateImage(self):
         scale_min = self.ui_scale_widget.lowerValue()
         scale_max = self.ui_scale_widget.upperValue()
         
-        color_map = self.ui_cb_img_palette_list.currentText()
+        color_map = self.img_color_map
+
         mk_color_idx = self.ui_cb_img_pk_pts_palette_list.currentIndex()
         mk_color_nm = self.img_marker_cv_list[mk_color_idx]
         
