@@ -23,6 +23,7 @@ from matplotlib.figure import Figure
 User Modules
 """
 from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from .ScaleWidget import ScaleWidget
 
 """ *************************************** """
 """ DO NOT MODIFY THIS FILE"""
@@ -108,16 +109,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_lb_image_layer = QtWidgets.QLabel("Layer: ")
         self.ui_le_layer_value = QtWidgets.QLineEdit()
         self.ui_le_layer_value.setEnabled(False)
-        
-        self.ui_vs_image_scale_upper =  QtWidgets.QSlider()
-        self.ui_vs_image_scale_upper.setOrientation(QtCore.Qt.Vertical)
-        self.ui_vs_image_scale_lower =  QtWidgets.QSlider()
-        self.ui_vs_image_scale_lower.setOrientation(QtCore.Qt.Vertical)
-        self.ui_sb_image_scale_min = QtWidgets.QDoubleSpinBox()
-        self.ui_sb_image_scale_max = QtWidgets.QDoubleSpinBox()
-        self.ui_sb_image_scale_spacer = QtWidgets.QSpacerItem(20, 50)
-        self.ui_sb_image_scale_max.valueChanged.connect(self.imgeScaleChanged)                
-        self.ui_sb_image_scale_min.valueChanged.connect(self.imgeScaleChanged)
+             
+        self.ui_scale_widget = ScaleWidget(QtCore.Qt.Vertical)
+        self.ui_scale_widget.scaleChanged.connect(self.imgeScaleChanged)
         
         self.ui_lb_img_palette = QtWidgets.QLabel("Palette: ")
         self.ui_cb_img_palette_list = QtWidgets.QComboBox()
@@ -143,18 +137,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_cb_img_pk_pts_palette_list.currentIndexChanged.connect(self.imageMarkerColorChanged)
         
     def initUiLayout(self):   
-        # Layout Top                
-        self.ui_verticalLayout_scale_1 = QtWidgets.QVBoxLayout()
-        self.ui_verticalLayout_scale_1.addWidget(self.ui_sb_image_scale_max)
-        self.ui_verticalLayout_scale_1.addItem(self.ui_sb_image_scale_spacer)
-        self.ui_verticalLayout_scale_1.addWidget(self.ui_sb_image_scale_min)
-        self.ui_verticalLayout_scale_2 = QtWidgets.QVBoxLayout()
-        self.ui_verticalLayout_scale_2.addWidget(self.ui_vs_image_scale_upper)
-        self.ui_verticalLayout_scale_2.addWidget(self.ui_vs_image_scale_lower)        
+        # Layout Top   
         self.ui_horizontalLayout_scale_2 = QtWidgets.QHBoxLayout()
-        self.ui_horizontalLayout_scale_2.addLayout(self.ui_verticalLayout_scale_2)
-        self.ui_horizontalLayout_scale_2.addLayout(self.ui_verticalLayout_scale_1)
-        
+        self.ui_horizontalLayout_scale_2.addWidget(self.ui_scale_widget)
         
         self.ui_verticalLayout_Right_Top = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout_Right_Top.addLayout(self.ui_horizontalLayout_scale_2)
@@ -308,34 +293,17 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def imageLayerChangedSlotDisconnect(self):
         self.ui_sb_image_layers.valueChanged.disconnect()
         
-    def imageLayerChanged(self):        
-        self.ui_sb_image_scale_max.valueChanged.disconnect()               
-        self.ui_sb_image_scale_min.valueChanged.disconnect()
-        
+    def imageLayerChanged(self):                
         self.img_current_layer = self.ui_sb_image_layers.value()
         if len(self.uds_var_layer_value) > 0:
             self.ui_le_layer_value.setText(str(self.uds_var_layer_value[self.img_current_layer]))
         
         if self.uds_variable_type == 'fft':
-            layer_data_minimum = np.min(self.uds_variable_dataAcCopy [self.img_current_layer, :, :])
-            layer_data_maximum = np.max(self.uds_variable_dataAcCopy[self.img_current_layer, :, :])
+            self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataAcCopy[self.img_current_layer,:,:]),'ASS_FFT')
         else:
-            layer_data_minimum = np.min(self.uds_variable_dataCopy[self.img_current_layer, :, :])
-            layer_data_maximum = np.max(self.uds_variable_dataCopy[self.img_current_layer, :, :])
-        
-        self.ui_sb_image_scale_min.setMinimum(layer_data_minimum)
-        self.ui_sb_image_scale_min.setMaximum (layer_data_maximum)
-        
-        self.ui_sb_image_scale_max.setMinimum(layer_data_minimum)
-        self.ui_sb_image_scale_max.setMaximum (layer_data_maximum)
-        
-        self.ui_sb_image_scale_min.setValue(layer_data_minimum )
-        self.ui_sb_image_scale_max.setValue(layer_data_maximum )
-        
+            self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataCopy[self.img_current_layer,:,:]))
+                
         self.updateImage()
-        
-        self.ui_sb_image_scale_max.valueChanged.connect(self.imgeScaleChanged)                
-        self.ui_sb_image_scale_min.valueChanged.connect(self.imgeScaleChanged)
         
     def imageColorMapChanged(self):
         self.updateImage()
@@ -521,10 +489,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             if 'LayerValue' in self.uds_variable.info:
                 self.uds_var_layer_value = self.uds_variable.info['LayerValue'].copy()
                         
-        #
-        self.ui_sb_image_scale_min.setSingleStep(0.01)
-        self.ui_sb_image_scale_max.setSingleStep(0.01)
-        
+        #        
         self.st_img_xlim_l = 0
         self.st_img_xlim_u = var_shape[-1]
         
@@ -559,8 +524,8 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
         
     def updateImage(self):
-        scale_min = self.ui_sb_image_scale_min.value()
-        scale_max = self.ui_sb_image_scale_max.value()
+        scale_min = self.ui_scale_widget.lowerValue()
+        scale_max = self.ui_scale_widget.upperValue()
         
         color_map = self.ui_cb_img_palette_list.currentText()
         mk_color_idx = self.ui_cb_img_pk_pts_palette_list.currentIndex()
