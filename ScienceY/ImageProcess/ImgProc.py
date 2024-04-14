@@ -26,6 +26,7 @@ from .FourierFilter import FourierFilter
 from .LockIn2D import LockIn2D
 from .LFCorrection import LFCorrection
 from .GapMap import GapMap
+from .Register import Register
 
 """
 function Module
@@ -340,4 +341,21 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     
     return uds3D_data_processed
         
+def ipRegister(uds3D_data):
+    data3D = uds3D_data.data
+    register_points = uds3D_data.info['RegisterPoints']
+    register_points_reference = uds3D_data.info['RegisterReferencePoints']
+    
+    data_processed = Register(data3D, register_points, register_points_reference)
+    
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_rg')
+    
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.proc_history.append("ImgProc.Register: register points: {0}, register reference points: {1}".format(register_points, register_points_reference))
+    
+    return uds3D_data_processed
+    
     

@@ -8,8 +8,7 @@ Created on Fri Apr 12 11:19:50 2024
 """
 System modules
 """
-import sys, os
-import itertools
+
 """
 Third-party Modules
 """
@@ -23,18 +22,40 @@ from .GeometricOperation import AffineTransform
 function Module
 """
 
-def register(data3D, r1Px1,r1Py1, r1Px2,r1Py2, r1Px3,r1Py3, r2Px1,r2Py1, r2Px2,r2Py2, r2Px3,r2Py3):
+def Register(data3D, register_points, register_points_reference):
     '''
     Parameters
     ----------
-    data3D : TYPE
-        DESCRIPTION.
-    rPx1 : TYPE
-       
-
-    Returns
-    -------
-    Affine Matrix A
+    data3D : three dimensional data need to be registered
+       from the main window
+    
     '''
+    rPoints = register_points_reference + register_points
+    
+    affine = AffineTransform()
+    affine.setAffineMatrixFrom3PairsRpoints(rPoints)
+    affine.srcMappedPoints(data3D.shape[-2], data3D.shape[-1])
+    
+    data_processed = np.zeros((data3D.shape[0], affine.src_X_float.shape[-2], affine.src_X_float.shape[-1]))
+    
+    for i in range(data3D.shape[0]):
+        data_processed[i,:,:] = affine.affineMapping(data3D[i,:,:],'bilinear','constant')
+
+    return data_processed
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
