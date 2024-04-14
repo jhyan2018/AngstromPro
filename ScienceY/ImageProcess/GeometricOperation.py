@@ -24,40 +24,40 @@ class Module
 
 class AffineTransform():
     def __init__(self):        
-        self.A = np.array( [[1, 0, 0],
-                            [0, 1, 0],
-                            [0, 0, 1]] ) # Affine Matrix, default is Identity Matrix
+        self.A = np.array( [[1.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0],
+                            [0.0, 0.0, 1.0]] ) # Affine Matrix, default is Identity Matrix
         
         self.src_X_float = 0
         self.src_Y_float = 0
         
     def setTranslateOfAffineMatrix(self, dx, dy): # dx-column, dy-row
-        A_translate = np.array( [[1, 0, dx],
-                                 [0, 1, dy],
-                                 [0, 0,  1] ] )
+        A_translate = np.array( [[1.0, 0.0,  dx],
+                                 [0.0, 1.0,  dy],
+                                 [0.0, 0.0, 1.0] ] )
         
         self.A = np.dot( A_translate, self.A)
         
     def setScaleOfAffineMatrix(self, sx, sy): # sx-column, sy-row
-        A_scale = np.array( [[sx,  0, 0],
-                             [ 0, sy, 0],
-                             [ 0,  0, 1] ] )
+        A_scale = np.array( [[ sx, 0.0, 0.0],
+                             [0.0,  sy, 0.0],
+                             [0.0, 0.0, 1.0] ] )
         
         self.A = np.dot( A_scale, self.A)
         
     def setShearOfAffineMatrix(self, bx, by): # bx-column, by-row
-        A_shear = np.array( [[ 1, bx, 0],
-                             [by,  1, 0],
-                             [ 0,  0, 1] ] )
+        A_shear = np.array( [[1.0,  bx, 0.0],
+                             [ by, 1.0, 0.0],
+                             [0.0, 0.0, 1.0] ] )
         
         self.A = np.dot( A_shear, self.A)
         
     def setRotateOfAffineMatrix(self, angle): # angle unit: radian
         c = np.cos(angle)
         s = np.sin(angle)
-        A_rotate = np.array( [[c, -s, 0],
-                              [s,  c, 0],
-                              [0,  0, 1] ] )
+        A_rotate = np.array( [[  c,  -s, 0.0],
+                              [  s,   c, 0.0],
+                              [0.0, 0.0, 1.0] ] )
         
         self.A = np.dot( A_rotate, self.A)
 
@@ -78,7 +78,7 @@ class AffineTransform():
         tgt_y2 = rPoints[5][0]
 
         # calclulate Matrix Elements
-        d = 1 / ( src_x0*(src_y2-src_y1) + src_x1*(src_y0-src_y2) + src_x2*(src_y1-src_y0) )
+        d = 1.0 / ( src_x0*(src_y2-src_y1) + src_x1*(src_y0-src_y2) + src_x2*(src_y1-src_y0) )
         
         self.A[0,0] = d * ( src_y0*(tgt_x1-tgt_x2) + src_y1*(tgt_x2-tgt_x0) + src_y2*(tgt_x0-tgt_x1) )
         self.A[0,1] = d * ( src_x0*(tgt_x2-tgt_x1) + src_x1*(tgt_x0-tgt_x2) + src_x2*(tgt_x1-tgt_x0) )

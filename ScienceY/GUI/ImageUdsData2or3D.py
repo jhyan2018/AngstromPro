@@ -235,6 +235,7 @@ class ImageUdsData2or3D(GuiFrame):
         fourierFilterMenu = processMenu.addMenu("Fourier Filter")
         fourierFilterMenu.addAction(self.fourierFilterOut)
         fourierFilterMenu.addAction(self.fourierFilterIsolate)
+        processMenu.addAction(self.register)
         mathMenu = processMenu.addMenu("Math")
         mathMenu.addAction(self.mathAdd)
         mathMenu.addAction(self.mathSubtract)
@@ -300,6 +301,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.lineCut = QtWidgets.QAction('Line Cut',self)
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
         self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
+        self.register = QtWidgets.QAction("Register",self)
         self.mathAdd = QtWidgets.QAction("+",self)
         self.mathSubtract = QtWidgets.QAction("-",self)
         self.mathMultiply = QtWidgets.QAction("*",self)
@@ -320,7 +322,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.setLockInPoints = QtWidgets.QAction("Set 2D Lock-in Points",self)
         self.setLineCutPoints = QtWidgets.QAction("Set Line Cut Points",self)
         self.setRegisterPointsFromMain = QtWidgets.QAction("Set Register Points from Main",self)
-        self.setRegisterPointsFromSlave = QtWidgets.QAction("Set Register Points from Slave",self)
+        self.setRegisterPointsFromSlave = QtWidgets.QAction("Set Register Reference Points from Slave",self)
         
         # Simulate Menu
         self.generateHeavisideCurve = QtWidgets.QAction("Heaviside2D")
@@ -352,6 +354,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.lineCut.triggered.connect(self.actLineCut)
         self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
         self.fourierFilterIsolate.triggered.connect(self.actFourierFilterIsolate)
+        self.register.triggered.connect(self.actRegister)
         self.mathAdd.triggered.connect(self.actMathAdd)
         self.mathSubtract.triggered.connect(self.actMathSubtract)
         self.mathMultiply.triggered.connect(self.actMathMultiply)
@@ -650,6 +653,15 @@ class ImageUdsData2or3D(GuiFrame):
         
         #
         self.clearWidgetsContents()
+        
+    def actRegister(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipRegister(self.uds_variable_pt_list[ct_var_index])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
     
     def actMathAdd(self):
         ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
@@ -813,9 +825,6 @@ class ImageUdsData2or3D(GuiFrame):
 
         #
         self.clearWidgetsContents()
-
-
-
     
     # Points Menu
     def actSetBraggPeaks(self):     
@@ -887,14 +896,14 @@ class ImageUdsData2or3D(GuiFrame):
             for pt in self.ui_img_widget_slave.img_picked_points_list:
                 picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
 
-            self.uds_variable_pt_list[bp_var_index_main].info['RegisterPointsReference'] = picked_points
-            self.uds_variable_pt_list[bp_var_index_slave].info['RegisterPointsReference'] = picked_points
+            self.uds_variable_pt_list[bp_var_index_main].info['RegisterReferencePoints'] = picked_points
+            self.uds_variable_pt_list[bp_var_index_slave].info['RegisterReferencePoints'] = picked_points
             
             if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index_main].name:
-                self.ui_img_widget_main.uds_variable.info['RegisterPointsReference'] = picked_points
+                self.ui_img_widget_main.uds_variable.info['RegisterReferencePoints'] = picked_points
                 self.ui_img_widget_main.updateDataInfo()
             if self.ui_img_widget_slave.uds_variable.name == self.uds_variable_pt_list[bp_var_index_slave].name:
-                self.ui_img_widget_slave.uds_variable.info['RegisterPointsReference'] = picked_points
+                self.ui_img_widget_slave.uds_variable.info['RegisterReferencePoints'] = picked_points
                 self.ui_img_widget_slave.updateDataInfo()
     
     
