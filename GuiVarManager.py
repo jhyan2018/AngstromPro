@@ -30,6 +30,58 @@ Modules Definition
 """ *************************************** """
 """ DO NOT MODIFY THE REGION UNTIL INDICATED"""
 """ *************************************** """
+class GVMSettings(QtWidgets.QWidget):
+    save_settings = QtCore.pyqtSignal()
+    
+    def __init__(self, *args, **kwargs):
+        super(GVMSettings, self).__init__(*args, **kwargs)
+        
+        self.initUiMembers()
+        self.initUiLayout()
+        
+    def setSettings(self, settings):
+        self.settings = settings       
+        self.ui_le_data_path.setText(self.settings['PATH']['data_path'])
+        
+    def initUiMembers(self):
+        self.ui_lb_data_path = QtWidgets.QLabel('Data path:')
+        self.ui_le_data_path = QtWidgets.QLineEdit()
+        self.ui_pb_change_data_path = QtWidgets.QPushButton('C')
+        self.ui_pb_change_data_path.clicked.connect(self.browseDirectry)
+        self.ui_pb_change_data_path.setMaximumSize(40,40)
+        
+        self.ui_pb_save_settings = QtWidgets.QPushButton('Save')
+        self.ui_pb_save_settings.clicked.connect(self.saveSettings)
+        
+    def initUiLayout(self):
+        ui_horizontalLayout1 = QtWidgets.QHBoxLayout()
+        ui_horizontalLayout1.addWidget(self.ui_lb_data_path)
+        ui_horizontalLayout1.addWidget(self.ui_le_data_path)
+        ui_horizontalLayout1.addWidget(self.ui_pb_change_data_path)
+        
+        ui_verticalLayout1 = QtWidgets.QVBoxLayout()
+        ui_verticalLayout1.addLayout(ui_horizontalLayout1)
+        ui_verticalLayout1.addWidget(self.ui_pb_save_settings)
+        
+        ui_gridlayout = QtWidgets.QGridLayout()
+        ui_gridlayout.addLayout(ui_verticalLayout1, 0, 0, 1, 1)
+        #ui_gridlayout.setContentsMargins(0,0,0,0) # left, top, right, bottom
+        
+        self.setLayout(ui_gridlayout) 
+        
+    """ @SLOT"""    
+    def saveSettings(self):
+        self.save_settings.emit()
+    
+    def browseDirectry(self):
+        data_type ='Data Files (*.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
+        data_path = self.ui_le_data_path.text()
+        
+        file = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", data_path, data_type)
+        if not file[0] == '':
+            new_data_path = file[0][0:-len(file[0].split('/')[-1])]
+            self.ui_le_data_path.setText(new_data_path)
+            self.settings['PATH']['data_path'] = new_data_path
     
 class GuiVarManager(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
@@ -37,8 +89,12 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         self.initUiMembers()
         self.initUiLayout()        
-        self.initNonUiMembers()        
-
+        self.initNonUiMembers()      
+        
+        #
+        self.ui_dockWidget_settings_content.setSettings(self.settings)
+        
+        #
         self.initMenuBar()
         self.initChildWindows()
         
@@ -71,6 +127,15 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_pb_show_window.clicked.connect(self.showSelectedWindow)
         
         self.ui_sb_wd_pb_spacer = QtWidgets.QSpacerItem(20, 120)
+        
+        # dockWiget Plot1D
+        self.ui_dockWidget_settings = QtWidgets.QDockWidget()
+        self.ui_dockWidget_settings_content = GVMSettings()
+        self.ui_dockWidget_settings_content.save_settings.connect(self.saveSettings)
+
+        self.ui_dockWidget_settings.setWidget(self.ui_dockWidget_settings_content)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_settings)
+        self.ui_dockWidget_settings.close()
         
     def initUiLayout(self):
         self.ui_verticalLayout1 = QtWidgets.QVBoxLayout()
@@ -123,7 +188,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.timer1.start()
         
         # Settings
-        self.settings = ConfigManager.load_settings_from_file('./ScienceY/config/GuiVarManager.txt')
+        self.settings = self.loadSettings()
         
     def initMenuBar(self):
         # Actions
@@ -225,7 +290,12 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
     """ Regular Functions """
     
-
+    """ Settings """
+    def loadSettings(self):
+        return ConfigManager.load_settings_from_file('./ScienceY/config/GuiVarManager.txt')
+    
+    def saveSettings(self):
+        ConfigManager.save_settings_to_file('./ScienceY/config/GuiVarManager.txt', self.settings)
 
         
         
@@ -242,6 +312,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         fileMenu = menuBar.addMenu("&File")
         editMenu = menuBar.addMenu("&Edit")
         windowMenu = menuBar.addMenu("&Window")
+        optionMenu = menuBar.addMenu("&Option")
 
         #### 2nd Level Menu###
         
@@ -256,6 +327,9 @@ class GuiVarManager(QtWidgets.QMainWindow):
         # Window Menu
         windowMenu.addAction(self.image2or3DAction)
         windowMenu.addAction(self.rtSynthesis2DAction)
+        
+        # Option Menu
+        optionMenu.addAction(self.preferenceAction)
         
         ### ###
         self.setMenuBar(menuBar)
@@ -277,6 +351,9 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.image2or3DAction = QtWidgets.QAction("Image2or3D",self)
         self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2D",self)
         
+        # Option
+        self.preferenceAction = QtWidgets.QAction("Preference",self)
+        
     def connectActions(self):
         # File Menu
         self.loadFromFileAction.triggered.connect(self.loadFromFile)
@@ -285,6 +362,9 @@ class GuiVarManager(QtWidgets.QMainWindow):
         # Window Menu
         self.image2or3DAction.triggered.connect(self.newImage2or3DWindow)
         self.rtSynthesis2DAction.triggered.connect(self.newRtSynthesis2D)
+        
+        # Option Menu
+        self.preferenceAction.triggered.connect(self.preference)
         
     """   Slots for Menu Actions   """     
     #
@@ -358,8 +438,11 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def initChildWindows(self):
         self.newImage2or3DWindow()
     
+    # Options
+    def preference(self):
+        self.ui_dockWidget_settings.show()
 
-
+    
         
 
 
