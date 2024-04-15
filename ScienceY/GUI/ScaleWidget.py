@@ -44,12 +44,12 @@ class ScaleWidget(QtWidgets.QWidget):
         self.slider_upper_value = self.slider_max
         self.slider_lower_value = self.slider_min
         
-        self.data_max = 0
-        self.data_min = 0
-        self.data_upper_limit = 0
-        self.data_lower_limit = 0
-        self.data_upper_value = 0
-        self.data_lower_value = 0
+        self.data_max = 0.0
+        self.data_min = 0.0
+        self.data_upper_limit = 0.0
+        self.data_lower_limit = 0.0
+        self.data_upper_value = 0.0
+        self.data_lower_value = 0.0
         self.zoom_out_factor = 0.2
         self.zoom_in_factor = 0.8
         
@@ -58,8 +58,8 @@ class ScaleWidget(QtWidgets.QWidget):
         self.data_sigma_factor_default = 3.0
         self.data = 0
         
-        self.indicator_upper_value = 0
-        self.indicator_lower_value = 0
+        self.indicator_upper_value = 0.0
+        self.indicator_lower_value = 0.0
         
         self.auto_scale_strategy = ''
     
