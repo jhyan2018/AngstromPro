@@ -254,7 +254,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         # Color maps
         self.img_color_map_builtin_list = ['Blues_r','viridis','plasma','inferno','cividis','PuBu','Purples','hsv','seismic']
         
-        self.customizedColorPalletFolder = 'E:/gdrive/Python/jhyanDataAnalysis/ScienceY/GUI/customizedColorPallets/'        
+        self.customizedColorPalletFolder = './ScienceY/GUI/customizedColorPallets/'        
         self.customizedColorFiles = [entry.name for entry in os.scandir(self.customizedColorPalletFolder) if entry.is_file()]
         self.img_color_map_customized_list = []
         for cn in self.customizedColorFiles:

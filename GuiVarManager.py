@@ -20,6 +20,7 @@ from PyQt5 import QtCore, QtWidgets
 User Modules
 """
 from ScienceY.GUI import ImageUdsData2or3D, RtSynthesis2D
+from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
 from ScienceY.RawDataProcess.UdsDataStru import UdsDataStru3D
 """
@@ -120,6 +121,9 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.timer1.timeout.connect(self.updateWigetsStatus)
         self.timer1.setInterval(400)
         self.timer1.start()
+        
+        # Settings
+        self.settings = ConfigManager.load_settings_from_file('./ScienceY/config/GuiVarManager.txt')
         
     def initMenuBar(self):
         # Actions
@@ -286,7 +290,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     #
     def loadFromFile(self):
         print("Load From File")
-        data_path = 'E:/gdrive/Python/STM_Data/'
+        data_path = self.settings['PATH']['data_path']
         data_type ='Data Files (*.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
 
         file = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", data_path, data_type)
