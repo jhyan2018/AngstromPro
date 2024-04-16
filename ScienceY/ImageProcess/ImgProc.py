@@ -41,7 +41,8 @@ def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
             data_processed[i,:,:] = backgroundSubtractPerLine(uds3D_data.data[i,:,:], order)  
 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_bg')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -59,7 +60,8 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
         data_processed[i,:,:] = uds3D_data.data[i,r_topLeft:r_bottomRight, c_topLeft:c_bottomRight]
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_cp')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -75,9 +77,7 @@ def ipFourierTransform2D(uds3D_data):
         data_processed[i,:,:] = np.fft.fftshift( np.fft.fft2(uds3D_data.data[i,:,:]) )
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_fft')
-    
     uds3D_data_processed.info = uds3D_data.info.copy()
-    
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -109,6 +109,8 @@ def ipPerfectLattice(uds3D_data):
         print("Sample does not exist")
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_pl')
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -152,7 +154,8 @@ def ipCalculateDisplacementField(uds3D_data, rSigma_ref_a0):
     displacementField = lfc.calculateDisplacementField()
     
     uds3D_data_processed = UdsDataStru3D(displacementField, uds3D_data.name+'_df')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     uds3D_data_processed.proc_history.append("ImgProc.ipCalculateDisplacementField:")
     
     return uds3D_data_processed
@@ -175,7 +178,8 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
         data_processed[i,:,:] = lfc.lFcorrection()
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_lf')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -197,7 +201,8 @@ def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     uds3D_dataCopy.data = data_processed
     
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_fo')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -222,7 +227,8 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
             uds3D_dataCopy.data[i,:,:] = uds3D_data.data[i,:,:] - data_processed[i,:,:]
     
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_fi')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -264,7 +270,8 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True,phas
         uds3D_data_analysed = UdsDataStru3D(data_analysed, uds3D_data.name+'_amp')
     elif MapType == 'Phase':
         uds3D_data_analysed = UdsDataStru3D(data_analysed, uds3D_data.name+'_pha')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_analysed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_analysed.proc_history.append(i)
@@ -287,8 +294,9 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
     else:
         print("Unrecogonized operator!")
         
-    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat')
-    
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat'+ operator)
+    if 'LayerValue(mV)' in uds3D_data_A.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data_A.info['LayerValue(mV)'].copy()
     if len(uds3D_data_A.proc_history) > 0:
         for i in uds3D_data_A.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -298,7 +306,7 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
     return uds3D_data_processed
 
 def ipRmap(uds3D_data):   
-    uds_var_layer_value = uds3D_data.info['LayerValue'].copy()
+    uds_var_layer_value = uds3D_data.info['LayerValue(mV)'].copy()
         
     rMap_layers_value = []
     for i in range(uds3D_data.data.shape[0]):
@@ -316,7 +324,7 @@ def ipRmap(uds3D_data):
                 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_rmp')
     
-    uds3D_data_processed.info['LayerValue'] = rMap_layers_value.copy()
+    uds3D_data_processed.info['LayerValue(mV)'] = rMap_layers_value.copy()
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -329,10 +337,10 @@ def ipRmap(uds3D_data):
 
 def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
 
-    data_processed = GapMap(uds3D_data.data, uds3D_data.info['LayerValue'], order, enery_start, enery_end)  
+    data_processed = GapMap(uds3D_data.data, uds3D_data.info['LayerValue(mV)'], order, enery_start, enery_end)  
 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_gm')
-    
+    uds3D_data_processed.info['LayerValue(mV)'] = ['?']
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -349,7 +357,8 @@ def ipRegister(uds3D_data):
     data_processed = Register(data3D, register_points, register_points_reference)
     
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_rg')
-    
+    if 'LayerValue(mV)' in uds3D_data.info.keys():
+        uds3D_data_processed.info['LayerValue(mV)'] = uds3D_data.info['LayerValue(mV)'].copy()
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
