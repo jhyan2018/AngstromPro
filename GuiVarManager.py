@@ -128,7 +128,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         self.ui_sb_wd_pb_spacer = QtWidgets.QSpacerItem(20, 120)
         
-        # dockWiget Plot1D
+        # dockWiget Pereference
         self.ui_dockWidget_settings = QtWidgets.QDockWidget()
         self.ui_dockWidget_settings_content = GVMSettings()
         self.ui_dockWidget_settings_content.save_settings.connect(self.saveSettings)
