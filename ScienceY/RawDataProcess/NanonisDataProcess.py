@@ -49,6 +49,8 @@ class Load3ds():
         header['grid dim'] = list(map(int, header['grid dim'].split('x')))
         header['# parameters (4 byte)'] = int(header['# parameters (4 byte)'])
         header['points'] = int(header['points'])
+        header['lock-in>amplitude'] = float(header['lock-in>amplitude'])
+        header['bias>bias (v)'] = float(header['bias>bias (v)'])*1e3
         header['channels'] = header['channels'].split(';')
         header['fixed parameters'] = header['fixed parameters'].split(';')
         header['experiment parameters'] = header['experiment parameters'].split(';')
@@ -114,7 +116,7 @@ class LoadSxm():
         data_info = header['DATA_INFO']
         header['DATA_INFO'] = [] # change the type to list
         lines = data_info.split('\n')
-        lines.pop(0) # remove the fist line: Channel    Name	Unit	Direction	Calibration	  Offset
+        lines.pop(0) # remove the fist line: Channel Name Unit Direction Calibration Offset
         channels = []
         channels_num = 0
         for line in lines:
@@ -135,7 +137,8 @@ class LoadSxm():
         yPixels = int(yPixels)
         header.update({'xPixels': xPixels})
         header.update({'yPixels': yPixels})
-        
+        header['Lock-in>Amplitude'] = float(header['Lock-in>Amplitude'])
+        header['BIAS'] = float(header['BIAS'])*1e3
         ZController = header['Z-CONTROLLER']
         header['Z-CONTROLLER'] = {} #change the type to dictionary
         lines = ZController.split('\n')
@@ -187,6 +190,7 @@ class Data3dsStru():
 
         '''
         points = self.header['points']
+        lockInAmp = self.header['lock-in>amplitude']
         # which channels is not decided yet
         if 'LI Demod 1 X (A)' in self.header['channels']:
             dIdV_channel_index = self.header['channels'].index('LI Demod 1 X (A)')
@@ -197,8 +201,9 @@ class Data3dsStru():
         # data start index
         index = par_num + dIdV_channel_index * points
         
-        dIdV = self.data3D[index:index+points, :, :] * 1e12
-            
+        if self.header['lock-in>modulated signal'] == 'Bias (V)':
+            dIdV = self.data3D[index:index+points, :, :]/lockInAmp
+          
         ###
         uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
         
@@ -218,7 +223,7 @@ class Data3dsStru():
             uds_dIdV.info['LayerSignal'] = self.header['sweep signal']
             uds_var_layer_value = 0
         
-        uds_dIdV.info['LayerValue'] = uds_var_layer_value
+        uds_dIdV.info['LayerValue(mV)'] = uds_var_layer_value
         
         return uds_dIdV
     
@@ -234,12 +239,12 @@ class Data3dsStru():
         
         index = fixed_par_num + Z_index
         
-        Topo = self.data3D[index, :, :] * 1e12
+        Topo = self.data3D[index, :, :]
         
         ###
         uds_Topo = UdsDataStru3D(Topo[np.newaxis,:,:], 'uds3D_' + self.name+'_Topo')
         
-        uds_Topo.info['LayerValue'] = ['?']
+        uds_Topo.info['LayerValue(mV)'] = [self.header['bias>bias (v)']]
         
         return uds_Topo
     
@@ -253,11 +258,12 @@ class Data3dsStru():
         par_num = self.header['# parameters (4 byte)']
         X_index = par_num + dIdV_X_channel_index * points
         Y_index = par_num + dIdV_Y_channel_index * points
-        dIdV_X = self.data3D[X_index : X_index+points, :, :] * 1e12
-        dIdV_Y = self.data3D[Y_index : Y_index+points, :, :] * 1e12
+        dIdV_X = self.data3D[X_index : X_index+points, :, :]
+        dIdV_Y = self.data3D[Y_index : Y_index+points, :, :]
         phase = np.arctan2(dIdV_Y, dIdV_X)
         
         uds_Phase = UdsDataStru3D(phase, 'uds3D_'+self.name+'_Phase')
+        uds_Phase.info['LayerValue(mV)'] = ['?']
 
         return uds_Phase
 
@@ -275,12 +281,11 @@ class DataSxmStru():
     def get_Topo_fwd(self):
         
         index = self.header['channels'].index('Z')
-        Topo_fwd = self.data3D[index, :, :]* 1e12
-        
+        Topo_fwd = self.data3D[index, :, :]
         ###
         uds_Topo_fwd = UdsDataStru3D(Topo_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_fwd')
         
-        uds_Topo_fwd.info['LayerValue'] = ['?']
+        uds_Topo_fwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_Topo_fwd
     
@@ -289,14 +294,14 @@ class DataSxmStru():
         
         index = self.header['channels'].index('Z')
         if self.header['DATA_INFO'][index][3] == 'both':
-            Topo_bwd = self.data3D[index+1, :, :]* 1e12
+            Topo_bwd = self.data3D[index+1, :, :]
         else:
             Topo_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_Topo_bwd = UdsDataStru3D(Topo_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_bwd')
         
-        uds_Topo_bwd.info['LayerValue'] = ['?']
+        uds_Topo_bwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_Topo_bwd
     
@@ -304,12 +309,14 @@ class DataSxmStru():
     def get_dIdV_fwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_X')
-        dIdV_fwd = self.data3D[index*2, :, :]* 1e12
+        lockInAmp = self.header['Lock-in>Amplitude']
+        if self.header['Lock-in>Modulated signal'] == 'Bias (V)':
+            dIdV_fwd = self.data3D[index*2, :, :]/lockInAmp
         
         ###
         uds_dIdV_fwd = UdsDataStru3D(dIdV_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_fwd')
         
-        uds_dIdV_fwd.info['LayerValue'] = ['?']
+        uds_dIdV_fwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_dIdV_fwd
     
@@ -317,15 +324,16 @@ class DataSxmStru():
     def get_dIdV_bwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_X')
-        if self.header['DATA_INFO'][index][3] == 'both':
-            dIdV_bwd = self.data3D[index*2 + 1, :, :]* 1e12
+        lockInAmp = self.header['Lock-in>Amplitude']
+        if (self.header['Lock-in>Modulated signal'] == 'Bias (V)') & (self.header['DATA_INFO'][index][3] == 'both'):
+            dIdV_bwd = self.data3D[index*2 + 1, :, :]/lockInAmp
         else:
             dIdV_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_dIdV_bwd = UdsDataStru3D(dIdV_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_bwd')
         
-        uds_dIdV_bwd.info['LayerValue'] = ['?']
+        uds_dIdV_bwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_dIdV_bwd
     
@@ -333,12 +341,14 @@ class DataSxmStru():
     def get_dIdV_Y_fwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_Y')
-        dIdV_Y_fwd = self.data3D[index*2, :, :]* 1e12
+        lockInAmp = self.header['Lock-in>Amplitude']
+        if self.header['Lock-in>Modulated signal'] == 'Bias (V)':
+            dIdV_Y_fwd = self.data3D[index*2, :, :]/lockInAmp
         
         ###
         uds_dIdV_Y_fwd = UdsDataStru3D(dIdV_Y_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_fwd')
         
-        uds_dIdV_Y_fwd.info['LayerValue'] = ['?']
+        uds_dIdV_Y_fwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_dIdV_Y_fwd
     
@@ -346,15 +356,16 @@ class DataSxmStru():
     def get_dIdV_Y_bwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_Y')
-        if self.header['DATA_INFO'][index][3] == 'both':
-            dIdV_Y_bwd = self.data3D[index*2 + 1, :, :]* 1e12
+        lockInAmp = self.header['Lock-in>Amplitude']
+        if (self.header['Lock-in>Modulated signal'] == 'Bias (V)') & (self.header['DATA_INFO'][index][3] == 'both'):
+            dIdV_Y_bwd = self.data3D[index*2 + 1, :, :]/lockInAmp
         else:
             dIdV_Y_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_dIdV_Y_bwd = UdsDataStru3D(dIdV_Y_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_bwd')
         
-        uds_dIdV_Y_bwd.info['LayerValue'] = ['?']
+        uds_dIdV_Y_bwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_dIdV_Y_bwd    
     
@@ -362,11 +373,12 @@ class DataSxmStru():
         
         Yindex = self.header['channels'].index('LI_Demod_1_Y')
         Xindex = self.header['channels'].index('LI_Demod_1_X')
-        dIdV_Y = self.data3D[Yindex*2, :, :]* 1e12
-        dIdV_X = self.data3D[Xindex*2, :, :]* 1e12
+        dIdV_Y = self.data3D[Yindex*2, :, :]
+        dIdV_X = self.data3D[Xindex*2, :, :]
         Theta = np.arctan2(dIdV_Y, dIdV_X)
         
         uds_Theta = UdsDataStru3D(Theta[np.newaxis,:,:], 'uds3D_'+self.name+'_theta')
+        uds_Theta.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_Theta
     
@@ -375,14 +387,14 @@ class DataSxmStru():
         
         if 'Current' in self.header['channels']:
             index = self.header['channels'].index('Current')
-            Current_fwd = self.data3D[index*2, :, :]* 1e12
+            Current_fwd = self.data3D[index*2, :, :]
         else:
             Current_fwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_Current_fwd = UdsDataStru3D(Current_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_fwd')
         
-        uds_Current_fwd.info['LayerValue'] = ['?']
+        uds_Current_fwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_Current_fwd
     
@@ -391,14 +403,14 @@ class DataSxmStru():
         if 'Current' in self.header['channels']:
             index = self.header['channels'].index('Current')
             if self.header['DATA_INFO'][index][3] == 'both':
-                Current_bwd = self.data3D[index*2 + 1, :, :]* 1e12
+                Current_bwd = self.data3D[index*2 + 1, :, :]
         else:
             Current_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
         uds_Current_bwd = UdsDataStru3D(Current_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_bwd')
         
-        uds_Current_bwd.info['LayerValue'] = ['?']
+        uds_Current_bwd.info['LayerValue(mV)'] = [self.header['BIAS']]
         
         return uds_Current_bwd
 

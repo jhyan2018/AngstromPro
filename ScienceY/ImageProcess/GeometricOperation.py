@@ -63,19 +63,19 @@ class AffineTransform():
 
     def setAffineMatrixFrom3PairsRpoints(self, rPoints):
         
-        src_x0 = rPoints[0][1] #column
-        src_y0 = rPoints[0][0] #row
-        src_x1 = rPoints[1][1]
-        src_y1 = rPoints[1][0]
-        src_x2 = rPoints[2][1]
-        src_y2 = rPoints[2][0]
+        src_x0 = rPoints[0][0] #column
+        src_y0 = rPoints[0][1] #row
+        src_x1 = rPoints[1][0]
+        src_y1 = rPoints[1][1]
+        src_x2 = rPoints[2][0]
+        src_y2 = rPoints[2][1]
         
-        tgt_x0 = rPoints[3][1] #column
-        tgt_y0 = rPoints[3][0] #row
-        tgt_x1 = rPoints[4][1]
-        tgt_y1 = rPoints[4][0]
-        tgt_x2 = rPoints[5][1]
-        tgt_y2 = rPoints[5][0]
+        tgt_x0 = rPoints[3][0] #column
+        tgt_y0 = rPoints[3][1] #row
+        tgt_x1 = rPoints[4][0]
+        tgt_y1 = rPoints[4][1]
+        tgt_x2 = rPoints[5][0]
+        tgt_y2 = rPoints[5][1]
 
         # calclulate Matrix Elements
         d = 1.0 / ( src_x0*(src_y2-src_y1) + src_x1*(src_y0-src_y2) + src_x2*(src_y1-src_y0) )
@@ -102,13 +102,13 @@ class AffineTransform():
         tgt_Y_float = self.A[1][0]*src_X + self.A[1][1]*src_Y + self.A[1][2] * 1
         
         # get integer (larger) range of target coordinates
-        tgt_x_min = np.floor(np.amin(tgt_X_float))
-        tgt_x_max = np.ceil(np.amax(tgt_X_float))
-        tgt_y_min = np.floor(np.amin(tgt_Y_float))
-        tgt_y_max = np.ceil(np.amax(tgt_Y_float))
+        self.tgt_x_min = np.floor(np.amin(tgt_X_float))
+        self.tgt_x_max = np.ceil(np.amax(tgt_X_float))
+        self.tgt_y_min = np.floor(np.amin(tgt_Y_float))
+        self.tgt_y_max = np.ceil(np.amax(tgt_Y_float))
         
-        tgt_x = np.arange(tgt_x_min, tgt_x_max + 1, 1)
-        tgt_y = np.arange(tgt_y_min, tgt_y_max + 1, 1)
+        tgt_x = np.arange(self.tgt_x_min, self.tgt_x_max + 1, 1)
+        tgt_y = np.arange(self.tgt_y_min, self.tgt_y_max + 1, 1)
         tgt_X, tgt_Y = np.meshgrid(tgt_x, tgt_y)
         
         # calculate inverse of A
@@ -125,6 +125,55 @@ class AffineTransform():
 
         return mapped_data
 
+
+    def affineMappingForRegister(self, data2D, interpolate_method='bilinear', pad_method='constant'):
+        # transform and interpolation
+        px_itp = PixelInterpolation(data2D, self.src_X_float, self.src_Y_float, interpolate_method, pad_method)
+        mapped_data = px_itp.dataMapping()
+        
+        # tgt_x/y_min/max is coordinates; x/y_start/end is array index
+        if self.tgt_y_min <= 0:
+            y_start = int(0 - self.tgt_y_min)
+            y_start_p = 0
+            if self.tgt_y_max >= data2D.shape[-2]:
+                y_end = int(data2D.shape[-2] - self.tgt_y_min)
+                y_end_p = data2D.shape[-2]
+            else:
+                y_end = int(self.tgt_y_max - self.tgt_y_min)
+                y_end_p = int(self.tgt_y_max)
+        else:
+            y_start = 0
+            y_start_p = int(self.tgt_y_min)
+            if self.tgt_y_max >= data2D.shape[-2]:
+                y_end = int(data2D.shape[-2] - self.tgt_y_min)
+                y_end_p = data2D.shape[-2]
+            else:
+                y_end = int(self.tgt_y_max - self.tgt_y_min) 
+                y_end_p = int(self.tgt_y_max) 
+        
+        
+        if self.tgt_x_min <= 0:
+            x_start = int(0 - self.tgt_x_min)
+            x_start_p = 0
+            if self.tgt_x_max >= data2D.shape[-1]:
+                x_end = int(data2D.shape[-1] - self.tgt_x_min)
+                x_end_p = data2D.shape[-1]
+            else:
+                x_end = int(self.tgt_x_max - self.tgt_x_min)
+                x_end_p = int(self.tgt_x_max)
+        else:
+            x_start = 0
+            x_start_p = int(self.tgt_x_min)
+            if self.tgt_x_max >= data2D.shape[-1]:
+                x_end = int(data2D.shape[-1] - self.tgt_x_min)
+                x_end_p = data2D.shape[-1]
+            else:
+                x_end = int(self.tgt_x_max - self.tgt_x_min) 
+                x_end_p = int(self.tgt_x_max) 
+        
+        data = np.zeros_like(data2D)
+        data[y_start_p : y_end_p, x_start_p : x_end_p] = mapped_data[y_start:y_end, x_start:x_end]
+        return data
 """
 """
 

@@ -50,8 +50,8 @@ class PixelInterpolation():
         src_Y_f_min = np.floor(np.amin(self.src_Y_f))
         
         src_XY_border_max = int( max( 0 - src_X_f_min, 0 - src_Y_f_min,
-                                src_X_f_max - self.src_data.shape[-1],
-                                src_Y_f_max - self.src_data.shape[-2]) )
+                                src_X_f_max - self.src_data.shape[-1] + 1,
+                                src_Y_f_max - self.src_data.shape[-2] + 1) )
         
         if src_XY_border_max > 0:
             padding_size += src_XY_border_max
@@ -60,7 +60,7 @@ class PixelInterpolation():
         self.offset_y = padding_size
         
         # pad src data
-        self.src_data_padded = np.lib.pad(self.src_data, (padding_size, padding_size), self.pad_method)
+        self.src_data_padded = np.lib.pad(self.src_data, (padding_size, padding_size), self.pad_method, constant_values = 0)
     
     def dataMapping(self):
         tgt_data = np.zeros_like(self.src_X_f)
