@@ -18,7 +18,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib import colors
+from matplotlib import colors,pyplot
 
 """
 User Modules
@@ -73,7 +73,15 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.initUiMembers()
         self.initUiLayout()   
         
+    def setSettings(self, settings):
+        self.settings = settings
+        
         #
+        ccmap = settings['COLORMAP']['cmap_palette_list'].split(',')
+        self.ui_cb_img_palette_list.addItems(ccmap)      
+        self.ui_cb_img_palette_list.setCurrentIndex(0) 
+        self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
+        
         self.set_colormap()
         
     def initUiMembers(self):
@@ -134,11 +142,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_lw_uds_data_info = QtWidgets.QListWidget()
         
         # Color Maps 
-        self.ui_cb_img_palette_list.addItems(self.img_color_map_customized_list)    
-        self.ui_cb_img_palette_list.addItems(self.img_color_map_builtin_list)        
-        self.ui_cb_img_palette_list.setCurrentIndex(1)
-        self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
-        
+       
         self.ui_cb_img_pk_pts_palette_list.addItems(self.img_marker_cn_list)       
         self.ui_cb_img_pk_pts_palette_list.currentIndexChanged.connect(self.imageMarkerColorChanged)
         
@@ -253,13 +257,8 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.var_data_type_list = ['Abs','Angle','Real','Image']
         
         # Color maps
-        self.img_color_map_builtin_list = ['Blues_r','viridis','plasma','inferno','cividis','PuBu','Purples','hsv','seismic']
-        
+        self.img_color_map_builtin_list = pyplot.colormaps()         
         self.customizedColorPalletFolder = './ScienceY/GUI/customizedColorPallets/'
-        self.customizedColorFiles = [entry.name for entry in os.scandir(self.customizedColorPalletFolder) if entry.is_file()]
-        self.img_color_map_customized_list = []
-        for cn in self.customizedColorFiles:
-            self.img_color_map_customized_list.append(cn.split('.')[0])
         
         #
         self.img_marker_cv_list = ['#ff0000','#00ff00','#0000ff','#000000','#ffffff']
@@ -536,13 +535,16 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         for i in self.uds_variable.info:
             self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
     
+    def set_palette(self):
+        pass
+    
     def set_colormap(self):
         color_map_name = self.ui_cb_img_palette_list.currentText()
         
-        if color_map_name in self.img_color_map_customized_list:
-            self.img_color_map = self.make_colormap(color_map_name)
-        else:
+        if color_map_name in self.img_color_map_builtin_list:
             self.img_color_map =color_map_name
+        else:            
+            self.img_color_map = self.make_colormap(color_map_name)
             
     def make_colormap( self, cp ):
         s = self.customizedColorPalletFolder

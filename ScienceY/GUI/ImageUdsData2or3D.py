@@ -31,6 +31,8 @@ from ..ImgProcCustomized import ImgProcCustomized
 from .GuiFrame import GuiFrame
 from .ImageUdsData2or3DWidget import ImageUdsData2or3DWidget
 from .Plot1DWidget import Plot1DWidget
+from .ConfigManager import ConfigManager
+from .PreferenceIUD2or3D import PreferenceIUD2or3D
 
 
 """ *************************************** """
@@ -44,10 +46,17 @@ class ImageUdsData2or3D(GuiFrame):
         
         self.initCcUiMembers()
         self.initCcUiLayout()        
-        self.initCcNonUiMembers()       
+        self.initCcNonUiMembers()        
         self.initCcMenuBar()
         
-    """ Initializations"""        
+        self.initPreference()
+        
+    """ Initializations"""
+    def initPreference(self):
+        self.ui_preference.setSettings(self.settings)
+        self.ui_img_widget_main.setSettings(self.settings)
+        self.ui_img_widget_slave.setSettings(self.settings)
+      
     def initCcUiMembers(self):        
         self.ui_img_widget_main = ImageUdsData2or3DWidget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- MAIN ---</b>")
@@ -70,12 +79,17 @@ class ImageUdsData2or3D(GuiFrame):
         #
         self.ui_lw_uds_variable_name_list.doubleClicked.connect(self.ui_lw_uds_variable_name_list_doulbeClicked)
         
+        # Pereference Widget
+        self.ui_preference = PreferenceIUD2or3D("Preference")
+        self.ui_preference.save_settings.connect(self.saveSettings)
+        
     def initCcUiLayout(self):
         self.ui_horizontalLayout.addWidget(self.ui_img_widget_main)
         self.ui_horizontalLayout.addWidget(self.ui_img_widget_slave)
         
     def initCcNonUiMembers(self):
-        pass        
+        # Settings
+        self.settings = self.loadSettings()        
         
     def initCcMenuBar(self):
         # Actions
@@ -197,6 +211,13 @@ class ImageUdsData2or3D(GuiFrame):
         self.ui_img_widget_slave.ui_le_img_proc_parameter_list.clear()
         #self.ui_img_widget_slave.ui_lw_img_picked_points_list_widgets.clear()
     
+    """ Settings """
+    def loadSettings(self):
+        return ConfigManager.load_settings_from_file('./ScienceY/config/ImageUdsData2or3D.txt')
+    
+    def saveSettings(self):
+        ConfigManager.save_settings_to_file('./ScienceY/config/ImageUdsData2or3D.txt', self.settings)
+
             
     """ *************************************************************** """
     """ INDICATION: MODIFY THE FOLLOWING CODE UNTIL INDICATED IF NEEDED """
@@ -213,6 +234,7 @@ class ImageUdsData2or3D(GuiFrame):
         pointsMenu = menuBar.addMenu("Points")
         simulateMenu = menuBar.addMenu("&Simulate")
         widgetssMenu = menuBar.addMenu("&Widgets")
+        optionMenu = menuBar.addMenu("&Options")
         
         # Image Menu
         exportMenu = FileMenu.addMenu("Export")
@@ -277,6 +299,9 @@ class ImageUdsData2or3D(GuiFrame):
         widgetssMenu.addAction(self.showVarDockWidget)
         widgetssMenu.addAction(self.showPlot1DDockWidget)
         
+        # Options Menu
+        optionMenu.addAction(self.preferenceAction)
+        
         #
         self.setMenuBar(menuBar)
     
@@ -337,6 +362,9 @@ class ImageUdsData2or3D(GuiFrame):
         self.showVarDockWidget = QtWidgets.QAction("Variabls DockWidget",self)
         self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D DockWidget",self)
         
+        # Option Menu
+        self.preferenceAction = QtWidgets.QAction("Preference",self)
+        
     def connect_actions(self):
         # Image Menu
         self.exportMainToImage.triggered.connect(self.actExportMainToImage)
@@ -389,6 +417,9 @@ class ImageUdsData2or3D(GuiFrame):
         #window
         self.showVarDockWidget.triggered.connect(self.actShowVarDockWidget)
         self.showPlot1DDockWidget.triggered.connect(self.actShowPlot1DDockWidget)
+        
+        # Options
+        self.preferenceAction.triggered.connect(self.actPreference)
     
     """   Slots for Menu Actions   """ 
     # Image Menu
@@ -1093,6 +1124,8 @@ class ImageUdsData2or3D(GuiFrame):
     def actShowPlot1DDockWidget(self):
         self.ui_dockWidget_plot1D.show()        
            
-
+    # Option Menu
+    def actPreference(self):
+        self.ui_preference.show()
         
         
