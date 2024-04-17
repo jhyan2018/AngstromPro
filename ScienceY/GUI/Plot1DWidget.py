@@ -9,7 +9,6 @@ the dIdV unit is uS only when lock-in amplitude is 100uV
 """
 System modules
 """
-import ctypes
 """
 Third-party Modules
 """
@@ -100,8 +99,9 @@ class Plot1DWidget(QtWidgets.QWidget):
     def setDataFromImage2or3D(self, uds_Var):
         self.uds_Var = uds_Var
         self.data_3D = self.uds_Var.data
-        if 'LayerValue' in uds_Var.info.keys() & uds_Var.info['LayerValue'] != '?':
-            self.energy = uds_Var.info['LayerValue']
+        if 'LayerValue' in uds_Var.info.keys():
+            if uds_Var.info['LayerValue'].shape[0] > 1:
+                self.energy = uds_Var.info['LayerValue'].copy()*1e3
         
     
     def setXYFromImage2or3D(self, x, y):
@@ -119,7 +119,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.ax.plot(self.energy, data_1D, color = 'k', linewidth = 1.0)
         
             self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-            self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
+            self.ax.set_ylabel('dI/dV(S)', size = self.frontsize)
             self.ax.minorticks_on()
             #self.ax.yaxis.get_major_formatter().set_powerlimits((0,1))
             self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
@@ -149,7 +149,7 @@ class Plot1DWidget(QtWidgets.QWidget):
                 self.ax.plot(self.energy, dIdV_set[i,:], linewidth = 1.0)
             
             self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-            self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
+            self.ax.set_ylabel('dI/dV(S)', size = self.frontsize)
             self.ax.minorticks_on()
             self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
             self.ax.set_ylim(ylim_min, yavg + 3*ystd)
@@ -164,23 +164,61 @@ class Plot1DWidget(QtWidgets.QWidget):
         end_x = Points_list[1][0]
         end_y = Points_list[1][1]
         
+        delta_x = end_x - start_x
+        delta_y = end_y - start_y
+        dIdV_set_list = []
+        dIdV_set_list.append(self.data_3D[:, start_y, start_x])
+        if (delta_x > 0) & (delta_y > 0):
+            for i in range(1, delta_x+1,1):
+                for j in range(1, delta_y+1,1):
+                    if round(j/i, 1) == round(delta_y/delta_x, 1):
+                        x = int(start_x + i)
+                        y = int(start_y + j)
+                        print(x,y)
+                        dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x < 0) & (delta_y > 0):
+            for i in range(1, -delta_x+1,1):
+                for j in range(1, delta_y+1,1):
+                    if round(j/i, 1) == round(-delta_y/delta_x, 1):
+                        x = int(start_x - i)
+                        y = int(start_y + j)
+                        dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x > 0) & (delta_y < 0):
+            for i in range(1, delta_x+1,1):
+                for j in range(1, -delta_y+1,1):
+                    if round(j/i, 1) == round(-delta_y/delta_x, 1):
+                        x = int(start_x + i)
+                        y = int(start_y - j)
+                        dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x < 0) & (delta_y < 0):
+            for i in range(1, -delta_x+1,1):
+                for j in range(1, -delta_y+1,1):
+                    if round(j/i, 1) == round(delta_y/delta_x, 1):
+                        x = int(start_x - i)
+                        y = int(start_y - j)
+                        dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x == 0) & (delta_y > 0):
+            for j in range(1, delta_y+1,1):
+                x = int(start_x)
+                y = int(start_y + j)
+                dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x == 0) & (delta_y < 0):
+            for j in range(1, -delta_y+1,1):
+                x = int(start_x)
+                y = int(start_y - j)
+                dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x > 0) & (delta_y == 0):
+            for i in range(1, delta_x+1,1):
+                x = int(start_x + i)
+                y = int(start_y)
+                dIdV_set_list.append(self.data_3D[:, y, x])
+        elif (delta_x < 0) & (delta_y == 0):
+            for i in range(1, -delta_x+1,1):
+                x = int(start_x - i)
+                y = int(start_y)
+                dIdV_set_list.append(self.data_3D[:, y, x])
         
-        if start_x == end_x: # equal x
-            if start_y > end_y:
-                a = end_y
-                end_y = start_y
-                start_y = a
-            dIdV_set = np.zeros( (end_y - start_y + 1 , len(self.energy) ) ) 
-            for i in range(start_y, end_y + 1):
-                dIdV_set[i-start_y, :] = self.data_3D[:, i, start_x]
-        elif start_y == end_y: # equal y
-            if start_x > end_x:
-                a = end_x
-                end_x = start_x
-                start_x = a
-            dIdV_set = np.zeros( (end_x - start_x + 1 , len(self.energy) ) )
-            for i in range(start_x,end_x + 1):
-                dIdV_set[i-start_x, :] = self.data_3D[:, start_y, i]
+        dIdV_set = np.array(dIdV_set_list)
         
         delta_Y = (np.max(dIdV_set, axis = 1) - np.min(dIdV_set, axis = 1)).mean()
         
@@ -189,7 +227,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.ax.plot(self.energy, dIdV_set[i,:] + i * 0.1 * delta_Y, color = 'k', linewidth = 1.0)
         
         self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
-        self.ax.set_ylabel('dI/dV(uS)', size = self.frontsize)
+        self.ax.set_ylabel('dI/dV(S)', size = self.frontsize)
         self.ax.minorticks_on()
         self.ax.tick_params(axis='both', which = 'both', direction = 'in', labelsize = self.labelsize)
         self.canvas.figure.tight_layout()
