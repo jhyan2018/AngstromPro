@@ -251,7 +251,9 @@ class ImageUdsData2or3D(GuiFrame):
         backgdSubtractMenu.addAction(self.backgdSubtract2DPlane)
         backgdSubtractMenu.addAction(self.backgdSubtractPerLine)
         processMenu.addAction(self.cropRegion)
-        processMenu.addAction(self.perfectLattice)
+        perfectLatticeMenu = processMenu.addMenu("Perfect Lattice")
+        perfectLatticeMenu.addAction(self.perfectLatticeSquare)
+        perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
         processMenu.addAction(self.lfCorrection)
         processMenu.addAction(self.lineCut)
         fourierFilterMenu = processMenu.addMenu("Fourier Filter")
@@ -321,7 +323,8 @@ class ImageUdsData2or3D(GuiFrame):
         self.backgdSubtract2DPlane = QtWidgets.QAction("2D Plane",self)
         self.backgdSubtractPerLine = QtWidgets.QAction("per line",self)
         self.cropRegion = QtWidgets.QAction("Crop Region",self)
-        self.perfectLattice = QtWidgets.QAction("Perfect Lattice",self)
+        self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
+        self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
         self.lfCorrection = QtWidgets.QAction("LF Correction",self)
         self.lineCut = QtWidgets.QAction('Line Cut',self)
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
@@ -377,7 +380,8 @@ class ImageUdsData2or3D(GuiFrame):
         self.backgdSubtract2DPlane.triggered.connect(self.actBackgdSubtract2DPlane)
         self.backgdSubtractPerLine.triggered.connect(self.actBackgdSubtractPerLine)
         self.cropRegion.triggered.connect(self.actCropRegion)
-        self.perfectLattice.triggered.connect(self.actPerfectLattice)
+        self.perfectLatticeSquare.triggered.connect(self.actPerfectLatticeSqaure)
+        self.perfectLatticeHexagonal.triggered.connect(self.actPerfectLatticeHexagonal)
         self.lfCorrection.triggered.connect(self.actLFCorrection)
         self.lineCut.triggered.connect(self.actLineCut)
         self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
@@ -596,14 +600,20 @@ class ImageUdsData2or3D(GuiFrame):
         #
         self.clearWidgetsContents()
             
-    def actPerfectLattice(self):
+    def actPerfectLattice(self, lattice_type):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
         # process
-        uds_data_processed = ImgProc.ipPerfectLattice(self.uds_variable_pt_list[ct_var_index])
+        uds_data_processed = ImgProc.ipPerfectLattice(self.uds_variable_pt_list[ct_var_index], lattice_type)
         
         # update var list
         self.appendToLocalVarList(uds_data_processed)
+    
+    def actPerfectLatticeSqaure(self):
+        self.actPerfectLattice('SquareLattice')
+        
+    def actPerfectLatticeHexagonal(self):
+        self.actPerfectLattice('HexagonalLattice')        
         
     def actLFCorrection(self):
         self.status_bar.showMessage("Params(rSigma_ref_a0=10.0, uds3D_displacementField)",5000)
