@@ -25,6 +25,7 @@ User Modules
 """
 from ..RawDataProcess.UdsDataStru import UdsDataStru3D
 from .ScaleWidget import ScaleWidget
+from .general.NumberExpression import NumberExpression
 
 """ *************************************** """
 """ DO NOT MODIFY THIS FILE"""
@@ -307,7 +308,8 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def imageLayerChanged(self):                
         self.img_current_layer = self.ui_sb_image_layers.value()
         if len(self.uds_var_layer_value) > 0:
-            self.ui_le_layer_value.setText(str(self.uds_var_layer_value[self.img_current_layer]))
+            sn_text = NumberExpression.float_to_simplified_number(self.uds_var_layer_value[self.img_current_layer])
+            self.ui_le_layer_value.setText(sn_text)
         
         if self.uds_variable_type == 'fft':
             self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataAcCopy[self.img_current_layer,:,:]),'ASS_FFT')
@@ -358,9 +360,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
                 self.msg_type[1] = [s_pt_x, s_pt_y]
                 self.sendMsgSignalEmit(self.msg_type.index([s_pt_x, s_pt_y]))
                 
-                self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = %f' % 
-                                                     (self.selected_data_pt_x,self.selected_data_pt_y,
-                                                      self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)]))
+                d_sn_value = NumberExpression.float_to_simplified_number(self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)])
+                
+                self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = ' % 
+                                                     (self.selected_data_pt_x,self.selected_data_pt_y) + d_sn_value)
             else:
                 self.ui_le_img_to_data_coordinate.setText('( %d : %d )' % (self.selected_data_pt_x,self.selected_data_pt_y))
         else:
@@ -533,7 +536,20 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def updateDataInfo(self):
         self.ui_lw_uds_data_info.clear()
         for i in self.uds_variable.info:
-            self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
+            if i == 'LayerValue':
+                d_layer_value = self.uds_variable.info[i] #np array
+                d_layer_value_list = []
+                for n in range( len(d_layer_value) ):
+                    sn_text = NumberExpression().float_to_simplified_number(d_layer_value[n])
+                    d_layer_value_list.append(sn_text)
+                separator = ','
+                d_layer_value_str = separator.join(d_layer_value_list)
+                self.ui_lw_uds_data_info.addItem('%s:%s' % (i,d_layer_value_str))
+            elif i == 'Current Setpoint(A)' or i == 'Bias Setpoint(V)':
+                sn_text = NumberExpression().float_to_simplified_number(self.uds_variable.info[i])
+                self.ui_lw_uds_data_info.addItem('%s:%s' % (i,sn_text))
+            else:
+                self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
     
     def set_palette(self):
         pass
