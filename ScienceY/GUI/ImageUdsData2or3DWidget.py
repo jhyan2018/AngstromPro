@@ -594,6 +594,12 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.static_ax.get_xaxis().set_visible(False)
         self.static_ax.get_yaxis().set_visible(False)
         self.static_ax.set_frame_on(False)
+        
+        # plot text
+        sn_text = self.ui_le_layer_value.text() + 'V'
+        txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
+        txt_py = self.uds_variable.data.shape[-2] - 20
+        self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='red')
 
         # plot markers        
         pt_len = len(self.img_picked_points_list)

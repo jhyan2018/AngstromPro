@@ -19,7 +19,7 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 import imageio
-
+import cv2
 """
 User Modules
 """
@@ -113,7 +113,7 @@ class ImageUdsData2or3D(GuiFrame):
         screens = QtWidgets.QApplication.screens()                
         for s in screens:
             if s == QtWidgets.QApplication.screenAt(self.pos()):                
-                width = int(0.33 * (s.size().width() + s.size().height())/2)
+                width = int(0.33 * (s.size().width() + s.size().height())/2/16)*16
                 height = width
                 self.ui_img_widget_main.setCanvasWidgetSize(width, height)
                 self.ui_img_widget_slave.setCanvasWidgetSize(width, height)
@@ -467,15 +467,17 @@ class ImageUdsData2or3D(GuiFrame):
             
             # Read the image from the in-memory buffer and append to the list of frames
             frame = imageio.imread(buf)
-            frames.append(frame)
+            for frame_repeat in range(10):
+                frames.append(frame)
             
             buf.close()
-                  
+
+
         # Write the frames to a video file
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
         if file_path:
-            imageio.mimsave(file_path, frames, fps=5)
-        
+            imageio.mimsave(file_path, frames, fps=60)
+
         #
         self.ui_img_widget_main.imageLayerChangedSlotConnect()
         
@@ -506,7 +508,7 @@ class ImageUdsData2or3D(GuiFrame):
         # Write the frames to a video file
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
         if file_path:
-            imageio.mimsave(file_path, frames, fps=5)
+            imageio.mimsave(file_path, frames, fps=30)
         
         #
         self.ui_img_widget_slave.imageLayerChangedSlotConnect()
