@@ -25,6 +25,7 @@ User Modules
 """
 from ..RawDataProcess.UdsDataStru import UdsDataStru3D
 from .ScaleWidget import ScaleWidget
+from .general.NumberExpression import NumberExpression
 
 """ *************************************** """
 """ DO NOT MODIFY THIS FILE"""
@@ -358,9 +359,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
                 self.msg_type[1] = [s_pt_x, s_pt_y]
                 self.sendMsgSignalEmit(self.msg_type.index([s_pt_x, s_pt_y]))
                 
-                self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = %f' % 
-                                                     (self.selected_data_pt_x,self.selected_data_pt_y,
-                                                      self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)]))
+                d_sn_value = NumberExpression.float_to_simplified_number(self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)])
+                
+                self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = ' % 
+                                                     (self.selected_data_pt_x,self.selected_data_pt_y) + d_sn_value)
             else:
                 self.ui_le_img_to_data_coordinate.setText('( %d : %d )' % (self.selected_data_pt_x,self.selected_data_pt_y))
         else:
