@@ -383,6 +383,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
             #data3ds = NanonisDataProcess.Data3dsStru(full_path)            
             globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
             globals()['uds3D_'+file_name+'_dIdV'] = data3ds.get_dIdV_data()
+            globals()['uds3D_'+file_name+'_Current'] = data3ds.get_Current()
             globals()['uds3D_'+file_name+'_Phase'] = data3ds.get_Phase()
         elif file_type == 'sxm':
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path)
