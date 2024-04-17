@@ -54,8 +54,8 @@ class ScaleWidget(QtWidgets.QWidget):
         self.zoom_in_factor = 0.8
         
         
-        self.data_sigma_factor = 3.0
-        self.data_sigma_factor_default = 3.0
+        self.data_sigma_factor = 4.5
+        self.data_sigma_factor_default = 4.5
         self.data = 0
         
         self.indicator_upper_value = 0.0
