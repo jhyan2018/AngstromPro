@@ -82,7 +82,6 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_cb_img_palette_list.addItems(ccmap)      
         self.ui_cb_img_palette_list.setCurrentIndex(0) 
         self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
-        
         self.set_colormap()
         
     def initUiMembers(self):
@@ -224,6 +223,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         #  Msg Type
         self.msg_type = []
         self.msg_type.append('SELECT_USD_VARIABLE')
+        self.msg_type.append('SYNC_PICKED_POINTS')
+        self.msg_type.append('SYNC_RT_POINTS')
+        self.msg_type.append('SYNC_LAYER')
         
         # 
         self.st_img_xlim_l = 0
@@ -236,15 +238,11 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
         self.selected_data_pt_x = 0
         self.selected_data_pt_y = 0
-        
-        self.msg_type.append([self.selected_data_pt_x, self.selected_data_pt_y])
-
 
         self.img_picked_points_list = []
         
-        self.msg_type.append(self.img_picked_points_list)
-        
         self.img_current_layer = 0
+        self.img_sync_layer = False
         
         self.zoom_direction = 0
         
@@ -317,6 +315,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataCopy[self.img_current_layer,:,:]))
                 
         self.updateImage()
+        self.sendMsgSignalEmit(self.msg_type.index('SYNC_LAYER'))
         
     def imageColorMapChanged(self):
         self.set_colormap()
@@ -357,13 +356,11 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             
             if s_pt_x >= 0 and s_pt_x < d_c and s_pt_y >= 0 and s_pt_y < d_r :
                 
-                self.msg_type[1] = [s_pt_x, s_pt_y]
-                self.sendMsgSignalEmit(self.msg_type.index([s_pt_x, s_pt_y]))
-                
                 d_sn_value = NumberExpression.float_to_simplified_number(self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)])
                 
                 self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = ' % 
                                                      (self.selected_data_pt_x,self.selected_data_pt_y) + d_sn_value)
+                self.sendMsgSignalEmit(self.msg_type.index('SYNC_RT_POINTS'))
             else:
                 self.ui_le_img_to_data_coordinate.setText('( %d : %d )' % (self.selected_data_pt_x,self.selected_data_pt_y))
         else:
@@ -395,11 +392,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.ui_lw_img_picked_points_list_widgets.clear()
             self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
             self.ui_lw_img_picked_points_list_widgets.setCurrentRow(len(self.img_picked_points_list)-1)
-            
-            self.msg_type[2] = self.img_picked_points_list
-            self.sendMsgSignalEmit(self.msg_type.index(self.img_picked_points_list))
-            
+                        
             self.updateImage()
+            
+            self.sendMsgSignalEmit(self.msg_type.index('SYNC_PICKED_POINTS'))
             
             self.mouse_right_button_released = False
             
@@ -472,6 +468,29 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def setCanvasWidgetSize(self, w, h):
         self.static_canvas.setFixedWidth(w)
         self.static_canvas.setFixedHeight(h)
+    
+    def setScaleWidgetZoomFactor(self, zoom_factor):
+        self.ui_scale_widget.setZoomFactor(zoom_factor)
+        print("set slider factor")
+    
+    def setScaleWidgetSigmaDefault(self, sigma_default):
+        self.ui_scale_widget.setSigmaDefault(sigma_default)
+        print('set default sigma')
+        
+    def setScaleWidgetFFTAutoScaleFactor(self, fft_auto_scale_factor):
+        self.ui_scale_widget.setFFTAutoScaleFactor(fft_auto_scale_factor)
+        print('set fft auto scale factor')
+        
+    def setScaleWidgetDataScaleFixed(self, data_scale_fixed):
+        self.ui_scale_widget.setDataScaleFixed(data_scale_fixed)
+        print('set data scale fixed')
+    
+    def setImageSyncLayer(self,sync_layer):
+        self.img_sync_layer = sync_layer
+    
+    def setImageLayer(self, layer):
+        if self.img_sync_layer:
+            self.ui_sb_image_layers.setValue(layer)
                
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
@@ -551,8 +570,15 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             else:
                 self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
     
-    def set_palette(self):
-        pass
+    def set_palette_list(self):
+        self.ui_cb_img_palette_list.currentIndexChanged.disconnect()
+        ccmap = self.settings['COLORMAP']['cmap_palette_list'].split(',')
+        self.ui_cb_img_palette_list.clear()
+        self.ui_cb_img_palette_list.addItems(ccmap)      
+        self.ui_cb_img_palette_list.setCurrentIndex(0) 
+        self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
+        self.set_colormap()
+        self.updateImage()
     
     def set_colormap(self):
         color_map_name = self.ui_cb_img_palette_list.currentText()
@@ -596,10 +622,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.static_ax.set_frame_on(False)
         
         # plot text
-        sn_text = self.ui_le_layer_value.text() + 'V'
-        txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
-        txt_py = self.uds_variable.data.shape[-2] - 20
-        self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='red')
+        #sn_text = self.ui_le_layer_value.text() + 'V'
+        #txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
+        #txt_py = self.uds_variable.data.shape[-2] - 20
+        #self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='red')
 
         # plot markers        
         pt_len = len(self.img_picked_points_list)

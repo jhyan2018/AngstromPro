@@ -149,7 +149,7 @@ def ipCalculateDisplacementField(uds3D_data, rSigma_ref_a0):
     
     uds3D_data_processed = UdsDataStru3D(displacementField, uds3D_data.name+'_df')
     if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+        uds3D_data_processed.info['LayerValue'] = [1.0, 1.0]
     uds3D_data_processed.proc_history.append("ImgProc.ipCalculateDisplacementField:")
     
     return uds3D_data_processed

@@ -52,7 +52,7 @@ class ScaleWidget(QtWidgets.QWidget):
         self.data_lower_value = 0.0
         self.zoom_out_factor = 0.2
         self.zoom_in_factor = 0.8
-        
+        self.data_scale_fixed = False
         
         self.data_sigma_factor = 4.5
         self.data_sigma_factor_default = 4.5
@@ -62,6 +62,7 @@ class ScaleWidget(QtWidgets.QWidget):
         self.indicator_lower_value = 0.0
         
         self.auto_scale_strategy = ''
+        self.auto_scale_fft_factor = 1.0
     
     def initUiMembers(self):
         self.ui_rangeSlider = RangeSlider(self.orientation)
@@ -230,13 +231,33 @@ class ScaleWidget(QtWidgets.QWidget):
         self.data_sigma_factor = self.data_sigma_factor_default
         self.ui_le_data_sigma_factor.setSNText(str(self.data_sigma_factor))
         #
-        self.AutoScale()
-        
+        if not self.data_scale_fixed:
+            self.AutoScale()
+    
+    def setZoomFactor(self, zoom_factor):
+        if zoom_factor > 0 and zoom_factor < 1:
+            self.zoom_in_factor = zoom_factor
+            self.zoom_out_factor = 1 - zoom_factor
+        else:
+            print('SLider Zoom Factor is out of range!')
+    
+    def setSigmaDefault(self, sigma_default):
+        self.data_sigma_factor_default = sigma_default
+    
     def setSigma(self,sigma):
         self.data_sigma_factor = sigma
         
         #
         self.AutoScale()
+    
+    def setFFTAutoScaleFactor(self, fft_auto_scale_factor):
+        if fft_auto_scale_factor > 0 and fft_auto_scale_factor < 1:
+            self.auto_scale_fft_factor = fft_auto_scale_factor
+        else:
+            print('FFT Auto Scale Factor is out of range!')
+            
+    def setDataScaleFixed(self, data_scale_fixed):
+        self.data_scale_fixed = data_scale_fixed
         
     def AutoScale(self):
         if self.auto_scale_strategy == 'ASS_NORMAL':
@@ -246,10 +267,10 @@ class ScaleWidget(QtWidgets.QWidget):
             self.data_upper_limit = mean + self.data_sigma_factor * std/2
         elif self.auto_scale_strategy == 'ASS_FFT':
             self.data_lower_limit = min(self.data)
-            self.data_upper_limit = max(self.data)
+            self.data_upper_limit = max(self.data) * self.auto_scale_fft_factor
         else:
-            print("Auto Scale Strategy is unknow")
-            
+            print("Auto Scale Strategy is unknow")           
+
         self.data_lower_value = self.data_lower_limit
         self.data_upper_value = self.data_upper_limit
         
