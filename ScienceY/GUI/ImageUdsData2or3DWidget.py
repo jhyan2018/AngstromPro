@@ -131,7 +131,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_lb_img_picked_points = QtWidgets.QLabel("Picked Points: ")
         self.ui_cb_img_pk_pts_palette_list = QtWidgets.QComboBox()
         
-        self.ui_lw_img_picked_points_list_widgets = QtWidgets.QListWidget()
+        self.ui_lw_img_picked_points = QtWidgets.QListWidget()
         self.ui_pb_img_picked_points_remove = QtWidgets.QPushButton("Remove Point")
         self.ui_pb_img_picked_points_remove.clicked.connect(self.removePickedPoint)
         self.ui_lb_img_proc_parameter = QtWidgets.QLabel("Params (p1,p2,...): ")
@@ -157,7 +157,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_palette_list)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lb_img_picked_points)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_pk_pts_palette_list)
-        self.ui_verticalLayout_Right_Top.addWidget(self.ui_lw_img_picked_points_list_widgets)
+        self.ui_verticalLayout_Right_Top.addWidget(self.ui_lw_img_picked_points)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_pb_img_picked_points_remove)
         
         self.ui_horizontalLayout_Top = QtWidgets.QHBoxLayout()
@@ -242,7 +242,6 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.img_picked_points_list = []
         
         self.img_current_layer = 0
-        self.img_sync_layer = False
         
         self.zoom_direction = 0
         
@@ -262,6 +261,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         #
         self.img_marker_cv_list = ['#ff0000','#00ff00','#0000ff','#000000','#ffffff']
         self.img_marker_cn_list = ['Red','Green','Blue','Black','White']
+        
+        #
+        self.img_sync_layer = False
+        self.img_sync_pick_points = False
         
     """ @SLOTS of UI Widgets"""  
     # Send MSG
@@ -325,21 +328,20 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.updateImage()
         
     def removePickedPoint(self):
-        current_idx = self.ui_lw_img_picked_points_list_widgets.currentRow()
+        current_idx = self.ui_lw_img_picked_points.currentRow()
         
         if current_idx >= 0:
             self.img_picked_points_list.pop(current_idx)
             
-            self.msg_type[2] = self.img_picked_points_list
-            self.sendMsgSignalEmit(self.msg_type.index(self.img_picked_points_list))
-            
-            self.ui_lw_img_picked_points_list_widgets.clear()
-            self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
+            self.ui_lw_img_picked_points.clear()
+            self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
             if current_idx == len(self.img_picked_points_list):
                 current_idx = len(self.img_picked_points_list) - 1
-            self.ui_lw_img_picked_points_list_widgets.setCurrentRow(current_idx)            
+            self.ui_lw_img_picked_points.setCurrentRow(current_idx)            
             
             self.updateImage()
+            
+            self.sendMsgSignalEmit(self.msg_type.index('SYNC_PICKED_POINTS'))
         
     """ @SLOTS of Mouse Event"""
     def canvasMouseMoveEvent(self, event):
@@ -389,9 +391,9 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.canvasSelectedPixToDataPix(event.x(), event.y())
             
             self.img_picked_points_list.append('%d,%d' % (self.selected_data_pt_x,self.selected_data_pt_y))
-            self.ui_lw_img_picked_points_list_widgets.clear()
-            self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
-            self.ui_lw_img_picked_points_list_widgets.setCurrentRow(len(self.img_picked_points_list)-1)
+            self.ui_lw_img_picked_points.clear()
+            self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
+            self.ui_lw_img_picked_points.setCurrentRow(len(self.img_picked_points_list)-1)
                         
             self.updateImage()
             
@@ -471,19 +473,15 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     
     def setScaleWidgetZoomFactor(self, zoom_factor):
         self.ui_scale_widget.setZoomFactor(zoom_factor)
-        print("set slider factor")
     
     def setScaleWidgetSigmaDefault(self, sigma_default):
         self.ui_scale_widget.setSigmaDefault(sigma_default)
-        print('set default sigma')
         
     def setScaleWidgetFFTAutoScaleFactor(self, fft_auto_scale_factor):
         self.ui_scale_widget.setFFTAutoScaleFactor(fft_auto_scale_factor)
-        print('set fft auto scale factor')
         
     def setScaleWidgetDataScaleFixed(self, data_scale_fixed):
         self.ui_scale_widget.setDataScaleFixed(data_scale_fixed)
-        print('set data scale fixed')
     
     def setImageSyncLayer(self,sync_layer):
         self.img_sync_layer = sync_layer
@@ -491,7 +489,18 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def setImageLayer(self, layer):
         if self.img_sync_layer:
             self.ui_sb_image_layers.setValue(layer)
-               
+    
+    def setImageSyncPickedPoints(self, sync_picked_points):
+        self.img_sync_pick_points = sync_picked_points
+    
+    def setImagePickedPoints(self, picked_points):
+        if self.img_sync_pick_points:
+            self.img_picked_points_list = picked_points
+            self.ui_lw_img_picked_points.clear()
+            self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
+            
+            self.updateImage()
+            
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
         self.uds_variable = usd_variable

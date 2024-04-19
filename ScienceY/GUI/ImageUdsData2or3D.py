@@ -162,24 +162,28 @@ class ImageUdsData2or3D(GuiFrame):
                     
             self.updateVarList() 
         
-        # msg Type 2
-        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_RT_POINTS' and 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
-            x = self.ui_img_widget_main.selected_data_pt_x
-            y = self.ui_img_widget_main.selected_data_pt_y
-            self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
+        # msg Type 2 SYNC_RT_POINTS
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_RT_POINTS':
+            if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+                x = self.ui_img_widget_main.selected_data_pt_x
+                y = self.ui_img_widget_main.selected_data_pt_y
+                self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
         
-        # msg Type 3
-        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_PICKED_POINTS' and 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
-            picked_points_list = self.ui_img_widget_main.img_picked_points_list
-            self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
-        
+        # msg Type 3 SYNC_PICKED_POINTS
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_PICKED_POINTS':
+            if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+                picked_points_list = self.ui_img_widget_main.img_picked_points_list
+                self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
+            
+            self.ui_img_widget_slave.setImagePickedPoints(self.ui_img_widget_main.img_picked_points_list.copy())
+            
         # msg Type - Sync layer
         elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_LAYER':
             layer = self.ui_img_widget_main.img_current_layer
             self.ui_img_widget_slave.setImageLayer(layer)
         #
         else:
-            print("Unknow msg type from main!")
+            print("Unknow msg type from main!", self.ui_img_widget_main.msg_type[msgTypeIdx])
                
     @QtCore.pyqtSlot(int)
     def getMsgFromImgSlaveWidget(self, msgTypeIdx):
@@ -203,6 +207,10 @@ class ImageUdsData2or3D(GuiFrame):
                         self.uds_variable_name_prefix_list[i] = 's'
                     
             self.updateVarList() 
+        
+        #
+        else:
+            pass
             
     #
     def ui_lw_uds_variable_name_list_doulbeClicked(self):
@@ -230,12 +238,12 @@ class ImageUdsData2or3D(GuiFrame):
             self.ui_img_widget_main.set_palette_list()
             self.ui_img_widget_slave.set_palette_list()
         elif st_type == 2: # Settings Type = 2, 'SYNC_PICKED_POINTS'
-            pass
+            sync_picked_points = self.settings['SYNC']['picked_points'] in ['True']
+            self.ui_img_widget_slave.setImageSyncPickedPoints(sync_picked_points)
         elif st_type == 3: # Settings Type = 3, 'SYNC_RT_POINTS'
             pass
         elif st_type == 4: # Settings Type = 4, 'SYNC_LAYER'
             sync_layer = self.settings['SYNC']['layer'] in ['True']
-            self.ui_img_widget_main.setImageSyncLayer(sync_layer)
             self.ui_img_widget_slave.setImageSyncLayer(sync_layer)
         elif st_type == 5: # Settings Type = 5, 'SYNC_CANVAS_ZOOM'
             pass
