@@ -27,7 +27,7 @@ from .LockIn2D import LockIn2D
 from .LFCorrection import LFCorrection
 from .GapMap import GapMap
 from .Register import Register
-
+from . StatisticCrossCorrelation import StatisticCrossCorrelation
 """
 function Module
 """
@@ -360,5 +360,20 @@ def ipRegister(uds3D_data):
     uds3D_data_processed.proc_history.append("ImgProc.Register: register points: {0}, register reference points: {1}".format(register_points, register_points_reference))
     
     return uds3D_data_processed
+
+def ipStatisticCrossCorrelation(uds3D_data1, uds3D_data2,size = 100, sigma = 3):
+    data2Da = uds3D_data1.data[0,:,:]
+    data2Db = uds3D_data2.data[0,:,:]
+    data_processed = StatisticCrossCorrelation(data2Da, data2Db, size, sigma)
     
+    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xccorr')
+    if 'LayerValue' in uds3D_data1.info.keys():
+        uds3D_data_processed.info['LayerValue'] = uds3D_data1.info['LayerValue'].copy()
+    if len(uds3D_data1.proc_history) > 0:
+        for i in uds3D_data1.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.proc_history.append("ImgProc.XCORR: size: {0}, sigma: {}".format(size, sigma))
+    
+    return uds3D_data_processed
     
