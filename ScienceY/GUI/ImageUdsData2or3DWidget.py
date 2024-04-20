@@ -82,7 +82,6 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_cb_img_palette_list.addItems(ccmap)      
         self.ui_cb_img_palette_list.setCurrentIndex(0) 
         self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
-        
         self.set_colormap()
         
     def initUiMembers(self):
@@ -132,7 +131,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_lb_img_picked_points = QtWidgets.QLabel("Picked Points: ")
         self.ui_cb_img_pk_pts_palette_list = QtWidgets.QComboBox()
         
-        self.ui_lw_img_picked_points_list_widgets = QtWidgets.QListWidget()
+        self.ui_lw_img_picked_points = QtWidgets.QListWidget()
         self.ui_pb_img_picked_points_remove = QtWidgets.QPushButton("Remove Point")
         self.ui_pb_img_picked_points_remove.clicked.connect(self.removePickedPoint)
         self.ui_lb_img_proc_parameter = QtWidgets.QLabel("Params (p1,p2,...): ")
@@ -158,7 +157,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_palette_list)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lb_img_picked_points)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_pk_pts_palette_list)
-        self.ui_verticalLayout_Right_Top.addWidget(self.ui_lw_img_picked_points_list_widgets)
+        self.ui_verticalLayout_Right_Top.addWidget(self.ui_lw_img_picked_points)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_pb_img_picked_points_remove)
         
         self.ui_horizontalLayout_Top = QtWidgets.QHBoxLayout()
@@ -224,6 +223,12 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         #  Msg Type
         self.msg_type = []
         self.msg_type.append('SELECT_USD_VARIABLE')
+        self.msg_type.append('SYNC_LAYER')
+        self.msg_type.append('REMOVE_SYNC_PICKED_POINTS')
+        self.msg_type.append('CANVAS_MOUSE_MOVED')
+        self.msg_type.append('CANVAS_MOUSE_PRESSED')
+        self.msg_type.append('CANVAS_MOUSE_RELEASED')
+        self.msg_type.append('CANVAS_WHEALED')
         
         # 
         self.st_img_xlim_l = 0
@@ -236,13 +241,8 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
         self.selected_data_pt_x = 0
         self.selected_data_pt_y = 0
-        
-        self.msg_type.append([self.selected_data_pt_x, self.selected_data_pt_y])
-
 
         self.img_picked_points_list = []
-        
-        self.msg_type.append(self.img_picked_points_list)
         
         self.img_current_layer = 0
         
@@ -250,6 +250,11 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         
         self.mouse_left_button_released = True
         self.mouse_right_button_released = True
+        
+        self.mouse_event_button = ''
+        self.mouse_event_x=0
+        self.mouse_event_y=0
+        self.mouse_event_angleDelta_y = 0
         
         self.mouse_cord_x = 0
         self.mouse_cord_y = 0
@@ -264,6 +269,10 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         #
         self.img_marker_cv_list = ['#ff0000','#00ff00','#0000ff','#000000','#ffffff']
         self.img_marker_cn_list = ['Red','Green','Blue','Black','White']
+        
+        #
+        self.img_sync_layer = False
+        self.sync_rt_points = False
         
     """ @SLOTS of UI Widgets"""  
     # Send MSG
@@ -317,6 +326,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataCopy[self.img_current_layer,:,:]))
                 
         self.updateImage()
+        self.sendMsgSignalEmit(self.msg_type.index('SYNC_LAYER'))
         
     def imageColorMapChanged(self):
         self.set_colormap()
@@ -326,29 +336,63 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.updateImage()
         
     def removePickedPoint(self):
-        current_idx = self.ui_lw_img_picked_points_list_widgets.currentRow()
+        current_idx = self.ui_lw_img_picked_points.currentRow()
         
         if current_idx >= 0:
             self.img_picked_points_list.pop(current_idx)
             
-            self.msg_type[2] = self.img_picked_points_list
-            self.sendMsgSignalEmit(self.msg_type.index(self.img_picked_points_list))
-            
-            self.ui_lw_img_picked_points_list_widgets.clear()
-            self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
+            self.ui_lw_img_picked_points.clear()
+            self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
             if current_idx == len(self.img_picked_points_list):
                 current_idx = len(self.img_picked_points_list) - 1
-            self.ui_lw_img_picked_points_list_widgets.setCurrentRow(current_idx)            
+            self.ui_lw_img_picked_points.setCurrentRow(current_idx)            
             
             self.updateImage()
+            
+            self.sendMsgSignalEmit(self.msg_type.index('REMOVE_SYNC_PICKED_POINTS'))
         
     """ @SLOTS of Mouse Event"""
-    def canvasMouseMoveEvent(self, event):
+    def canvasMouseMoveEvent(self, event):        
         self.ui_le_img_to_data_coordinate.clear()
+        event_x = event.x()
+        event_y = event.y()
         
-        if self.mouse_left_button_released == True:
-            self.canvasSelectedPixToDataPix(event.x(), event.y())
+        self.canvasMouseMoved(event_x, event_y)
             
+    def canvasMousePressEvent(self, event):
+        event_x = event.x()
+        event_y = event.y()
+        if event.button() == QtCore.Qt.RightButton:
+            event_button = 'RIGHT_BUTTON'
+        elif event.button() == QtCore.Qt.LeftButton:
+            event_button = 'LEFT_BUTTON'
+        else:
+            event_button = 'UNKNOWN_BUTTON'
+        self.canvasMousePressed(event_x, event_y, event_button)  
+    
+    def canvasMouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.RightButton:
+            event_button = 'RIGHT_BUTTON'
+        elif event.button() == QtCore.Qt.LeftButton:
+            event_button = 'LEFT_BUTTON'
+        else:
+            event_button = 'UNKNOWN_BUTTON'
+        self.canvasMouseReleased(event_button)
+        
+    def canvasWheelEvent(self, event):        
+        event_x = event.x()
+        event_y = event.y()
+        event_angleDelta_y = event.angleDelta().y()
+        
+        self.canvasWheeled(event_x, event_y, event_angleDelta_y)
+             
+    """ Functions of Mouse Event"""
+    def canvasMouseMoved(self, event_x, event_y):
+        self.mouse_event_x = event_x
+        self.mouse_event_y = event_y
+        
+        self.canvasSelectedPixToDataPix(event_x, event_y)
+        if self.mouse_left_button_released == True:
             s_pt_x = int(self.selected_data_pt_x)
             s_pt_y = int(self.selected_data_pt_y)
             
@@ -357,20 +401,16 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             
             if s_pt_x >= 0 and s_pt_x < d_c and s_pt_y >= 0 and s_pt_y < d_r :
                 
-                self.msg_type[1] = [s_pt_x, s_pt_y]
-                self.sendMsgSignalEmit(self.msg_type.index([s_pt_x, s_pt_y]))
-                
                 d_sn_value = NumberExpression.float_to_simplified_number(self.uds_variable_dataCopy[self.img_current_layer, int(s_pt_y), int(s_pt_x)])
                 
                 self.ui_le_img_to_data_coordinate.setText('Z( %d : %d ) = ' % 
                                                      (self.selected_data_pt_x,self.selected_data_pt_y) + d_sn_value)
             else:
                 self.ui_le_img_to_data_coordinate.setText('( %d : %d )' % (self.selected_data_pt_x,self.selected_data_pt_y))
-        else:
-            self.canvasSelectedPixToDataPix(event.x(), event.y())
             
-            current_mouse_x = int(event.x())
-            current_mouse_y = int(event.y())
+        else:
+            current_mouse_x = int(event_x)
+            current_mouse_y = int(event_y)
             
             dx = int((current_mouse_x - self.mouse_cord_x)/self.st_img_scale_ratio)
             dy = int((current_mouse_y - self.mouse_cord_y)/self.st_img_scale_ratio)
@@ -386,42 +426,54 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             #
             self.mouse_cord_x = current_mouse_x
             self.mouse_cord_y = current_mouse_y
-            
-    def canvasMousePressEvent(self, event):
-        if event.button() == QtCore.Qt.RightButton:
-            self.canvasSelectedPixToDataPix(event.x(), event.y())
+        if self.sync_rt_points:
+            self.updateImage()
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_MOVED'))
+        
+    def canvasMousePressed(self, event_x, event_y, event_button):
+        self.mouse_event_x = event_x
+        self.mouse_event_y = event_y
+        self.mouse_event_button = event_button
+        
+        if event_button == 'RIGHT_BUTTON':
+            self.canvasSelectedPixToDataPix(event_x, event_y)
             
             self.img_picked_points_list.append('%d,%d' % (self.selected_data_pt_x,self.selected_data_pt_y))
-            self.ui_lw_img_picked_points_list_widgets.clear()
-            self.ui_lw_img_picked_points_list_widgets.addItems(self.img_picked_points_list)
-            self.ui_lw_img_picked_points_list_widgets.setCurrentRow(len(self.img_picked_points_list)-1)
-            
-            self.msg_type[2] = self.img_picked_points_list
-            self.sendMsgSignalEmit(self.msg_type.index(self.img_picked_points_list))
-            
+            self.ui_lw_img_picked_points.clear()
+            self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
+            self.ui_lw_img_picked_points.setCurrentRow(len(self.img_picked_points_list)-1)
+                        
             self.updateImage()
             
             self.mouse_right_button_released = False
+        elif event_button == 'LEFT_BUTTON':
+            self.canvasSelectedPixToDataPix(event_x, event_y)
             
-        elif event.button() == QtCore.Qt.LeftButton:
-            self.canvasSelectedPixToDataPix(event.x(), event.y())
-            
-            self.mouse_cord_x = int(event.x())
-            self.mouse_cord_y = int(event.y())
+            self.mouse_cord_x = int(event_x)
+            self.mouse_cord_y = int(event_y)
             
             self.mouse_left_button_released = False
+        else:
+            print('Unknown button pressed.')
             
-    def canvasMouseReleaseEvent(self, event):
-        if event.button() == QtCore.Qt.RightButton:
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_PRESSED'))
+    
+    def canvasMouseReleased(self, event_button):
+        self.mouse_event_button = event_button
+        if event_button == 'RIGHT_BUTTON':
             self.mouse_right_button_released = True
-        elif event.button() == QtCore.Qt.LeftButton:
+        elif event_button == 'LEFT_BUTTON':
             self.mouse_left_button_released = True
+            
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_RELEASED'))
+            
+    def canvasWheeled(self, event_x, event_y, event_angleDelta_y):
+        self.mouse_event_x = event_x
+        self.mouse_event_y = event_y
+        self.mouse_event_angleDelta_y = event_angleDelta_y
         
-    def canvasWheelEvent(self, event):        
-        self.canvasSelectedPixToDataPix(event.x(), event.y())
-        
-        self.zoom_direction += event.angleDelta().y()
-        
+        self.canvasSelectedPixToDataPix(event_x, event_y)        
+        self.zoom_direction += event_angleDelta_y        
         var_shape = np.shape(self.uds_variable.data)
         
         if abs(self.zoom_direction) > 110: 
@@ -466,13 +518,44 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
                    self.st_img_ylim_u = var_shape[-2]
             self.zoom_direction = 0        
         
-        self.updateImage()     
-
+        self.updateImage()
+        
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_WHEALED'))
+        
     """ Regular Functions """        
     def setCanvasWidgetSize(self, w, h):
         self.static_canvas.setFixedWidth(w)
         self.static_canvas.setFixedHeight(h)
-               
+    
+    def setScaleWidgetZoomFactor(self, zoom_factor):
+        self.ui_scale_widget.setZoomFactor(zoom_factor)
+    
+    def setScaleWidgetSigmaDefault(self, sigma_default):
+        self.ui_scale_widget.setSigmaDefault(sigma_default)
+        
+    def setScaleWidgetFFTAutoScaleFactor(self, fft_auto_scale_factor):
+        self.ui_scale_widget.setFFTAutoScaleFactor(fft_auto_scale_factor)
+        
+    def setScaleWidgetDataScaleFixed(self, data_scale_fixed):
+        self.ui_scale_widget.setDataScaleFixed(data_scale_fixed)
+    
+    def setImageSyncLayer(self,sync_layer):
+        self.img_sync_layer = sync_layer
+    
+    def setImageLayer(self, layer):
+        if self.img_sync_layer:
+            self.ui_sb_image_layers.setValue(layer)
+    
+    def setImagePickedPoints(self, picked_points):
+        self.img_picked_points_list = picked_points
+        self.ui_lw_img_picked_points.clear()
+        self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
+            
+        self.updateImage()
+    
+    def setSyncRtPoint(self, sync_rt_point):
+        self.sync_rt_points = sync_rt_point
+            
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
         self.uds_variable = usd_variable
@@ -551,8 +634,15 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             else:
                 self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
     
-    def set_palette(self):
-        pass
+    def set_palette_list(self):
+        self.ui_cb_img_palette_list.currentIndexChanged.disconnect()
+        ccmap = self.settings['COLORMAP']['cmap_palette_list'].split(',')
+        self.ui_cb_img_palette_list.clear()
+        self.ui_cb_img_palette_list.addItems(ccmap)      
+        self.ui_cb_img_palette_list.setCurrentIndex(0) 
+        self.ui_cb_img_palette_list.currentIndexChanged.connect(self.imageColorMapChanged)
+        self.set_colormap()
+        self.updateImage()
     
     def set_colormap(self):
         color_map_name = self.ui_cb_img_palette_list.currentText()
@@ -596,11 +686,16 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         self.static_ax.set_frame_on(False)
         
         # plot text
-        sn_text = self.ui_le_layer_value.text() + 'V'
-        txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
-        txt_py = self.uds_variable.data.shape[-2] - 20
-        self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='red')
-
+        #sn_text = self.ui_le_layer_value.text() + 'V'
+        #txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
+        #txt_py = self.uds_variable.data.shape[-2] - 20
+        #self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='red')
+        # plot Cursor
+        if self.sync_rt_points:
+            mk_x = self.selected_data_pt_x
+            mk_y = self.selected_data_pt_y
+            self.static_ax.scatter(mk_x, mk_y, s=200, linewidths=5, facecolors='none', edgecolors='r')
+        
         # plot markers        
         pt_len = len(self.img_picked_points_list)
         if pt_len > 0:

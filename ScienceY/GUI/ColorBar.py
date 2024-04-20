@@ -15,7 +15,7 @@ import os
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
@@ -88,4 +88,9 @@ class ColorBar(QtWidgets.QWidget):
             cdict[ 'green' ].append( [ i / 255.0, d[ i, 1 ], d[ i, 1 ] ] )
             cdict[ 'blue' ].append( [ i / 255.0, d[ i, 2 ], d[ i, 2 ] ] )
         return colors.LinearSegmentedColormap( 'CustomMap', cdict )
+    
+    def copyToClipboard(self):
+        pixmap = QtGui.QPixmap(self.canvas.size())
+        self.canvas.render(pixmap)
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
     

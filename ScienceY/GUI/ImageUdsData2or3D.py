@@ -19,7 +19,6 @@ from PyQt5 import QtCore, QtWidgets, QtGui
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
 import imageio
-import cv2
 """
 User Modules
 """
@@ -56,17 +55,22 @@ class ImageUdsData2or3D(GuiFrame):
         self.ui_preference.setSettings(self.settings)
         self.ui_img_widget_main.setSettings(self.settings)
         self.ui_img_widget_slave.setSettings(self.settings)
+        
+        # only the snTxt
+        setting_cnt = 3
+        for i in range(setting_cnt):
+            self.preferenceSettingsChanged(i+7)
       
     def initCcUiMembers(self):        
         self.ui_img_widget_main = ImageUdsData2or3DWidget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- MAIN ---</b>")
         self.ui_img_widget_main.sendMsgSignal.connect(self.getMsgFromImgMainWidget)
-        self.ui_img_widget_main.sendMsgSignal.connect(self.getMouseMoveMsgFromImgMainWidget)
-        self.ui_img_widget_main.sendMsgSignal.connect(self.getPickedPointsMsgFromImgMainWidget)
+        self.ui_img_widget_main.setEnabled(False)
         
         self.ui_img_widget_slave = ImageUdsData2or3DWidget()
         self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- SLAVE ---</b>")
         self.ui_img_widget_slave.sendMsgSignal.connect(self.getMsgFromImgSlaveWidget)
+        self.ui_img_widget_slave.setEnabled(False)
         
         # dockWiget Plot1D
         self.ui_dockWidget_plot1D = QtWidgets.QDockWidget()
@@ -82,6 +86,7 @@ class ImageUdsData2or3D(GuiFrame):
         # Pereference Widget
         self.ui_preference = PreferenceIUD2or3D("Preference")
         self.ui_preference.save_settings.connect(self.saveSettings)
+        self.ui_preference.settings_changed.connect(self.preferenceSettingsChanged)
         
     def initCcUiLayout(self):
         self.ui_horizontalLayout.addWidget(self.ui_img_widget_main)
@@ -89,7 +94,12 @@ class ImageUdsData2or3D(GuiFrame):
         
     def initCcNonUiMembers(self):
         # Settings
-        self.settings = self.loadSettings()        
+        self.settings = self.loadSettings()
+        
+        #
+        self.sync_pick_points = False
+        self.sync_rt_points = False
+        self.sync_canvas_zoom = False
         
     def initCcMenuBar(self):
         # Actions
@@ -121,7 +131,7 @@ class ImageUdsData2or3D(GuiFrame):
     # from child windows
     @QtCore.pyqtSlot(int)
     def getMsgFromImgMainWidget(self, msgTypeIdx):
-        
+        # msg Type 
         if self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SELECT_USD_VARIABLE' :
             selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
             selected_var = self.uds_variable_pt_list[selected_var_index]
@@ -159,21 +169,56 @@ class ImageUdsData2or3D(GuiFrame):
                     
             self.updateVarList() 
         
-    def getMouseMoveMsgFromImgMainWidget(self, msgTypeIdx):
-        if msgTypeIdx ==1 and 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
-            x = self.ui_img_widget_main.msg_type[1][0]
-            y = self.ui_img_widget_main.msg_type[1][1]
-            self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
-    
-    def getPickedPointsMsgFromImgMainWidget(self, msgTypeIdx):
-        if msgTypeIdx ==2 and 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
-            picked_points_list = self.ui_img_widget_main.msg_type[2]
-            self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
-            
-            
-    
-    
-    
+        # msg Type - CANVAS_MOUSE_MOVED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_MOVED':
+            if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+                x = self.ui_img_widget_main.selected_data_pt_x
+                y = self.ui_img_widget_main.selected_data_pt_y
+                self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
+            if self.sync_rt_points or self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                self.ui_img_widget_slave.canvasMouseMoved(e_x, e_y)
+      
+        # msg Type - CANVAS_MOUSE_PRESSED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_PRESSED':
+            if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+                picked_points_list = self.ui_img_widget_main.img_picked_points_list
+                self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
+            if self.sync_pick_points or self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_b = self.ui_img_widget_main.mouse_event_button                
+                self.ui_img_widget_slave.canvasMousePressed(e_x, e_y, e_b)
+                
+        # msg Type - CANVAS_MOUSE_RELEASED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_RELEASED':
+            if self.sync_rt_points or self.sync_canvas_zoom:
+                e_b = self.ui_img_widget_main.mouse_event_button 
+                self.ui_img_widget_slave.canvasMouseReleased(e_b)
+        
+        # msg Type - CANVAS_WHEALED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_WHEALED':
+            if self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_a = self.ui_img_widget_main.mouse_event_angleDelta_y
+                self.ui_img_widget_slave.canvasWheeled(e_x, e_y, e_a)
+                
+        
+        # msg Type - REMOVE_SYNC_PICKED_POINTS  
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'REMOVE_SYNC_PICKED_POINTS':
+            if self.sync_pick_points:
+                self.ui_img_widget_slave.setImagePickedPoints(self.ui_img_widget_main.img_picked_points_list.copy())
+        
+        # msg Type - Sync layer
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_LAYER':
+            layer = self.ui_img_widget_main.img_current_layer
+            self.ui_img_widget_slave.setImageLayer(layer)
+        #
+        else:
+            print("Unknow msg type from main!", self.ui_img_widget_main.msg_type[msgTypeIdx])
+               
     @QtCore.pyqtSlot(int)
     def getMsgFromImgSlaveWidget(self, msgTypeIdx):
         
@@ -196,11 +241,17 @@ class ImageUdsData2or3D(GuiFrame):
                         self.uds_variable_name_prefix_list[i] = 's'
                     
             self.updateVarList() 
+        
+        #
+        else:
+            pass
             
     #
     def ui_lw_uds_variable_name_list_doulbeClicked(self):
         self.getMsgFromImgMainWidget(self.ui_img_widget_main.msg_type.index('SELECT_USD_VARIABLE'))
-        
+        if not self.ui_img_widget_main.isEnabled():
+            self.ui_img_widget_main.setEnabled(True)
+            self.ui_img_widget_slave.setEnabled(True)
         
             
     """ Regular Functions """
@@ -217,7 +268,50 @@ class ImageUdsData2or3D(GuiFrame):
     
     def saveSettings(self):
         ConfigManager.save_settings_to_file('./ScienceY/config/ImageUdsData2or3D.txt', self.settings)
-
+        
+    def preferenceSettingsChanged(self, st_type):
+        if st_type == 1: # Settings Type = 1, 'PALETTE_LIST'
+            self.ui_img_widget_main.set_palette_list()
+            self.ui_img_widget_slave.set_palette_list()
+        elif st_type == 2: # Settings Type = 2, 'SYNC_PICKED_POINTS'
+            sync_picked_points = self.settings['SYNC']['picked_points'] in ['True']
+            self.sync_pick_points = sync_picked_points
+        elif st_type == 3: # Settings Type = 3, 'SYNC_RT_POINTS'
+            sync_rt_point = self.settings['SYNC']['real_time_cursor'] in ['True']
+            self.sync_rt_points = sync_rt_point
+            self.ui_img_widget_main.setSyncRtPoint(sync_rt_point)
+            self.ui_img_widget_slave.setSyncRtPoint(sync_rt_point)
+            if not sync_rt_point:
+                self.ui_img_widget_main.updateImage()
+                self.ui_img_widget_slave.updateImage()
+        elif st_type == 4: # Settings Type = 4, 'SYNC_LAYER'
+            sync_layer = self.settings['SYNC']['layer'] in ['True']
+            self.ui_img_widget_slave.setImageSyncLayer(sync_layer)
+        elif st_type == 5: # Settings Type = 5, 'SYNC_CANVAS_ZOOM'
+            sync_canvas_zoom = self.settings['SYNC']['canvas_view_zoom'] in ['True']
+            self.sync_canvas_zoom = sync_canvas_zoom
+        elif st_type == 6: # Settings Type = 6, 'LOCK_FIXED_DATA_SCALE_MAIN'
+            data_scale_fixed = self.settings['LOCK']['data_scale_fixed_main'] in ['True']
+            self.ui_img_widget_main.setScaleWidgetDataScaleFixed(data_scale_fixed)
+        elif st_type == 7: # Settings Type = 7, 'LOCK_FIXED_DATA_SCALE_SLAVE'
+            data_scale_fixed = self.settings['LOCK']['data_scale_fixed_slave'] in ['True']
+            self.ui_img_widget_slave.setScaleWidgetDataScaleFixed(data_scale_fixed)        
+        elif st_type == 8: # Settings Type = 7, 'FACOTR_SIGMA'
+            sigma_default = float(self.settings['FACTOR']['sigma'])
+            self.ui_img_widget_main.setScaleWidgetSigmaDefault(sigma_default)
+            self.ui_img_widget_slave.setScaleWidgetSigmaDefault(sigma_default)
+        elif st_type == 9: # Settings Type = 8, 'FACOTR_FFT_AUTO_SCALE'
+            fft_auto_scale_factor = float(self.settings['FACTOR']['fft_auto_scale_factor'])
+            self.ui_img_widget_main.setScaleWidgetFFTAutoScaleFactor(fft_auto_scale_factor)
+            self.ui_img_widget_slave.setScaleWidgetFFTAutoScaleFactor(fft_auto_scale_factor)
+        elif st_type == 10: # Settings Type = 9, 'FACOTR_SLIDER_ZOOM'
+            zoom_factor = float(self.settings['FACTOR']['slider_scale_zoom_factor'])
+            self.ui_img_widget_main.setScaleWidgetZoomFactor(zoom_factor)
+            self.ui_img_widget_slave.setScaleWidgetZoomFactor(zoom_factor)
+        else:
+            print("Unknow Settings Type!")
+       
+       
             
     """ *************************************************************** """
     """ INDICATION: MODIFY THE FOLLOWING CODE UNTIL INDICATED IF NEEDED """
@@ -501,14 +595,15 @@ class ImageUdsData2or3D(GuiFrame):
             
             # Read the image from the in-memory buffer and append to the list of frames
             frame = imageio.imread(buf)
-            frames.append(frame)
+            for frame_repeat in range(10):
+                frames.append(frame)
             
             buf.close()
                   
         # Write the frames to a video file
         file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
         if file_path:
-            imageio.mimsave(file_path, frames, fps=30)
+            imageio.mimsave(file_path, frames, fps=60)
         
         #
         self.ui_img_widget_slave.imageLayerChangedSlotConnect()
