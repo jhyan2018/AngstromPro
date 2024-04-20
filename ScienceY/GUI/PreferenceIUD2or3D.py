@@ -321,8 +321,12 @@ class PreferenceIUD2or3D(QtWidgets.QMainWindow):
     def setSyncRtPoints(self):
         if self.ui_cb_sync_rt_points.isChecked():
             self.settings['SYNC']['real_time_cursor'] = 'True'
+            if not self.ui_cb_sync_canvas_zoom.isChecked():
+                self.ui_cb_sync_canvas_zoom.setChecked(True)
         else:
             self.settings['SYNC']['real_time_cursor'] = 'False'
+            if self.ui_cb_sync_canvas_zoom.isChecked():
+                self.ui_cb_sync_canvas_zoom.setChecked(False)
         self.settings_changed.emit(3) # Settings Type = 3, 'SYNC_RT_POINTS'
     
     def setSyncLayer(self):
@@ -335,8 +339,12 @@ class PreferenceIUD2or3D(QtWidgets.QMainWindow):
     def setSyncCanvasZoom(self):
         if self.ui_cb_sync_canvas_zoom.isChecked():
             self.settings['SYNC']['canvas_view_zoom'] = 'True'
+            if not self.ui_cb_sync_rt_points.isChecked():
+                self.ui_cb_sync_rt_points.setChecked(True)
         else:
             self.settings['SYNC']['canvas_view_zoom'] = 'False'
+            if self.ui_cb_sync_rt_points.isChecked():
+                self.ui_cb_sync_rt_points.setChecked(False)
         self.settings_changed.emit(5) # Settings Type = 5, 'SYNC_CANVAS_ZOOM'
         
     def setLockFixedDataScaleMain(self):

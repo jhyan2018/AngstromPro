@@ -65,10 +65,12 @@ class ImageUdsData2or3D(GuiFrame):
         self.ui_img_widget_main = ImageUdsData2or3DWidget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- MAIN ---</b>")
         self.ui_img_widget_main.sendMsgSignal.connect(self.getMsgFromImgMainWidget)
+        self.ui_img_widget_main.setEnabled(False)
         
         self.ui_img_widget_slave = ImageUdsData2or3DWidget()
         self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- SLAVE ---</b>")
         self.ui_img_widget_slave.sendMsgSignal.connect(self.getMsgFromImgSlaveWidget)
+        self.ui_img_widget_slave.setEnabled(False)
         
         # dockWiget Plot1D
         self.ui_dockWidget_plot1D = QtWidgets.QDockWidget()
@@ -92,7 +94,12 @@ class ImageUdsData2or3D(GuiFrame):
         
     def initCcNonUiMembers(self):
         # Settings
-        self.settings = self.loadSettings()        
+        self.settings = self.loadSettings()
+        
+        #
+        self.sync_pick_points = False
+        self.sync_rt_points = False
+        self.sync_canvas_zoom = False
         
     def initCcMenuBar(self):
         # Actions
@@ -124,7 +131,7 @@ class ImageUdsData2or3D(GuiFrame):
     # from child windows
     @QtCore.pyqtSlot(int)
     def getMsgFromImgMainWidget(self, msgTypeIdx):
-        # msg Type 1
+        # msg Type 
         if self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SELECT_USD_VARIABLE' :
             selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
             selected_var = self.uds_variable_pt_list[selected_var_index]
@@ -162,21 +169,48 @@ class ImageUdsData2or3D(GuiFrame):
                     
             self.updateVarList() 
         
-        # msg Type 2 SYNC_RT_POINTS
-        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_RT_POINTS':
+        # msg Type - CANVAS_MOUSE_MOVED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_MOVED':
             if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
                 x = self.ui_img_widget_main.selected_data_pt_x
                 y = self.ui_img_widget_main.selected_data_pt_y
                 self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
-        
-        # msg Type 3 SYNC_PICKED_POINTS
-        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_PICKED_POINTS':
+            if self.sync_rt_points or self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                self.ui_img_widget_slave.canvasMouseMoved(e_x, e_y)
+      
+        # msg Type - CANVAS_MOUSE_PRESSED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_PRESSED':
             if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
                 picked_points_list = self.ui_img_widget_main.img_picked_points_list
                 self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
-            
-            self.ui_img_widget_slave.setImagePickedPoints(self.ui_img_widget_main.img_picked_points_list.copy())
-            
+            if self.sync_pick_points or self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_b = self.ui_img_widget_main.mouse_event_button                
+                self.ui_img_widget_slave.canvasMousePressed(e_x, e_y, e_b)
+                
+        # msg Type - CANVAS_MOUSE_RELEASED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_RELEASED':
+            if self.sync_rt_points or self.sync_canvas_zoom:
+                e_b = self.ui_img_widget_main.mouse_event_button 
+                self.ui_img_widget_slave.canvasMouseReleased(e_b)
+        
+        # msg Type - CANVAS_WHEALED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_WHEALED':
+            if self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_a = self.ui_img_widget_main.mouse_event_angleDelta_y
+                self.ui_img_widget_slave.canvasWheeled(e_x, e_y, e_a)
+                
+        
+        # msg Type - REMOVE_SYNC_PICKED_POINTS  
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'REMOVE_SYNC_PICKED_POINTS':
+            if self.sync_pick_points:
+                self.ui_img_widget_slave.setImagePickedPoints(self.ui_img_widget_main.img_picked_points_list.copy())
+        
         # msg Type - Sync layer
         elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_LAYER':
             layer = self.ui_img_widget_main.img_current_layer
@@ -215,7 +249,9 @@ class ImageUdsData2or3D(GuiFrame):
     #
     def ui_lw_uds_variable_name_list_doulbeClicked(self):
         self.getMsgFromImgMainWidget(self.ui_img_widget_main.msg_type.index('SELECT_USD_VARIABLE'))
-        
+        if not self.ui_img_widget_main.isEnabled():
+            self.ui_img_widget_main.setEnabled(True)
+            self.ui_img_widget_slave.setEnabled(True)
         
             
     """ Regular Functions """
@@ -239,14 +275,21 @@ class ImageUdsData2or3D(GuiFrame):
             self.ui_img_widget_slave.set_palette_list()
         elif st_type == 2: # Settings Type = 2, 'SYNC_PICKED_POINTS'
             sync_picked_points = self.settings['SYNC']['picked_points'] in ['True']
-            self.ui_img_widget_slave.setImageSyncPickedPoints(sync_picked_points)
+            self.sync_pick_points = sync_picked_points
         elif st_type == 3: # Settings Type = 3, 'SYNC_RT_POINTS'
-            pass
+            sync_rt_point = self.settings['SYNC']['real_time_cursor'] in ['True']
+            self.sync_rt_points = sync_rt_point
+            self.ui_img_widget_main.setSyncRtPoint(sync_rt_point)
+            self.ui_img_widget_slave.setSyncRtPoint(sync_rt_point)
+            if not sync_rt_point:
+                self.ui_img_widget_main.updateImage()
+                self.ui_img_widget_slave.updateImage()
         elif st_type == 4: # Settings Type = 4, 'SYNC_LAYER'
             sync_layer = self.settings['SYNC']['layer'] in ['True']
             self.ui_img_widget_slave.setImageSyncLayer(sync_layer)
         elif st_type == 5: # Settings Type = 5, 'SYNC_CANVAS_ZOOM'
-            pass
+            sync_canvas_zoom = self.settings['SYNC']['canvas_view_zoom'] in ['True']
+            self.sync_canvas_zoom = sync_canvas_zoom
         elif st_type == 6: # Settings Type = 6, 'LOCK_FIXED_DATA_SCALE_MAIN'
             data_scale_fixed = self.settings['LOCK']['data_scale_fixed_main'] in ['True']
             self.ui_img_widget_main.setScaleWidgetDataScaleFixed(data_scale_fixed)
