@@ -140,8 +140,8 @@ class LoadSxm():
         header.update({'yPixels': yPixels})
         if 'Lock-in>Amplitude' in header.keys():
             header['Lock-in>Amplitude'] = float(header['Lock-in>Amplitude'])
-        if 'Bias>Bias (V)' in header.keys():
-            header['Bias>Bias (V)'] = float(header['Bias>Bias (V)'])
+        if 'BIAS' in header.keys():
+            header['BIAS'] = float(header['BIAS'])
         if 'Current>Current (A)'in header.keys():
             header['Current>Current (A)'] = float(header['Current>Current (A)'])
         if 'Z-CONTROLLER' in header.keys():
@@ -204,10 +204,10 @@ class Data3dsStru():
     
     def setDataInfo(self, single_layer=True):
         info = []
-        if 'Current>Current (A)' in self.header.keys():
+        if 'current>current (a)' in self.header.keys():
             current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
             info.append('Current Setpoint(A)='+current)
-        if 'Bias>Bias (V)' in self.header.keys():
+        if 'bias>bias (v)' in self.header.keys():
             bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
             info.append('Bias Setpoint(V)=' + bias)
         if not single_layer:
@@ -320,10 +320,10 @@ class DataSxmStru():
     def setDataInfo(self):
         info = []
         if 'Current>Current (A)' in self.header.keys():
-            current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
+            current = NumberExpression.float_to_simplified_number(self.header['Current>Current (A)'])
             info.append('Current Setpoint(A)='+current)
-        if 'Bias>Bias (V)' in self.header.keys():
-            bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
+        if 'BIAS' in self.header.keys():
+            bias = NumberExpression.float_to_simplified_number(self.header['BIAS'])
             info.append('Bias Setpoint(V)=' + bias)
         
         return info
