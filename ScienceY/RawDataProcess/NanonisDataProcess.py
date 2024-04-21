@@ -14,8 +14,8 @@ import re
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
-
+from .UdsDataProcess import UdsDataStru3D
+from ..GUI.general.NumberExpression import NumberExpression
 """
 Class Definition
 """
@@ -181,24 +181,41 @@ put the data into a Data Structure
 ## Data structure of 3ds file
 class Data3dsStru():
     
-    def __init__(self, path):
+    def __init__(self, path, name):
         lData = Load3ds(path)
         self.header = lData.header
         self.data3D = lData.data3D
-        self.name = path.split('.')[-2].split('/')[-1]
+        self.name = name
         self.layerValue = self.get_Layer_Value()
         
     def get_Layer_Value(self):
         points = self.header['points']
         Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
         Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
-        layer_value = np.zeros((points))
+        layer_value_list = []
         
         for i in range(points):
-            layer_value[i] = ((self.data3D[Sweep_end_index, 0, 0] - self.data3D[Sweep_start_index, 0, 0]) / (points - 1) * i + self.data3D[Sweep_start_index, 0, 0])
+            value = (self.data3D[Sweep_end_index, 0, 0] - self.data3D[Sweep_start_index, 0, 0]) / (points - 1) * i + self.data3D[Sweep_start_index, 0, 0]
+            layer_value_list.append(NumberExpression.float_to_simplified_number(value))
+        separator = ','
+        layer_value = separator.join(layer_value_list)
         
         return layer_value
     
+    def setDataInfo(self, single_layer=True):
+        info = []
+        if 'Current>Current (A)' in self.header.keys():
+            current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
+            info.append('Current Setpoint(A)='+current)
+        if 'Bias>Bias (V)' in self.header.keys():
+            bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
+            info.append('Bias Setpoint(V)=' + bias)
+        if not single_layer:
+            info.append( 'LayerSignal=' + self.header['sweep signal'])
+            info.append('LayerValue=' + self.layerValue)
+        
+        return info
+        
     # return the number n layer dIdV data
     def get_dIdV_data(self):
         
@@ -220,13 +237,9 @@ class Data3dsStru():
         ###
         uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
         
-        # get the Layer Value
-        uds_dIdV.info['LayerSignal'] = self.header['sweep signal']
-        uds_dIdV.info['LayerValue'] = self.layerValue
-        if 'Current>Current (A)' in self.header.keys():
-            uds_dIdV.info['Current Setpoint(A)'] = self.header['current>current (a)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_dIdV.info['Bias Setpoint(V)'] = self.header['bias>bias (v)']
+        #
+        uds_dIdV.info = self.setDataInfo(False)
+        
         return uds_dIdV
     
     
@@ -246,12 +259,10 @@ class Data3dsStru():
         
         ###
         uds_Topo = UdsDataStru3D(Topo[np.newaxis,:,:], 'uds3D_' + self.name+'_Topo')
-        uds_Topo.info['LayerSignal'] = 'Bias(V)'
-        uds_Topo.info['LayerValue'] = [self.header['bias>bias (v)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Topo.info['Current Setpoint(A)'] = self.header['current>current (a)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Topo.info['Bias Setpoint(V)'] = self.header['bias>bias (v)']
+        
+        #
+        uds_Topo.info = self.setDataInfo()
+        
         return uds_Topo
     
     def get_Phase(self):
@@ -268,13 +279,12 @@ class Data3dsStru():
         dIdV_Y = self.data3D[Y_index : Y_index+points, :, :]
         phase = np.arctan2(dIdV_Y, dIdV_X)
         
+        #
         uds_Phase = UdsDataStru3D(phase, 'uds3D_'+self.name+'_Phase')
-        uds_Phase.info['LayerSignal'] = self.header['sweep signal']
-        uds_Phase.info['LayerValue'] = self.layerValue
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Phase.info['Current Setpoint(A)'] = self.header['current>current (a)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Phase.info['Bias Setpoint(V)'] = self.header['bias>bias (v)']
+        
+        #
+        uds_Phase.info = self.setDataInfo(False)
+        
         return uds_Phase
     
     def get_Current(self):
@@ -290,12 +300,10 @@ class Data3dsStru():
           
         ###
         uds_Current = UdsDataStru3D(Current, 'uds3D_'+self.name+'_Current')
-        uds_Current.info['LayerSignal'] = self.header['sweep signal']
-        uds_Current.info['LayerValue'] = self.layerValue
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Current.info['Current Setpoint(A)'] = self.header['current>current (a)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Current.info['Bias Setpoint(V)'] = self.header['bias>bias (v)']
+        
+        #
+        uds_Current.info = self.setDataInfo(False)
+        
         return uds_Current
 
 
@@ -303,24 +311,33 @@ class Data3dsStru():
 ## Data structure of sxm file
 class DataSxmStru():
     
-    def __init__(self, path):
+    def __init__(self, path, name):
         lData = LoadSxm(path)
         self.header = lData.header
         self.data3D = lData.data3D
-        self.name = path.split('.')[-2].split('/')[-1]
+        self.name = name
         
+    def setDataInfo(self):
+        info = []
+        if 'Current>Current (A)' in self.header.keys():
+            current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
+            info.append('Current Setpoint(A)='+current)
+        if 'Bias>Bias (V)' in self.header.keys():
+            bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
+            info.append('Bias Setpoint(V)=' + bias)
+        
+        return info
+    
     def get_Topo_fwd(self):
         
         index = self.header['channels'].index('Z')
         Topo_fwd = self.data3D[index, :, :]
         ###
         uds_Topo_fwd = UdsDataStru3D(Topo_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_fwd')
-        uds_Topo_fwd.info['LayerSignal'] = 'Bias (V)'
-        uds_Topo_fwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Topo_fwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Topo_fwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_Topo_fwd.info = self.setDataInfo()
+        
         return uds_Topo_fwd
     
     
@@ -334,14 +351,11 @@ class DataSxmStru():
         
         ###
         uds_Topo_bwd = UdsDataStru3D(Topo_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_bwd')
-        uds_Topo_bwd.info['LayerSignal'] = 'Bias (V)'
-        uds_Topo_bwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Topo_bwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Topo_bwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
-        return uds_Topo_bwd
-    
+        
+        #
+        uds_Topo_bwd.info = self.setDataInfo()
+        
+        return uds_Topo_bwd   
     
     def get_dIdV_fwd(self):
         
@@ -355,15 +369,12 @@ class DataSxmStru():
         
         ###
         uds_dIdV_fwd = UdsDataStru3D(dIdV_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_fwd')
-        uds_dIdV_fwd.info['LayerSignal'] = 'Bias (V)'
-        uds_dIdV_fwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_dIdV_fwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_dIdV_fwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_dIdV_fwd.info = self.setDataInfo()
+        
         return uds_dIdV_fwd
-    
-    
+      
     def get_dIdV_bwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_X')
@@ -378,15 +389,12 @@ class DataSxmStru():
         
         ###
         uds_dIdV_bwd = UdsDataStru3D(dIdV_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_bwd')
-        uds_dIdV_bwd.info['LayerSignal'] = 'Bias (V)'
-        uds_dIdV_bwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_dIdV_bwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_dIdV_bwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_dIdV_bwd.info = self.setDataInfo()
+        
         return uds_dIdV_bwd
-    
-    
+      
     def get_dIdV_Y_fwd(self):
         
         index = self.header['channels'].index('LI_Demod_1_Y')
@@ -399,14 +407,11 @@ class DataSxmStru():
         
         ###
         uds_dIdV_Y_fwd = UdsDataStru3D(dIdV_Y_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_fwd')
-        uds_dIdV_Y_fwd.info['LayerSignal'] = 'Bias (V)'
-        uds_dIdV_Y_fwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_dIdV_Y_fwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_dIdV_Y_fwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
-        return uds_dIdV_Y_fwd
-    
+        
+        #
+        uds_dIdV_Y_fwd.info = self.setDataInfo()
+        
+        return uds_dIdV_Y_fwd  
 
     def get_dIdV_Y_bwd(self):
         
@@ -422,12 +427,10 @@ class DataSxmStru():
         
         ###
         uds_dIdV_Y_bwd = UdsDataStru3D(dIdV_Y_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_bwd')
-        uds_dIdV_Y_bwd.info['LayerSignal'] = 'Bias (V)'
-        uds_dIdV_Y_bwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_dIdV_Y_bwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_dIdV_Y_bwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_dIdV_Y_bwd.info = self.setDataInfo()
+        
         return uds_dIdV_Y_bwd    
     
     def get_theta(self):
@@ -439,12 +442,10 @@ class DataSxmStru():
         Theta = np.arctan2(dIdV_Y, dIdV_X)
         
         uds_Theta = UdsDataStru3D(Theta[np.newaxis,:,:], 'uds3D_'+self.name+'_theta')
-        uds_Theta.info['LayerSignal'] = 'Bias (V)'
-        uds_Theta.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Theta.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Theta.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_Theta.info = self.setDataInfo()
+        
         return uds_Theta
     
     
@@ -458,12 +459,10 @@ class DataSxmStru():
         
         ###
         uds_Current_fwd = UdsDataStru3D(Current_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_fwd')
-        uds_Current_fwd.info['LayerSignal'] = 'Bias (V)'
-        uds_Current_fwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Current_fwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Current_fwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_Current_fwd.info = self.setDataInfo()
+        
         return uds_Current_fwd
     
     def get_Current_bwd(self):
@@ -477,12 +476,10 @@ class DataSxmStru():
         
         ###
         uds_Current_bwd = UdsDataStru3D(Current_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_bwd')
-        uds_Current_bwd.info['LayerSignal'] = 'Bias (V)'
-        uds_Current_bwd.info['LayerValue'] = [self.header['Bias>Bias (V)']]
-        if 'Current>Current (A)' in self.header.keys():
-            uds_Current_bwd.info['Current Setpoint(A)'] = self.header['Current>Current (A)']
-        if 'Bias>Bias (V)' in self.header.keys():
-            uds_Current_bwd.info['Bias Setpoint(V)'] = self.header['Bias>Bias (V)']
+        
+        #
+        uds_Current_bwd.info = self.setDataInfo()
+        
         return uds_Current_bwd
 
 

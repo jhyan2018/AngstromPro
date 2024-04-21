@@ -8,7 +8,7 @@ Created on Tue Apr  9 16:04:58 2024
 """
 System modules
 """
-
+import math
 """
 Third-party Modules
 """
@@ -288,13 +288,28 @@ class ScaleWidget(QtWidgets.QWidget):
         d_l_l = self.data_lower_limit
         d_u_l = self.data_upper_limit
         
-        s_min = self.slider_min
-        s_max = self.slider_max
+        d_l_v_expnt = self.getFloatExponent(d_l_v)
+        d_u_v_expnt = self.getFloatExponent(d_u_v)
+        d_l_l_expnt = self.getFloatExponent(d_l_l)
+        d_u_l_expnt = self.getFloatExponent(d_u_l)
         
-        s_l_v = int((d_l_v - d_l_l) / (d_u_l - d_l_l) * (s_max - s_min)) + s_min
-        s_u_v = int((d_u_v - d_l_l) / (d_u_l - d_l_l) * (s_max - s_min)) + s_min        
+        exponents = [d_l_v_expnt, d_u_v_expnt, d_l_l_expnt, d_u_l_expnt]       
+        ept_min = min(exponents)
         
-        self.ui_rangeSlider.setValue(s_l_v, s_u_v)
+        if (not d_u_l - d_l_l == 0) and d_u_l_expnt + d_u_l_expnt > -40:
+            coeff = pow(10,ept_min)
+            d_l_v = d_l_v * coeff
+            d_u_v = d_u_v * coeff
+            d_l_l = d_l_l * coeff
+            d_u_l = d_u_l * coeff
+            
+            s_min = self.slider_min
+            s_max = self.slider_max
+
+            s_l_v = int((d_l_v - d_l_l) * (s_max - s_min) / (d_u_l - d_l_l) ) + s_min
+            s_u_v = int((d_u_v - d_l_l) * (s_max - s_min) / (d_u_l - d_l_l) ) + s_min        
+            
+            self.ui_rangeSlider.setValue(s_l_v, s_u_v)
         
     def setIndicators(self,d_lower_value, d_upper_value):
         sn_d_l_v = NumberExpression.float_to_simplified_number(d_lower_value)
@@ -302,3 +317,11 @@ class ScaleWidget(QtWidgets.QWidget):
         
         self.ui_le_data_lower_value.setText(sn_d_l_v)
         self.ui_le_data_upper_value.setText(sn_d_u_v)
+        
+    def getFloatExponent(self, value):
+        if value == 0:
+            exponent = 0
+        else:
+            exponent = math.floor(math.log10(abs(value)))
+        
+        return exponent

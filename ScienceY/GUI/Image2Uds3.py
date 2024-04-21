@@ -28,20 +28,20 @@ from .ProcessParameters import ProcessParameters
 from ..ImgProcCustomized import ImgProcCustomized
 
 from .GuiFrame import GuiFrame
-from .ImageUdsData2or3DWidget import ImageUdsData2or3DWidget
+from .Image2Uds3Widget import Image2Uds3Widget
 from .Plot1DWidget import Plot1DWidget
 from .ConfigManager import ConfigManager
-from .PreferenceIUD2or3D import PreferenceIUD2or3D
+from .PreferenceI2U3 import PreferenceI2U3
 
 
 """ *************************************** """
 """ DO NOT MODIFY THE REGION UNTIL INDICATED"""
 """ *************************************** """
 
-class ImageUdsData2or3D(GuiFrame):
+class Image2Uds3(GuiFrame):
     
     def __init__(self, wtype, index, *args, **kwargs):
-        super(ImageUdsData2or3D, self).__init__(wtype, index, *args, **kwargs)        
+        super(Image2Uds3, self).__init__(wtype, index, *args, **kwargs)        
         
         self.initCcUiMembers()
         self.initCcUiLayout()        
@@ -62,12 +62,12 @@ class ImageUdsData2or3D(GuiFrame):
             self.preferenceSettingsChanged(i+7)
       
     def initCcUiMembers(self):        
-        self.ui_img_widget_main = ImageUdsData2or3DWidget()
+        self.ui_img_widget_main = Image2Uds3Widget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- MAIN ---</b>")
         self.ui_img_widget_main.sendMsgSignal.connect(self.getMsgFromImgMainWidget)
         self.ui_img_widget_main.setEnabled(False)
         
-        self.ui_img_widget_slave = ImageUdsData2or3DWidget()
+        self.ui_img_widget_slave = Image2Uds3Widget()
         self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- SLAVE ---</b>")
         self.ui_img_widget_slave.sendMsgSignal.connect(self.getMsgFromImgSlaveWidget)
         self.ui_img_widget_slave.setEnabled(False)
@@ -84,7 +84,7 @@ class ImageUdsData2or3D(GuiFrame):
         self.ui_lw_uds_variable_name_list.doubleClicked.connect(self.ui_lw_uds_variable_name_list_doulbeClicked)
         
         # Pereference Widget
-        self.ui_preference = PreferenceIUD2or3D("Preference")
+        self.ui_preference = PreferenceI2U3("Preference")
         self.ui_preference.save_settings.connect(self.saveSettings)
         self.ui_preference.settings_changed.connect(self.preferenceSettingsChanged)
         

@@ -23,7 +23,7 @@ from matplotlib import colors,pyplot
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from .ScaleWidget import ScaleWidget
 from .general.NumberExpression import NumberExpression
 
@@ -64,11 +64,11 @@ class QtMatplotCanvas(FigureCanvas):
 
 
 
-class ImageUdsData2or3DWidget(QtWidgets.QWidget):
+class Image2Uds3Widget(QtWidgets.QWidget):
     sendMsgSignal = QtCore.pyqtSignal(int)
     
     def __init__(self, *args, **kwargs):
-        super(ImageUdsData2or3DWidget, self).__init__( *args, **kwargs)
+        super(Image2Uds3Widget, self).__init__( *args, **kwargs)
         
         self.initNonUiMembers()        
         self.initUiMembers()
@@ -317,7 +317,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def imageLayerChanged(self):                
         self.img_current_layer = self.ui_sb_image_layers.value()
         if len(self.uds_var_layer_value) > 0:
-            sn_text = NumberExpression.float_to_simplified_number(self.uds_var_layer_value[self.img_current_layer])
+            sn_text = self.uds_var_layer_value[self.img_current_layer]
             self.ui_le_layer_value.setText(sn_text)
         
         if self.uds_variable_type == 'fft':
@@ -556,6 +556,14 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     def setSyncRtPoint(self, sync_rt_point):
         self.sync_rt_points = sync_rt_point
             
+    def getLayerValue(self):
+        for info in self.uds_variable.info:
+            if 'LayerValue' in info:
+                layer_value_txt = info.split('=')[-1].split(',')
+                self.uds_var_layer_value.clear()
+                for v in layer_value_txt:                    
+                    self.uds_var_layer_value.append(v)      
+
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
         self.uds_variable = usd_variable
@@ -584,8 +592,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
             self.ui_sb_image_layers.setMinimum(0)
             self.ui_sb_image_layers.setMaximum(var_shape[0]-1)         
             #
-            if 'LayerValue' in self.uds_variable.info:
-                self.uds_var_layer_value = self.uds_variable.info['LayerValue'].copy()
+            self.getLayerValue()
                         
         #        
         self.st_img_xlim_l = 0
@@ -618,21 +625,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
     
     def updateDataInfo(self):
         self.ui_lw_uds_data_info.clear()
-        for i in self.uds_variable.info:
-            if i == 'LayerValue':
-                d_layer_value = self.uds_variable.info[i] #np array
-                d_layer_value_list = []
-                for n in range( len(d_layer_value) ):
-                    sn_text = NumberExpression().float_to_simplified_number(d_layer_value[n])
-                    d_layer_value_list.append(sn_text)
-                separator = ','
-                d_layer_value_str = separator.join(d_layer_value_list)
-                self.ui_lw_uds_data_info.addItem('%s:%s' % (i,d_layer_value_str))
-            elif i == 'Current Setpoint(A)' or i == 'Bias Setpoint(V)':
-                sn_text = NumberExpression().float_to_simplified_number(self.uds_variable.info[i])
-                self.ui_lw_uds_data_info.addItem('%s:%s' % (i,sn_text))
-            else:
-                self.ui_lw_uds_data_info.addItem('%s:%s' % (i,self.uds_variable.info[i]))
+        self.ui_lw_uds_data_info.addItems(self.uds_variable.info)
     
     def set_palette_list(self):
         self.ui_cb_img_palette_list.currentIndexChanged.disconnect()
@@ -694,7 +687,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         if self.sync_rt_points:
             mk_x = self.selected_data_pt_x
             mk_y = self.selected_data_pt_y
-            self.static_ax.scatter(mk_x, mk_y, s=200, linewidths=5, facecolors='none', edgecolors='r')
+            self.static_ax.scatter(mk_x, mk_y, s=100, linewidths=3, facecolors='none', edgecolors='r')
         
         # plot markers        
         pt_len = len(self.img_picked_points_list)

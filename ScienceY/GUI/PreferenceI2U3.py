@@ -26,12 +26,12 @@ from .customizedWidgets.SimplifiedNumberLineEditor import SimplifiedNumberLineEd
 Modules Definition
 """
 
-class PreferenceIUD2or3D(QtWidgets.QMainWindow):
+class PreferenceI2U3(QtWidgets.QMainWindow):
     save_settings = pyqtSignal()
     settings_changed = pyqtSignal(int)
     
     def __init__(self,title='', *args, **kwargs):
-        super(PreferenceIUD2or3D, self).__init__(*args, **kwargs)        
+        super(PreferenceI2U3, self).__init__(*args, **kwargs)        
         self.setWindowTitle(title)
         self.initUiMembers()
         self.initUiLayout()

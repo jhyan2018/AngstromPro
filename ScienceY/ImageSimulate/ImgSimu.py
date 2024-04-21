@@ -15,7 +15,7 @@ import numpy as np
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 
 from .GenerateCurve2D import circle2D, gaussian2D, sinusoidal2D
 from .GenerateLattice2D import GenerateLattice2D

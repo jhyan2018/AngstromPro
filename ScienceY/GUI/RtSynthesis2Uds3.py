@@ -21,17 +21,17 @@ User Modules
 """
 
 from .GuiFrame import GuiFrame
-from .ImageUdsData2or3DWidget import ImageUdsData2or3DWidget
+from .Image2Uds3Widget import Image2Uds3Widget
 
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from ..ImageSimulate.GenerateCurve2D import sinusoidal2D
 """
 Function Modules
 """
 
-class RtSynthesis2D(GuiFrame):
+class RtSynthesis2Uds3(GuiFrame):
     def __init__(self, wtype, index, *args, **kwargs):
-        super(RtSynthesis2D, self).__init__(wtype, index, *args, **kwargs)        
+        super(RtSynthesis2Uds3, self).__init__(wtype, index, *args, **kwargs)        
         
         self.initCcNonUiMembers()
         self.initCcUiMembers()
@@ -44,7 +44,7 @@ class RtSynthesis2D(GuiFrame):
             
     """ Initializations"""        
     def initCcUiMembers(self):        
-        self.ui_img_widget_main = ImageUdsData2or3DWidget()
+        self.ui_img_widget_main = Image2Uds3Widget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- Synthesis ---</b>")
         #self.ui_img_widget_main.sendMsgSignal.connect(self.getMsgFromImgMainWidget)
         

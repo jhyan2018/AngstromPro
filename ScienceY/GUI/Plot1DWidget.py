@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 """
 User Modules
 """
-
+from .general.NumberExpression import NumberExpression
 
 '''' *************************************** '''
 '''         DO NOT MODIFY THIS FILE          '''
@@ -99,10 +99,13 @@ class Plot1DWidget(QtWidgets.QWidget):
     def setDataFromImage2or3D(self, uds_Var):
         self.uds_Var = uds_Var
         self.data_3D = self.uds_Var.data
-        if 'LayerValue' in uds_Var.info.keys():
-            if uds_Var.info['LayerValue'].shape[0] > 1:
-                self.energy = uds_Var.info['LayerValue'].copy()*1e3
-        
+        for info in uds_Var.info:
+            if 'LayerValue' in info:
+                layer_value_txt = info.split('=')[-1].split(',')
+                self.energy.clear()
+                for v in layer_value_txt:                    
+                    layer_value = NumberExpression.simplified_number_to_float(v)
+                    self.energy.append(layer_value)      
     
     def setXYFromImage2or3D(self, x, y):
         if self.ui_pb_real_time_dIdV.isChecked():

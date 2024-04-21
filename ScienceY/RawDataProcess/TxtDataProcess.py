@@ -13,7 +13,7 @@ import numpy as np
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from .UdsDataProcess import UdsDataStru3D
 
 """
 Class Definition

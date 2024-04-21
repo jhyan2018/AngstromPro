@@ -16,7 +16,7 @@ import numpy as np
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 
 """
 function Module
