@@ -22,7 +22,7 @@ User Modules
 from ScienceY.GUI import Image2Uds3, RtSynthesis2Uds3
 from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
-from ScienceY.RawDataProcess.UdsDataStru import UdsDataStru3D
+from ScienceY.RawDataProcess.UdsDataProcess import UdsDataProcess, UdsDataStru3D
 """
 Modules Definition
 """
@@ -377,16 +377,21 @@ class GuiVarManager(QtWidgets.QMainWindow):
         full_path = file[0]
         file_name = full_path.split('/')[-1].split('.')[0]
         file_type = full_path.split('/')[-1].split('.')[-1]
+        if '+' in file_name:
+            file_name = file_name.replace('+','p')
+        if '-' in file_name:
+            file_name = file_name.replace('-','n')
+
         
         if file_type == '3ds':
-            globals()['data3ds'] = NanonisDataProcess.Data3dsStru(full_path)  
+            globals()['data3ds'] = NanonisDataProcess.Data3dsStru(full_path, file_name)  
             #data3ds = NanonisDataProcess.Data3dsStru(full_path)            
             globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
             globals()['uds3D_'+file_name+'_dIdV'] = data3ds.get_dIdV_data()
             globals()['uds3D_'+file_name+'_Current'] = data3ds.get_Current()
             globals()['uds3D_'+file_name+'_Phase'] = data3ds.get_Phase()
         elif file_type == 'sxm':
-            globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path)
+            globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
             #dataSxm = NanonisDataProcess.DataSxmStru(full_path)
             globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
             globals()['uds3D_'+file_name+'_topo_bwd'] = dataSxm.get_Topo_bwd()
@@ -407,10 +412,33 @@ class GuiVarManager(QtWidgets.QMainWindow):
         else:
             pass
         
-    def saveToFile(self):
+    def saveToFile(self):                        
+        if self.ui_lw_uds_variable_name_list.count() < 1:
+            print('No variables.')
+            return -1
+        else:
+            print("Save to File")
         
-        print("Save to File")
+        data_path = self.settings['PATH']['data_path']
+        data_type ='Data Files (*.uds)'
         
+        c_row = self.ui_lw_uds_variable_name_list.currentRow()
+        data_name = self.uds_variable_name_list[c_row]
+        f_data_name = data_name[6:-1]
+        data_full_path = data_path + f_data_name
+        
+        file = QtWidgets.QFileDialog.getSaveFileName(self, "Save File", data_full_path, data_type)
+        full_path = file[0]
+        if full_path == '':
+            return -1
+        
+        file_type = full_path.split('/')[-1].split('.')[-1]
+        
+        if file_type == 'uds':
+            udp = UdsDataProcess(full_path, globals()[data_name])
+            udp.saveToFile()
+        else:
+            print('Unknown file type.')
 
     
     # creat new window
@@ -421,7 +449,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         w.sendDataSignal.connect(self.getDataFromWindows)
         
         self.alive_window_pt_list.append(w)        
-        self.alive_window_name_list.append('Image2or3D_'+str(self.created_window_counts))
+        self.alive_window_name_list.append('Image2U3_'+str(self.created_window_counts))
         
         self.updateAlivedWindowList()
         
@@ -432,7 +460,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         w.sendDataSignal.connect(self.getDataFromWindows)
         
         self.alive_window_pt_list.append(w)        
-        self.alive_window_name_list.append('RtSynthesis 2D_'+str(self.created_window_counts))
+        self.alive_window_name_list.append('RtSynthesis2U3_'+str(self.created_window_counts))
         
         self.updateAlivedWindowList()
     

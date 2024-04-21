@@ -23,7 +23,7 @@ User Modules
 from .GuiFrame import GuiFrame
 from .Image2Uds3Widget import Image2Uds3Widget
 
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from ..ImageSimulate.GenerateCurve2D import sinusoidal2D
 """
 Function Modules

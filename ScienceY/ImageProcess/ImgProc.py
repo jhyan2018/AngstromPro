@@ -17,7 +17,7 @@ import numpy as np
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 
 from .BackgroundSubtract import backgroundSubtract2DPlane, backgroundSubtractPerLine
 from .PerfectLattice import LatticeType

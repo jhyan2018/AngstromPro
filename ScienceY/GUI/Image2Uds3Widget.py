@@ -23,7 +23,7 @@ from matplotlib import colors,pyplot
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataStru import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from .ScaleWidget import ScaleWidget
 from .general.NumberExpression import NumberExpression
 
