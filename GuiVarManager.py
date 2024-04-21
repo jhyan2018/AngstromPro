@@ -19,7 +19,7 @@ from PyQt5 import QtCore, QtWidgets
 """
 User Modules
 """
-from ScienceY.GUI import ImageUdsData2or3D, RtSynthesis2D
+from ScienceY.GUI import Image2Uds3, RtSynthesis2Uds3
 from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
 from ScienceY.RawDataProcess.UdsDataStru import UdsDataStru3D
@@ -417,18 +417,18 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def newImage2or3DWindow(self):
         self.created_window_counts += 1
         
-        w = ImageUdsData2or3D('Image 2or3D_', self.created_window_counts)
+        w = Image2Uds3('Image2U3_', self.created_window_counts)
         w.sendDataSignal.connect(self.getDataFromWindows)
         
         self.alive_window_pt_list.append(w)        
-        self.alive_window_name_list.append('Image 2or3D_'+str(self.created_window_counts))
+        self.alive_window_name_list.append('Image2or3D_'+str(self.created_window_counts))
         
         self.updateAlivedWindowList()
         
     def newRtSynthesis2D(self):
         self.created_window_counts += 1
         
-        w = RtSynthesis2D('RtSynthesis 2D_', self.created_window_counts)
+        w = RtSynthesis2Uds3('RtSynthesis2U3_', self.created_window_counts)
         w.sendDataSignal.connect(self.getDataFromWindows)
         
         self.alive_window_pt_list.append(w)        

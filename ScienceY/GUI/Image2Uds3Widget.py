@@ -64,11 +64,11 @@ class QtMatplotCanvas(FigureCanvas):
 
 
 
-class ImageUdsData2or3DWidget(QtWidgets.QWidget):
+class Image2Uds3Widget(QtWidgets.QWidget):
     sendMsgSignal = QtCore.pyqtSignal(int)
     
     def __init__(self, *args, **kwargs):
-        super(ImageUdsData2or3DWidget, self).__init__( *args, **kwargs)
+        super(Image2Uds3Widget, self).__init__( *args, **kwargs)
         
         self.initNonUiMembers()        
         self.initUiMembers()
@@ -694,7 +694,7 @@ class ImageUdsData2or3DWidget(QtWidgets.QWidget):
         if self.sync_rt_points:
             mk_x = self.selected_data_pt_x
             mk_y = self.selected_data_pt_y
-            self.static_ax.scatter(mk_x, mk_y, s=200, linewidths=5, facecolors='none', edgecolors='r')
+            self.static_ax.scatter(mk_x, mk_y, s=100, linewidths=3, facecolors='none', edgecolors='r')
         
         # plot markers        
         pt_len = len(self.img_picked_points_list)
