@@ -18,6 +18,7 @@ import numpy as np
 User Modules
 """
 from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
+from ..GUI.general.NumberExpression import NumberExpression
 
 from .BackgroundSubtract import backgroundSubtract2DPlane, backgroundSubtractPerLine
 from .PerfectLattice import LatticeType
@@ -31,6 +32,30 @@ from . StatisticCrossCorrelation import StatisticCrossCorrelation
 """
 function Module
 """
+def ipCopyDataInfo(data_info):
+    copied_info = []
+    for info in data_info:
+        if not info == 'BraggPeaks':
+            copied_info.append(info)
+    return copied_info
+
+def ipSetLayerValue(uds_data, layer_value_text):
+    for index, info in enumerate(uds_data.info):
+        if 'LayerValue' in info:
+            uds_data.info[index] = 'LayerValue='+layer_value_text
+
+def ipGetLayerValue(uds_data, isSnTxt=False):
+    layer_value = []
+    for info in uds_data.info:
+        if 'LayerValue' in info:
+            layer_value_txt = info.split('=')[-1].split(',')
+            for v in layer_value_txt:                    
+                if isSnTxt:
+                    layer_value.append(v)
+                else:
+                    v_text = NumberExpression.simplified_number_to_float(v)
+                    layer_value.append(v_text)
+    return layer_value
 
 def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
     data_processed = np.zeros_like(uds3D_data.data)
@@ -41,8 +66,8 @@ def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
             data_processed[i,:,:] = backgroundSubtractPerLine(uds3D_data.data[i,:,:], order)  
 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_bg')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -60,8 +85,8 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
         data_processed[i,:,:] = uds3D_data.data[i,r_topLeft:r_bottomRight, c_topLeft:c_bottomRight]
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_cp')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -77,7 +102,8 @@ def ipFourierTransform2D(uds3D_data):
         data_processed[i,:,:] = np.fft.fftshift( np.fft.fft2(uds3D_data.data[i,:,:]) )
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_fft')
-    uds3D_data_processed.info = uds3D_data.info.copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -103,9 +129,8 @@ def ipPerfectLattice(uds3D_data, lattice_type):
         print("Lattice type does not exist!")
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_pl')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
     
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -148,8 +173,10 @@ def ipCalculateDisplacementField(uds3D_data, rSigma_ref_a0):
     displacementField = lfc.calculateDisplacementField()
     
     uds3D_data_processed = UdsDataStru3D(displacementField, uds3D_data.name+'_df')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = [1.0, 1.0]
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    
+    ipSetLayerValue(uds3D_data_processed,'ux,uy')
     uds3D_data_processed.proc_history.append("ImgProc.ipCalculateDisplacementField:")
     
     return uds3D_data_processed
@@ -172,8 +199,8 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
         data_processed[i,:,:] = lfc.lFcorrection()
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_lf')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -195,8 +222,8 @@ def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     uds3D_dataCopy.data = data_processed
     
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_fo')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -221,8 +248,8 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
             uds3D_dataCopy.data[i,:,:] = uds3D_data.data[i,:,:] - data_processed[i,:,:]
     
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_fi')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -264,8 +291,8 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True,phas
         uds3D_data_analysed = UdsDataStru3D(data_analysed, uds3D_data.name+'_amp')
     elif MapType == 'Phase':
         uds3D_data_analysed = UdsDataStru3D(data_analysed, uds3D_data.name+'_pha')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_analysed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+    
+    uds3D_data_analysed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_analysed.proc_history.append(i)
@@ -289,8 +316,8 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
         print("Unrecogonized operator!")
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat'+ operator)
-    if 'LayerValue' in uds3D_data_A.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data_A.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data_A.info)
     if len(uds3D_data_A.proc_history) > 0:
         for i in uds3D_data_A.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -299,8 +326,8 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
     
     return uds3D_data_processed
 
-def ipRmap(uds3D_data):   
-    uds_var_layer_value = uds3D_data.info['LayerValue'].copy()
+def ipRmap(uds3D_data):   # layer value has problems
+    uds_var_layer_value = ipGetLayerValue(uds3D_data, False)
         
     rMap_layers_value = []
     for i in range(uds3D_data.data.shape[0]):
@@ -318,7 +345,13 @@ def ipRmap(uds3D_data):
                 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_rmp')
     
-    uds3D_data_processed.info['LayerValue'] = rMap_layers_value.copy()
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    rMap_layers_value_text = []
+    for v  in rMap_layers_value:
+        v_text = NumberExpression.float_to_simplified_number(v)
+        rMap_layers_value_text.append(v_text)
+    separator = ','
+    ipSetLayerValue(uds3D_data_processed, separator.join(rMap_layers_value_text))
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -334,7 +367,10 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     data_processed = GapMap(uds3D_data.data, uds3D_data.info['LayerValue'], order, enery_start, enery_end)  
 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_gm')
-    uds3D_data_processed.info['LayerValue'] = ['?']
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    if 'LayerValue' in uds3D_data_processed:
+        uds3D_data_processed.info['LayerValue'] = 'GapMap'
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -351,8 +387,8 @@ def ipRegister(uds3D_data):
     data_processed = Register(data3D, register_points, register_points_reference)
     
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_rg')
-    if 'LayerValue' in uds3D_data.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -367,8 +403,8 @@ def ipStatisticCrossCorrelation(uds3D_data1, uds3D_data2,size = 100, sigma = 3):
     data_processed = StatisticCrossCorrelation(data2Da, data2Db, size, sigma)
     
     uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xccorr')
-    if 'LayerValue' in uds3D_data1.info.keys():
-        uds3D_data_processed.info['LayerValue'] = uds3D_data1.info['LayerValue'].copy()
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
     if len(uds3D_data1.proc_history) > 0:
         for i in uds3D_data1.proc_history:
             uds3D_data_processed.proc_history.append(i)
