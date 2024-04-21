@@ -371,7 +371,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def loadFromFile(self):
         print("Load From File")
         data_path = self.settings['PATH']['data_path']
-        data_type ='Data Files (*.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
+        data_type ='Data Files (*.uds *.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
 
         file = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", data_path, data_type)
         full_path = file[0]
@@ -409,6 +409,10 @@ class GuiVarManager(QtWidgets.QMainWindow):
         elif file_type == 'txt':
             dataTxt = TxtDataProcess.DataTxtStru(full_path)   
             globals()['uds3D_'+file_name] = dataTxt.get_txt_data()
+        elif file_type == 'uds':
+            udp = UdsDataProcess(full_path)
+            uds_data = udp.readFromFile()
+            globals()[uds_data.name] = uds_data
         else:
             pass
         
@@ -435,8 +439,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
         file_type = full_path.split('/')[-1].split('.')[-1]
         
         if file_type == 'uds':
-            udp = UdsDataProcess(full_path, globals()[data_name])
-            udp.saveToFile()
+            udp = UdsDataProcess(full_path)
+            udp.saveToFile(globals()[data_name])
         else:
             print('Unknown file type.')
 

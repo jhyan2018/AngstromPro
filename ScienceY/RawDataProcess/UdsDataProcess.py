@@ -51,32 +51,95 @@ class UdsDataStru1D():
          self.proc_to_do = []
          
 class UdsDataProcess():
-    def __init__(self, path, uds_data):
+    def __init__(self, path):
         self.path = path
+        self.uds_data = 0
+        self.data_starter = 0
+        
+    def saveToFile(self, uds_data):        
         self.uds_data = uds_data
-        self.uds_type = self.uds_data.name[0:5]
-        
-    def saveToFile(self):
-        if self.uds_type == 'uds1D':
-            pass
-        
-        elif self.uds_type == 'uds2D':
-            pass
-        
-        elif self.uds_type == 'uds3D':
-            self.saveHead()
-            self.saveData()        
-        else:
-            pass
+        self.saveHead()
+        self.saveData()
     
     def readFromFile(self):
-        pass
+        f = open(self.path, 'rb')
+        
+        # name
+        name = f.readline().decode('utf-8').strip()
+        
+        # shape
+        shape_text = f.readline().decode('utf-8').strip().split('=')[-1].split(',')
+        shape = []
+        for s in shape_text:
+            shape.append(int(s))
+        
+        info_starter = f.tell()
+        
+        # data
+        while 1:
+            line = f.readline().decode().strip()
+            if line == ':HEADER_END:' :
+                self.data_starter = f.tell()
+                break
+        
+        raw_data1D = np.fromfile(f, dtype = np.complex128, count = -1)
+        
+        if len(shape) == 1: # 1D
+            data = raw_data1D.reshape((shape[0]))
+            self.uds_data = UdsDataStru1D(data, name)
+        elif len(shape) == 2: # 2D
+            data = raw_data1D.reshape((shape[0], shape[1]))
+            self.uds_data = UdsDataStru2D(data, name)
+        elif len(shape) == 3: # 3D
+            data = raw_data1D.reshape((shape[0], shape[1], shape[2]))
+            self.uds_data = UdsDataStru3D(data, name)
+            print('3D data readed!')
+        else:
+            print('Unknown shape of readed uds data.')
+            data = np.zeros((100,100))
+            self.uds_data = UdsDataStru3D(data, 'uds3D_'+name)
+        
+        # info
+        f.seek(info_starter, 0)
+        while 1:
+            line = f.readline().decode('utf-8').strip()
+            if line == ':INFO_END:' :
+                break
+            self.uds_data.info.append(line)
+        
+        # proc_history
+        while 1:
+            line = f.readline().decode('utf-8').strip()
+            if line == ':PROC_HISTORY_END:' :
+                break
+            self.uds_data.proc_history.append(line)
+            
+        # proc_to_do
+        while 1:
+            line = f.readline().decode('utf-8').strip()
+            if line == ':HEADER_END:' :
+                break
+            self.uds_data.proc_to_do.append(line)
+        
+        #
+        f.close()
+        
+        return self.uds_data
     
     def saveHead(self):
         f = open(self.path, 'wb')
         
+        #
         name = self.uds_data.name+'\n'
         f.write(name.encode('utf-8'))
+        
+        # data shape
+        shape_text = []
+        for n in self.uds_data.data.shape:
+            shape_text.append(str(n))
+        separator = ','
+        shape = 'Shape=' + separator.join(shape_text) + '\n'
+        f.write(shape.encode('utf-8'))
         
         #
         info = []
@@ -100,10 +163,16 @@ class UdsDataProcess():
             f.writelines(proc_to_do)
         f.write(':HEADER_END:\n'.encode('utf-8'))        
         
+        self.data_starter = f.tell()
         
         f.close()
     
     def saveData(self):
-        pass
+        f = open(self.path, 'ab')
+        f.seek(self.data_starter, 0)
+        
+        self.uds_data.data.tofile(f)
+        
+        f.close()
 
         
