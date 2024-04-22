@@ -75,6 +75,9 @@ class UdsDataProcess():
         
         info_starter = f.tell()
         
+        # data type
+        data_type = f.readline().decode('utf-8').strip().split('=')[-1]
+        
         # data
         while 1:
             line = f.readline().decode().strip()
@@ -82,7 +85,7 @@ class UdsDataProcess():
                 self.data_starter = f.tell()
                 break
         
-        raw_data1D = np.fromfile(f, dtype = np.complex128, count = -1)
+        raw_data1D = np.fromfile(f, dtype = data_type, count = -1)
         
         if len(shape) == 1: # 1D
             data = raw_data1D.reshape((shape[0]))
@@ -140,6 +143,10 @@ class UdsDataProcess():
         separator = ','
         shape = 'Shape=' + separator.join(shape_text) + '\n'
         f.write(shape.encode('utf-8'))
+        
+        # data type
+        data_type = 'DataType=' + self.uds_data.data.dtype.name + '\n'
+        f.write(data_type.encode('utf-8'))
         
         #
         info = []
