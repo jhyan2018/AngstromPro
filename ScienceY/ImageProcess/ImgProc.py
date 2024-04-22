@@ -8,6 +8,8 @@ Created on Sun Aug 13 18:19:39 2023
 """
 System modules
 """
+import sys, os
+import itertools
 """
 Third-party Modules
 """
@@ -19,6 +21,7 @@ from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from ..GUI.general.NumberExpression import NumberExpression
 
 from .BackgroundSubtract import backgroundSubtract2DPlane, backgroundSubtractPerLine
+from .PerfectLattice import LatticeType
 from .PerfectLattice import perfectLatticeSqure, perfectLatticeHexagonal
 from .FourierFilter import FourierFilter
 from .LockIn2D import LockIn2D
@@ -26,7 +29,6 @@ from .LFCorrection import LFCorrection
 from .GapMap import GapMap
 from .Register import Register
 from . StatisticCrossCorrelation import StatisticCrossCorrelation
-from . CrossCorrelation import CrossCorrelation
 """
 function Module
 """
@@ -79,7 +81,11 @@ def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
             
-    uds3D_data_processed.proc_history.append("ImgProc.ipBackgroundSubtract2D:order=%d" % (order))
+    #
+    c_history = 'ImgProc.ipBackgroundSubtract2D:'
+    c_history += 'order=' + str(order) + ';'
+    c_history += 'method=' + method
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
@@ -97,9 +103,13 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-            
-    uds3D_data_processed.proc_history.append("ImgProc.ipCropRegion2D:r_topLeft=%d,c_topLeft=%d,r_bottomRight=%d,c_bottomRight=%d" 
-                                             % (r_topLeft, c_topLeft, r_bottomRight, c_bottomRight))
+    #
+    c_history = 'ImgProc.ipCropRegion2D:'   
+    c_history += 'r_topLeft=' + str(r_topLeft) + ';'
+    c_history += 'c_topLeft=' + str(c_topLeft) + ';'
+    c_history += 'r_bottomRight=' + str(r_bottomRight) + ';'
+    c_history += 'c_bottomRight=' + str(c_bottomRight)
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
@@ -115,7 +125,9 @@ def ipFourierTransform2D(uds3D_data):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    uds3D_data_processed.proc_history.append("ImgProc.ipFourierTransform2D:")
+    #
+    c_history = 'ImgProc.ipFourierTransform2D:'
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
@@ -148,8 +160,11 @@ def ipPerfectLattice(uds3D_data, lattice_type):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    
-    uds3D_data_processed.proc_history.append("ImgProc.ipPerfectLattice:")
+    #
+    c_history = 'ImgProc.ipPerfectLattice:'
+    c_history += 'lattice_type=' + lattice_type + ';'
+    c_history += 'BraggPeaks=' + uds3D_data.info['BraggPeaks']
+    uds3D_data_processed.proc_history.append(c_history)
 
     return uds3D_data_processed
 
@@ -200,7 +215,12 @@ def ipCalculateDisplacementField(uds3D_data, rSigma_ref_a0):
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     
     uds3D_data_processed.info['LayerValue'] = '0,1'
-    uds3D_data_processed.proc_history.append("ImgProc.ipCalculateDisplacementField:")
+    
+    #
+    c_history = 'ImgProc.ipCalculateDisplacementField:'
+    c_history += 'rSigma_ref_a0=' + str(rSigma_ref_a0) + ';'
+    c_history += 'BraggPeaks=' + uds3D_data.info['BraggPeaks']
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
@@ -224,7 +244,7 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
     data_processed = np.zeros_like(uds3D_data.data)
     for i in range(uds3D_data.data.shape[0]):
         lfc = LFCorrection(uds3D_data.data[i,:,:], bPx1, bPy1, bPx2, bPy2, rSigma)    
-        lfc.setDisplacementField(displacementField)
+        lfc.setDisplacementField(displacementField.data)
         data_processed[i,:,:] = lfc.lFcorrection()
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_lf')
@@ -234,7 +254,12 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    uds3D_data_processed.proc_history.append("ImgProc.ipLFCorrection:")
+    #
+    c_history ='ImgProc.ipLFCorrection:'
+    c_history += 'rSigma_ref_a0=' + str(rSigma_ref_a0) + ';'
+    c_history += 'displacementField=' + displacementField.name + ';'
+    c_history += 'BraggPeaks=' + uds3D_data.info['BraggPeaks']
+    uds3D_data_processed.proc_history.append(c_history)
 
     return uds3D_data_processed 
     
@@ -256,8 +281,12 @@ def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    
-    uds3D_data_processed.proc_history.append("ImgProc.ipFourierFilterOut:")
+    #
+    c_history ='ImgProc.ipFourierFilterOut:'
+    c_history += 'windowType=' + windowType + ';'
+    c_history += 'kSigma=' + str(kSigma) + ';'
+    c_history += 'FilterPoints=' + uds3D_data.info['FilterPoints']
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed    
     
@@ -289,8 +318,12 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    
-    uds3D_data_processed.proc_history.append("ImgProc.ipFourierFilterIsolate:")
+    #
+    c_history ='ImgProc.ipFourierFilterIsolate:'
+    c_history += 'windowType=' + windowType + ';'
+    c_history += 'kSigma=' + str(kSigma) + ';'
+    c_history += 'FilterPoints=' + uds3D_data.info['FilterPoints']
+    uds3D_data_processed.proc_history.append(c_history)
 
     return uds3D_data_processed
     
@@ -301,15 +334,15 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True,phas
     O_kx = (N - N%2)/2
     O_ky = (N - N%2)/2
     
-    LockinPoints = ipGetPickedPoints(uds3D_data, 'LockInPoints')
-    if len(LockinPoints) == 0:
+    BraggPeaks = ipGetPickedPoints(uds3D_data, 'BraggPeaks')
+    if len(BraggPeaks) == 0:
         uds3D_data_err = UdsDataStru3D(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
         uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
         return uds3D_data_err
     
-    for i in range(LockinPoints.shape[0]):
-        bPx = LockinPoints[i][0]
-        bPy = LockinPoints[i][1]
+    for i in range(BraggPeaks.shape[0]):
+        bPx = BraggPeaks[i][0]
+        bPy = BraggPeaks[i][1]
         
         bP = np.sqrt( (bPx-O_kx)**2 + (bPy-O_ky)**2 )
         
@@ -340,7 +373,16 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True,phas
         for i in uds3D_data.proc_history:
             uds3D_data_analysed.proc_history.append(i)
     
-    uds3D_data_analysed.proc_history.append("ImgProc.ipLockIn2D:")
+    #
+    c_history ='ImgProc.ipLockIn2D:'
+    c_history += 'px=' + str(px) + ';'
+    c_history += 'py=' + str(py) + ';'
+    c_history += 'rSigma_ref_a0=' + str(rSigma_ref_a0) + ';'
+    c_history += 'MapType=' + MapType + ';'
+    c_history += 'phaseUnwrap=' + str(phaseUnwrap) + ';'
+    c_history += 'phaseReverseFactor=' + str(phaseReverseFactor) + ';'
+    c_history += 'BraggPeaks=' + uds3D_data.info['BraggPeaks']
+    uds3D_data_analysed.proc_history.append(c_history)
     
     return uds3D_data_analysed
     
@@ -365,11 +407,15 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
         for i in uds3D_data_A.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    uds3D_data_processed.proc_history.append("ImgProc.ipMath:"+operator+uds3D_data_B.name)
+    #
+    c_history ='ImgProc.ipMath:'
+    c_history += 'operator=' + operator + ';'
+    c_history += 'uds3D_data_B=' + uds3D_data_B.name     
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
-def ipRmap(uds3D_data):   # layer value has problems
+def ipRmap(uds3D_data):
     uds_var_layer_value = ipGetLayerValue(uds3D_data, False)
         
     rMap_layers_value = []
@@ -400,7 +446,9 @@ def ipRmap(uds3D_data):   # layer value has problems
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    uds3D_data_processed.proc_history.append("ImgProc.ipRmap:")
+    #
+    c_history ='ImgProc.ipRmap:'
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
@@ -411,7 +459,7 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
         uds3D_data_err = UdsDataStru3D(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
         uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
         return uds3D_data_err
-    print(layer_value)
+
     data_processed = GapMap(uds3D_data.data, layer_value, order, enery_start, enery_end)  
 
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_gm')
@@ -422,8 +470,13 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-            
-    uds3D_data_processed.proc_history.append("ImgProc.ipGamMap:order=%d" % (order))
+    
+    #
+    c_history ='ImgProc.ipGapMap:'
+    c_history += 'order=' + str(order) + ';'
+    c_history += 'enery_start=' + str(enery_start) + ';'
+    c_history += 'enery_end=' + str(enery_end)
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
         
@@ -449,8 +502,12 @@ def ipRegister(uds3D_data):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-            
-    uds3D_data_processed.proc_history.append("ImgProc.Register: register points: {0}, register reference points: {1}".format(register_points, register_points_reference))
+    
+    #
+    c_history ='ImgProc.ipRegister:'
+    c_history += 'RegisterPoints=' + uds3D_data.info['RegisterPoints'] + ';'
+    c_history += 'RegisterReferencePoints=' + uds3D_data.info['RegisterReferencePoints']
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
@@ -459,30 +516,19 @@ def ipStatisticCrossCorrelation(uds3D_data1, uds3D_data2,size = 100, sigma = 3):
     data2Db = uds3D_data2.data[0,:,:]
     data_processed = StatisticCrossCorrelation(data2Da, data2Db, size, sigma)
     
-    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_sxcorr')
+    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xccorr')
     
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
     if len(uds3D_data1.proc_history) > 0:
         for i in uds3D_data1.proc_history:
             uds3D_data_processed.proc_history.append(i)
-            
-    uds3D_data_processed.proc_history.append("ImgProc.SXCORR: size: {0}, sigma: {1}".format(size, sigma))
     
-    return uds3D_data_processed
-
-def ipCrossCorrelation(uds3D_data1, uds3D_data2):
-    data2Da = uds3D_data1.data[0,:,:]
-    data2Db = uds3D_data2.data[0,:,:]
-    data_processed = CrossCorrelation(data2Da, data2Db)
-    
-    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xcorr')
-    
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
-    if len(uds3D_data1.proc_history) > 0:
-        for i in uds3D_data1.proc_history:
-            uds3D_data_processed.proc_history.append(i)
-            
-    uds3D_data_processed.proc_history.append("ImgProc.XCORR")
+    #
+    c_history ='ImgProc.ipStatisticCrossCorrelation:'
+    c_history += 'uds3D_data2=' + uds3D_data2.name + ';' 
+    c_history += 'size=' + str(size) + ';'
+    c_history += 'sigma=' + str(sigma)
+    uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
     
