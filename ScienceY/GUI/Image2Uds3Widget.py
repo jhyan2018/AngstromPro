@@ -557,12 +557,8 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.sync_rt_points = sync_rt_point
             
     def getLayerValue(self):
-        for info in self.uds_variable.info:
-            if 'LayerValue' in info:
-                layer_value_txt = info.split('=')[-1].split(',')
-                self.uds_var_layer_value.clear()
-                for v in layer_value_txt:                    
-                    self.uds_var_layer_value.append(v)      
+        layer_value_txt = self.uds_variable.info['LayerValue']
+        self.uds_var_layer_value = layer_value_txt.split(',')
 
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
@@ -585,7 +581,7 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         
         #
         var_shape = np.shape(self.uds_variable.data)
-        self.uds_var_layer_value = []        
+      
         if len(var_shape) < 3:            
             print("error data shape")       
         else:       
@@ -625,7 +621,11 @@ class Image2Uds3Widget(QtWidgets.QWidget):
     
     def updateDataInfo(self):
         self.ui_lw_uds_data_info.clear()
-        self.ui_lw_uds_data_info.addItems(self.uds_variable.info)
+        info_list = []
+        for i in self.uds_variable.info:
+            v = self.uds_variable.info[i]
+            info_list.append(i + '=' + v)
+        self.ui_lw_uds_data_info.addItems(info_list)
     
     def set_palette_list(self):
         self.ui_cb_img_palette_list.currentIndexChanged.disconnect()

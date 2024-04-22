@@ -203,16 +203,16 @@ class Data3dsStru():
         return layer_value
     
     def setDataInfo(self, single_layer=True):
-        info = []
+        info = dict()
         if 'current>current (a)' in self.header.keys():
             current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
-            info.append('Current Setpoint(A)='+current)
+            info['Current Setpoint(A)'] = current
         if 'bias>bias (v)' in self.header.keys():
             bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
-            info.append('Bias Setpoint(V)=' + bias)
+            info['Bias Setpoint(V)'] =  bias
         if not single_layer:
-            info.append( 'LayerSignal=' + self.header['sweep signal'])
-            info.append('LayerValue=' + self.layerValue)
+            info['LayerSignal'] = self.header['sweep signal']
+            info['LayerValue'] = self.layerValue
         
         return info
         
@@ -318,13 +318,13 @@ class DataSxmStru():
         self.name = name
         
     def setDataInfo(self):
-        info = []
+        info = dict()
         if 'Current>Current (A)' in self.header.keys():
             current = NumberExpression.float_to_simplified_number(self.header['Current>Current (A)'])
-            info.append('Current Setpoint(A)='+current)
+            info['Current Setpoint(A)'] = current
         if 'BIAS' in self.header.keys():
             bias = NumberExpression.float_to_simplified_number(self.header['BIAS'])
-            info.append('Bias Setpoint(V)=' + bias)
+            info['Bias Setpoint(V)'] = bias
         
         return info
     

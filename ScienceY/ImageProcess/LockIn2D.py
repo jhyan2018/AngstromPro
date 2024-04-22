@@ -28,7 +28,7 @@ class LockIn2D():
         N = data2D.shape[-1]
         kSigma = N / (2 * np.pi * rSigma)
         kFactor = 2 * np.pi * (rSigma**2)
-        print("2D Lockin KSigma:", kSigma)
+        #print("2D Lockin KSigma:", kSigma)
         
         kGaussian = kFactor * gaussian2D(N, kSigma)
         
