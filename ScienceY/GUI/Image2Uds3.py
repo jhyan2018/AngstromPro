@@ -359,9 +359,7 @@ class Image2Uds3(GuiFrame):
         mathMenu.addAction(self.mathSubtract)
         mathMenu.addAction(self.mathMultiply)
         mathMenu.addAction(self.mathDivide)
-        
         processMenu.addAction(self.imageProcessCustomized)
-
         
         # Analysis Menu
         analysisMenu.addAction(self.fourierTransform)
@@ -370,6 +368,9 @@ class Image2Uds3(GuiFrame):
         lockIn2DMenu.addAction(self.lockIn2DPhaseMap)
         analysisMenu.addAction(self.rMap)
         analysisMenu.addAction(self.gapMap)
+        crossCorrMenu = analysisMenu.addMenu("Cross-Correlation")        
+        crossCorrMenu.addAction(self.crossCorrelation)
+        crossCorrMenu.addAction(self.statisticCrossCorrelation)
         
         # Points Menu
         pointsMenu.addAction(self.setBraggPeaks)
@@ -437,6 +438,8 @@ class Image2Uds3(GuiFrame):
         self.lockIn2DPhaseMap = QtWidgets.QAction("Phase Map",self)
         self.rMap = QtWidgets.QAction("R-Map",self)
         self.gapMap = QtWidgets.QAction("Gap-Map",self)
+        self.crossCorrelation = QtWidgets.QAction('Cross Correlation',self)
+        self.statisticCrossCorrelation = QtWidgets.QAction('Statistic Cross Correlation',self)
         
         # Points Menu
         self.setBraggPeaks = QtWidgets.QAction("Set Bragg Peaks",self)
@@ -494,6 +497,8 @@ class Image2Uds3(GuiFrame):
         self.lockIn2DPhaseMap.triggered.connect(self.actLockIn2DPhaseMap)
         self.rMap.triggered.connect(self.actRMap)
         self.gapMap.triggered.connect(self.actGapMap)
+        self.crossCorrelation.triggered.connect(self.actCrossCorrelation)
+        self.statisticCrossCorrelation.triggered.connect(self.actStatisticCrossCorrelation)
         
         # Points Menu
         self.setBraggPeaks.triggered.connect(self.actSetBraggPeaks)
@@ -984,6 +989,47 @@ class Image2Uds3(GuiFrame):
 
         #
         self.clearWidgetsContents()
+    
+    def actCrossCorrelation(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipCrossCorrelation(self.uds_variable_pt_list[ct_var_index_main], 
+                                                        self.uds_variable_pt_list[ct_var_index_slave]) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actStatisticCrossCorrelation(self):
+        self.status_bar.showMessage("Params(size = 100, sigma = 3)",5000)
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        size = 100
+        sigma = 3
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                size = int(params[0])
+            elif param_numbers == 2:
+                size = int(params[0])
+                sigma = int(params[1])
+        # process
+        uds_data_processed = ImgProc.ipStatisticCrossCorrelation(self.uds_variable_pt_list[ct_var_index_main], 
+                                                                 self.uds_variable_pt_list[ct_var_index_slave],size, sigma) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+
     
     # Points Menu
     def actSetBraggPeaks(self):     

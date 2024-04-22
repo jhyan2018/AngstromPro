@@ -8,8 +8,6 @@ Created on Sun Aug 13 18:19:39 2023
 """
 System modules
 """
-import sys, os
-import itertools
 """
 Third-party Modules
 """
@@ -21,7 +19,6 @@ from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from ..GUI.general.NumberExpression import NumberExpression
 
 from .BackgroundSubtract import backgroundSubtract2DPlane, backgroundSubtractPerLine
-from .PerfectLattice import LatticeType
 from .PerfectLattice import perfectLatticeSqure, perfectLatticeHexagonal
 from .FourierFilter import FourierFilter
 from .LockIn2D import LockIn2D
@@ -29,6 +26,7 @@ from .LFCorrection import LFCorrection
 from .GapMap import GapMap
 from .Register import Register
 from . StatisticCrossCorrelation import StatisticCrossCorrelation
+from . CrossCorrelation import CrossCorrelation
 """
 function Module
 """
@@ -461,14 +459,30 @@ def ipStatisticCrossCorrelation(uds3D_data1, uds3D_data2,size = 100, sigma = 3):
     data2Db = uds3D_data2.data[0,:,:]
     data_processed = StatisticCrossCorrelation(data2Da, data2Db, size, sigma)
     
-    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xccorr')
+    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_sxcorr')
     
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
     if len(uds3D_data1.proc_history) > 0:
         for i in uds3D_data1.proc_history:
             uds3D_data_processed.proc_history.append(i)
             
-    uds3D_data_processed.proc_history.append("ImgProc.XCORR: size: {0}, sigma: {}".format(size, sigma))
+    uds3D_data_processed.proc_history.append("ImgProc.SXCORR: size: {0}, sigma: {1}".format(size, sigma))
+    
+    return uds3D_data_processed
+
+def ipCrossCorrelation(uds3D_data1, uds3D_data2):
+    data2Da = uds3D_data1.data[0,:,:]
+    data2Db = uds3D_data2.data[0,:,:]
+    data_processed = CrossCorrelation(data2Da, data2Db)
+    
+    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xcorr')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
+    if len(uds3D_data1.proc_history) > 0:
+        for i in uds3D_data1.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.proc_history.append("ImgProc.XCORR")
     
     return uds3D_data_processed
     
