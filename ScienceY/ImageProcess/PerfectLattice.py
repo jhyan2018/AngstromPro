@@ -8,8 +8,6 @@ Created on Mon Aug 14 17:44:40 2023
 """
 System modules
 """
-import sys, os
-import itertools
 """
 Third-party Modules
 """
@@ -18,20 +16,9 @@ import numpy as np
 User Modules
 """
 from .GeometricOperation import AffineTransform
-
 """
 function Module
 """
-
-
-class LatticeType():
-    sampleTolatticeDict = {
-        'Cuprate':'SquareLattice',
-        'BSCCO':'SquareLattice',
-        'NaCCOC':'SquareLattice',
-        'NbSe2':'HexagonalLattice',
-        'TiSe2':'HexagonalLattice'
-        }
         
     
 def perfectLatticeSqure(data3D, bPx1, bPy1, bPx2, bPy2):
