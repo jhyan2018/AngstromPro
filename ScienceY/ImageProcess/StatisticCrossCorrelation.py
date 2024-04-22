@@ -21,6 +21,27 @@ User Modules
 function Module
 """
 def StatisticCrossCorrelation(data2Da, data2Db, size = 100, sigma = 3):
+    '''
+    Parameters
+    ----------
+    data2Da : image in main
+        The horizontal axis
+    data2Db : image in slave
+        The vertical axis, need to be registered with image in main
+    size : the pixels in processed image
+        DESCRIPTION. The default is 100.
+    sigma :  the Certain number of standard deviations
+        Selecting data that falls within a certain number of standard deviations 
+        from the mean in the datasets main and slave. The default is 3.
+
+    Returns
+    -------
+    statis_result : statistic cross correlation
+        The origin is the point at the bottom left of the image
+        the horizontal axis represents the intensity of the data in main
+        and the vertical axis represents the intensity of the data in slave
+
+    '''
     data_r = data2Da.shape[0]
     data_c = data2Da.shape[1]
     n = sigma
