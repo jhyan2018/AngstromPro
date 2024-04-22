@@ -428,7 +428,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         c_row = self.ui_lw_uds_variable_name_list.currentRow()
         data_name = self.uds_variable_name_list[c_row]
-        f_data_name = data_name[6:-1]
+        f_data_name = data_name[6: len(data_name)]
         data_full_path = data_path + f_data_name
         
         file = QtWidgets.QFileDialog.getSaveFileName(self, "Save File", data_full_path, data_type)

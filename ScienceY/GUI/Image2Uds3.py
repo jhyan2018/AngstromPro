@@ -972,9 +972,8 @@ class Image2Uds3(GuiFrame):
         points = len (self.ui_img_widget_slave.img_picked_points_list)
         picked_points = []
         if   points > 1:
-            for pt in self.ui_img_widget_slave.img_picked_points_list:
-                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
-
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
                 
             self.uds_variable_pt_list[bp_var_index].info['BraggPeaks'] = picked_points
             
