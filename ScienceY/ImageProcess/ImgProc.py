@@ -29,6 +29,7 @@ from .LFCorrection import LFCorrection
 from .GapMap import GapMap
 from .Register import Register
 from . StatisticCrossCorrelation import StatisticCrossCorrelation
+from . CrossCorrelation import CrossCorrelation
 """
 function Module
 """
@@ -516,18 +517,37 @@ def ipStatisticCrossCorrelation(uds3D_data1, uds3D_data2,size = 100, sigma = 3):
     data2Db = uds3D_data2.data[0,:,:]
     data_processed = StatisticCrossCorrelation(data2Da, data2Db, size, sigma)
     
-    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xccorr')
+    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_sxcorr')
     
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
     if len(uds3D_data1.proc_history) > 0:
         for i in uds3D_data1.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    
+            
     #
     c_history ='ImgProc.ipStatisticCrossCorrelation:'
     c_history += 'uds3D_data2=' + uds3D_data2.name + ';' 
     c_history += 'size=' + str(size) + ';'
     c_history += 'sigma=' + str(sigma)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+def ipCrossCorrelation(uds3D_data1, uds3D_data2):
+    data2Da = uds3D_data1.data[0,:,:]
+    data2Db = uds3D_data2.data[0,:,:]
+    data_processed = CrossCorrelation(data2Da, data2Db)
+    
+    uds3D_data_processed = UdsDataStru3D(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xcorr')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
+    if len(uds3D_data1.proc_history) > 0:
+        for i in uds3D_data1.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    #
+    c_history ='ImgProc.ipCrossCorrelation:'
+    c_history += 'uds3D_data2=' + uds3D_data2.name
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
