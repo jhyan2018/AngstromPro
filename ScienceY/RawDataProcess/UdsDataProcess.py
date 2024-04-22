@@ -28,7 +28,7 @@ class UdsDataStru3D():
     def __init__(self,data3D,name):        
         self.data = np.copy(data3D)
         self.name = name
-        self.info = []
+        self.info = dict()
         self.proc_history = []
         self.proc_to_do = []
 
@@ -37,7 +37,7 @@ class UdsDataStru2D():
      def __init__(self,data2D,name):        
          self.data = np.copy(data2D)
          self.name = name
-         self.info = []
+         self.info = dict()
          self.proc_history = []
          self.proc_to_do = []
         
@@ -46,7 +46,7 @@ class UdsDataStru1D():
      def __init__(self,data1D,name):        
          self.data = np.copy(data1D)
          self.name = name
-         self.info = []
+         self.info = dict()
          self.proc_history = []
          self.proc_to_do = []
          
@@ -73,10 +73,10 @@ class UdsDataProcess():
         for s in shape_text:
             shape.append(int(s))
         
-        info_starter = f.tell()
-        
         # data type
         data_type = f.readline().decode('utf-8').strip().split('=')[-1]
+        
+        info_starter = f.tell()
         
         # data
         while 1:
@@ -108,7 +108,9 @@ class UdsDataProcess():
             line = f.readline().decode('utf-8').strip()
             if line == ':INFO_END:' :
                 break
-            self.uds_data.info.append(line)
+            key = line.split('=')[0]
+            value = line.split('=')[1]
+            self.uds_data.info[key] = value
         
         # proc_history
         while 1:
@@ -152,7 +154,8 @@ class UdsDataProcess():
         info = []
         if len(self.uds_data.info) > 0:
             for i in self.uds_data.info:
-                info.append((i + '\n').encode('utf-8'))
+                v = self.uds_data.info[i]
+                info.append((i + '=' + v + '\n').encode('utf-8'))
             f.writelines(info)            
         f.write(':INFO_END:\n'.encode('utf-8'))
         

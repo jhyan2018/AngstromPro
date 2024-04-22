@@ -271,9 +271,10 @@ class GuiVarManager(QtWidgets.QMainWindow):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
                 
         dataName = self.uds_variable_name_list[ct_var_index]
-        dataCopy = UdsDataStru3D(globals()[dataName].data, globals()[dataName].name)        
-        dataCopy.proc_history = globals()[dataName].proc_history
-        dataCopy.info = globals()[dataName].info
+        dataCopy = UdsDataStru3D(globals()[dataName].data, globals()[dataName].name)  
+        dataCopy.info = globals()[dataName].info.copy()
+        dataCopy.proc_history = globals()[dataName].proc_history.copy()
+        dataCopy.proc_to_do = globals()[dataName].proc_to_do.copy()
         
         self.alive_window_pt_list[ct_w_index].appendToLocalVarList(dataCopy)
     

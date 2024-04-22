@@ -131,7 +131,7 @@ class Image2Uds3(GuiFrame):
     # from child windows
     @QtCore.pyqtSlot(int)
     def getMsgFromImgMainWidget(self, msgTypeIdx):
-        # msg Type 
+        # msg Type SELECT_USD_VARIABLE
         if self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SELECT_USD_VARIABLE' :
             selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
             selected_var = self.uds_variable_pt_list[selected_var_index]
@@ -750,7 +750,10 @@ class Image2Uds3(GuiFrame):
         self.appendToLocalVarList(uds_data_processed)
         
     def actLineCut(self):
-        self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'])
+        if 'LineCutPoints' in self.ui_img_widget_main.uds_variable.info:
+            self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'])
+        else:
+            print('No - LineCutPoints - keys exists.')
         
     def actFourierFilterOut(self):
         self.status_bar.showMessage("Params(kSigma=1.0)",5000)
@@ -881,6 +884,22 @@ class Image2Uds3(GuiFrame):
         #
         self.clearWidgetsContents()
     
+    def actGetPickedPoints(self, uds_data, info_key):
+        if info_key in uds_data.info:
+            Points_text = uds_data.info[info_key].split(',')
+            Points=[]
+            for p in Points_text:
+                Points.append( int(p) )
+            Points_array = np.array(Points)
+            
+            pn = int(len(Points_array)/2)
+            Points_array = Points_array.reshape(pn, 2)
+        else:
+            print('No - ', info_key,' - keys exist!')
+            Points_array = np.array([])
+            
+        return Points_array
+    
     def actLockIn2D(self, MapType, phaseUnwrap=True):
         self.status_bar.showMessage("Params(rSigma_ref_a0=1.0)",5000)
         
@@ -891,22 +910,24 @@ class Image2Uds3(GuiFrame):
         rSigma_ref_a0 = 1.0
         if len(params) != 0:
             rSigma_ref_a0 = float(params.split(',')[0])
-            
-        # get pixles of Q vector for 2D Lock-in
-        for i in range(len(self.uds_variable_pt_list[ct_var_index].info['LockInPoints'])):
-            lPx = self.uds_variable_pt_list[ct_var_index].info['LockInPoints'][i][0]
-            lPy = self.uds_variable_pt_list[ct_var_index].info['LockInPoints'][i][1]
         
-            # analyse
-            uds_data_analysed = ImgProc.ipLockIn2D(self.uds_variable_pt_list[ct_var_index], lPx, lPy, rSigma_ref_a0, MapType, phaseUnwrap)
+        LockinPoints = self.actGetPickedPoints(self.uds_variable_pt_list[ct_var_index], 'LockInPoints')
+        if not len(LockinPoints) == 0:
+            # get pixles of Q vector for 2D Lock-in
+            for i in range(LockinPoints.shape[0]):
+                lPx = LockinPoints[i][0]
+                lPy = LockinPoints[i][1]
             
-            # save corresponding Q vector
-            Q_lockin = []
-            Q_lockin.append((lPx,lPy))
-            uds_data_analysed.info['LockInPoints'] = Q_lockin
-            
-            # update var list
-            self.appendToLocalVarList(uds_data_analysed)
+                # analyse
+                uds_data_analysed = ImgProc.ipLockIn2D(self.uds_variable_pt_list[ct_var_index], lPx, lPy, rSigma_ref_a0, MapType, phaseUnwrap)
+                
+                # save corresponding Q vector
+                Q_lockin = []
+                Q_lockin.append((lPx,lPy))
+                uds_data_analysed.info['LockInPoints'] = str(lPx) + ',' + str(lPy)
+                
+                # update var list
+                self.appendToLocalVarList(uds_data_analysed)
             
         #
         self.clearWidgetsContents()
@@ -970,7 +991,6 @@ class Image2Uds3(GuiFrame):
         bp_var_index = self.uds_variable_name_list.index(var_name)
         
         points = len (self.ui_img_widget_slave.img_picked_points_list)
-        picked_points = []
         if   points > 1:
             separator = ','
             picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
@@ -990,10 +1010,9 @@ class Image2Uds3(GuiFrame):
         bp_var_index = self.uds_variable_name_list.index(var_name)
         
         points = len (self.ui_img_widget_main.img_picked_points_list)
-        picked_points = []
         if   points > 1:
-            for pt in self.ui_img_widget_main.img_picked_points_list:
-                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_main.img_picked_points_list)
 
             self.uds_variable_pt_list[bp_var_index].info['LineCutPoints'] = picked_points
             
@@ -1008,10 +1027,9 @@ class Image2Uds3(GuiFrame):
         bp_var_index = self.uds_variable_name_list.index(var_name)
         
         points = len (self.ui_img_widget_main.img_picked_points_list)
-        picked_points = []
         if   points > 1:
-            for pt in self.ui_img_widget_main.img_picked_points_list:
-                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_main.img_picked_points_list)
 
             self.uds_variable_pt_list[bp_var_index].info['RegisterPoints'] = picked_points
             
@@ -1024,38 +1042,26 @@ class Image2Uds3(GuiFrame):
         var_name_main = self.ui_img_widget_main.uds_variable.name
         bp_var_index_main = self.uds_variable_name_list.index(var_name_main)
         
-        var_name_slave = self.ui_img_widget_slave.uds_variable.name
-        bp_var_index_slave = self.uds_variable_name_list.index(var_name_slave)
-        
         points = len (self.ui_img_widget_slave.img_picked_points_list)
-        picked_points = []
         if   points > 1:
-            for pt in self.ui_img_widget_slave.img_picked_points_list:
-                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
 
             self.uds_variable_pt_list[bp_var_index_main].info['RegisterReferencePoints'] = picked_points
-            self.uds_variable_pt_list[bp_var_index_slave].info['RegisterReferencePoints'] = picked_points
             
             if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index_main].name:
                 self.ui_img_widget_main.uds_variable.info['RegisterReferencePoints'] = picked_points
-                self.ui_img_widget_main.updateDataInfo()
-            if self.ui_img_widget_slave.uds_variable.name == self.uds_variable_pt_list[bp_var_index_slave].name:
-                self.ui_img_widget_slave.uds_variable.info['RegisterReferencePoints'] = picked_points
-                self.ui_img_widget_slave.updateDataInfo()
-    
-    
+                self.ui_img_widget_main.updateDataInfo()    
     
     def actSetFilterPoints(self):
         var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
         ft_var_index = self.uds_variable_name_list.index(var_name)
         
         points = len (self.ui_img_widget_slave.img_picked_points_list)
-        picked_points = []
         if   points > 0:
-            for pt in self.ui_img_widget_slave.img_picked_points_list:
-                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
-
-                
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
+              
             self.uds_variable_pt_list[ft_var_index].info['FilterPoints'] = picked_points
             
             #
@@ -1071,12 +1077,10 @@ class Image2Uds3(GuiFrame):
         ft_var_index = self.uds_variable_name_list.index(var_name)
         
         points = len (self.ui_img_widget_slave.img_picked_points_list)
-        picked_points = []
         if   points > 0:
-            for pt in self.ui_img_widget_slave.img_picked_points_list:
-                picked_points.append( (int(pt.split(',')[0]), int(pt.split(',')[1])) )
-
-                
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
+             
             self.uds_variable_pt_list[ft_var_index].info['LockInPoints'] = picked_points
             
             #
