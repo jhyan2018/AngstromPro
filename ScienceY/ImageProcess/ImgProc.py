@@ -8,8 +8,6 @@ Created on Sun Aug 13 18:19:39 2023
 """
 System modules
 """
-import sys, os
-import itertools
 """
 Third-party Modules
 """
@@ -21,7 +19,6 @@ from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from ..GUI.general.NumberExpression import NumberExpression
 
 from .BackgroundSubtract import backgroundSubtract2DPlane, backgroundSubtractPerLine
-from .PerfectLattice import LatticeType
 from .PerfectLattice import perfectLatticeSqure, perfectLatticeHexagonal
 from .FourierFilter import FourierFilter
 from .LockIn2D import LockIn2D
