@@ -213,7 +213,8 @@ class Data3dsStru():
         if not single_layer:
             info['LayerSignal'] = self.header['sweep signal']
             info['LayerValue'] = self.layerValue
-        
+        else:
+            info['LayerValue'] = bias
         return info
         
     # return the number n layer dIdV data
@@ -325,6 +326,7 @@ class DataSxmStru():
         if 'BIAS' in self.header.keys():
             bias = NumberExpression.float_to_simplified_number(self.header['BIAS'])
             info['Bias Setpoint(V)'] = bias
+        info['LayerValue'] = bias
         
         return info
     

@@ -738,7 +738,7 @@ class Image2Uds3(GuiFrame):
             
             # process
             df_var_index = self.uds_variable_name_list.index( self.uds_variable_pt_list[ct_var_index].name+'_df' )
-            displacementField = self.uds_variable_pt_list[df_var_index].data
+            displacementField = self.uds_variable_pt_list[df_var_index]
             uds_data_processed = ImgProc.ipLFCorrection(self.uds_variable_pt_list[ct_var_index], rSigma_ref_a0, displacementField)        
         else:
             # process

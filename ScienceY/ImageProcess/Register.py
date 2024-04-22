@@ -30,7 +30,7 @@ def Register(data3D, register_points, register_points_reference):
        from the main window
     
     '''
-    rPoints = register_points + register_points_reference
+    rPoints = np.concatenate((register_points, register_points_reference), axis=0)
     
     affine = AffineTransform()
     affine.setAffineMatrixFrom3PairsRpoints(rPoints)
