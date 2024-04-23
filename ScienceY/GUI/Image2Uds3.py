@@ -101,6 +101,9 @@ class Image2Uds3(GuiFrame):
         self.sync_rt_points = False
         self.sync_canvas_zoom = False
         
+        #
+        self.canvas_size_factor = 0.33
+        
     def initCcMenuBar(self):
         # Actions
         self.creat_actions()
@@ -123,7 +126,7 @@ class Image2Uds3(GuiFrame):
         screens = QtWidgets.QApplication.screens()                
         for s in screens:
             if s == QtWidgets.QApplication.screenAt(self.pos()):                
-                width = int(0.33 * (s.size().width() + s.size().height())/2/16)*16
+                width = int(self.canvas_size_factor * (s.size().width() + s.size().height())/2/16)*16
                 height = width
                 self.ui_img_widget_main.setCanvasWidgetSize(width, height)
                 self.ui_img_widget_slave.setCanvasWidgetSize(width, height)
@@ -315,6 +318,9 @@ class Image2Uds3(GuiFrame):
             zoom_factor = float(self.settings['FACTOR']['slider_scale_zoom_factor'])
             self.ui_img_widget_main.setScaleWidgetZoomFactor(zoom_factor)
             self.ui_img_widget_slave.setScaleWidgetZoomFactor(zoom_factor)
+        elif st_type == 11: # Settings Type = 11, 'FACTOR_CANVAS_SIZE'
+            canvas_size_factor = float(self.settings['CANVAS']['canvas_size_factor'])
+            self.canvas_size_factor = canvas_size_factor
         else:
             print("Unknow Settings Type!")
        
