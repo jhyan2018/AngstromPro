@@ -675,7 +675,7 @@ class Image2Uds3(GuiFrame):
             
             #make points of region to be a square and even
             sideLen = min(c_bottomRight - c_topLeft, r_bottomRight - r_topLeft)
-            if not sideLen % 2 == 0:
+            if not (sideLen + 1) % 2 == 0:
                 sideLen -= 1
             c_bottomRight = c_topLeft + sideLen
             r_bottomRight = r_topLeft + sideLen
