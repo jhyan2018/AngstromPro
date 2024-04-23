@@ -398,7 +398,7 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
     else:
         print("Unrecogonized operator!")
         
-    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat'+ operator)
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat')
     
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data_A.info)
     if len(uds3D_data_A.proc_history) > 0:

@@ -185,12 +185,19 @@ class Image2Uds3(GuiFrame):
             if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
                 picked_points_list = self.ui_img_widget_main.img_picked_points_list
                 self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
-            if self.sync_pick_points or self.sync_canvas_zoom:
+            if self.sync_pick_points:
                 e_x = self.ui_img_widget_main.mouse_event_x
                 e_y = self.ui_img_widget_main.mouse_event_y
-                e_b = self.ui_img_widget_main.mouse_event_button                
-                self.ui_img_widget_slave.canvasMousePressed(e_x, e_y, e_b)
-                
+                e_b = self.ui_img_widget_main.mouse_event_button
+                if e_b == 'RIGHT_BUTTON':
+                    self.ui_img_widget_slave.canvasMousePressedRightButton(e_x, e_y)
+            if self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_b = self.ui_img_widget_main.mouse_event_button
+                if e_b == 'LEFT_BUTTON':
+                    self.ui_img_widget_slave.canvasMousePressedLeftButton(e_x, e_y)
+                    
         # msg Type - CANVAS_MOUSE_RELEASED
         elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_RELEASED':
             if self.sync_rt_points or self.sync_canvas_zoom:
