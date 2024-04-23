@@ -88,12 +88,12 @@ def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
     return uds3D_data_processed
 
 def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRight):
-    r_side_len = r_bottomRight - r_topLeft
-    c_side_len = c_bottomRight - c_topLeft
+    r_side_len = r_bottomRight - r_topLeft + 1
+    c_side_len = c_bottomRight - c_topLeft + 1
     
     data_processed = np.zeros((uds3D_data.data.shape[0], r_side_len, c_side_len))
     for i in range(uds3D_data.data.shape[0]):
-        data_processed[i,:,:] = uds3D_data.data[i,r_topLeft:r_bottomRight, c_topLeft:c_bottomRight]
+        data_processed[i,:,:] = uds3D_data.data[i,r_topLeft:r_bottomRight+1, c_topLeft:c_bottomRight+1]
         
     uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_cp')
     
@@ -398,7 +398,7 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
     else:
         print("Unrecogonized operator!")
         
-    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat'+ operator)
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_mat')
     
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data_A.info)
     if len(uds3D_data_A.proc_history) > 0:

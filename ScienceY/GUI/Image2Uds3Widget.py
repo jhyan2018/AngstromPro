@@ -431,33 +431,43 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_MOVED'))
         
     def canvasMousePressed(self, event_x, event_y, event_button):
-        self.mouse_event_x = event_x
-        self.mouse_event_y = event_y
         self.mouse_event_button = event_button
         
         if event_button == 'RIGHT_BUTTON':
-            self.canvasSelectedPixToDataPix(event_x, event_y)
-            
-            self.img_picked_points_list.append('%d,%d' % (self.selected_data_pt_x,self.selected_data_pt_y))
-            self.ui_lw_img_picked_points.clear()
-            self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
-            self.ui_lw_img_picked_points.setCurrentRow(len(self.img_picked_points_list)-1)
-                        
-            self.updateImage()
-            
-            self.mouse_right_button_released = False
+            self.canvasMousePressedRightButton(event_x, event_y)
         elif event_button == 'LEFT_BUTTON':
-            self.canvasSelectedPixToDataPix(event_x, event_y)
-            
-            self.mouse_cord_x = int(event_x)
-            self.mouse_cord_y = int(event_y)
-            
-            self.mouse_left_button_released = False
+            self.canvasMousePressedLeftButton(event_x, event_y)
         else:
             print('Unknown button pressed.')
             
+    def canvasMousePressedRightButton(self, event_x, event_y):
+        self.mouse_event_x = event_x
+        self.mouse_event_y = event_y
+        self.canvasSelectedPixToDataPix(event_x, event_y)
+           
+        self.img_picked_points_list.append('%d,%d' % (self.selected_data_pt_x,self.selected_data_pt_y))
+        self.ui_lw_img_picked_points.clear()
+        self.ui_lw_img_picked_points.addItems(self.img_picked_points_list)
+        self.ui_lw_img_picked_points.setCurrentRow(len(self.img_picked_points_list)-1)
+                       
+        self.updateImage()
+           
+        self.mouse_right_button_released = False        
+        
         self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_PRESSED'))
-    
+        
+    def canvasMousePressedLeftButton(self, event_x, event_y):
+        self.mouse_event_x = event_x
+        self.mouse_event_y = event_y
+        self.canvasSelectedPixToDataPix(event_x, event_y)
+            
+        self.mouse_cord_x = int(event_x)
+        self.mouse_cord_y = int(event_y)
+            
+        self.mouse_left_button_released = False
+        
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_PRESSED'))
+     
     def canvasMouseReleased(self, event_button):
         self.mouse_event_button = event_button
         if event_button == 'RIGHT_BUTTON':
