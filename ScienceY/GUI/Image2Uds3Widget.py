@@ -321,7 +321,7 @@ class Image2Uds3Widget(QtWidgets.QWidget):
             self.ui_le_layer_value.setText(sn_text)
         
         if self.uds_variable_type == 'fft':
-            self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataAcCopy[self.img_current_layer,:,:]),'ASS_FFT')
+            self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataAcCopy[self.img_current_layer,:,:]),'SUFFIX_FFT')
         else:
             self.ui_scale_widget.setData(np.ravel(self.uds_variable_dataCopy[self.img_current_layer,:,:]))
                 

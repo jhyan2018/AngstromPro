@@ -63,6 +63,8 @@ class ScaleWidget(QtWidgets.QWidget):
         
         self.auto_scale_strategy = ''
         self.auto_scale_fft_factor = 1.0
+        
+        self.data_suffix = ''
     
     def initUiMembers(self):
         self.ui_rangeSlider = RangeSlider(self.orientation)
@@ -75,7 +77,12 @@ class ScaleWidget(QtWidgets.QWidget):
         self.ui_le_data_sigma_factor = SimplifiedNumberLineEditor()
         self.ui_le_data_sigma_factor.setSNText(str(self.data_sigma_factor))
         self.ui_le_data_sigma_factor.validTextChanged.connect(self.sigmaFactorChanged)
-        self.ui_lb_sigma = QtWidgets.QLabel('σ')
+        self.ui_pb_sigma = QtWidgets.QPushButton('σ')
+        self.ui_pb_sigma.setCheckable(True)
+        self.ui_pb_sigma.setChecked(True)
+        self.setAutoScaleHistgram()
+        self.ui_pb_sigma.clicked.connect(self.setAutoScaleHistgram)
+        
         
         self.ui_pb_scale_full__sigma = QtWidgets.QPushButton('F')
         self.ui_pb_scale_full__sigma.clicked.connect(self.fullScale)
@@ -95,8 +102,8 @@ class ScaleWidget(QtWidgets.QWidget):
             ui_h_horiztontalLayout1.addWidget(self.ui_pb_scale_zoom_in)
             ui_h_verticalLayout1 = QtWidgets.QVBoxLayout()            
             ui_h_verticalLayout1.addWidget(self.ui_le_data_sigma_factor)
-            ui_h_verticalLayout1.addWidget(self.ui_lb_sigma)
-            self.ui_lb_sigma.setAlignment(Qt.AlignCenter)
+            ui_h_verticalLayout1.addWidget(self.ui_pb_sigma)
+            self.ui_pb_sigma.setAlignment(Qt.AlignCenter)
             ui_h_horiztontalLayout2 = QtWidgets.QHBoxLayout()
             ui_h_horiztontalLayout2.addWidget(self.ui_le_data_lower_value)
             ui_h_horiztontalLayout2.addLayout(ui_h_verticalLayout1)
@@ -111,7 +118,7 @@ class ScaleWidget(QtWidgets.QWidget):
 
         else:
             ui_v_horiztontalLayout1 = QtWidgets.QHBoxLayout()
-            ui_v_horiztontalLayout1.addWidget(self.ui_lb_sigma)
+            ui_v_horiztontalLayout1.addWidget(self.ui_pb_sigma)
             ui_v_horiztontalLayout1.addWidget(self.ui_le_data_sigma_factor)
             ui_v_vertialLayout1 = QtWidgets.QVBoxLayout()
             ui_v_vertialLayout1.addWidget(self.ui_le_data_upper_value)
@@ -222,17 +229,22 @@ class ScaleWidget(QtWidgets.QWidget):
     def upperValue(self):
         return self.data_upper_value
     
-    def setData(self, data1D, auto_scale_strategy='ASS_NORMAL'):
-        self.data = data1D
-        self.auto_scale_strategy = auto_scale_strategy
+    def setData(self, data1D, suffix = 'SUFFIX_NON_FFT'):
+        self.data = data1D            
         self.data_max = np.max(self.data)
         self.data_min = np.min(self.data)
         
-        self.data_sigma_factor = self.data_sigma_factor_default
-        self.ui_le_data_sigma_factor.setSNText(str(self.data_sigma_factor))
         #
         if not self.data_scale_fixed:
-            self.AutoScale()
+            self.data_suffix = suffix
+            if self.data_suffix == 'SUFFIX_FFT':
+                self.ui_pb_sigma.setChecked(False)
+                self.setAutoScaleHistgram()
+            else:
+                self.ui_pb_sigma.setChecked(True)
+                self.setAutoScaleHistgram()
+        
+        self.ui_le_data_sigma_factor.setSNText(str(self.data_sigma_factor))
     
     def setZoomFactor(self, zoom_factor):
         if zoom_factor > 0 and zoom_factor < 1:
@@ -243,12 +255,25 @@ class ScaleWidget(QtWidgets.QWidget):
     
     def setSigmaDefault(self, sigma_default):
         self.data_sigma_factor_default = sigma_default
+        self.data_sigma_factor = self.data_sigma_factor_default
     
     def setSigma(self,sigma):
         self.data_sigma_factor = sigma
         
         #
         self.AutoScale()
+        
+    def setAutoScaleHistgram(self):
+        if self.ui_pb_sigma.isChecked():
+            self.ui_le_data_sigma_factor.setEnabled(True)
+            self.auto_scale_strategy = 'ASS_MAX_MIN'
+        else:
+            self.ui_le_data_sigma_factor.setEnabled(False)
+            self.auto_scale_strategy = 'ASS_HISTGRAM'
+
+        self.AutoScale()
+        
+        self.scaleChanged.emit()
     
     def setFFTAutoScaleFactor(self, fft_auto_scale_factor):
         if fft_auto_scale_factor > 0 and fft_auto_scale_factor < 1:
@@ -260,14 +285,19 @@ class ScaleWidget(QtWidgets.QWidget):
         self.data_scale_fixed = data_scale_fixed
         
     def AutoScale(self):
-        if self.auto_scale_strategy == 'ASS_NORMAL':
+        if self.auto_scale_strategy == 'ASS_MAX_MIN':
             std = np.std(self.data)
             mean = np.mean(self.data)           
             self.data_lower_limit = mean - self.data_sigma_factor * std/2
             self.data_upper_limit = mean + self.data_sigma_factor * std/2
-        elif self.auto_scale_strategy == 'ASS_FFT':
+        elif self.auto_scale_strategy == 'ASS_HISTGRAM':
             self.data_lower_limit = min(self.data)
-            self.data_upper_limit = max(self.data) * self.auto_scale_fft_factor
+            if self.data_suffix == 'SUFFIX_FFT':
+                self.data_upper_limit = max(self.data) * self.auto_scale_fft_factor
+            elif self.data_suffix == 'SUFFIX_NON_FFT':
+                self.data_upper_limit = max(self.data)
+            else:
+                print("Unknow data suffix.")   
         else:
             print("Auto Scale Strategy is unknow")           
 
