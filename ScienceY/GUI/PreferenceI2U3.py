@@ -58,6 +58,7 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         self.ui_sl_slder_zoom_factor.setSNText(self.settings['FACTOR']['slider_scale_zoom_factor'])
         
         # canvas
+        self.ui_sl_canvas_size.setSNText(self.settings['CANVAS']['canvas_size_factor'])
 
     def initUiMembers(self):
         self.resize(1000,600)
@@ -163,14 +164,16 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
 
     def ui_setupPageCanvas(self):
         self.ui_page_canvas = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout()
-        slider = QtWidgets.QSlider(Qt.Horizontal)
-        slider.setRange(0, 100)
-        slider.setValue(50)
-        layout.addWidget(slider)
-        self.ui_page_canvas.setLayout(layout)
+        self.ui_lb_canvas_size = QtWidgets.QLabel('Canvas size:')
+        self.ui_sl_canvas_size = SimplifiedNumberLineEditor()
+        self.ui_sl_canvas_size.validTextChanged.connect(self.setCanvasSizeFactor)
         
     def initUiLayout(self):
+        self.initLayoutPageColormap()
+        self.initLayoutPageMainSlave()
+        self.initLayoutPageCanvas()  
+
+    def initLayoutPageColormap(self):
         #Page ColorMap
         v_layout1 = QtWidgets.QVBoxLayout()
         v_layout1.addWidget(self.ui_cb_cmp_type)
@@ -193,6 +196,7 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         h_layout1.addWidget(self.ui_colorbar_chosen)
         self.ui_page_colormap.setLayout(h_layout1)
         
+    def initLayoutPageMainSlave(self):
         #Main&Slave
         gbLayout1 = QtWidgets.QVBoxLayout()
         gbLayout1.addWidget(self.ui_cb_sync_picked_points)
@@ -225,7 +229,17 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         layout.addWidget(self.ui_gb_sync)
         layout.addWidget(self.ui_gb_lock)
         layout.addWidget(self.ui_gb_coefficient)
-        self.ui_page_main_and_slave.setLayout(layout)        
+        self.ui_page_main_and_slave.setLayout(layout)
+        
+    def initLayoutPageCanvas(self):
+        #Canvas
+        h_layout = QtWidgets.QHBoxLayout()
+        h_layout.addWidget(self.ui_lb_canvas_size)
+        h_layout.addWidget(self.ui_sl_canvas_size)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addLayout(h_layout)
+        
+        self.ui_page_canvas.setLayout(layout)
         
     """ @SLOT"""    
     def saveSettings(self):
@@ -359,18 +373,21 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
             self.settings['LOCK']['data_scale_fixed_slave'] = 'True'
         else:
             self.settings['LOCK']['data_scale_fixed_slave'] = 'False'
-        self.settings_changed.emit(7) # Settings Type = 6, 'LOCK_FIXED_DATA_SCALE_SLAVE'
+        self.settings_changed.emit(7) # Settings Type = 7, 'LOCK_FIXED_DATA_SCALE_SLAVE'
         
     def setFactorSigma(self):
         self.settings['FACTOR']['sigma'] = self.ui_sl_sigma.snText()
-        self.settings_changed.emit(8) # Settings Type = 7, 'FACOTR_SIGMA'
+        self.settings_changed.emit(8) # Settings Type = 8, 'FACOTR_SIGMA'
         
     def setFactorFFTImageAutoScale(self):
         self.settings['FACTOR']['fft_auto_scale_factor'] = self.ui_sl_fft_auto_scale_factor.snText()
-        self.settings_changed.emit(9) # Settings Type = 8, 'FACOTR_FFT_AUTO_SCALE'
+        self.settings_changed.emit(9) # Settings Type = 9, 'FACOTR_FFT_AUTO_SCALE'
         
     def setFactorSliderZoom(self):
         self.settings['FACTOR']['slider_scale_zoom_factor'] = self.ui_sl_slder_zoom_factor.snText()
-        self.settings_changed.emit(10) # Settings Type = 9, 'FACOTR_SLIDER_ZOOM'
-        
+        self.settings_changed.emit(10) # Settings Type = 10, 'FACOTR_SLIDER_ZOOM'
+    
+    def setCanvasSizeFactor(self):
+        self.settings['CANVAS']['canvas_size_factor'] = self.ui_sl_canvas_size.snText()
+        self.settings_changed.emit(11) # Settings Type = 11, 'FACTOR_CANVAS_SIZE'
         
