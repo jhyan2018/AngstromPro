@@ -413,6 +413,57 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
     
     return uds3D_data_processed
 
+def ipMathX(uds3D_data, Const = 1):
+    data = uds3D_data.data
+    data_processed = data * Const
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_mat')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+    
+    #
+    c_history ='ImgProc.ipMath:'
+    c_history += 'Multiplied by' + str(Const)  
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+    
+def ipMathDC(uds3D_data, Const = 1):
+    data = uds3D_data.data
+    data_processed = data / Const
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_mat')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+    
+    #
+    c_history ='ImgProc.ipMath:'
+    c_history += 'Divided by' + str(Const)  
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+    
+def ipMathCD(uds3D_data, Const = 1):
+    data = uds3D_data.data
+    data_processed = Const / data
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name+'_mat')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+    
+    #
+    c_history ='ImgProc.ipMath:'
+    c_history += str(Const) + 'Divided by' + uds3D_data.name
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
 def ipRmap(uds3D_data):
     uds_var_layer_value = ipGetLayerValue(uds3D_data, False)
         
@@ -548,4 +599,20 @@ def ipCrossCorrelation(uds3D_data1, uds3D_data2):
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
+
+def ipExtractOneLayer(uds3D_data, layer = 0):
+    data2D = uds3D_data.data[layer,:,:]
     
+    uds3D_data_processed = UdsDataStru3D(data2D[np.newaxis,:,:], uds3D_data.name + '_l'+ str(layer))
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].split(',')[layer]
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    #
+    c_history ='ImgProc.ipExtractOneLayer:' + str(layer)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
