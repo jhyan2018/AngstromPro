@@ -74,7 +74,7 @@ class GVMSettings(QtWidgets.QWidget):
         self.save_settings.emit()
     
     def browseDirectry(self):
-        data_type ='Data Files (*.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
+        data_type ='Data Files (*.uds *.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
         data_path = self.ui_le_data_path.text()
         
         file = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", data_path, data_type)
