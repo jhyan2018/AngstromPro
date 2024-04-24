@@ -371,7 +371,12 @@ class Image2Uds3(GuiFrame):
         mathMenu.addAction(self.mathAdd)
         mathMenu.addAction(self.mathSubtract)
         mathMenu.addAction(self.mathMultiply)
+        mathMenu.addAction(self.mathMultiplyByConst)
         mathMenu.addAction(self.mathDivide)
+        mathMenu.addAction(self.mathDivideByConst)
+        mathMenu.addAction(self.mathDivideConstBy)
+        processMenu.addAction(self.extractOneLayer)
+        
         processMenu.addAction(self.imageProcessCustomized)
         
         # Analysis Menu
@@ -438,10 +443,14 @@ class Image2Uds3(GuiFrame):
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
         self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
         self.register = QtWidgets.QAction("Register",self)
-        self.mathAdd = QtWidgets.QAction("+",self)
-        self.mathSubtract = QtWidgets.QAction("-",self)
-        self.mathMultiply = QtWidgets.QAction("*",self)
-        self.mathDivide = QtWidgets.QAction("/",self)
+        self.mathAdd = QtWidgets.QAction("m+s",self)
+        self.mathSubtract = QtWidgets.QAction("m-s",self)
+        self.mathMultiply = QtWidgets.QAction("m*s",self)
+        self.mathMultiplyByConst = QtWidgets.QAction("m*const.",self)
+        self.mathDivide = QtWidgets.QAction("m/s",self)
+        self.mathDivideByConst = QtWidgets.QAction("m/const.",self)
+        self.mathDivideConstBy = QtWidgets.QAction("const./m",self)
+        self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
         
         self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
         
@@ -500,7 +509,11 @@ class Image2Uds3(GuiFrame):
         self.mathAdd.triggered.connect(self.actMathAdd)
         self.mathSubtract.triggered.connect(self.actMathSubtract)
         self.mathMultiply.triggered.connect(self.actMathMultiply)
+        self.mathMultiplyByConst.triggered.connect(self.actMathMultiplyByConst)
         self.mathDivide.triggered.connect(self.actMathDivide)
+        self.mathDivideByConst.triggered.connect(self.actMathDivideByConst)
+        self.mathDivideConstBy.triggered.connect(self.actMathDivideConstBy)
+        self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
         
         self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
         
@@ -861,6 +874,27 @@ class Image2Uds3(GuiFrame):
         #
         self.clearWidgetsContents()
         
+    def actMathMultiplyByConst(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        Const = 1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                Const = float(params[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipMathX(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+        
     def actMathDivide(self):
         ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
@@ -871,6 +905,67 @@ class Image2Uds3(GuiFrame):
         # update var list
         self.appendToLocalVarList(uds_data_processed)
         
+        #
+        self.clearWidgetsContents()
+        
+    def actMathDivideByConst(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        Const = 1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                Const = float(params[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipMathDC(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathDivideConstBy(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        Const = 1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                Const = float(params[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipMathCD(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actExtractOneLayer(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        layer = 0
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                layer = int(params[0])
+            
+        # process
+        uds_data_processed = ImgProc.ipExtractOneLayer(self.uds_variable_pt_list[ct_var_index], layer) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
         #
         self.clearWidgetsContents()
         
