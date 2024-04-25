@@ -616,3 +616,21 @@ def ipExtractOneLayer(uds3D_data, layer = 0):
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
+
+def ipIntegral(uds3D_data, start, end):
+    data3D = uds3D_data.data[start:(end+1),:,:]
+    data_sum = np.sum(data3D, axis = 0)
+        
+    uds3D_data_processed = UdsDataStru3D(data_sum[np.newaxis,:,:], uds3D_data.name + '_itg')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.info['LayerValue'] = ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    #
+    c_history ='ImgProc.ipIntegral:' + ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
