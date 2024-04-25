@@ -103,7 +103,7 @@ class Plot1DWidget(QtWidgets.QWidget):
         self.energy.clear()
         for l_v_t in layer_value_txt:
             
-            v = NumberExpression.simplified_number_to_float(l_v_t)
+            v = NumberExpression.simplified_number_to_float(l_v_t) *1e3
             self.energy.append(v)
     
     def setXYFromImage2or3D(self, x, y):
@@ -158,7 +158,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.canvas.figure.tight_layout()
             self.ax.figure.canvas.draw()
         
-    def setLineCutStartAndEndPoints(self, Points_list): 
+    def setLineCutStartAndEndPoints(self, Points_list, pcs = 1): 
         Points_text = Points_list.split(',')
         Points=[]
         for p in Points_text:
@@ -167,6 +167,8 @@ class Plot1DWidget(QtWidgets.QWidget):
         
         pn = int(len(Points_array)/2)
         Points_array = Points_array.reshape(pn, 2)
+        
+        precision = int(pcs)
         
         start_x = Points_array[0][0]
         start_y = Points_array[0][1]
@@ -181,7 +183,7 @@ class Plot1DWidget(QtWidgets.QWidget):
         if (delta_x > 0) & (delta_y > 0):
             for i in range(1, delta_x+1,1):
                 for j in range(1, delta_y+1,1):
-                    if round(j/i, 1) == round(delta_y/delta_x, 1):
+                    if round(j/i, 1) == round(delta_y/delta_x, precision):
                         x = int(start_x + i)
                         y = int(start_y + j)
                         #print(x,y)
@@ -189,21 +191,21 @@ class Plot1DWidget(QtWidgets.QWidget):
         elif (delta_x < 0) & (delta_y > 0):
             for i in range(1, -delta_x+1,1):
                 for j in range(1, delta_y+1,1):
-                    if round(j/i, 1) == round(-delta_y/delta_x, 1):
+                    if round(j/i, 1) == round(-delta_y/delta_x, precision):
                         x = int(start_x - i)
                         y = int(start_y + j)
                         dIdV_set_list.append(self.data_3D[:, y, x])
         elif (delta_x > 0) & (delta_y < 0):
             for i in range(1, delta_x+1,1):
                 for j in range(1, -delta_y+1,1):
-                    if round(j/i, 1) == round(-delta_y/delta_x, 1):
+                    if round(j/i, 1) == round(-delta_y/delta_x, precision):
                         x = int(start_x + i)
                         y = int(start_y - j)
                         dIdV_set_list.append(self.data_3D[:, y, x])
         elif (delta_x < 0) & (delta_y < 0):
             for i in range(1, -delta_x+1,1):
                 for j in range(1, -delta_y+1,1):
-                    if round(j/i, 1) == round(delta_y/delta_x, 1):
+                    if round(j/i, 1) == round(delta_y/delta_x, precision):
                         x = int(start_x - i)
                         y = int(start_y - j)
                         dIdV_set_list.append(self.data_3D[:, y, x])

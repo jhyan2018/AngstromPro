@@ -375,6 +375,7 @@ class Image2Uds3(GuiFrame):
         mathMenu.addAction(self.mathDivide)
         mathMenu.addAction(self.mathDivideByConst)
         mathMenu.addAction(self.mathDivideConstBy)
+        processMenu.addAction(self.integral)
         processMenu.addAction(self.extractOneLayer)
         
         processMenu.addAction(self.imageProcessCustomized)
@@ -450,6 +451,7 @@ class Image2Uds3(GuiFrame):
         self.mathDivide = QtWidgets.QAction("m/s",self)
         self.mathDivideByConst = QtWidgets.QAction("m/const.",self)
         self.mathDivideConstBy = QtWidgets.QAction("const./m",self)
+        self.integral = QtWidgets.QAction("integral",self)
         self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
         
         self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
@@ -513,6 +515,7 @@ class Image2Uds3(GuiFrame):
         self.mathDivide.triggered.connect(self.actMathDivide)
         self.mathDivideByConst.triggered.connect(self.actMathDivideByConst)
         self.mathDivideConstBy.triggered.connect(self.actMathDivideConstBy)
+        self.integral.triggered.connect(self.actIntegral)
         self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
         
         self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
@@ -782,7 +785,17 @@ class Image2Uds3(GuiFrame):
         
     def actLineCut(self):
         if 'LineCutPoints' in self.ui_img_widget_main.uds_variable.info:
-            self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'])
+            
+            # get param list
+            params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+            p = 1
+            if len(params) != 0:
+                params = params.split(',')
+                param_numbers = len(params)
+                if param_numbers == 1:
+                    p = int(params[0])
+                    
+            self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'], pcs = p)
         else:
             print('No - LineCutPoints - keys exists.')
         
@@ -947,7 +960,30 @@ class Image2Uds3(GuiFrame):
         
         #
         self.clearWidgetsContents()
+    
+    def actIntegral(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        start = 0
+        end = self.uds_variable_pt_list[ct_var_index].data.shape[0]
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 2:
+                start = int(params[0])
+                end = int(params[1])
+            
+        # process
+        uds_data_processed = ImgProc.ipIntegral(self.uds_variable_pt_list[ct_var_index], start, end) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+    
     def actExtractOneLayer(self):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
@@ -1222,9 +1258,6 @@ class Image2Uds3(GuiFrame):
             if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[ft_var_index].name:
                 self.ui_img_widget_main.uds_variable.info['FilterPoints'] = picked_points
                 self.ui_img_widget_main.updateDataInfo()
-                
-        #
-        self.clearWidgetsContents()
                 
     def actSetLockInPoints(self):
         var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
