@@ -25,6 +25,7 @@ from .Image2Uds3Widget import Image2Uds3Widget
 
 from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
 from ..ImageSimulate.GenerateCurve2D import sinusoidal2D
+from .ConfigManager import ConfigManager
 """
 Function Modules
 """
@@ -38,11 +39,14 @@ class RtSynthesis2Uds3(GuiFrame):
         self.initCcUiLayout()        
              
         self.initCcMenuBar()
-        
+
         #
-        self.ui_img_widget_main.setUdsData(self.uds_data)
+        self.initPreference()
+        
+    """ Initializations"""
+    def initPreference(self):
+        self.ui_img_widget_main.setSettings(self.settings)
             
-    """ Initializations"""        
     def initCcUiMembers(self):        
         self.ui_img_widget_main = Image2Uds3Widget()
         self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- Synthesis ---</b>")
@@ -106,6 +110,10 @@ class RtSynthesis2Uds3(GuiFrame):
         self.ui_horizontalLayout.addLayout(self.ui_cc_verticalLayout)
         
     def initCcNonUiMembers(self):
+        # Settings
+        self.settings = self.loadSettings()
+        
+        #
         self.wave_vector_list = []
         self.data_size = 256
         self.data_simulated_sum = np.zeros((1, self.data_size, self.data_size))
@@ -220,11 +228,19 @@ class RtSynthesis2Uds3(GuiFrame):
         
     def act_pb_save_var_to_local_list(self):
         uds3D_data_current_simulation = UdsDataStru3D(self.uds_data.data , 'uds3D_RtSynthesis' )
+        uds3D_data_current_simulation.info['LayerValue']='0'
         
         self.appendToLocalVarList(uds3D_data_current_simulation)
         
     """ Regular Functions"""
     
+    """ Settings """
+    def loadSettings(self):
+        return ConfigManager.load_settings_from_file('./ScienceY/config/RtSynthesis2Uds3.txt')
+    
+    def saveSettings(self):
+        ConfigManager.save_settings_to_file('./ScienceY/config/RtSynthesis2Uds3.txt', self.settings)
+  
     
         
     """    Menu and Actions    """       

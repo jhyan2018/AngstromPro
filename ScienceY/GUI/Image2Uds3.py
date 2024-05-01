@@ -1367,8 +1367,8 @@ class Image2Uds3(GuiFrame):
                 
             uds_data_simulated = ImgSimu.ismGenerateSinusoidal2D(size, qx, qy, phase)
              
-        # update var list
-        self.appendToLocalVarList(uds_data_simulated)
+            # update var list
+            self.appendToLocalVarList(uds_data_simulated)
         
         #
         self.clearWidgetsContents()
