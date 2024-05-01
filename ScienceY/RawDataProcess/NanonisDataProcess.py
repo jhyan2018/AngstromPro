@@ -49,9 +49,12 @@ class Load3ds():
         header['grid dim'] = list(map(int, header['grid dim'].split('x')))
         header['# parameters (4 byte)'] = int(header['# parameters (4 byte)'])
         header['points'] = int(header['points'])
-        header['lock-in>amplitude'] = float(header['lock-in>amplitude'])
-        header['bias>bias (v)'] = float(header['bias>bias (v)'])
-        header['current>current (a)'] = float(header['current>current (a)'])
+        if 'lock-in>amplitude' in header.keys():
+            header['lock-in>amplitude'] = float(header['lock-in>amplitude'])
+        if 'bias>bias (v)' in header.keys():
+            header['bias>bias (v)'] = float(header['bias>bias (v)'])
+        if 'current>current (a)' in header.keys():
+            header['current>current (a)'] = float(header['current>current (a)'])
         header['channels'] = header['channels'].split(';')
         header['fixed parameters'] = header['fixed parameters'].split(';')
         header['experiment parameters'] = header['experiment parameters'].split(';')
@@ -214,14 +217,22 @@ class Data3dsStru():
             info['LayerSignal'] = self.header['sweep signal']
             info['LayerValue'] = self.layerValue
         else:
-            info['LayerValue'] = bias
+            if 'bias>bias (v)' in self.header.keys():
+                bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
+                info['LayerValue'] = bias
+            else:
+                info['LayerValue'] = '0'
         return info
         
     # return the number n layer dIdV data
     def get_dIdV_data(self):
         
         points = self.header['points']
-        lockInAmp = self.header['lock-in>amplitude']
+        if 'lock-in>amplitude' in self.header.keys():
+            if self.header['lock-in>modulated signal'] == 'Bias (V)':
+                lockInAmp = self.header['lock-in>amplitude']
+        else:
+            lockInAmp = 1
         # which channels is not decided yet
         if 'LI Demod 1 X (A)' in self.header['channels']:
             dIdV_channel_index = self.header['channels'].index('LI Demod 1 X (A)')
@@ -232,8 +243,7 @@ class Data3dsStru():
         # data start index
         index = par_num + dIdV_channel_index * points
         
-        if self.header['lock-in>modulated signal'] == 'Bias (V)':
-            dIdV = self.data3D[index:index+points, :, :]/lockInAmp
+        dIdV = self.data3D[index:index+points, :, :]/lockInAmp
         
         ###
         uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')

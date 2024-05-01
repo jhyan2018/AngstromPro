@@ -349,7 +349,7 @@ class Image2Uds3(GuiFrame):
         exportMenu.addAction(self.exportSlaveToImage)
         exportMenu.addAction(self.exportMainToClipboard)
         exportMenu.addAction(self.exportSlaveToClipboard)
-        makeMovieMenu = FileMenu.addMenu("Make Movie form")
+        makeMovieMenu = FileMenu.addMenu("Make Movie from")
         makeMovieMenu.addAction(self.makeMovieFromMain)
         makeMovieMenu.addAction(self.makeMovieFromSlave)
         
@@ -375,7 +375,8 @@ class Image2Uds3(GuiFrame):
         mathMenu.addAction(self.mathDivide)
         mathMenu.addAction(self.mathDivideByConst)
         mathMenu.addAction(self.mathDivideConstBy)
-        processMenu.addAction(self.integral)
+        mathMenu.addAction(self.integral)
+        mathMenu.addAction(self.normalization)
         processMenu.addAction(self.extractOneLayer)
         
         processMenu.addAction(self.imageProcessCustomized)
@@ -451,7 +452,8 @@ class Image2Uds3(GuiFrame):
         self.mathDivide = QtWidgets.QAction("m/s",self)
         self.mathDivideByConst = QtWidgets.QAction("m/const.",self)
         self.mathDivideConstBy = QtWidgets.QAction("const./m",self)
-        self.integral = QtWidgets.QAction("integral",self)
+        self.integral = QtWidgets.QAction("Integral",self)
+        self.normalization = QtWidgets.QAction("Normalization",self)
         self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
         
         self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
@@ -483,7 +485,7 @@ class Image2Uds3(GuiFrame):
         self.generateLatticeWithPeriodicDistortion = QtWidgets.QAction("Lattice with Periodic Distortions",self)
         
         # Widgets Menu
-        self.showVarDockWidget = QtWidgets.QAction("Variabls DockWidget",self)
+        self.showVarDockWidget = QtWidgets.QAction("Variables DockWidget",self)
         self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D DockWidget",self)
         
         # Option Menu
@@ -516,6 +518,7 @@ class Image2Uds3(GuiFrame):
         self.mathDivideByConst.triggered.connect(self.actMathDivideByConst)
         self.mathDivideConstBy.triggered.connect(self.actMathDivideConstBy)
         self.integral.triggered.connect(self.actIntegral)
+        self.normalization.triggered.connect(self.actNormalization)
         self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
         
         self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
@@ -977,6 +980,19 @@ class Image2Uds3(GuiFrame):
             
         # process
         uds_data_processed = ImgProc.ipIntegral(self.uds_variable_pt_list[ct_var_index], start, end) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+    
+    def actNormalization(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+            
+        # process
+        uds_data_processed = ImgProc.ipNormalization(self.uds_variable_pt_list[ct_var_index]) 
         
         # update var list
         self.appendToLocalVarList(uds_data_processed)
