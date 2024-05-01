@@ -567,8 +567,9 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.sync_rt_points = sync_rt_point
             
     def getLayerValue(self):
-        layer_value_txt = self.uds_variable.info['LayerValue']
-        self.uds_var_layer_value = layer_value_txt.split(',')
+        if 'LayerValue' in self.uds_variable.info.keys():
+            layer_value_txt = self.uds_variable.info['LayerValue']
+            self.uds_var_layer_value = layer_value_txt.split(',')
 
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name

@@ -49,7 +49,7 @@ class Plot1DWidget(QtWidgets.QWidget):
         #Canvas
         #hdc = ctypes.windll.user32.GetDC(0)
         #device_dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
-        self.canvas = QtMatplotCanvas(Figure(figsize=(5, 3), dpi = 100)) #device_dpi))
+        self.canvas = QtMatplotCanvas(Figure(figsize=(5, 3), dpi = 200)) #device_dpi))
         self.canvas.figure.subplots_adjust(left=0.1, bottom=0.09, right=0.95, top=0.93)
         self.canvas.figure.patch.set_visible(True)
         

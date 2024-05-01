@@ -630,7 +630,26 @@ def ipIntegral(uds3D_data, start, end):
             uds3D_data_processed.proc_history.append(i)
             
     #
-    c_history ='ImgProc.ipIntegral:' + ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
+    c_history  = 'ImgProc.ipIntegral:'
+    c_history += ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+def ipNormalization(uds3D_data):
+    data = uds3D_data.data
+    data_sum = np.sum(data, axis = (1,2)).reshape(data.shape[0], 1, 1)
+    data_processed = data/data_sum
+    
+    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data.name + '_nmz')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    #
+    c_history = 'ImgProc.ipNormalization:' 
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed

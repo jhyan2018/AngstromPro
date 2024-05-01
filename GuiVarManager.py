@@ -342,8 +342,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
     def creatActions(self):
         # File Menu
-        self.loadFromFileAction = QtWidgets.QAction("&LoadFromFile",self)
-        self.saveToFileAction = QtWidgets.QAction("&SaveToFile",self)
+        self.loadFromFileAction = QtWidgets.QAction("&Load From File",self)
+        self.saveToFileAction = QtWidgets.QAction("&Save To File",self)
         
         self.findAction = QtWidgets.QAction("&Find",self)
         self.replaceAction = QtWidgets.QAction("&Replace",self)
@@ -370,7 +370,6 @@ class GuiVarManager(QtWidgets.QMainWindow):
     """   Slots for Menu Actions   """     
     #
     def loadFromFile(self):
-        print("Load From File")
         data_path = self.settings['PATH']['data_path']
         data_type ='Data Files (*.uds *.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
 
