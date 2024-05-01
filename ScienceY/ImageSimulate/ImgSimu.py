@@ -30,6 +30,7 @@ def ismGenerateHeaviside2D(size, edge_x, edge_y):
     data_simulated[0:edge_y, 0:edge_x] = np.zeros((edge_y, edge_x))
     
     uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Heaviside2D')
+    uds3D_data_simulated.info['LayerValue'] = '0'
     
     return uds3D_data_simulated
 
