@@ -123,11 +123,13 @@ class LoadSxm():
         lines.pop(0) # remove the fist line: Channel Name Unit Direction Calibration Offset
         channels = []
         channels_num = 0
+        channels_dir = []
         for line in lines:
             val = line.split()
             if len(val) > 1:
                 header['DATA_INFO'].append(val)
                 channels.append(val[1])
+                channels_dir.append(val[3])
                 if val[3] != 'both':
                     print ('warning, only one direction recorded, expect a crash :D', val)
                     channels_num += 1
@@ -135,6 +137,7 @@ class LoadSxm():
                     channels_num += 2
         header.update({'channels': channels})
         header.update({'channels_num': channels_num})
+        header.update({'channels_dir': channels_dir})
         
         xPixels, yPixels = header['SCAN_PIXELS'].split()
         xPixels = int(xPixels)
@@ -189,6 +192,7 @@ class Data3dsStru():
         self.header = lData.header
         self.data3D = lData.data3D
         self.name = name
+        self.channel_list = lData.header['channels']
         self.layerValue = self.get_Layer_Value()
         
     def get_Layer_Value(self):
@@ -327,6 +331,9 @@ class DataSxmStru():
         self.header = lData.header
         self.data3D = lData.data3D
         self.name = name
+        self.channel_list = []
+        self.channel_list.append(lData.header['channels']) 
+        self.channel_list.append(lData.header['channels_dir'])
         
     def setDataInfo(self):
         info = dict()

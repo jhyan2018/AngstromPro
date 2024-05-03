@@ -2,7 +2,7 @@
 """
 Created on Thu Jul 27 09:56:53 2023
 
-@author: Huiyu's Jiahao Yan
+@author: Jiahao Yan & Huiyu Zhao
 """
 
 """
@@ -385,21 +385,30 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         if file_type == '3ds':
             globals()['data3ds'] = NanonisDataProcess.Data3dsStru(full_path, file_name)  
-            #data3ds = NanonisDataProcess.Data3dsStru(full_path)            
-            globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
-            globals()['uds3D_'+file_name+'_dIdV'] = data3ds.get_dIdV_data()
-            globals()['uds3D_'+file_name+'_Current'] = data3ds.get_Current()
-            globals()['uds3D_'+file_name+'_Phase'] = data3ds.get_Phase()
+            if 'Z (m)' in data3ds.channel_list:        
+                globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
+            if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
+                globals()['uds3D_'+file_name+'_dIdV'] = data3ds.get_dIdV_data()
+            if 'Current (A)' in data3ds.channel_list:
+                globals()['uds3D_'+file_name+'_Current'] = data3ds.get_Current()
+            if 'LI Demod 1 Y (A)' in data3ds.channel_list:
+                globals()['uds3D_'+file_name+'_Phase'] = data3ds.get_Phase()
         elif file_type == 'sxm':
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
-            #dataSxm = NanonisDataProcess.DataSxmStru(full_path)
-            globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
-            globals()['uds3D_'+file_name+'_topo_bwd'] = dataSxm.get_Topo_bwd()
-            globals()['uds3D_'+file_name+'_dIdV_fwd'] = dataSxm.get_dIdV_fwd()
-            globals()['uds3D_'+file_name+'_dIdV_bwd'] = dataSxm.get_dIdV_bwd()
-            globals()['uds3D_'+file_name+'_Currrent_fwd'] = dataSxm.get_Current_fwd()
-            globals()['uds3D_'+file_name+'_Current_bwd'] = dataSxm.get_Current_bwd()
-            globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta()
+            if 'Z' in dataSxm.channel_list[0]:
+                globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
+                if dataSxm.channel_list[1][dataSxm.channel_list[0].index('Z')] == 'both':
+                    globals()['uds3D_'+file_name+'_topo_bwd'] = dataSxm.get_Topo_bwd()
+            if 'LI_Demod_1_X' in dataSxm.channel_list[0]:
+                globals()['uds3D_'+file_name+'_dIdV_fwd'] = dataSxm.get_dIdV_fwd()
+                if dataSxm.channel_list[1][dataSxm.channel_list[0].index('LI_Demod_1_X')] == 'both':
+                    globals()['uds3D_'+file_name+'_dIdV_bwd'] = dataSxm.get_dIdV_bwd()
+            if 'Current' in dataSxm.channel_list[0]:
+                globals()['uds3D_'+file_name+'_Currrent_fwd'] = dataSxm.get_Current_fwd()
+                if dataSxm.channel_list[1][dataSxm.channel_list[0].index('Current')] == 'both':
+                    globals()['uds3D_'+file_name+'_Current_bwd'] = dataSxm.get_Current_bwd()
+            if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
+                globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta()
         elif file_type == 'TFR':
             data1fl = LFDataProcess.Data1FLStru(full_path)
             globals()['uds3D_'+file_name+'_topo'] = data1fl.get_data()       

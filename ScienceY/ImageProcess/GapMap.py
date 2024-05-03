@@ -28,7 +28,7 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
 	        ...... 
 	        The default is 2. 
     energy_start: Fitting starts from the 'energy_start'th layer of energy
-    energy_end: Fitting ends from the 'energy_end'th layer of energy
+    energy_end: Fitting ends on the 'energy_end'th layer of energy
     returns the energy of the superconducting coherence peaks on each space point.
     ----------
     least square fitting
@@ -49,7 +49,8 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
     When z is maxmum, z' = 0 & z'' < 0 (z'/z'' is the derivative/second derivative of z)
     
     '''
-    
+    if energy_end != -1:
+        energy_end += 1
     energy = np.array(LayerValue)[energy_start:energy_end]
     energy_points = energy.shape[0]
     X_points = data3D.shape[-2] # real space x axis

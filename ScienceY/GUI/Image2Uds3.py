@@ -1093,9 +1093,6 @@ class Image2Uds3(GuiFrame):
                 
                 # update var list
                 self.appendToLocalVarList(uds_data_analysed)
-            
-        #
-        self.clearWidgetsContents()
         
     def actLockIn2DAmplitudeMap(self):
         self.actLockIn2D("Amplitude")
