@@ -325,7 +325,7 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
 
     return uds3D_data_processed
     
-def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True,phaseReverseFactor=0.8):
+def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True, phaseReverseFactor=0.8):
     # calculate pixels of longest lattice constant
     l_lattice_constant_pix = 0
     N = uds3D_data.data.shape[-1]
