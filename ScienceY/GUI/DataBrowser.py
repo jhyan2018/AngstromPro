@@ -12,7 +12,6 @@ System modules
 """
 Third-party Modules
 """
-import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 """
@@ -68,22 +67,29 @@ class DataBrowser(GuiFrame):
     
     def fileTreeSelectionChanged(self):
         child_folder_files = self.ui_dockWidget_fs_tree_content.selected_child_files
+        child_folder_files_lastmodified = self.ui_dockWidget_fs_tree_content.selected_c_f_lastmodified
         
-        self.setGallary(child_folder_files)
+        self.setGallary(child_folder_files, child_folder_files_lastmodified)
         
-    def setGallary(self, data_files):
-        #print(data_files)
+    def setGallary(self, src_files_path, src_files_lastmodified):
+        """ file type filter """
+        # .......
         
+        #
         snap_gallery_container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         
-        for index, img_path in enumerate(data_files):
+        for index, file_path in enumerate(src_files_path):
             row = index // 3  # Determine the row (2 rows, 0 and 1)
             col = index % 3   # Determine the column (3 columns, 0, 1, 2)
             
-            label = QtWidgets.QLabel()
+            label = QtWidgets.QLabel()     
+            img_path = self.getSnapshotPath(file_path, src_files_lastmodified[index])            
             pixmap = QtGui.QPixmap(img_path)
+            
+            """ can change to other widget """
             label.setPixmap(pixmap)
+            
             layout.addWidget(label, row, col)
             
         snap_gallery_container.setLayout(layout)
@@ -92,5 +98,27 @@ class DataBrowser(GuiFrame):
         old_container = self.ui_snap_gallery.widget()
         if old_container is not None:
             old_container.deleteLater()
-        
+            
+        #
         self.ui_snap_gallery.setWidget(snap_gallery_container)
+        
+    def getSnapshotPath(self,src_file_path, src_file_lastmodified):
+        snp_png_name, snp_lastmodified = self.snapshots_manager.get_snapshot(src_file_path)
+        
+        if not snp_png_name or not src_file_lastmodified == snp_lastmodified:
+            """ should change to proper methods"""
+            pixmap = QtGui.QPixmap(src_file_path)
+            
+            # from removing old png file
+            if not src_file_lastmodified == snp_lastmodified:
+                old_png_name = snp_png_name
+            else:
+                old_png_name = None
+            
+            #    
+            self.snapshots_manager.save_snapshot(src_file_path, src_file_lastmodified, pixmap, old_png_name)
+            
+            # get updated png name
+            snp_png_name, snp_lastmodified = self.snapshots_manager.get_snapshot(src_file_path)
+            
+        return snp_png_name
