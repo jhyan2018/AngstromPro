@@ -13,7 +13,7 @@ System modules
 Third-party Modules
 """
 from PyQt5 import QtCore, QtWidgets, QtGui
-
+from PyQt5.QtCore import QFileInfo
 """
 User Modules
 """
@@ -69,9 +69,9 @@ class DataBrowser(GuiFrame):
         child_folder_files = self.ui_dockWidget_fs_tree_content.selected_child_files
         child_folder_files_lastmodified = self.ui_dockWidget_fs_tree_content.selected_c_f_lastmodified
         
-        self.setGallary(child_folder_files, child_folder_files_lastmodified)
+        self.setGallery(child_folder_files, child_folder_files_lastmodified)
         
-    def setGallary(self, src_files_path, src_files_lastmodified):
+    def setGallery(self, src_files_path, src_files_lastmodified):
         """ file type filter """
         # .......
         
@@ -79,18 +79,31 @@ class DataBrowser(GuiFrame):
         snap_gallery_container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         
+        gallery_content_counts = 0
+        gallery_content_list = []
+        
         for index, file_path in enumerate(src_files_path):
+            png_path_list, channel_list = self.getSnapshotsInfo(file_path, src_files_lastmodified[index])
+            for path in png_path_list:
+                file_info = QFileInfo(path)
+                if file_info.isDir():
+                    png_path = path + '/l0'
+                else:
+                    png_path = path
+                gallery_content_counts += 1
+                
+                """ should change to other widget """
+                label = QtWidgets.QLabel()              
+                pixmap = QtGui.QPixmap(png_path)
+                label.setPixmap(pixmap)
+                gallery_content_list.append(label)                
+                #channel_list               
+            
+        for index, gallery_content in enumerate(gallery_content_list):
             row = index // 3  # Determine the row (2 rows, 0 and 1)
-            col = index % 3   # Determine the column (3 columns, 0, 1, 2)
+            col = index % 3   # Determine the column (3 columns, 0, 1, 2)     
             
-            label = QtWidgets.QLabel()     
-            img_path = self.getSnapshotPath(file_path, src_files_lastmodified[index])            
-            pixmap = QtGui.QPixmap(img_path)
-            
-            """ can change to other widget """
-            label.setPixmap(pixmap)
-            
-            layout.addWidget(label, row, col)
+            layout.addWidget(gallery_content, row, col)
             
         snap_gallery_container.setLayout(layout)
         
@@ -102,23 +115,14 @@ class DataBrowser(GuiFrame):
         #
         self.ui_snap_gallery.setWidget(snap_gallery_container)
         
-    def getSnapshotPath(self,src_file_path, src_file_lastmodified):
-        snp_png_name, snp_lastmodified = self.snapshots_manager.get_snapshot(src_file_path)
+    def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
+        png_path_list, lastmodified, channel_list = self.snapshots_manager.get_snapshots_info(src_file_path)
         
-        if not snp_png_name or not src_file_lastmodified == snp_lastmodified:
-            """ should change to proper methods"""
-            pixmap = QtGui.QPixmap(src_file_path)
-            
-            # from removing old png file
-            if not src_file_lastmodified == snp_lastmodified:
-                old_png_name = snp_png_name
-            else:
-                old_png_name = None
-            
-            #    
-            self.snapshots_manager.save_snapshot(src_file_path, src_file_lastmodified, pixmap, old_png_name)
+        if not png_path_list or not src_file_lastmodified == lastmodified:
+            pixmap_list, channel_list, channel_layer_list = self.snapshots_manager.generate_snapshots(src_file_path)
+            self.snapshots_manager.save_snapshots(src_file_path, src_file_lastmodified, pixmap_list, channel_list, channel_layer_list)
             
             # get updated png name
-            snp_png_name, snp_lastmodified = self.snapshots_manager.get_snapshot(src_file_path)
+            png_path_list, lastmodified, channel_list = self.snapshots_manager.get_snapshots_info(src_file_path)
             
-        return snp_png_name
+        return png_path_list, channel_list
