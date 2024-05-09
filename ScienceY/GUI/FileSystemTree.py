@@ -10,36 +10,39 @@ from PyQt5.QtCore import Qt, QDir, QFileInfo, pyqtSignal
 
 class FileSystemTree(QWidget):
     selectionChangedSignal = pyqtSignal()
-    def __init__(self, root_path):
-        super().__init__()
+    def __init__(self):
+        super().__init__() 
+        
+        self.initUiMembers()
+        self.initLayout()
+        self.initNonUiMembers()
 
-        layout = QVBoxLayout()
-
+    def initUiMembers(self):
         # Create the file system model
         self.model = QFileSystemModel()
-
+        
         # Create the tree view
         self.tree = QTreeView()
         self.tree.setModel(self.model)
-       
-        self.setRootPath(root_path)
         
         # Connect selection change signal
         self.tree.selectionModel().selectionChanged.connect(self.fileTreeSelectionChanged)
         
-        # Set up the layout
+    def initLayout(self):        
+        layout = QVBoxLayout()
+        
         layout.addWidget(self.tree)
         self.setLayout(layout)
         
+    def initNonUiMembers(self):
         #
         self.selected_child_files = []
         self.selected_c_f_lastmodified = []
         
     def setRootPath(self, root_path):
-        self.model.setRootPath(root_path)
-        root_index = self.model.index(root_path)
+        root_index = self.model.setRootPath(root_path)
         self.tree.setRootIndex(root_index)
-    
+        
     def get_all_files_and_folders(self, parent_folder): 
         all_files_path = []
         all_files_lastmodified = []

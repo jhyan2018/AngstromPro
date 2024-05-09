@@ -56,13 +56,13 @@ class SnapshotManager:
 
     def save_metadata(self):
         with open(self.metadata_png_name, "w") as f:
-            json.dump(self.snapshots_png_name, f)
+            json.dump(self.snapshots_png_name, f, indent=4)
    
         with open(self.metadata_last_modified, "w") as f:
-            json.dump(self.snapshots_last_modified, f)  
+            json.dump(self.snapshots_last_modified, f, indent=4)  
             
         with open(self.metadata_channel, "w") as f:
-            json.dump(self.snapshots_channel, f)
+            json.dump(self.snapshots_channel, f, indent=4)
     
     def save_snapshots(self, srcfile_path, srcfile_lastmodified, pixmap_list, channel_list, channel_layer_list):
         png_name_list = []
