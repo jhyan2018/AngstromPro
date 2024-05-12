@@ -19,7 +19,7 @@ User Modules
 """
 from .GuiFrame import GuiFrame
 from .FileSystemTree import FileSystemTree
-from .SnapshotManager import SnapshotManager
+from .SnapshotManager import SnapshotManager, SnapshotInfo
 from .ConfigManager import ConfigManager
 
 """ *************************************** """
@@ -32,8 +32,8 @@ class DataBrowser(GuiFrame):
         super(DataBrowser, self).__init__(wtype, index, *args, **kwargs)        
         
         self.initCcUiMembers()
-        self.initCcUiLayout()
         self.initCcNonUiMembers()
+        self.initCcUiLayout()
         self.initCcMenuBar()
         
     def initCcUiMembers(self):
@@ -86,14 +86,15 @@ class DataBrowser(GuiFrame):
         #
         self.ui_horizontalLayout.addWidget(self.ui_snap_gallery)
         self.ui_snap_gallery.setWidgetResizable(True)
+        #self.ui_horizontalLayout.addWidget(self.snapshots_manager.snapshots_render_image)
         
     def initCcNonUiMembers(self):
         # Settings
         self.settings = self.loadSettings()
         
         #
-        self.snapshots_dir = QtCore.QDir.homePath() + "/ScienceY/snapshots"  # Save snapshots in the user's home directory
-        self.snapshots_manager = SnapshotManager(self.snapshots_dir)
+        self.snapshots_dir = QtCore.QDir.homePath() + "/angstromPro/snapshots"  # Save snapshots in the user's home directory
+        self.snapshots_manager = SnapshotManager(self.snapshots_dir, self.settings)
         
         self.data_format_filter = self.settings['FILTER']['data_format_filter']
         self.ui_le_data_filter.setText(self.data_format_filter)
@@ -147,7 +148,13 @@ class DataBrowser(GuiFrame):
             if suffix not in self.data_format_filter:
                 continue
             
-            png_path_list, channel_list = self.getSnapshotsInfo(file_path, src_files_lastmodified[index])
+            metadata_file_path= self.getSnapshotsInfo(file_path, src_files_lastmodified[index])
+
+            
+            """
+            break
+            png_path_list = []
+            channel_list = []
             for path in png_path_list:
                 file_info = QFileInfo(path)
                 if file_info.isDir():
@@ -156,7 +163,7 @@ class DataBrowser(GuiFrame):
                     png_path = path
                 gallery_content_counts += 1
                 
-                """ should change to other widget """
+                """ """should change to other widget """ """
                 label = QtWidgets.QLabel()              
                 pixmap = QtGui.QPixmap(png_path)
                 label.setPixmap(pixmap)
@@ -178,15 +185,15 @@ class DataBrowser(GuiFrame):
             
         #
         self.ui_snap_gallery.setWidget(snap_gallery_container)
+        """
         
     def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
-        png_path_list, lastmodified, channel_list = self.snapshots_manager.get_snapshots_info(src_file_path)
-        
-        if not png_path_list or not src_file_lastmodified == lastmodified:
-            pixmap_list, channel_list, channel_layer_list = self.snapshots_manager.generate_snapshots(src_file_path)
-            self.snapshots_manager.save_snapshots(src_file_path, src_file_lastmodified, pixmap_list, channel_list, channel_layer_list)
+        metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
+         
+        if not metadata_file_path:
+            self.snapshots_manager.generate_snapshots(src_file_path, src_file_lastmodified)
             
             # get updated png name
-            png_path_list, lastmodified, channel_list = self.snapshots_manager.get_snapshots_info(src_file_path)
+            metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
             
-        return png_path_list, channel_list
+        return metadata_file_path
