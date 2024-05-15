@@ -71,6 +71,10 @@ class SnapshotManager:
         # otherwise it will have issue with rendering to pixmap
         self.snapshots_render_image.static_canvas.setFixedHeight(256)
         self.snapshots_render_image.static_canvas.setFixedWidth(256)
+        
+        #
+        self.img2u3w_src_file_path = ''
+        self.img2u3w_channel = ''
 
     def load_metadata_srcfile(self):
         if os.path.exists(self.metadata_srcfile):
@@ -84,7 +88,26 @@ class SnapshotManager:
             json.dump(self.snapshots_srcfile, f, indent=4)
     
     def load_metadata_file(self, metadata_file_path):
-        pass
+        metadata = {}
+        if os.path.exists(metadata_file_path):
+            with open(metadata_file_path, "r") as f:
+                metadata = json.load(f)
+        
+            snapshots_info = SnapshotInfo(metadata['src_file_path'], metadata['src_file_lastmodified'])
+            snapshots_info.src_file_uuid = metadata['src_file_uuid']
+            snapshots_info.channel = metadata['channel']
+            snapshots_info.ch_uuid = metadata['ch_uuid']
+            snapshots_info.ch_type = metadata['ch_type']
+            snapshots_info.ch_layers = metadata['ch_layers']
+            snapshots_info.ch_layer_value = metadata['ch_layer_value']
+            snapshots_info.ch_layer_scale = metadata['ch_layer_scale']
+            snapshots_info.ch_star = metadata['ch_star']
+            snapshots_info.pivotal_info = metadata['pivotal_info']
+            snapshots_info.full_info = metadata['full_info']
+            
+            return snapshots_info
+        else:
+            return None
     
     def save_metadata_file(self, snapshots_info):
         metadata = {}
@@ -138,35 +161,40 @@ class SnapshotManager:
                 snapshot_info.ch_uuid.append(png_subfolder_name)
                 png_subpath = os.path.join(self.snapshots_dir, f"{png_subfolder_name}")
                 os.makedirs(png_subpath)
-                for i in range(int(snapshot_info.ch_layers[index])):
-                    snapshot_path = os.path.join(png_subpath, f"l{i}.png")
-                    #print(snapshot_path)
-                    snapshot_info.pixmap[pixmap_counts].save(snapshot_path)
-                    pixmap_counts += 1
+                
+                snapshot_path = os.path.join(png_subpath, 'layer0.png')
+                snapshot_info.pixmap[pixmap_counts].save(snapshot_path)
+                pixmap_counts += 1
             else:
                 print('Snapshots: Unsupported channel layers!')       
 
         self.save_metadata_file(snapshot_info)
         
-    def generate_snapshots(self, srcfile_path, src_file_lastmodified):
+    def generate_snapshots(self, srcfile_path, src_file_lastmodified, channel=None, layer=0, snapshots_info=None):
         # file suffix/format
         suffix = srcfile_path.split('.')[-1]      
                 
         if suffix == '3ds':
-            self.generate_snapshots_3ds(srcfile_path, src_file_lastmodified)
+            if channel == None:
+                self.generate_snapshots_to_metafile_from_3ds(srcfile_path, src_file_lastmodified)
+            else:
+                self.generate_snapshots_to_gallery_content_from_3ds(srcfile_path, src_file_lastmodified, channel, layer, snapshots_info)
         elif suffix == 'sxm':
-            self.generate_snapshots_sxm(srcfile_path, src_file_lastmodified)
+            self.generate_snapshots_to_metafile_from_sxm(srcfile_path, src_file_lastmodified)
         elif suffix == 'TFR':
-            self.generate_snapshots_TFR(srcfile_path, src_file_lastmodified)
+            self.generate_snapshots_to_metafile_from_TFR(srcfile_path, src_file_lastmodified)
         elif suffix == '1FL':
-            self.generate_snapshots_1FL(srcfile_path, src_file_lastmodified)
+            self.generate_snapshots_to_metafile_from_1FL(srcfile_path, src_file_lastmodified)
         elif suffix == 'uds':
-            self.generate_snapshots_uds(srcfile_path, src_file_lastmodified)
+            self.generate_snapshots_to_metafile_from_uds(srcfile_path, src_file_lastmodified)
         else:
-            print('Generate snapshots error: Unsupported file suffix!')
-    def generate_snapshots_Img2U3Widget(self, uds_data, snapshot_info):
+            print('Generate snapshots error: Unsupported file suffix!') 
+            
+    """ """
+    def set_snapshots_render_image_data(self,uds_data):
         self.snapshots_render_image.setUdsData(uds_data)
         
+    def generate_singlelayer_snapshots_Img2U3Widget(self, snapshot_info, layer_index=0):        
         layer_value = self.snapshots_render_image.uds_var_layer_value
         separator = ','
         snapshot_info.ch_layer_value.append(separator.join(layer_value))
@@ -174,67 +202,123 @@ class SnapshotManager:
         snapshot_info.ch_layers.append(str(layers))
         
         layer_scale = []
-        self.snapshots_render_image.imageLayerChangedSlotDisconnect()            
-        for layer in range(layers):
-            self.snapshots_render_image.ui_sb_image_layers.setValue(layer)
-            self.snapshots_render_image.imageLayerChanged()                         
+           
+        self.snapshots_render_image.ui_sb_image_layers.setValue(layer_index)
+        self.snapshots_render_image.imageLayerChanged()
             
-            pixmap = QtGui.QPixmap(self.snapshots_render_image.static_canvas.size())
-            self.snapshots_render_image.static_canvas.render(pixmap)
-            snapshot_info.pixmap.append(pixmap)
+        pixmap = QtGui.QPixmap(self.snapshots_render_image.static_canvas.size())
+        self.snapshots_render_image.static_canvas.render(pixmap)
+        snapshot_info.pixmap.append(pixmap)
             
-            scale_u_v = self.snapshots_render_image.ui_scale_widget.data_upper_value
-            scale_l_v = self.snapshots_render_image.ui_scale_widget.data_lower_value 
-            layer_scale.append(NumberExpression.float_to_simplified_number(scale_l_v))
-            layer_scale.append(NumberExpression.float_to_simplified_number(scale_u_v))
+        scale_u_v = self.snapshots_render_image.ui_scale_widget.data_upper_value
+        scale_l_v = self.snapshots_render_image.ui_scale_widget.data_lower_value 
+        layer_scale.append(NumberExpression.float_to_simplified_number(scale_l_v))
+        layer_scale.append(NumberExpression.float_to_simplified_number(scale_u_v))
             
         snapshot_info.ch_layer_scale.append(separator.join(layer_scale))     
-        self.snapshots_render_image.imageLayerChangedSlotConnect()
         
-    def generate_snapshots_3ds(self, srcfile_path, src_file_lastmodified):
+    """ Generate Snapshots to Gallery Content  """
+    def generate_snapshots_to_gallery_content_from_3ds(self, srcfile_path, src_file_lastmodified, channel, layer, snapshots_info):
+
+        
+        if srcfile_path == self.img2u3w_src_file_path and channel == self.img2u3w_channel:
+            reset_img2u3w_data = False
+        else:
+            reset_img2u3w_data = True
+            
+            self.img2u3w_src_file_path = srcfile_path
+            self.img2u3w_channel = channel
+            srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
+            data3ds = NanonisDataProcess.Data3dsStru(srcfile_path, srcfile_name)
+        
+        if channel == 'Z (m)':
+            snapshots_info.channel.append('Z (m)')
+            snapshots_info.ch_type.append('IMAGE')
+            
+            if reset_img2u3w_data:
+                uds3D_topo = data3ds.get_Topo()
+                #background subtract
+                uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
+                self.set_snapshots_render_image_data(uds3D_topo_bg)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
+        elif channel == 'LI Demod 1 X (A)':
+            snapshots_info.channel.append('LI Demod 1 X (A)')
+            snapshots_info.ch_type.append('IMAGE')
+            
+            if reset_img2u3w_data:
+                uds3D_didv = data3ds.get_dIdV_data()
+                self.set_snapshots_render_image_data(uds3D_didv)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
+        
+        elif channel == 'Current (A)':
+            snapshots_info.channel.append('Current (A)')
+            snapshots_info.ch_type.append('IMAGE')
+            
+            if reset_img2u3w_data:
+                uds3D_current = data3ds.get_Current()
+                self.set_snapshots_render_image_data(uds3D_current)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
+        
+        elif channel == 'LI Demod 1 Y (A)':
+            snapshots_info.channel.append('LI Demod 1 Y (A)')
+            snapshots_info.ch_type.append('IMAGE')
+            
+            if reset_img2u3w_data:
+                uds3D_didv_phase = data3ds.get_Phase()
+                self.set_snapshots_render_image_data(uds3D_didv_phase)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
+        else:
+            print('generate_snapshots_to_gallery_content_from_3ds: Unknown Channel!')
+
+    """ Generate Snapshots to Metafile  """
+    def generate_snapshots_to_metafile_from_3ds(self, srcfile_path, src_file_lastmodified):
         srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
         data3ds = NanonisDataProcess.Data3dsStru(srcfile_path, srcfile_name)  
         
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
-        #snapshot_info.pivotal_info = []
-        #snapshot_info.full_info = []
-        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
-        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
-        self.save_metadata_srcfile()
-        
+
         if 'Z (m)' in data3ds.channel_list:
             snapshot_info.channel.append('Z (m)')
             snapshot_info.ch_type.append('IMAGE')
             
             uds3D_topo = data3ds.get_Topo()
             #background subtract
-            uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')          
-            self.generate_snapshots_Img2U3Widget(uds3D_topo_bg, snapshot_info)
+            uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
+            self.set_snapshots_render_image_data(uds3D_topo_bg)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
                     
         if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
             snapshot_info.channel.append('LI Demod 1 X (A)')
             snapshot_info.ch_type.append('IMAGE')
             
             uds3D_didv = data3ds.get_dIdV_data()
-            self.generate_snapshots_Img2U3Widget(uds3D_didv, snapshot_info)
+            self.set_snapshots_render_image_data(uds3D_didv)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'Current (A)' in data3ds.channel_list:
             snapshot_info.channel.append('Current (A)')
             snapshot_info.ch_type.append('IMAGE')
             
             uds3D_current = data3ds.get_Current()
-            self.generate_snapshots_Img2U3Widget(uds3D_current, snapshot_info)
+            self.set_snapshots_render_image_data(uds3D_current)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'LI Demod 1 Y (A)' in data3ds.channel_list:
             snapshot_info.channel.append('LI Demod 1 Y (A)')
             snapshot_info.ch_type.append('IMAGE')
             
             uds3D_didv_phase = data3ds.get_Phase()
-            self.generate_snapshots_Img2U3Widget(uds3D_didv_phase, snapshot_info)
-            
+            self.set_snapshots_render_image_data(uds3D_didv_phase)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+
+        #snapshot_info.pivotal_info = []
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
         self.save_snapshots(snapshot_info)
         
-    def generate_snapshots_sxm(self, srcfile_path, src_file_lastmodified):
+    def generate_snapshots_to_metafile_from_sxm(self, srcfile_path, src_file_lastmodified):
         pass
     """
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
@@ -253,19 +337,19 @@ class SnapshotManager:
             if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
                 globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta()
     """
-    def generate_snapshots_TFR(self, srcfile_path, src_file_lastmodified):
+    def generate_snapshots_to_metafile_from_TFR(self, srcfile_path, src_file_lastmodified):
         pass
         """    
         data1fl = LFDataProcess.Data1FLStru(full_path)
         globals()['uds3D_'+file_name+'_topo'] = data1fl.get_data() 
         """ 
-    def generate_snapshots_1FL(self, srcfile_path, src_file_lastmodified):
+    def generate_snapshots_to_metatfile_from_1FL(self, srcfile_path, src_file_lastmodified):
         pass
         """    
         data1fl = LFDataProcess.Data1FLStru(full_path)
             globals()['uds3D_'+file_name+'_dIdV'] = data1fl.get_data()
         """     
-    def generate_snapshots_uds(self, srcfile_path, src_file_lastmodified):
+    def generate_snapshots_to_metafile_from_uds(self, srcfile_path, src_file_lastmodified):
         pass
         """
         udp = UdsDataProcess(full_path)

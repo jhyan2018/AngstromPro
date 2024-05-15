@@ -116,7 +116,7 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.ui_cb_image_data_type.setEnabled(False)
         self.ui_lb_image_layer = QtWidgets.QLabel("Layer: ")
         self.ui_sb_image_layers = QtWidgets.QSpinBox()
-        self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged)
+        self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged, QtCore.Qt.QueuedConnection)
         self.ui_sb_image_layers.setEnabled(False)
         self.ui_lb_image_layer = QtWidgets.QLabel("Layer: ")
         self.ui_le_layer_value = QtWidgets.QLineEdit()
@@ -274,6 +274,10 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.img_sync_layer = False
         self.sync_rt_points = False
         
+        #
+        self.d = 0
+        self.c = 0
+        
     """ @SLOTS of UI Widgets"""  
     # Send MSG
     def sendMsgSignalEmit(self, msgTypeIndex):
@@ -309,10 +313,18 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.updateImage()
     
     def imageLayerChangedSlotConnect(self):
+        self.c += 1
+        print('c:', self.c)
         self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged)
+        print("layer signal connected")
         
     def imageLayerChangedSlotDisconnect(self):
-        self.ui_sb_image_layers.valueChanged.disconnect()
+        receivers = self.ui_sb_image_layers.receivers(self.ui_sb_image_layers.valueChanged)
+        self.d += 1
+        print('d:',self.d)
+        if receivers > 0:
+            self.ui_sb_image_layers.valueChanged.disconnect()
+        print("layer signal disconnected")
         
     def imageLayerChanged(self):                
         self.img_current_layer = self.ui_sb_image_layers.value()

@@ -8,7 +8,7 @@ Created on Sat May  4 11:41:36 2024
 """
 System modules
 """
-
+import os
 """
 Third-party Modules
 """
@@ -20,6 +20,7 @@ User Modules
 from .GuiFrame import GuiFrame
 from .FileSystemTree import FileSystemTree
 from .SnapshotManager import SnapshotManager, SnapshotInfo
+from .GalleryContentWidget import GalleryContentWidget
 from .ConfigManager import ConfigManager
 
 """ *************************************** """
@@ -149,26 +150,28 @@ class DataBrowser(GuiFrame):
                 continue
             
             metadata_file_path= self.getSnapshotsInfo(file_path, src_files_lastmodified[index])
+            snapshots_info = self.snapshots_manager.load_metadata_file(metadata_file_path)
+            for ch_idx, channel in enumerate(snapshots_info.channel):
 
-            
-            """
-            break
-            png_path_list = []
-            channel_list = []
-            for path in png_path_list:
-                file_info = QFileInfo(path)
-                if file_info.isDir():
-                    png_path = path + '/l0'
-                else:
-                    png_path = path
                 gallery_content_counts += 1
-                
-                """ """should change to other widget """ """
-                label = QtWidgets.QLabel()              
-                pixmap = QtGui.QPixmap(png_path)
-                label.setPixmap(pixmap)
-                gallery_content_list.append(label)                
-                #channel_list               
+                gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx)          
+
+                gallery_content_list.append(gallery_content)                
+        
+        """
+        #
+        gallery_content_list[0].setFixedHeight(386)
+        gallery_content_list[0].setFixedWidth(386)
+        #gallery_content_list[0].setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        gallery_content_list[0].setStyleSheet("QWidget { background-color: #FFFFFF; }")
+        pixmap = QtGui.QPixmap(gallery_content_list[0].size())
+        pixmap.fill(QtCore.Qt.transparent)
+        painter = QtGui.QPainter(pixmap)
+        gallery_content_list[0].render(painter)
+        painter.end()
+        
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        """
             
         for index, gallery_content in enumerate(gallery_content_list):
             row = index // 3  # Determine the row (2 rows, 0 and 1)
@@ -185,7 +188,7 @@ class DataBrowser(GuiFrame):
             
         #
         self.ui_snap_gallery.setWidget(snap_gallery_container)
-        """
+
         
     def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
         metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
