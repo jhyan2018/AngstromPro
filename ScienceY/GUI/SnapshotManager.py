@@ -285,36 +285,52 @@ class SnapshotManager:
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
 
         if 'Z (m)' in data3ds.channel_list:
-            snapshot_info.channel.append('Z (m)')
-            snapshot_info.ch_type.append('IMAGE')
-            
             uds3D_topo = data3ds.get_Topo()
+            channel = uds3D_topo.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Topo')
+            snapshot_info.ch_type.append('IMAGE')    
+
             #background subtract
             uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
             self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
                     
         if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
-            snapshot_info.channel.append('LI Demod 1 X (A)')
+            uds3D_didv = data3ds.get_dIdV_data()
+            channel = uds3D_didv.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_didv = data3ds.get_dIdV_data()
             self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'Current (A)' in data3ds.channel_list:
-            snapshot_info.channel.append('Current (A)')
+            uds3D_current = data3ds.get_Current()
+            channel = uds3D_current.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Current Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_current = data3ds.get_Current()
             self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'LI Demod 1 Y (A)' in data3ds.channel_list:
-            snapshot_info.channel.append('LI Demod 1 Y (A)')
+            uds3D_didv_phase = data3ds.get_Phase()
+            channel = uds3D_didv_phase.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Phase Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_didv_phase = data3ds.get_Phase()
             self.set_snapshots_render_image_data(uds3D_didv_phase)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
         
@@ -339,39 +355,55 @@ class SnapshotManager:
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
         
         if 'Z' in dataSxm.channel_list[0]:
-            snapshot_info.channel.append('Z (m)')
-            snapshot_info.ch_type.append('IMAGE')
-            
             uds3D_topo = dataSxm.get_Topo_fwd()
+            channel = uds3D_topo.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Topo')
+            snapshot_info.ch_type.append('IMAGE')           
+
             #background subtract
             uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
                         
             self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
-        if 'LI_Demod_1_X' in dataSxm.channel_list[0]:
-            snapshot_info.channel.append('LI Demod 1 X (A)')
+        if 'LI_Demod_1_X' in dataSxm.channel_list[0]:            
+            uds3D_didv = dataSxm.get_dIdV_fwd()
+            channel = uds3D_didv.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_didv = dataSxm.get_dIdV_fwd()
             self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'Current' in dataSxm.channel_list[0]:
-            snapshot_info.channel.append('Current (A)')
+            uds3D_current = dataSxm.get_Current_fwd()
+            channel = uds3D_current.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Current Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_current = dataSxm.get_Current_fwd()
             self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
-             snapshot_info.channel.append('LI Demod 1 Y (A)')
-             snapshot_info.ch_type.append('IMAGE')
+            uds3D_didv_phase = dataSxm.get_theta()
+            channel = uds3D_didv_phase.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Phase Map') 
+            snapshot_info.ch_type.append('IMAGE')
              
-             uds3D_didv_phase = dataSxm.get_theta()
-             self.set_snapshots_render_image_data(uds3D_didv_phase)
-             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            self.set_snapshots_render_image_data(uds3D_didv_phase)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
         
         # pivotal_info
         if 'current>current (a)' in dataSxm.header.keys():
@@ -406,7 +438,12 @@ class SnapshotManager:
         
         # only one channel
         uds_data = dataUdp.readFromFile()
-        snapshot_info.channel.append('channel - ?')
+        channel = uds_data.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Channel: ?')
+            
         snapshot_info.ch_type.append('IMAGE')
         
         self.set_snapshots_render_image_data(uds_data)
