@@ -9,6 +9,7 @@ Created on Mon Jul 31 16:21:57 2023
 System modules
 """
 import ctypes, os
+import math
 
 """
 Third-party Modules
@@ -412,8 +413,8 @@ class Image2Uds3Widget(QtWidgets.QWidget):
             current_mouse_x = int(event_x)
             current_mouse_y = int(event_y)
             
-            dx = int((current_mouse_x - self.mouse_cord_x)/self.st_img_scale_ratio)
-            dy = int((current_mouse_y - self.mouse_cord_y)/self.st_img_scale_ratio)
+            dx = int((current_mouse_x - self.mouse_cord_x)/ (math.log2(self.st_img_scale_ratio)+1) )
+            dy = int((current_mouse_y - self.mouse_cord_y)/ (math.log2(self.st_img_scale_ratio)+1) )
             
             self.st_img_xlim_l -= dx
             self.st_img_xlim_u -= dx

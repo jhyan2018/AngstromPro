@@ -77,7 +77,7 @@ class Load3ds():
         raw_data1D = np.fromfile(f, dtype = '>f4', count = -1)        
         f.close()
         
-        data2D = raw_data1D.reshape((-1, l))
+        data2D = raw_data1D.astype('f4').reshape((-1, l))
         data3D = np.zeros((l, self.header['grid dim'][0], self.header['grid dim'][1]))
         
         for i in range(l):
@@ -168,7 +168,7 @@ class LoadSxm():
         raw_data1D = np.fromfile(f, dtype = '>f4', count = -1)
         f.close()
         
-        data3D = raw_data1D.reshape((self.header['channels_num'], self.header['xPixels'], self.header['yPixels']))
+        data3D = raw_data1D.astype('f4').reshape((self.header['channels_num'], self.header['xPixels'], self.header['yPixels']))
         for i in range(self.header['channels_num']):
             if i%2 == 1:
                 data3D[i, :, :] = data3D[i, :, :][:,::-1] # Reverse column for backward scanning

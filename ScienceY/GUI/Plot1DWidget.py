@@ -158,7 +158,7 @@ class Plot1DWidget(QtWidgets.QWidget):
             self.canvas.figure.tight_layout()
             self.ax.figure.canvas.draw()
         
-    def setLineCutStartAndEndPoints(self, Points_list, pcs = 1): 
+    def setLineCutStartAndEndPoints(self, Points_list, start = 0, end = -1, pcs = 1): 
         Points_text = Points_list.split(',')
         Points=[]
         for p in Points_text:
@@ -236,7 +236,7 @@ class Plot1DWidget(QtWidgets.QWidget):
         
         self.ax.clear()
         for i in range(dIdV_set.shape[0]):
-            self.ax.plot(self.energy, dIdV_set[i,:] + i * 0.1 * delta_Y, color = 'k', linewidth = 1.0)
+            self.ax.plot(self.energy[start:end], dIdV_set[i,start:end] + i * 0.1 * delta_Y, color = 'k', linewidth = 1.0)
         
         self.ax.set_xlabel('Bias(mV)', size = self.frontsize)
         self.ax.set_ylabel('dI/dV(S)', size = self.frontsize)

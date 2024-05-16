@@ -42,7 +42,13 @@ class LockIn2D():
         x = np.arange(N)
         y = np.arange(N)
         X,Y = np.meshgrid(x,y)
+        '''
+        nr, nc = data2D.shape
         
+        xp = np.linspace(0, np.pi, nc)
+        yp = np.linspace(0, np.pi, nr)
+        z = np.outer(np.sin(xp), np.sin(yp))
+        '''
         eQR = np.exp( 1j * ( Qx * X + Qy * Y) )
         
         A_Q_k = np.fft.fftshift( np.fft.fft2( data2D * eQR ) )
@@ -50,6 +56,7 @@ class LockIn2D():
         # calculate A_Q(r)
         self.A_Q_r =np.fft.ifft2( np.fft.ifftshift( A_Q_k * kGaussian ) ) 
     
+    # Old PhaseUnwrap Methods
     def phaseUnwrap(self, phaseReverseFactor=0.8):
         #phaseMapWrapped = np.arctan2( np.imag(self.A_Q_r), np.real(self.A_Q_r) )
         phaseMapWrapped = np.angle(self.A_Q_r)
@@ -201,7 +208,8 @@ class LockIn2D():
         return res_img
     
     def getPhaseMap(self, phaseUnwrap=True, phaseReverseFactor=0.8):
-        phaseMap = np.arctan2( np.imag(self.A_Q_r), np.real(self.A_Q_r) ) + np.pi
+        #phaseMap = np.arctan2( np.imag(self.A_Q_r), np.real(self.A_Q_r) ) + np.pi
+        phaseMap = np.angle(self.A_Q_r) + np.pi
         
         if phaseUnwrap == True:
             #phaseMap = self.phaseUnwrap(phaseReverseFactor)

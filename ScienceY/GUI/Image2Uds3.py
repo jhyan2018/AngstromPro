@@ -791,14 +791,22 @@ class Image2Uds3(GuiFrame):
             
             # get param list
             params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+            energy_start = 0
+            energy_end = -1
             p = 1
             if len(params) != 0:
                 params = params.split(',')
                 param_numbers = len(params)
-                if param_numbers == 1:
-                    p = int(params[0])
+                if param_numbers == 2:
+                    energy_start = int(params[0])
+                    energy_end = int(params[1])
+                if len(params) ==3:
+                    energy_start = int(params[0])
+                    energy_end = int(params[1])
+                    p = int(params[2])
                     
-            self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(self.ui_img_widget_main.uds_variable.info['LineCutPoints'], pcs = p)
+            self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(
+                self.ui_img_widget_main.uds_variable.info['LineCutPoints'], start = energy_start, end = energy_end, pcs = p)
         else:
             print('No - LineCutPoints - keys exists.')
         
@@ -1223,7 +1231,8 @@ class Image2Uds3(GuiFrame):
             if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
                 self.ui_img_widget_main.uds_variable.info['LineCutPoints'] = picked_points
                 self.ui_img_widget_main.updateDataInfo()
-                
+        #
+        self.clearWidgetsContents()
                 
     def actSetRegisterPointsFromMain(self):
         var_name = self.ui_img_widget_main.uds_variable.name
@@ -1385,9 +1394,6 @@ class Image2Uds3(GuiFrame):
         # update var list
         self.appendToLocalVarList(uds_data_simulated)
         
-        #
-        self.clearWidgetsContents()
-        
     def actGenerateLatticeWithLineDomainWall(self):
         self.status_bar.showMessage("Params(m=20, n=20, a1x=10, a1y=0, a2x=0, a2y=10, atomSize=None, shiftDistance=0.25, atomCurve=Gaussian,  Ox=0, Oy=0)")
         
@@ -1402,9 +1408,6 @@ class Image2Uds3(GuiFrame):
         
         # update var list
         self.appendToLocalVarList(uds_data_simulated)
-        
-        #
-        self.clearWidgetsContents()
         
     def actGenerateLatticeWithPeriodicDistortions(self):
         msg = "Params(m=20, n=20, a1x=10, a1y=0, a2x=0, a2y=10, d1x=40, d1y=0, d2x=0, d2y=0, dpA1=0.25, dpA2=0,"
@@ -1423,9 +1426,6 @@ class Image2Uds3(GuiFrame):
         
         # update var list
         self.appendToLocalVarList(uds_data_simulated)
-        
-        #
-        self.clearWidgetsContents()
         
     # Widgets Menus
     def actShowVarDockWidget(self):
