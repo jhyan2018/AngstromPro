@@ -21,6 +21,7 @@ User Modules
 """
 from ..GUI.Image2Uds3Widget import Image2Uds3Widget
 from ..RawDataProcess import NanonisDataProcess
+from ..RawDataProcess.UdsDataProcess import UdsDataProcess
 from ..ImageProcess import ImgProc
 from ..GUI.general.NumberExpression import NumberExpression
 """
@@ -180,13 +181,19 @@ class SnapshotManager:
             else:
                 self.generate_snapshots_to_gallery_content_from_3ds(srcfile_path, src_file_lastmodified, channel, layer, snapshots_info)
         elif suffix == 'sxm':
-            self.generate_snapshots_to_metafile_from_sxm(srcfile_path, src_file_lastmodified)
+            if channel == None:
+                self.generate_snapshots_to_metafile_from_sxm(srcfile_path, src_file_lastmodified)
+            else:
+                pass
         elif suffix == 'TFR':
             self.generate_snapshots_to_metafile_from_TFR(srcfile_path, src_file_lastmodified)
         elif suffix == '1FL':
             self.generate_snapshots_to_metafile_from_1FL(srcfile_path, src_file_lastmodified)
         elif suffix == 'uds':
-            self.generate_snapshots_to_metafile_from_uds(srcfile_path, src_file_lastmodified)
+            if channel == None:
+                self.generate_snapshots_to_metafile_from_uds(srcfile_path, src_file_lastmodified)
+            else:
+                pass
         else:
             print('Generate snapshots error: Unsupported file suffix!') 
             
@@ -326,24 +333,60 @@ class SnapshotManager:
         self.save_snapshots(snapshot_info)
         
     def generate_snapshots_to_metafile_from_sxm(self, srcfile_path, src_file_lastmodified):
-        pass
-    """
-            globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
-            if 'Z' in dataSxm.channel_list[0]:
-                globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
-                if dataSxm.channel_list[1][dataSxm.channel_list[0].index('Z')] == 'both':
-                    globals()['uds3D_'+file_name+'_topo_bwd'] = dataSxm.get_Topo_bwd()
-            if 'LI_Demod_1_X' in dataSxm.channel_list[0]:
-                globals()['uds3D_'+file_name+'_dIdV_fwd'] = dataSxm.get_dIdV_fwd()
-                if dataSxm.channel_list[1][dataSxm.channel_list[0].index('LI_Demod_1_X')] == 'both':
-                    globals()['uds3D_'+file_name+'_dIdV_bwd'] = dataSxm.get_dIdV_bwd()
-            if 'Current' in dataSxm.channel_list[0]:
-                globals()['uds3D_'+file_name+'_Currrent_fwd'] = dataSxm.get_Current_fwd()
-                if dataSxm.channel_list[1][dataSxm.channel_list[0].index('Current')] == 'both':
-                    globals()['uds3D_'+file_name+'_Current_bwd'] = dataSxm.get_Current_bwd()
-            if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
-                globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta()
-    """
+        srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
+        dataSxm = NanonisDataProcess.DataSxmStru(srcfile_path, srcfile_name)
+        
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        if 'Z' in dataSxm.channel_list[0]:
+            snapshot_info.channel.append('Z (m)')
+            snapshot_info.ch_type.append('IMAGE')
+            
+            uds3D_topo = dataSxm.get_Topo_fwd()
+            #background subtract
+            uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
+                        
+            self.set_snapshots_render_image_data(uds3D_topo_bg)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            
+        if 'LI_Demod_1_X' in dataSxm.channel_list[0]:
+            snapshot_info.channel.append('LI Demod 1 X (A)')
+            snapshot_info.ch_type.append('IMAGE')
+            
+            uds3D_didv = dataSxm.get_dIdV_fwd()
+            self.set_snapshots_render_image_data(uds3D_didv)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            
+        if 'Current' in dataSxm.channel_list[0]:
+            snapshot_info.channel.append('Current (A)')
+            snapshot_info.ch_type.append('IMAGE')
+            
+            uds3D_current = dataSxm.get_Current_fwd()
+            self.set_snapshots_render_image_data(uds3D_current)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            
+        if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
+             snapshot_info.channel.append('LI Demod 1 Y (A)')
+             snapshot_info.ch_type.append('IMAGE')
+             
+             uds3D_didv_phase = dataSxm.get_theta()
+             self.set_snapshots_render_image_data(uds3D_didv_phase)
+             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        # pivotal_info
+        if 'current>current (a)' in dataSxm.header.keys():
+            current = NumberExpression.float_to_simplified_number(dataSxm.header['current>current (a)'])
+            snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        if 'bias>bias (v)' in dataSxm.header.keys():
+            bias = NumberExpression.float_to_simplified_number(dataSxm.header['bias>bias (v)'])
+            snapshot_info.pivotal_info.append('Bias Setpoint(V):' + bias)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)
+
     def generate_snapshots_to_metafile_from_TFR(self, srcfile_path, src_file_lastmodified):
         pass
         """    
@@ -357,9 +400,20 @@ class SnapshotManager:
             globals()['uds3D_'+file_name+'_dIdV'] = data1fl.get_data()
         """     
     def generate_snapshots_to_metafile_from_uds(self, srcfile_path, src_file_lastmodified):
-        pass
-        """
-        udp = UdsDataProcess(full_path)
-            uds_data = udp.readFromFile()
-            globals()[uds_data.name] = uds_data
-        """
+        dataUdp = UdsDataProcess(srcfile_path)
+        
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        # only one channel
+        uds_data = dataUdp.readFromFile()
+        snapshot_info.channel.append('channel - ?')
+        snapshot_info.ch_type.append('IMAGE')
+        
+        self.set_snapshots_render_image_data(uds_data)
+        self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)

@@ -49,8 +49,8 @@ class GalleryContentWidget(QtWidgets.QWidget):
     def initUiMembers(self):
         #
         self.ui_lb_png_display = QtWidgets.QLabel()
-        self.ui_lb_png_display.setFixedHeight(800)
-        self.ui_lb_png_display.setFixedWidth(800)
+        self.ui_lb_png_display.setFixedHeight(500)
+        self.ui_lb_png_display.setFixedWidth(500)
         
         #
         self.ui_lb_file_path = QtWidgets.QLabel()
