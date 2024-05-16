@@ -19,7 +19,7 @@ from PyQt5 import QtCore, QtWidgets
 """
 User Modules
 """
-from ScienceY.GUI import Image2Uds3, RtSynthesis2Uds3
+from ScienceY.GUI import Image2Uds3, RtSynthesis2Uds3, DataBrowser
 from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
 from ScienceY.RawDataProcess.UdsDataProcess import UdsDataProcess, UdsDataStru3D
@@ -326,8 +326,10 @@ class GuiVarManager(QtWidgets.QMainWindow):
         #findMenu.addAction(self.findAction)
         
         # Window Menu
+        windowMenu.addAction(self.dataBrowserAction)
         windowMenu.addAction(self.image2or3DAction)
         windowMenu.addAction(self.rtSynthesis2DAction)
+        
         
         # Option Menu
         optionMenu.addAction(self.preferenceAction)
@@ -349,6 +351,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.replaceAction = QtWidgets.QAction("&Replace",self)
         
         # Window
+        self.dataBrowserAction = QtWidgets.QAction("Data Browser",self)
         self.image2or3DAction = QtWidgets.QAction("Image2or3D",self)
         self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2D",self)
         
@@ -361,6 +364,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.saveToFileAction.triggered.connect(self.saveToFile)
         
         # Window Menu
+        self.dataBrowserAction.triggered.connect(self.newDataBrowserWindow)
         self.image2or3DAction.triggered.connect(self.newImage2or3DWindow)
         self.rtSynthesis2DAction.triggered.connect(self.newRtSynthesis2D)
         
@@ -455,6 +459,17 @@ class GuiVarManager(QtWidgets.QMainWindow):
 
     
     # creat new window
+    def newDataBrowserWindow(self):
+        self.created_window_counts += 1
+        
+        w = DataBrowser('DataBrowser_', self.created_window_counts)
+        w.sendDataSignal.connect(self.getDataFromWindows)
+        
+        self.alive_window_pt_list.append(w)        
+        self.alive_window_name_list.append('DataBrowser_'+str(self.created_window_counts))
+        
+        self.updateAlivedWindowList()     
+        
     def newImage2or3DWindow(self):
         self.created_window_counts += 1
         
@@ -478,6 +493,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.updateAlivedWindowList()
     
     def initChildWindows(self):
+        self.newDataBrowserWindow()
         self.newImage2or3DWindow()
     
     # Options

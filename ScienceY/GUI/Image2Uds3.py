@@ -80,6 +80,8 @@ class Image2Uds3(GuiFrame):
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_plot1D)
         self.ui_dockWidget_plot1D.close()
         
+        self.tabifyDockWidget(self.ui_dockWideget_var ,self.ui_dockWidget_plot1D)
+        
         #
         self.ui_lw_uds_variable_name_list.doubleClicked.connect(self.ui_lw_uds_variable_name_list_doulbeClicked)
         
