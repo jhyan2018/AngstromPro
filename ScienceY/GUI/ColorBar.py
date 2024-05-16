@@ -57,7 +57,7 @@ class ColorBar(QtWidgets.QWidget):
     
     def initNonUiMembers(self):
         self.customizedColorPalletFolder = './ScienceY/GUI/customizedColorPallets/'
-    
+        
     def setColorMap(self,cmap, ctype):
         colormap = cmap
         
@@ -93,4 +93,10 @@ class ColorBar(QtWidgets.QWidget):
         pixmap = QtGui.QPixmap(self.canvas.size())
         self.canvas.render(pixmap)
         QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        
+    def copyToPixmap(self):
+        pixmap = QtGui.QPixmap(self.canvas.size())
+        self.canvas.render(pixmap)
+        
+        return pixmap
     

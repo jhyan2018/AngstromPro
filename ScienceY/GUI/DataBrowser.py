@@ -22,6 +22,7 @@ from .FileSystemTree import FileSystemTree
 from .SnapshotManager import SnapshotManager, SnapshotInfo
 from .GalleryContentWidget import GalleryContentWidget
 from .ConfigManager import ConfigManager
+from .ColorBar import ColorBar
 
 """ *************************************** """
 """ DO NOT MODIFY THE REGION UNTIL INDICATED"""
@@ -61,6 +62,11 @@ class DataBrowser(GuiFrame):
 
         #
         self.ui_dockWideget_var.close()
+        
+        #
+        self.ui_colorbar = ColorBar()
+        self.ui_colorbar.setColorMap('blue1', 1)
+        self.ui_colorbar_pixmap = self.ui_colorbar.copyToPixmap()
     
     def initCcUiLayout(self):
         # dockWiget filesystem tree
@@ -155,7 +161,8 @@ class DataBrowser(GuiFrame):
 
                 gallery_content_counts += 1
                 gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx)          
-
+                gallery_content.setColorbar(self.ui_colorbar_pixmap)
+                
                 gallery_content_list.append(gallery_content)                
         
         """

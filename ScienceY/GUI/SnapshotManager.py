@@ -310,8 +310,15 @@ class SnapshotManager:
             uds3D_didv_phase = data3ds.get_Phase()
             self.set_snapshots_render_image_data(uds3D_didv_phase)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        # pivotal_info
+        if 'current>current (a)' in data3ds.header.keys():
+            current = NumberExpression.float_to_simplified_number(data3ds.header['current>current (a)'])
+            snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        if 'bias>bias (v)' in data3ds.header.keys():
+            bias = NumberExpression.float_to_simplified_number(data3ds.header['bias>bias (v)'])
+            snapshot_info.pivotal_info.append('Bias Setpoint(V):' + bias)
 
-        #snapshot_info.pivotal_info = []
         #snapshot_info.full_info = []
         snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
         self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
