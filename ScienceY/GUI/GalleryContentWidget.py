@@ -29,22 +29,23 @@ from .SnapshotManager import SnapshotInfo
 class GalleryContentWidget(QtWidgets.QWidget):
     #sendMsgSignal = QtCore.pyqtSignal(int)
     
-    def __init__(self, snapshots_manager, snapshots_info, ch_idx, *args, **kwargs):
+    def __init__(self, snapshots_manager, snapshots_info, ch_idx, colorbarPixmap, *args, **kwargs):
         super(GalleryContentWidget, self).__init__( *args, **kwargs)
 
-        self.initNonUiMembers(snapshots_manager, snapshots_info, ch_idx) 
+        self.initNonUiMembers(snapshots_manager, snapshots_info, ch_idx, colorbarPixmap) 
         self.initUiMembers()
         self.initUiLayout()  
         
 
     
-    def initNonUiMembers(self, snapshots_manager, snapshots_info, ch_idx):
+    def initNonUiMembers(self, snapshots_manager, snapshots_info, ch_idx, colorbarPixmap):
         self.snapshots_manager = snapshots_manager
         self.snapshots_info = snapshots_info
         self.ch_idx = ch_idx
         self.ch_layer = int (self.snapshots_info.ch_layers[self.ch_idx])
         self.ch_layer_value = self.snapshots_info.ch_layer_value[self.ch_idx].split(',')
         self.ch_layer_scale = self.snapshots_info.ch_layer_scale[self.ch_idx].split(',')
+        self.colorbar_pixmap = colorbarPixmap
         
     def initUiMembers(self):
         #
@@ -59,8 +60,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
         #
         self.ui_lb_colorbar = QtWidgets.QLabel()
-        self.ui_lb_colorbar.setFixedHeight(650)
+        self.ui_lb_colorbar.setFixedHeight(450)
         self.ui_lb_colorbar.setFixedWidth(100)
+        self.drawColorbar()
+        
         self.ui_lb_data_scale_u = QtWidgets.QLabel()
         self.ui_lb_data_scale_l = QtWidgets.QLabel()
         d_s_u_v = self.ch_layer_scale[1]
@@ -86,8 +89,8 @@ class GalleryContentWidget(QtWidgets.QWidget):
         png_path = os.path.join(self.snapshots_manager.snapshots_dir, self.snapshots_info.ch_uuid[self.ch_idx])
         if not self.snapshots_info.ch_layers[self.ch_idx] == '1':
             png_path = os.path.join(png_path, 'layer0.png')
-        pixmap = QtGui.QPixmap(png_path)
-        self.setPngDisplayScaledPixmap(pixmap)
+        self.pixmap = QtGui.QPixmap(png_path)
+        self.drawPngDisplay()
         
         #
         self.ui_lb_file_path.setText(self.snapshots_info.src_file_path )
@@ -134,7 +137,8 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.snapshots_manager.generate_snapshots(srcfile_path, src_file_lastmodified, channel, layer, snapshots_info)
 
         #
-        self.setPngDisplayScaledPixmap(snapshots_info.pixmap[0])
+        self.pixmap = snapshots_info.pixmap[0]
+        self.drawPngDisplay()
         
         self.ui_le_channel_layers_v.setText(self.ch_layer_value[layer])
         
@@ -147,10 +151,27 @@ class GalleryContentWidget(QtWidgets.QWidget):
         pass
     
     """ Regular function"""
-    def setPngDisplayScaledPixmap(self, pixmap):
-        scaled_pixmap = pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
+    def resize(self, width, height):
+        self.setFixedWidth(width)
+        self.setFixedHeight(height)
+        
+        # pnd display
+        self.ui_lb_png_display.setFixedHeight(int(height*0.7))
+        self.ui_lb_png_display.setFixedWidth(int(width*0.7))
+        self.drawPngDisplay()
+        
+        # colobar
+        self.ui_lb_colorbar.setFixedHeight(int(height*0.5))
+        self.ui_lb_colorbar.setFixedWidth(int(width*0.05))
+        self.drawColorbar()
+    
+    def drawPngDisplay(self):
+        scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
         self.ui_lb_png_display.setPixmap(scaled_pixmap)
         
-    def setColorbar(self, pixmap):
-        scaled_pixmap = pixmap.scaled(self.ui_lb_colorbar.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
+    def setColorbarPixmap(self, pixmap):
+        self.colorbar_pixmap = pixmap
+    
+    def drawColorbar(self):                
+        scaled_pixmap = self.colorbar_pixmap.scaled(self.ui_lb_colorbar.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
         self.ui_lb_colorbar.setPixmap(scaled_pixmap)

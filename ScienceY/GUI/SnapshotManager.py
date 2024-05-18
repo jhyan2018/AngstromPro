@@ -238,8 +238,8 @@ class SnapshotManager:
             srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
             data3ds = NanonisDataProcess.Data3dsStru(srcfile_path, srcfile_name)
         
-        if channel == 'Z (m)':
-            snapshots_info.channel.append('Z (m)')
+        if channel == 'Topo':
+            snapshots_info.channel.append('Topo')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -248,8 +248,8 @@ class SnapshotManager:
                 uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
                 self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
-        elif channel == 'LI Demod 1 X (A)':
-            snapshots_info.channel.append('LI Demod 1 X (A)')
+        elif channel == 'dI/dV Map':
+            snapshots_info.channel.append('dI/dV Map')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -257,8 +257,8 @@ class SnapshotManager:
                 self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
         
-        elif channel == 'Current (A)':
-            snapshots_info.channel.append('Current (A)')
+        elif channel == 'Current Map':
+            snapshots_info.channel.append('Current Map')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -266,8 +266,8 @@ class SnapshotManager:
                 self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
         
-        elif channel == 'LI Demod 1 Y (A)':
-            snapshots_info.channel.append('LI Demod 1 Y (A)')
+        elif channel == 'dI/dV Phase Map':
+            snapshots_info.channel.append('dI/dV Phase Map')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:

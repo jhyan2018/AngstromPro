@@ -12,6 +12,7 @@ import os
 """
 Third-party Modules
 """
+import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import QFileInfo
 """
@@ -23,6 +24,8 @@ from .SnapshotManager import SnapshotManager, SnapshotInfo
 from .GalleryContentWidget import GalleryContentWidget
 from .ConfigManager import ConfigManager
 from .ColorBar import ColorBar
+from .customizedWidgets.DockWidget import DockWidget
+from .customizedWidgets.ScrollArea import ScrollArea
 
 """ *************************************** """
 """ DO NOT MODIFY THE REGION UNTIL INDICATED"""
@@ -40,10 +43,10 @@ class DataBrowser(GuiFrame):
         
     def initCcUiMembers(self):
         # 
-        self.ui_snap_gallery = QtWidgets.QScrollArea()
-        
+        self.ui_snap_gallery = ScrollArea()
+        self.ui_snap_gallery.resizeSignal.connect(self.resizeGallery)
         # dockWiget filesystem tree
-        self.ui_dockWidget_fs_tree = QtWidgets.QDockWidget()
+        self.ui_dockWidget_fs_tree = DockWidget()
         self.ui_dockWidget_fs_tree_content = FileSystemTree()
         self.ui_dockWidget_fs_tree_content.selectionChangedSignal.connect(self.fileTreeSelectionChanged)
         
@@ -92,8 +95,7 @@ class DataBrowser(GuiFrame):
         
         #
         self.ui_horizontalLayout.addWidget(self.ui_snap_gallery)
-        self.ui_snap_gallery.setWidgetResizable(True)
-        #self.ui_horizontalLayout.addWidget(self.snapshots_manager.snapshots_render_image)
+        #self.ui_snap_gallery.setWidgetResizable(False)
         
     def initCcNonUiMembers(self):
         # Settings
@@ -110,6 +112,10 @@ class DataBrowser(GuiFrame):
         self.ui_le_data_path.setText(data_path)
         self.ui_dockWidget_fs_tree_content.setRootPath(data_path)
         
+        #
+        self.gallery_contents_per_line = 3
+        self.gallery_content_list = []
+        
     def initCcMenuBar(self):
         pass
     
@@ -119,7 +125,7 @@ class DataBrowser(GuiFrame):
     
     def saveSettings(self):
         ConfigManager.save_settings_to_file('./ScienceY/config/DataBrowser.txt', self.settings)
-    
+        
     """   """
     def browseDirectry(self):
         data_path = self.ui_le_data_path.text()
@@ -141,13 +147,31 @@ class DataBrowser(GuiFrame):
         child_folder_files_lastmodified = self.ui_dockWidget_fs_tree_content.selected_c_f_lastmodified
         
         self.setGallery(child_folder_files, child_folder_files_lastmodified)
+
+    def resizeGallery(self):
+        gallery_size = self.ui_snap_gallery.size()
         
+        current_container = self.ui_snap_gallery.widget()
+        if not current_container == None:
+            new_container_width = gallery_size.width() - 30
+            current_container.setFixedWidth(new_container_width)
+                
+            gallery_content_width = int(new_container_width /  self.gallery_contents_per_line)
+            gallery_content_height = gallery_content_width
+            
+            gallery_content_count = len(self.gallery_content_list)
+            new_container_height = int(np.ceil(gallery_content_count * 1.0 / self.gallery_contents_per_line) * gallery_content_width)
+            current_container.setFixedHeight(new_container_height)
+
+            for gallery_content in self.gallery_content_list:
+                gallery_content.resize(gallery_content_width, gallery_content_height)
+
     def setGallery(self, src_files_path, src_files_lastmodified):
         snap_gallery_container = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         
         gallery_content_counts = 0
-        gallery_content_list = []
+        self.gallery_content_list = []
         
         for index, file_path in enumerate(src_files_path):
             # file suffix filter
@@ -158,13 +182,40 @@ class DataBrowser(GuiFrame):
             metadata_file_path= self.getSnapshotsInfo(file_path, src_files_lastmodified[index])
             snapshots_info = self.snapshots_manager.load_metadata_file(metadata_file_path)
             for ch_idx, channel in enumerate(snapshots_info.channel):
-
                 gallery_content_counts += 1
-                gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx)          
-                gallery_content.setColorbar(self.ui_colorbar_pixmap)
+                gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx, self.ui_colorbar_pixmap)          
                 
-                gallery_content_list.append(gallery_content)                
+                self.gallery_content_list.append(gallery_content)
+            
+        for index, gallery_content in enumerate(self.gallery_content_list):
+            row = index // self.gallery_contents_per_line  # Determine the row (2 rows, 0 and 1)
+            col = index % self.gallery_contents_per_line   # Determine the column (3 columns, 0, 1, 2)     
+            
+            layout.addWidget(gallery_content, row, col)
         
+        layout.setContentsMargins(0,0,0,0) # left, top, right, bottom   
+        snap_gallery_container.setLayout(layout)
+        
+        # delet old gallary container 
+        old_container = self.ui_snap_gallery.widget()
+        if old_container is not None:
+            old_container.deleteLater()
+            
+        #
+        self.ui_snap_gallery.setWidget(snap_gallery_container)
+       
+    def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
+        metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
+         
+        if not metadata_file_path:
+            self.snapshots_manager.generate_snapshots(src_file_path, src_file_lastmodified)
+            
+            # get updated png name
+            metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
+            
+        return metadata_file_path
+    
+    
         """
         #
         gallery_content_list[0].setFixedHeight(386)
@@ -179,31 +230,3 @@ class DataBrowser(GuiFrame):
         
         QtWidgets.QApplication.clipboard().setPixmap(pixmap)
         """
-            
-        for index, gallery_content in enumerate(gallery_content_list):
-            row = index // 3  # Determine the row (2 rows, 0 and 1)
-            col = index % 3   # Determine the column (3 columns, 0, 1, 2)     
-            
-            layout.addWidget(gallery_content, row, col)
-            
-        snap_gallery_container.setLayout(layout)
-        
-        # delet old gallary container 
-        old_container = self.ui_snap_gallery.widget()
-        if old_container is not None:
-            old_container.deleteLater()
-            
-        #
-        self.ui_snap_gallery.setWidget(snap_gallery_container)
-
-        
-    def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
-        metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
-         
-        if not metadata_file_path:
-            self.snapshots_manager.generate_snapshots(src_file_path, src_file_lastmodified)
-            
-            # get updated png name
-            metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
-            
-        return metadata_file_path
