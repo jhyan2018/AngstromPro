@@ -454,3 +454,36 @@ class SnapshotManager:
         self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
         self.save_metadata_srcfile()    
         self.save_snapshots(snapshot_info)
+        
+    """ Load and send data to var list for gui manager """
+    def load_channel_data(self, srcfile_path, channel):
+        srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
+        # file suffix/format
+        suffix = srcfile_path.split('.')[-1]      
+                
+        if suffix == '3ds':
+            data3ds = NanonisDataProcess.Data3dsStru(srcfile_path, srcfile_name)
+            if channel == 'Topo':
+                return data3ds.get_Topo()
+            elif channel == 'dI/dV Map':
+                return data3ds.get_dIdV_data()
+            elif channel == 'Current Map':
+                return data3ds.get_Current()
+            elif channel == 'dI/dV Phase Map':
+                return data3ds.get_Phase()
+            else:
+                print('Load channel data error: Unknown channel!')
+                return None
+        elif suffix == 'sxm':
+            if channel == None:
+                pass
+        elif suffix == 'TFR':
+            pass
+        elif suffix == '1FL':
+            pass
+        elif suffix == 'uds':
+            if channel == None:
+                pass
+        else:
+            return None
+            print('Load channel data error: Unsupported file suffix!') 

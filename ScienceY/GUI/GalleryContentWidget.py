@@ -27,7 +27,7 @@ from .SnapshotManager import SnapshotInfo
 """ *************************************** """
 
 class GalleryContentWidget(QtWidgets.QWidget):
-    #sendMsgSignal = QtCore.pyqtSignal(int)
+    sendChannelDataSignal = QtCore.pyqtSignal(str, str)
     
     def __init__(self, snapshots_manager, snapshots_info, ch_idx, colorbarPixmap, *args, **kwargs):
         super(GalleryContentWidget, self).__init__( *args, **kwargs)
@@ -50,18 +50,14 @@ class GalleryContentWidget(QtWidgets.QWidget):
     def initUiMembers(self):
         #
         self.ui_lb_png_display = QtWidgets.QLabel()
-        self.ui_lb_png_display.setFixedHeight(500)
-        self.ui_lb_png_display.setFixedWidth(500)
         
         #
-        self.ui_lb_file_path = QtWidgets.QLabel()
+        self.ui_lb_file_path = QtWidgets.QLineEdit()
         self.ui_lb_channel = QtWidgets.QLabel()
         self.ui_pivotal_info = QtWidgets.QLabel()           
         
         #
         self.ui_lb_colorbar = QtWidgets.QLabel()
-        self.ui_lb_colorbar.setFixedHeight(450)
-        self.ui_lb_colorbar.setFixedWidth(100)
         self.drawColorbar()
         
         self.ui_lb_data_scale_u = QtWidgets.QLabel()
@@ -93,10 +89,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.drawPngDisplay()
         
         #
-        self.ui_lb_file_path.setText(self.snapshots_info.src_file_path )
-        self.ui_lb_file_path.setWordWrap(True)
+        self.ui_lb_file_path.setText(self.snapshots_info.src_file_path.split('/')[-1])
+        #self.ui_lb_file_path.setTextFormat(QtCore.Qt.PlainText)
         self.ui_lb_channel.setText(self.snapshots_info.channel[self.ch_idx])
-        separator = ','
+        separator = '\n'
         self.ui_pivotal_info.setText(separator.join(self.snapshots_info.pivotal_info)) 
     
     def initUiLayout(self):
@@ -108,9 +104,9 @@ class GalleryContentWidget(QtWidgets.QWidget):
         ui_verticalLayout1.addWidget(self.ui_pivotal_info)
         
         ui_verticalLayout2 = QtWidgets.QVBoxLayout()
-        ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u)
-        ui_verticalLayout2.addWidget(self.ui_lb_colorbar)
-        ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l)
+        ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=QtCore.Qt.AlignCenter)
+        ui_verticalLayout2.addWidget(self.ui_lb_colorbar, alignment=QtCore.Qt.AlignCenter)
+        ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=QtCore.Qt.AlignCenter)
         
         ui_verticalLayout3 = QtWidgets.QVBoxLayout()
         ui_horizontalLayout1 = QtWidgets.QHBoxLayout()
@@ -124,6 +120,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
         layout.addLayout(ui_verticalLayout2, 0, 1)
         layout.addLayout(ui_verticalLayout3, 1, 1)
         
+        #
         self.setLayout(layout)
         
     """ SLots """
@@ -148,7 +145,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
         
     def sendChannelDataToGuiManager(self):
-        pass
+        file_path = self.snapshots_info.src_file_path
+        channel = self.snapshots_info.channel[self.ch_idx]
+        
+        self.sendChannelDataSignal.emit(file_path, channel)
     
     """ Regular function"""
     def resize(self, width, height):
@@ -156,16 +156,17 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.setFixedHeight(height)
         
         # pnd display
-        self.ui_lb_png_display.setFixedHeight(int(height*0.7))
-        self.ui_lb_png_display.setFixedWidth(int(width*0.7))
+        self.ui_lb_png_display.setFixedSize(int(width*0.7), int(height*0.7))
         self.drawPngDisplay()
         
         # colobar
-        self.ui_lb_colorbar.setFixedHeight(int(height*0.5))
-        self.ui_lb_colorbar.setFixedWidth(int(width*0.05))
-        self.drawColorbar()
-    
+        self.ui_lb_colorbar.setFixedSize(int(width*0.05), int(height*0.5))
+        self.drawColorbar() 
+        
+        #
+        
     def drawPngDisplay(self):
+        #print('lb_png_size:',self.ui_lb_png_display.size() )
         scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
         self.ui_lb_png_display.setPixmap(scaled_pixmap)
         

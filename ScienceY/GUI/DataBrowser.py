@@ -62,9 +62,6 @@ class DataBrowser(GuiFrame):
         
         self.ui_pb_save_settings = QtWidgets.QPushButton('Save')
         self.ui_pb_save_settings.clicked.connect(self.saveSettings)
-
-        #
-        self.ui_dockWideget_var.close()
         
         #
         self.ui_colorbar = ColorBar()
@@ -95,7 +92,11 @@ class DataBrowser(GuiFrame):
         
         #
         self.ui_horizontalLayout.addWidget(self.ui_snap_gallery)
-        #self.ui_snap_gallery.setWidgetResizable(False)
+        
+        # Set minimum size to current screen size
+        screen_geometry = QtWidgets.QApplication.desktop().availableGeometry()
+        self.setMinimumSize(screen_geometry.width(), screen_geometry.height()-50)
+        #self.setMaximumSize(screen_geometry.width(), screen_geometry.height())
         
     def initCcNonUiMembers(self):
         # Settings
@@ -127,6 +128,13 @@ class DataBrowser(GuiFrame):
         ConfigManager.save_settings_to_file('./ScienceY/config/DataBrowser.txt', self.settings)
         
     """   """
+    def sendChannelDataToVarList(self, file_path, channel):
+        uds_data = self.snapshots_manager.load_channel_data(file_path, channel)
+        
+        #
+        if not uds_data == None:
+            self.appendToLocalVarList(uds_data)
+    
     def browseDirectry(self):
         data_path = self.ui_le_data_path.text()
         
@@ -184,7 +192,7 @@ class DataBrowser(GuiFrame):
             for ch_idx, channel in enumerate(snapshots_info.channel):
                 gallery_content_counts += 1
                 gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx, self.ui_colorbar_pixmap)          
-                
+                gallery_content.sendChannelDataSignal.connect(self.sendChannelDataToVarList)
                 self.gallery_content_list.append(gallery_content)
             
         for index, gallery_content in enumerate(self.gallery_content_list):
@@ -203,6 +211,9 @@ class DataBrowser(GuiFrame):
             
         #
         self.ui_snap_gallery.setWidget(snap_gallery_container)
+        
+        #
+        self.resizeGallery()
        
     def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
         metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
