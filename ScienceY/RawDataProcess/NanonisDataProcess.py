@@ -254,6 +254,7 @@ class Data3dsStru():
         
         #
         uds_dIdV.info = self.setDataInfo(False)
+        uds_dIdV.info['Channel'] = 'dI/dV Map'
         
         return uds_dIdV
     
@@ -277,6 +278,7 @@ class Data3dsStru():
         
         #
         uds_Topo.info = self.setDataInfo()
+        uds_Topo.info['Channel'] = 'Topo'
         
         return uds_Topo
     
@@ -299,6 +301,7 @@ class Data3dsStru():
         
         #
         uds_Phase.info = self.setDataInfo(False)
+        uds_Phase.info['Channel'] = 'dI/dV Phase Map'
         
         return uds_Phase
     
@@ -318,6 +321,7 @@ class Data3dsStru():
         
         #
         uds_Current.info = self.setDataInfo(False)
+        uds_Current.info['Channel'] = 'Current Map'
         
         return uds_Current
 
@@ -356,6 +360,7 @@ class DataSxmStru():
         
         #
         uds_Topo_fwd.info = self.setDataInfo()
+        uds_Topo_fwd.info['Channel'] = 'Topo'
         
         return uds_Topo_fwd
     
@@ -373,6 +378,7 @@ class DataSxmStru():
         
         #
         uds_Topo_bwd.info = self.setDataInfo()
+        uds_Topo_bwd.info['Channel'] = 'Topo'
         
         return uds_Topo_bwd   
     
@@ -391,6 +397,7 @@ class DataSxmStru():
         
         #
         uds_dIdV_fwd.info = self.setDataInfo()
+        uds_dIdV_fwd.info['Channel'] = 'dI/dV Map'
         
         return uds_dIdV_fwd
       
@@ -411,6 +418,7 @@ class DataSxmStru():
         
         #
         uds_dIdV_bwd.info = self.setDataInfo()
+        uds_dIdV_bwd.info['Channel'] = 'dI/dV Map'
         
         return uds_dIdV_bwd
       
@@ -429,6 +437,7 @@ class DataSxmStru():
         
         #
         uds_dIdV_Y_fwd.info = self.setDataInfo()
+        uds_dIdV_Y_fwd.info['Channel'] = 'dI/dV Y Map'
         
         return uds_dIdV_Y_fwd  
 
@@ -449,6 +458,7 @@ class DataSxmStru():
         
         #
         uds_dIdV_Y_bwd.info = self.setDataInfo()
+        uds_dIdV_Y_bwd.info['Channel'] = 'dI/dV Y Map'
         
         return uds_dIdV_Y_bwd    
     
@@ -464,6 +474,7 @@ class DataSxmStru():
         
         #
         uds_Theta.info = self.setDataInfo()
+        uds_Theta.info['Channel'] = 'dI/dV Phase Map'
         
         return uds_Theta
     
@@ -481,6 +492,7 @@ class DataSxmStru():
         
         #
         uds_Current_fwd.info = self.setDataInfo()
+        uds_Current_fwd.info['Channel'] = 'Current Map'
         
         return uds_Current_fwd
     
@@ -498,6 +510,7 @@ class DataSxmStru():
         
         #
         uds_Current_bwd.info = self.setDataInfo()
+        uds_Current_bwd.info['Channel'] = 'Current Map'
         
         return uds_Current_bwd
 

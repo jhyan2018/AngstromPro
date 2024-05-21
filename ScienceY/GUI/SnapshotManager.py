@@ -238,8 +238,8 @@ class SnapshotManager:
             srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
             data3ds = NanonisDataProcess.Data3dsStru(srcfile_path, srcfile_name)
         
-        if channel == 'Z (m)':
-            snapshots_info.channel.append('Z (m)')
+        if channel == 'Topo':
+            snapshots_info.channel.append('Topo')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -248,8 +248,8 @@ class SnapshotManager:
                 uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
                 self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
-        elif channel == 'LI Demod 1 X (A)':
-            snapshots_info.channel.append('LI Demod 1 X (A)')
+        elif channel == 'dI/dV Map':
+            snapshots_info.channel.append('dI/dV Map')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -257,8 +257,8 @@ class SnapshotManager:
                 self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
         
-        elif channel == 'Current (A)':
-            snapshots_info.channel.append('Current (A)')
+        elif channel == 'Current Map':
+            snapshots_info.channel.append('Current Map')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -266,8 +266,8 @@ class SnapshotManager:
                 self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshots_info, layer)
         
-        elif channel == 'LI Demod 1 Y (A)':
-            snapshots_info.channel.append('LI Demod 1 Y (A)')
+        elif channel == 'dI/dV Phase Map':
+            snapshots_info.channel.append('dI/dV Phase Map')
             snapshots_info.ch_type.append('IMAGE')
             
             if reset_img2u3w_data:
@@ -285,36 +285,52 @@ class SnapshotManager:
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
 
         if 'Z (m)' in data3ds.channel_list:
-            snapshot_info.channel.append('Z (m)')
-            snapshot_info.ch_type.append('IMAGE')
-            
             uds3D_topo = data3ds.get_Topo()
+            channel = uds3D_topo.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Topo')
+            snapshot_info.ch_type.append('IMAGE')    
+
             #background subtract
             uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
             self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
                     
         if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
-            snapshot_info.channel.append('LI Demod 1 X (A)')
+            uds3D_didv = data3ds.get_dIdV_data()
+            channel = uds3D_didv.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_didv = data3ds.get_dIdV_data()
             self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'Current (A)' in data3ds.channel_list:
-            snapshot_info.channel.append('Current (A)')
+            uds3D_current = data3ds.get_Current()
+            channel = uds3D_current.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Current Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_current = data3ds.get_Current()
             self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'LI Demod 1 Y (A)' in data3ds.channel_list:
-            snapshot_info.channel.append('LI Demod 1 Y (A)')
+            uds3D_didv_phase = data3ds.get_Phase()
+            channel = uds3D_didv_phase.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Phase Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_didv_phase = data3ds.get_Phase()
             self.set_snapshots_render_image_data(uds3D_didv_phase)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
         
@@ -339,39 +355,55 @@ class SnapshotManager:
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
         
         if 'Z' in dataSxm.channel_list[0]:
-            snapshot_info.channel.append('Z (m)')
-            snapshot_info.ch_type.append('IMAGE')
-            
             uds3D_topo = dataSxm.get_Topo_fwd()
+            channel = uds3D_topo.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Topo')
+            snapshot_info.ch_type.append('IMAGE')           
+
             #background subtract
             uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
                         
             self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
-        if 'LI_Demod_1_X' in dataSxm.channel_list[0]:
-            snapshot_info.channel.append('LI Demod 1 X (A)')
+        if 'LI_Demod_1_X' in dataSxm.channel_list[0]:            
+            uds3D_didv = dataSxm.get_dIdV_fwd()
+            channel = uds3D_didv.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_didv = dataSxm.get_dIdV_fwd()
             self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'Current' in dataSxm.channel_list[0]:
-            snapshot_info.channel.append('Current (A)')
+            uds3D_current = dataSxm.get_Current_fwd()
+            channel = uds3D_current.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('Current Map')
             snapshot_info.ch_type.append('IMAGE')
             
-            uds3D_current = dataSxm.get_Current_fwd()
             self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
         if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
-             snapshot_info.channel.append('LI Demod 1 Y (A)')
-             snapshot_info.ch_type.append('IMAGE')
+            uds3D_didv_phase = dataSxm.get_theta()
+            channel = uds3D_didv_phase.info.get('Channel', None)
+            if not channel == None:
+                snapshot_info.channel.append(channel)
+            else:
+                snapshot_info.channel.append('dI/dV Phase Map') 
+            snapshot_info.ch_type.append('IMAGE')
              
-             uds3D_didv_phase = dataSxm.get_theta()
-             self.set_snapshots_render_image_data(uds3D_didv_phase)
-             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            self.set_snapshots_render_image_data(uds3D_didv_phase)
+            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
         
         # pivotal_info
         if 'current>current (a)' in dataSxm.header.keys():
@@ -406,7 +438,12 @@ class SnapshotManager:
         
         # only one channel
         uds_data = dataUdp.readFromFile()
-        snapshot_info.channel.append('channel - ?')
+        channel = uds_data.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Channel: ?')
+            
         snapshot_info.ch_type.append('IMAGE')
         
         self.set_snapshots_render_image_data(uds_data)
@@ -417,3 +454,36 @@ class SnapshotManager:
         self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
         self.save_metadata_srcfile()    
         self.save_snapshots(snapshot_info)
+        
+    """ Load and send data to var list for gui manager """
+    def load_channel_data(self, srcfile_path, channel):
+        srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
+        # file suffix/format
+        suffix = srcfile_path.split('.')[-1]      
+                
+        if suffix == '3ds':
+            data3ds = NanonisDataProcess.Data3dsStru(srcfile_path, srcfile_name)
+            if channel == 'Topo':
+                return data3ds.get_Topo()
+            elif channel == 'dI/dV Map':
+                return data3ds.get_dIdV_data()
+            elif channel == 'Current Map':
+                return data3ds.get_Current()
+            elif channel == 'dI/dV Phase Map':
+                return data3ds.get_Phase()
+            else:
+                print('Load channel data error: Unknown channel!')
+                return None
+        elif suffix == 'sxm':
+            if channel == None:
+                pass
+        elif suffix == 'TFR':
+            pass
+        elif suffix == '1FL':
+            pass
+        elif suffix == 'uds':
+            if channel == None:
+                pass
+        else:
+            return None
+            print('Load channel data error: Unsupported file suffix!') 
