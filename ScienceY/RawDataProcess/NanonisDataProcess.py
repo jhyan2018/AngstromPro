@@ -250,7 +250,12 @@ class Data3dsStru():
         dIdV = self.data3D[index:index+points, :, :]/lockInAmp
         
         ###
-        uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
+        if dIdV.shape[-1] == 1:
+            dIdV_reshape = dIdV.reshape((dIdV.shape[0], dIdV.shape[1]))
+            dIdV_transpose = dIdV_reshape.transpose()
+            uds_dIdV = UdsDataStru3D(dIdV_transpose, 'uds2D_'+self.name+'_dIdV')
+        else:
+            uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
         
         #
         uds_dIdV.info = self.setDataInfo(False)
@@ -274,7 +279,12 @@ class Data3dsStru():
         Topo = self.data3D[index, :, :]
         
         ###
-        uds_Topo = UdsDataStru3D(Topo[np.newaxis,:,:], 'uds3D_' + self.name+'_Topo')
+        if Topo.shape[-1] == 1:
+            Topo_reshape = Topo.reshape((Topo.shape[0], Topo.shape[1]))
+            Topo_transpose = Topo_reshape.transpose()
+            uds_Topo = UdsDataStru3D(Topo_transpose, 'uds2D_'+self.name+'_Topo')
+        else:
+            uds_Topo = UdsDataStru3D(Topo[np.newaxis,:,:], 'uds3D_' + self.name+'_Topo')
         
         #
         uds_Topo.info = self.setDataInfo()
@@ -296,8 +306,13 @@ class Data3dsStru():
         dIdV_Y = self.data3D[Y_index : Y_index+points, :, :]
         phase = np.arctan2(dIdV_Y, dIdV_X)
         
-        #
-        uds_Phase = UdsDataStru3D(phase, 'uds3D_'+self.name+'_Phase')
+        ###
+        if phase.shape[-1] == 1:
+            phase_reshape = phase.reshape((phase.shape[0], phase.shape[1]))
+            phase_transpose = phase_reshape.transpose()
+            uds_Phase = UdsDataStru3D(phase_transpose, 'uds2D_'+self.name+'_Phase')
+        else:
+            uds_Phase = UdsDataStru3D(phase, 'uds3D_'+self.name+'_Phase')
         
         #
         uds_Phase.info = self.setDataInfo(False)
@@ -315,9 +330,14 @@ class Data3dsStru():
         # data start index
         index = par_num + Current_channel_index * points
         Current = self.data3D[index:index+points, :, :]
-          
-        ###
-        uds_Current = UdsDataStru3D(Current, 'uds3D_'+self.name+'_Current')
+        
+        ####
+        if Current.shape[-1] == 1:
+            current_reshape = Current.reshape((Current.shape[0], Current.shape[1]))
+            current_transpose = current_reshape.transpose()
+            uds_Current = UdsDataStru3D(current_transpose, 'uds2D_'+self.name+'_Current')
+        else:
+            uds_Current = UdsDataStru3D(Current, 'uds3D_'+self.name+'_Current')
         
         #
         uds_Current.info = self.setDataInfo(False)

@@ -251,7 +251,7 @@ class DataBrowser(GuiFrame):
         data_path = self.ui_le_data_path.text()
         
         new_data_path = QtWidgets.QFileDialog.getExistingDirectory(self, "Open File", data_path)
-        if new_data_path is not None:
+        if not len(new_data_path) == 0:
             self.ui_le_data_path.setText(new_data_path)
             self.settings['PATH']['data_path'] = new_data_path
             
