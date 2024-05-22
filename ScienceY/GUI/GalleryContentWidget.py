@@ -44,7 +44,8 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.ch_idx = ch_idx
         self.ch_layer = int (self.snapshots_info.ch_layers[self.ch_idx])
         self.ch_layer_value = self.snapshots_info.ch_layer_value[self.ch_idx].split(',')
-        self.ch_layer_scale = self.snapshots_info.ch_layer_scale[self.ch_idx].split(',')
+        if snapshots_info.ch_type == 'IMAGE':
+            self.ch_layer_scale = self.snapshots_info.ch_layer_scale[self.ch_idx].split(',')
         self.colorbar_pixmap = colorbarPixmap
         
     def initUiMembers(self):
@@ -62,10 +63,11 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
         self.ui_lb_data_scale_u = QtWidgets.QLabel()
         self.ui_lb_data_scale_l = QtWidgets.QLabel()
-        d_s_u_v = self.ch_layer_scale[1]
-        d_s_l_v = self.ch_layer_scale[0]
-        self.ui_lb_data_scale_u.setText(d_s_u_v)
-        self.ui_lb_data_scale_l.setText(d_s_l_v)
+        if self.snapshots_info.ch_type == 'IMAGE':
+            d_s_u_v = self.ch_layer_scale[1]
+            d_s_l_v = self.ch_layer_scale[0]
+            self.ui_lb_data_scale_u.setText(d_s_u_v)
+            self.ui_lb_data_scale_l.setText(d_s_l_v)
         
         #
         self.ui_sb_channel_layers = QtWidgets.QSpinBox()
@@ -104,9 +106,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         ui_verticalLayout1.addWidget(self.ui_pivotal_info)
         
         ui_verticalLayout2 = QtWidgets.QVBoxLayout()
-        ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=QtCore.Qt.AlignCenter)
-        ui_verticalLayout2.addWidget(self.ui_lb_colorbar, alignment=QtCore.Qt.AlignCenter)
-        ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=QtCore.Qt.AlignCenter)
+        if self.snapshots_info.ch_type == 'IMAGE':
+            ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=QtCore.Qt.AlignCenter)
+            ui_verticalLayout2.addWidget(self.ui_lb_colorbar, alignment=QtCore.Qt.AlignCenter)
+            ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=QtCore.Qt.AlignCenter)
         
         ui_verticalLayout3 = QtWidgets.QVBoxLayout()
         ui_horizontalLayout1 = QtWidgets.QHBoxLayout()
@@ -167,7 +170,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
     def drawPngDisplay(self):
         #print('lb_png_size:',self.ui_lb_png_display.size() )
-        scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
+        if self.snapshots_info.ch_type == 'IMAGE':
+            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
+        else:
+            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
         self.ui_lb_png_display.setPixmap(scaled_pixmap)
         
     def setColorbarPixmap(self, pixmap):

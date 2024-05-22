@@ -92,6 +92,10 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         
         self.setLayout(ui_gridlayout)
         
+    def setCanvasWidgetSize(self, w, h):
+        self.static_canvas.setFixedWidth(w)
+        self.static_canvas.setFixedHeight(h)
+        
     def setUdsData(self, uds_data):
         print('plot 1d set data')
         self.static_ax.clear()
@@ -100,9 +104,12 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         for i in range(uds_data.data.shape[0]):
             self.static_ax.plot( uds_data.data[i,:] + i*5e-9, linewidth = 1.0, label='c'+str(i))
         
-        self.static_ax.set_xlabel('Energy (V)')
-        self.static_ax.set_ylabel('Intensity (S)')
-        self.static_ax.set_title('dI/dV')
+        self.static_ax.set_xlabel('Energy (V)', fontsize=20)
+        self.static_ax.set_ylabel('Intensity (S)', fontsize=20)
+        self.static_ax.set_title('dI/dV', fontsize=20)
+        
+        self.static_ax.tick_params(axis='x', labelsize=18)
+        self.static_ax.tick_params(axis='y', labelsize=18)
         #self.static_ax.legend()
         
         #self.static_ax.grid(True)
@@ -110,3 +117,4 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         #self.static_ax.set(xlim=(0,300),ylim=(0,300))
         
         self.static_ax.figure.canvas.draw()
+        self.static_canvas.flush_events()
