@@ -65,7 +65,7 @@ class GalleryViewManager(QtWidgets.QWidget):
         ui_layout.addWidget(self.ui_channel_filter)
         self.setLayout(ui_layout)
         
-    def set_gallery_filter(self, gallery_filter):
+    def set_gallery_filter(self, gallery_filter, settings):
         self.gallery_filter = gallery_filter
         self.gallery_filter_bool= {}
         self.gallery_filter_checkboxes = []
@@ -73,16 +73,27 @@ class GalleryViewManager(QtWidgets.QWidget):
         ch_filter_content = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout()
         
+        print(settings['GALLERY_FILTER'])
         #
         for suffix, channels in self.gallery_filter.items():
             self.gallery_filter_bool[suffix] = []
             for channel in channels:
-                ui_cbx = QtWidgets.QCheckBox(suffix + '-' + channel)
-                ui_cbx.setChecked(True)
+                filter_item = suffix + '-' + channel
+                ui_cbx = QtWidgets.QCheckBox(filter_item)
                 layout.addWidget(ui_cbx)
                 ui_cbx.clicked.connect(self.gallery_filter_selection_changed)
                 self.gallery_filter_checkboxes.append(ui_cbx)
-                self.gallery_filter_bool[suffix].append(True)
+                
+                if filter_item in settings['GALLERY_FILTER']: 
+                    if settings['GALLERY_FILTER'][filter_item] in ['True']:
+                        ui_cbx.setChecked(True)
+                        self.gallery_filter_bool[suffix].append(True)
+                    else:
+                        ui_cbx.setChecked(False)
+                        self.gallery_filter_bool[suffix].append(False)
+                else:                                        
+                    ui_cbx.setChecked(False)
+                    self.gallery_filter_bool[suffix].append(False)
                                            
         ch_filter_content.setLayout(layout)
         
@@ -340,7 +351,7 @@ class DataBrowser(GuiFrame):
             if not channel in ch_list:
                 self.gallery_filter[suffix].append(channel)
 
-        self.ui_dockWidget_gvm_content.set_gallery_filter(self.gallery_filter)         
+        self.ui_dockWidget_gvm_content.set_gallery_filter(self.gallery_filter, self.settings)         
         
         #
         self.updateGallery()
