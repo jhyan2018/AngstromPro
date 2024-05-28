@@ -531,14 +531,14 @@ class Image2Uds3Widget(QtWidgets.QWidget):
                     self.st_img_ylim_u = y_lim_u_
                     
                 else:
-                   self.st_img_scale_ratio = 1
-                   var_shape = np.shape(self.uds_variable.data)
+                    self.st_img_scale_ratio = 1
+                    var_shape = np.shape(self.uds_variable.data)
                    
-                   self.st_img_xlim_l = 0
-                   self.st_img_xlim_u = var_shape[-1]
+                    self.st_img_xlim_l = -0.5
+                    self.st_img_xlim_u = var_shape[-1] - 0.5
                    
-                   self.st_img_ylim_l = 0
-                   self.st_img_ylim_u = var_shape[-2]
+                    self.st_img_ylim_l = -0.5
+                    self.st_img_ylim_u = var_shape[-2] - 0.5
             self.zoom_direction = 0        
         
         self.updateImage()
@@ -615,11 +615,11 @@ class Image2Uds3Widget(QtWidgets.QWidget):
             self.getLayerValue()
                         
         #        
-        self.st_img_xlim_l = 0
-        self.st_img_xlim_u = var_shape[-1]
+        self.st_img_xlim_l = -0.5
+        self.st_img_xlim_u = var_shape[-1] - 0.5
         
-        self.st_img_ylim_l = 0
-        self.st_img_ylim_u = var_shape[-2]
+        self.st_img_ylim_l = -0.5
+        self.st_img_ylim_u = var_shape[-2] - 0.5
         
         self.st_img_scale_ratio = 1
         
