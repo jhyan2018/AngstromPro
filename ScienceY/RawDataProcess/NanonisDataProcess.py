@@ -364,6 +364,9 @@ class DataSxmStru():
         if 'Current>Current (A)' in self.header.keys():
             current = NumberExpression.float_to_simplified_number(self.header['Current>Current (A)'])
             info['Current Setpoint(A)'] = current
+        if 'Z-CONTROLLER' in self.header.keys():
+            current = self.header['Z-CONTROLLER']['Setpoint']
+            info['Current Setpoint(A)'] = current
         if 'BIAS' in self.header.keys():
             bias = NumberExpression.float_to_simplified_number(self.header['BIAS'])
             info['Bias Setpoint(V)'] = bias

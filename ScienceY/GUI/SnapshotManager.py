@@ -457,11 +457,16 @@ class SnapshotManager:
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
         
         # pivotal_info
-        if 'current>current (a)' in dataSxm.header.keys():
-            current = NumberExpression.float_to_simplified_number(dataSxm.header['current>current (a)'])
+        if 'Current>Current (A)' in dataSxm.header.keys():
+            current = NumberExpression.float_to_simplified_number(dataSxm.header['Current>Current (A)'])
             snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
-        if 'bias>bias (v)' in dataSxm.header.keys():
-            bias = NumberExpression.float_to_simplified_number(dataSxm.header['bias>bias (v)'])
+        elif 'Z-CONTROLLER' in dataSxm.header.keys():
+            current = dataSxm.header['Z-CONTROLLER']['Setpoint']
+            snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        else:
+            pass
+        if 'BIAS' in dataSxm.header.keys():
+            bias = NumberExpression.float_to_simplified_number(dataSxm.header['BIAS'])
             snapshot_info.pivotal_info.append('Bias Setpoint(V):' + bias)
         
         #snapshot_info.full_info = []
@@ -523,11 +528,21 @@ class SnapshotManager:
             elif channel == 'dI/dV Phase Map':
                 return data3ds.get_Phase()
             else:
-                print('Load channel data error: Unknown channel!')
+                print('Load 3ds channel data error: Unknown channel!')
                 return None
         elif suffix == 'sxm':
-            if channel == None:
-                pass
+            dataSxm = NanonisDataProcess.DataSxmStru(srcfile_path, srcfile_name)
+            if channel == 'Topo':
+                return dataSxm.get_Topo_fwd()
+            elif channel == 'dI/dV Map':
+                return dataSxm.get_dIdV_fwd()
+            elif channel == 'Current Map':
+                return dataSxm.get_Current_fwd()
+            elif channel =='dI/dV Phase Map':
+                return dataSxm.get_theta()
+            else:
+                print('Load sxm channel data error: Unknown channel!')
+                return None
         elif suffix == 'TFR':
             pass
         elif suffix == '1FL':

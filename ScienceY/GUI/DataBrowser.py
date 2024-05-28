@@ -73,7 +73,6 @@ class GalleryViewManager(QtWidgets.QWidget):
         ch_filter_content = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout()
         
-        print(settings['GALLERY_FILTER'])
         #
         for suffix, channels in self.gallery_filter.items():
             self.gallery_filter_bool[suffix] = []

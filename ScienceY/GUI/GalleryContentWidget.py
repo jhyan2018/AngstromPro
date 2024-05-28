@@ -8,12 +8,10 @@ Created on Mon May 13 16:13:59 2024
 """
 System modules
 """
-import ctypes, os
-
+import os
 """
 Third-party Modules
 """
-import numpy as np
 from PyQt5 import QtCore, QtWidgets, QtGui
 
 """
@@ -46,7 +44,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
 
         self.ch_layer = int (self.snapshots_info.ch_layers[self.ch_idx])
         self.ch_layer_value = self.snapshots_info.ch_layer_value[self.ch_idx].split(',')
-        if snapshots_info.ch_type == 'IMAGE':
+        if snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
             self.ch_layer_scale = self.snapshots_info.ch_layer_scale[self.ch_idx].split(',')
         self.colorbar_pixmap = colorbarPixmap
 
@@ -66,7 +64,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
         self.ui_lb_data_scale_u = QtWidgets.QLabel()
         self.ui_lb_data_scale_l = QtWidgets.QLabel()
-        if self.snapshots_info.ch_type == 'IMAGE':
+        if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
             d_s_u_v = self.ch_layer_scale[1]
             d_s_l_v = self.ch_layer_scale[0]
             self.ui_lb_data_scale_u.setText(d_s_u_v)
@@ -109,7 +107,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
         ui_verticalLayout1.addWidget(self.ui_pivotal_info)
         
         ui_verticalLayout2 = QtWidgets.QVBoxLayout()
-        if self.snapshots_info.ch_type == 'IMAGE':
+        if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
             ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=QtCore.Qt.AlignCenter)
             ui_verticalLayout2.addWidget(self.ui_lb_colorbar, alignment=QtCore.Qt.AlignCenter)
             ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=QtCore.Qt.AlignCenter)
@@ -171,18 +169,16 @@ class GalleryContentWidget(QtWidgets.QWidget):
         #
         
     def drawPngDisplay(self):
-        #print('lb_png_size:',self.ui_lb_png_display.size() )
-        """
-        if self.snapshots_info.ch_type == 'IMAGE':
-            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.SmoothTransformation)
+        if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
+            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.FastTransformation)
         else:
-            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
-        """
-        self.ui_lb_png_display.setPixmap(self.pixmap)
+            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.FastTransformation)
+        
+        self.ui_lb_png_display.setPixmap(scaled_pixmap)
         
     def setColorbarPixmap(self, pixmap):
         self.colorbar_pixmap = pixmap
     
     def drawColorbar(self):                
-        #scaled_pixmap = self.colorbar_pixmap.scaled(self.ui_lb_colorbar.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
-        self.ui_lb_colorbar.setPixmap(self.colorbar_pixmap)
+        scaled_pixmap = self.colorbar_pixmap.scaled(self.ui_lb_colorbar.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
+        self.ui_lb_colorbar.setPixmap(scaled_pixmap)
