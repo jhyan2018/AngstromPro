@@ -11,6 +11,7 @@ System modules
 import os
 import json
 import uuid
+from io import BytesIO
 
 """
 Third-party Modules
@@ -20,6 +21,7 @@ from PyQt5 import QtGui, QtWidgets
 User Modules
 """
 from ..GUI.Image2Uds3Widget import Image2Uds3Widget
+from ..GUI.Plot1Uds2Widget import Plot1Uds2Widget
 from ..RawDataProcess import NanonisDataProcess
 from ..RawDataProcess.UdsDataProcess import UdsDataProcess
 from ..ImageProcess import ImgProc
@@ -76,6 +78,11 @@ class SnapshotManager:
         #
         self.img2u3w_src_file_path = ''
         self.img2u3w_channel = ''
+        
+        #
+        self.snapshots_render_plot = Plot1Uds2Widget()
+        self.snapshots_render_plot.static_canvas.setFixedHeight(256)
+        self.snapshots_render_plot.static_canvas.setFixedWidth(256)
 
     def load_metadata_srcfile(self):
         if os.path.exists(self.metadata_srcfile):
@@ -201,6 +208,21 @@ class SnapshotManager:
     def set_snapshots_render_image_data(self,uds_data):
         self.snapshots_render_image.setUdsData(uds_data)
         
+    def set_snapshots_render_plot_data(self,uds_data):
+        self.snapshots_render_plot.setUdsData(uds_data)
+    
+    def generate_singlelayer_snapshots_Plot1U2Widget(self, snapshot_info):
+        # use BytesIo to make sure rendering the whole canvas
+        buffer = BytesIO()
+        self.snapshots_render_plot.static_canvas.figure.savefig(buffer, format='png', bbox_inches='tight')
+        buffer.seek(0)
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(buffer.getvalue())
+        snapshot_info.pixmap.append(pixmap)
+        
+        snapshot_info.ch_layer_value.append('0')
+        snapshot_info.ch_layers.append('1')
+    
     def generate_singlelayer_snapshots_Img2U3Widget(self, snapshot_info, layer_index=0):        
         layer_value = self.snapshots_render_image.uds_var_layer_value
         separator = ','
@@ -285,54 +307,83 @@ class SnapshotManager:
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
 
         if 'Z (m)' in data3ds.channel_list:
-            uds3D_topo = data3ds.get_Topo()
-            channel = uds3D_topo.info.get('Channel', None)
+            uds_topo = data3ds.get_Topo()
+            
+            channel = uds_topo.info.get('Channel', None)
             if not channel == None:
                 snapshot_info.channel.append(channel)
             else:
                 snapshot_info.channel.append('Topo')
-            snapshot_info.ch_type.append('IMAGE')    
-
-            #background subtract
-            uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds3D_topo, 2, 'PerLine')
-            self.set_snapshots_render_image_data(uds3D_topo_bg)
-            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            
+            if uds_topo.name.split('_')[0] == 'uds3D':
+                snapshot_info.ch_type.append('IMAGE')
+                #background subtract
+                uds3D_topo_bg = ImgProc.ipBackgroundSubtract2D(uds_topo, 2, 'PerLine')
+                self.set_snapshots_render_image_data(uds3D_topo_bg)
+                self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            elif uds_topo.name.split('_')[0] == 'uds2D':
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_topo)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+            else:
+                print('Snapmanager: Unknow uds data type')
                     
         if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
-            uds3D_didv = data3ds.get_dIdV_data()
-            channel = uds3D_didv.info.get('Channel', None)
+            uds_didv = data3ds.get_dIdV_data()
+            channel = uds_didv.info.get('Channel', None)
             if not channel == None:
                 snapshot_info.channel.append(channel)
             else:
                 snapshot_info.channel.append('dI/dV Map')
-            snapshot_info.ch_type.append('IMAGE')
-            
-            self.set_snapshots_render_image_data(uds3D_didv)
-            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+                
+            if uds_didv.name.split('_')[0] == 'uds3D':
+                snapshot_info.ch_type.append('IMAGE')
+                self.set_snapshots_render_image_data(uds_didv)
+                self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            elif uds_didv.name.split('_')[0] == 'uds2D':
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_didv)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+            else:
+                print('Snapmanager: Unknow uds data type')
             
         if 'Current (A)' in data3ds.channel_list:
-            uds3D_current = data3ds.get_Current()
-            channel = uds3D_current.info.get('Channel', None)
+            uds_current = data3ds.get_Current()
+            channel = uds_current.info.get('Channel', None)
             if not channel == None:
                 snapshot_info.channel.append(channel)
             else:
                 snapshot_info.channel.append('Current Map')
-            snapshot_info.ch_type.append('IMAGE')
             
-            self.set_snapshots_render_image_data(uds3D_current)
-            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            if uds_current.name.split('_')[0] == 'uds3D':
+                snapshot_info.ch_type.append('IMAGE')
+                self.set_snapshots_render_image_data(uds_current)
+                self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            elif uds_current.name.split('_')[0] == 'uds2D':
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_current)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+            else:
+                print('Snapmanager: Unknow uds data type')
             
         if 'LI Demod 1 Y (A)' in data3ds.channel_list:
-            uds3D_didv_phase = data3ds.get_Phase()
-            channel = uds3D_didv_phase.info.get('Channel', None)
+            uds_didv_phase = data3ds.get_Phase()
+            channel = uds_didv_phase.info.get('Channel', None)
             if not channel == None:
                 snapshot_info.channel.append(channel)
             else:
                 snapshot_info.channel.append('dI/dV Phase Map')
-            snapshot_info.ch_type.append('IMAGE')
             
-            self.set_snapshots_render_image_data(uds3D_didv_phase)
-            self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            if uds_didv_phase.name.split('_')[0] == 'uds3D':
+                snapshot_info.ch_type.append('IMAGE')
+                self.set_snapshots_render_image_data(uds_didv_phase)
+                self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+            elif uds_didv_phase.name.split('_')[0] == 'uds2D':
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_didv_phase)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+            else:
+                print('Snapmanager: Unknow uds data type')
         
         # pivotal_info
         if 'current>current (a)' in data3ds.header.keys():
@@ -406,11 +457,16 @@ class SnapshotManager:
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
         
         # pivotal_info
-        if 'current>current (a)' in dataSxm.header.keys():
-            current = NumberExpression.float_to_simplified_number(dataSxm.header['current>current (a)'])
+        if 'Current>Current (A)' in dataSxm.header.keys():
+            current = NumberExpression.float_to_simplified_number(dataSxm.header['Current>Current (A)'])
             snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
-        if 'bias>bias (v)' in dataSxm.header.keys():
-            bias = NumberExpression.float_to_simplified_number(dataSxm.header['bias>bias (v)'])
+        elif 'Z-CONTROLLER' in dataSxm.header.keys():
+            current = dataSxm.header['Z-CONTROLLER']['Setpoint']
+            snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        else:
+            pass
+        if 'BIAS' in dataSxm.header.keys():
+            bias = NumberExpression.float_to_simplified_number(dataSxm.header['BIAS'])
             snapshot_info.pivotal_info.append('Bias Setpoint(V):' + bias)
         
         #snapshot_info.full_info = []
@@ -472,11 +528,21 @@ class SnapshotManager:
             elif channel == 'dI/dV Phase Map':
                 return data3ds.get_Phase()
             else:
-                print('Load channel data error: Unknown channel!')
+                print('Load 3ds channel data error: Unknown channel!')
                 return None
         elif suffix == 'sxm':
-            if channel == None:
-                pass
+            dataSxm = NanonisDataProcess.DataSxmStru(srcfile_path, srcfile_name)
+            if channel == 'Topo':
+                return dataSxm.get_Topo_fwd()
+            elif channel == 'dI/dV Map':
+                return dataSxm.get_dIdV_fwd()
+            elif channel == 'Current Map':
+                return dataSxm.get_Current_fwd()
+            elif channel =='dI/dV Phase Map':
+                return dataSxm.get_theta()
+            else:
+                print('Load sxm channel data error: Unknown channel!')
+                return None
         elif suffix == 'TFR':
             pass
         elif suffix == '1FL':

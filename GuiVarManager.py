@@ -19,7 +19,7 @@ from PyQt5 import QtCore, QtWidgets
 """
 User Modules
 """
-from ScienceY.GUI import Image2Uds3, RtSynthesis2Uds3, DataBrowser
+from ScienceY.GUI import Image2Uds3, Plot1Uds2, RtSynthesis2Uds3, DataBrowser
 from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
 from ScienceY.RawDataProcess.UdsDataProcess import UdsDataProcess, UdsDataStru3D
@@ -481,6 +481,17 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         self.updateAlivedWindowList()
         
+    def newPlot1Uds2Window(self):
+        self.created_window_counts += 1
+        
+        w = Plot1Uds2('Plot1U2_', self.created_window_counts)
+        w.sendDataSignal.connect(self.getDataFromWindows)
+        
+        self.alive_window_pt_list.append(w)        
+        self.alive_window_name_list.append('Plot1U2_'+str(self.created_window_counts))
+        
+        self.updateAlivedWindowList()
+        
     def newRtSynthesis2D(self):
         self.created_window_counts += 1
         
@@ -495,6 +506,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def initChildWindows(self):
         self.newDataBrowserWindow()
         self.newImage2or3DWindow()
+        self.newPlot1Uds2Window()
     
     # Options
     def preference(self):

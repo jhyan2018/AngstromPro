@@ -8,6 +8,7 @@ from .GuiFrame import GuiFrame
 from .DataBrowser import DataBrowser
 from .Image2Uds3 import Image2Uds3
 from .Image2Uds3Widget import Image2Uds3Widget
+from .Plot1Uds2 import Plot1Uds2
 from .RtSynthesis2Uds3 import RtSynthesis2Uds3
 from .ScaleWidget import ScaleWidget
 
