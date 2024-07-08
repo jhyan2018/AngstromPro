@@ -276,6 +276,9 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.sync_rt_points = False
         
         #
+        self.bias_text_shown = False
+        
+        #
         self.d = 0
         self.c = 0
         
@@ -425,8 +428,10 @@ class Image2Uds3Widget(QtWidgets.QWidget):
             current_mouse_x = int(event_x)
             current_mouse_y = int(event_y)
             
-            dx = int((current_mouse_x - self.mouse_cord_x)/ (math.log2(self.st_img_scale_ratio)+1) )
-            dy = int((current_mouse_y - self.mouse_cord_y)/ (math.log2(self.st_img_scale_ratio)+1) )
+            scale_adjustment = max(1, np.log2(self.st_img_scale_ratio))
+            
+            dx = int((current_mouse_x - self.mouse_cord_x)/ scale_adjustment )
+            dy = int((current_mouse_y - self.mouse_cord_y)/ scale_adjustment )
             
             self.st_img_xlim_l -= dx
             self.st_img_xlim_u -= dx
@@ -682,6 +687,9 @@ class Image2Uds3Widget(QtWidgets.QWidget):
             cdict[ 'blue' ].append( [ i / 255.0, d[ i, 2 ], d[ i, 2 ] ] )
         return colors.LinearSegmentedColormap( 'CustomMap', cdict )
     
+    def setBiasTextShown(self, bias_text_shown):
+        self.bias_text_shown = bias_text_shown
+    
     def updateImage(self):
         scale_min = self.ui_scale_widget.lowerValue()
         scale_max = self.ui_scale_widget.upperValue()
@@ -703,10 +711,12 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.static_ax.set_frame_on(False)
         
         # plot text
-        #sn_text = self.ui_le_layer_value.text() + 'V'
-        #txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
-        #txt_py = self.uds_variable.data.shape[-2] - 20
-        #self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='red')
+        if self.bias_text_shown:
+            sn_text = self.ui_le_layer_value.text() + 'V'
+            txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
+            txt_py = self.uds_variable.data.shape[-2] - 20
+            self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='w')
+        
         # plot Cursor
         if self.sync_rt_points:
             mk_x = self.selected_data_pt_x

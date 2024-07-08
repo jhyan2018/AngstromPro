@@ -323,6 +323,10 @@ class Image2Uds3(GuiFrame):
         elif st_type == 11: # Settings Type = 11, 'FACTOR_CANVAS_SIZE'
             canvas_size_factor = float(self.settings['CANVAS']['canvas_size_factor'])
             self.canvas_size_factor = canvas_size_factor
+        elif st_type == 12: # Settings Type = 12, 'BIAS_TEXT'
+            bias_text_shown = self.settings['CANVAS']['bias_text'] in ['True']
+            self.ui_img_widget_main.setBiasTextShown(bias_text_shown)
+            self.ui_img_widget_slave.setBiasTextShown(bias_text_shown)
         else:
             print("Unknow Settings Type!")
        

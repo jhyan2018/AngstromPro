@@ -62,7 +62,7 @@ def perfectLatticeSqure(data3D, bPx1, bPy1, bPx2, bPy2):
     affine.setRotateOfAffineMatrix(-theta1)
     affine.setShearOfAffineMatrix(0,by)
     affine.setScaleOfAffineMatrix(1, sy)
-    affine.setRotateOfAffineMatrix(np.pi/4)
+    affine.setRotateOfAffineMatrix(theta1)
     
     #
     affine.srcMappedPoints(data3D.shape[-2], data3D.shape[-1])

@@ -59,6 +59,7 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         
         # canvas
         self.ui_sl_canvas_size.setSNText(self.settings['CANVAS']['canvas_size_factor'])
+        self.ui_cb_bias_text.setChecked(self.settings['CANVAS']['bias_text'] in ['True'])
 
     def initUiMembers(self):
         self.resize(1000,600)
@@ -168,6 +169,9 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         self.ui_sl_canvas_size = SimplifiedNumberLineEditor()
         self.ui_sl_canvas_size.validTextChanged.connect(self.setCanvasSizeFactor)
         
+        self.ui_cb_bias_text = QtWidgets.QCheckBox("Show Bias Value")
+        self.ui_cb_bias_text.stateChanged.connect(self.setBisaText)
+        
     def initUiLayout(self):
         self.initLayoutPageColormap()
         self.initLayoutPageMainSlave()
@@ -236,8 +240,13 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         h_layout = QtWidgets.QHBoxLayout()
         h_layout.addWidget(self.ui_lb_canvas_size)
         h_layout.addWidget(self.ui_sl_canvas_size)
+        
+        h_Layout2 = QtWidgets.QVBoxLayout()
+        h_Layout2.addWidget(self.ui_cb_bias_text)
+        
         layout = QtWidgets.QVBoxLayout()
         layout.addLayout(h_layout)
+        layout.addLayout(h_Layout2)
         
         self.ui_page_canvas.setLayout(layout)
         
@@ -390,4 +399,11 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
     def setCanvasSizeFactor(self):
         self.settings['CANVAS']['canvas_size_factor'] = self.ui_sl_canvas_size.snText()
         self.settings_changed.emit(11) # Settings Type = 11, 'FACTOR_CANVAS_SIZE'
+        
+    def setBisaText(self):
+        if self.ui_cb_bias_text.isChecked():
+            self.settings['CANVAS']['bias_text'] = 'True'
+        else:
+            self.settings['CANVAS']['bias_text'] = 'False'
+        self.settings_changed.emit(12) # Settings Type = 12, 'BIAS_TEXT'
         
