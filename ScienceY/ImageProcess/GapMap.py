@@ -50,8 +50,9 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
     
     '''
     if energy_end != -1:
-        energy_end += 1
-    energy = np.array(LayerValue)[energy_start:energy_end]
+        energy = np.array(LayerValue)[energy_start:energy_end+1]
+    else:
+        energy = np.array(LayerValue)
     energy_points = energy.shape[0]
     X_points = data3D.shape[-2] # real space x axis
     Y_points = data3D.shape[-1] # real space y axis
@@ -64,7 +65,10 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
     item_order = itertools.product(range(X_points), range(Y_points))
     for k, (X,Y) in enumerate(item_order): # iterate each space point
         
-        dIdV = data3D[energy_start:energy_end,X,Y]
+        if energy_end != -1:
+            dIdV = data3D[energy_start:energy_end+1,X,Y]
+        else:
+            dIdV = data3D[:,X,Y]
         
         # Determine the matrix A
         for i in range(A_matrix_columns):
@@ -73,11 +77,25 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
         p,res,_,_ = np.linalg.lstsq(A_matrix, dIdV, rcond=None)
         dIdV_Fitted = np.poly1d(p[::-1])
         dIdV_derivative = np.polyder(dIdV_Fitted, 1)
-        dIdV_second_order_dervative = np.polyder(dIdV_Fitted, 2)
+        dIdV_second_order_derivative = np.polyder(dIdV_Fitted, 2)
         roots = dIdV_derivative.r
-        for i in range(len(roots)):
-            if (dIdV_second_order_dervative(roots[i]) < 0) & (roots[i] > np.min(energy)) & (roots[i] < np.max(energy)):
-                gapmap[X,Y] = roots[i]
+        real_roots = roots[np.isreal(roots)].real 
+        
+        max_value_root = None 
+        max_value = -np.inf
+        for root in real_roots:
+            if dIdV_second_order_derivative(root) < 0 and np.min(energy) <= root <= np.max(energy):
+                value_at_root = dIdV_Fitted(root)
+                if value_at_root > max_value:
+                    max_value = value_at_root
+                    max_value_root = root
+        if max_value_root == None and dIdV_Fitted(np.max(energy)) > dIdV_Fitted(np.min(energy)):
+            max_value_root = np.max(energy)
+        elif max_value_root == None and dIdV_Fitted(np.max(energy)) < dIdV_Fitted(np.min(energy)):
+            max_value_root = np.min(energy)
+        
+        gapmap[X,Y] = max_value_root
+        
                 
     gapmap = gapmap[np.newaxis,:,:]
         

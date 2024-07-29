@@ -389,8 +389,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         if file_type == '3ds':
             globals()['data3ds'] = NanonisDataProcess.Data3dsStru(full_path, file_name)  
-            if 'Z (m)' in data3ds.channel_list:        
-                globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
+            globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
             if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
                 globals()['uds3D_'+file_name+'_dIdV'] = data3ds.get_dIdV_data()
             if 'Current (A)' in data3ds.channel_list:
@@ -527,3 +526,4 @@ if __name__ == "__main__":
         qapp = QtWidgets.QApplication(sys.argv)
     w = GuiVarManager()    
     w.show()
+    #sys.exit(qapp.exec_())
