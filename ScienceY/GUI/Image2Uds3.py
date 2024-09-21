@@ -369,6 +369,7 @@ class Image2Uds3(GuiFrame):
         perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
         processMenu.addAction(self.lfCorrection)
         processMenu.addAction(self.lineCut)
+        processMenu.addAction(self.lineCuts)
         fourierFilterMenu = processMenu.addMenu("Fourier Filter")
         fourierFilterMenu.addAction(self.fourierFilterOut)
         fourierFilterMenu.addAction(self.fourierFilterIsolate)
@@ -448,6 +449,7 @@ class Image2Uds3(GuiFrame):
         self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
         self.lfCorrection = QtWidgets.QAction("LF Correction",self)
         self.lineCut = QtWidgets.QAction('Line Cut',self)
+        self.lineCuts = QtWidgets.QAction('Line Cuts',self)
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
         self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
         self.register = QtWidgets.QAction("Register",self)
@@ -513,6 +515,7 @@ class Image2Uds3(GuiFrame):
         self.perfectLatticeHexagonal.triggered.connect(self.actPerfectLatticeHexagonal)
         self.lfCorrection.triggered.connect(self.actLFCorrection)
         self.lineCut.triggered.connect(self.actLineCut)
+        self.lineCuts.triggered.connect(self.actLineCuts)
         self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
         self.fourierFilterIsolate.triggered.connect(self.actFourierFilterIsolate)
         self.register.triggered.connect(self.actRegister)
@@ -815,7 +818,37 @@ class Image2Uds3(GuiFrame):
                 self.ui_img_widget_main.uds_variable.info['LineCutPoints'], start = energy_start, end = energy_end, pcs = p)
         else:
             print('No - LineCutPoints - keys exists.')
+            
+    def actLineCuts(self):
+        self.status_bar.showMessage("Params()",5000)
         
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+                
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        intercaltion_pts = 100
+        lc_type = 'RADIAL'
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                intercaltion_pts = int(params[0])
+            if param_numbers == 2:
+                lc_type = params[1]
+        #
+        if 'LineCutPoints' in self.ui_img_widget_main.uds_variable.info:
+            linecut_pts = self.ui_img_widget_main.uds_variable.info['LineCutPoints']
+            
+            # process
+            uds_data_processed = ImgProc.ipLineCuts(self.uds_variable_pt_list[ct_var_index], linecut_pts,intercaltion_pts,lc_type)
+            
+            # update var list
+            self.appendToLocalVarList(uds_data_processed)
+            
+            #
+            self.clearWidgetsContents()
+            
     def actFourierFilterOut(self):
         self.status_bar.showMessage("Params(kSigma=1.0)",5000)
         
@@ -1443,5 +1476,7 @@ class Image2Uds3(GuiFrame):
     # Option Menu
     def actPreference(self):
         self.ui_preference.show()
+        self.ui_preference.raise_()
+        self.ui_preference.activateWindow()
         
         

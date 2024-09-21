@@ -15,7 +15,7 @@ import numpy as np
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru
 
 from .GenerateCurve2D import circle2D, gaussian2D, sinusoidal2D
 from .GenerateLattice2D import GenerateLattice2D
@@ -42,7 +42,7 @@ def ismGenerateHeaviside2D(size, edge_x, edge_y):
     
     data_simulated[left_y:right_y, left_x:right_x] = np.zeros((abs(right_y -left_y), abs(right_x-left_x)))
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Heaviside2D')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_Heaviside2D')
     uds3D_data_simulated.info['LayerValue'] = '0'
     
     return uds3D_data_simulated
@@ -50,14 +50,14 @@ def ismGenerateHeaviside2D(size, edge_x, edge_y):
 def ismGenerateCircle2D(size, radius, center_x, center_y):
     data_simulated = circle2D(size, radius, center_x, center_y)
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Circle2D')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_Circle2D')
     
     return uds3D_data_simulated
 
 def ismGenerateGaussian2D(size, sigma, center_x, center_y):
     data_simulated = gaussian2D(size, sigma, center_x, center_y)
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Gaussian2D')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_Gaussian2D')
     
     return uds3D_data_simulated
 
@@ -67,7 +67,7 @@ def ismGenerateSinusoidal2D(size, qx, qy, phase):
     for i in range( len(qx) ):
         data_simulated += sinusoidal2D(size, qx[i], qy[i], phase[i])
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Sinusoidal2D')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_Sinusoidal2D')
     
     return uds3D_data_simulated
 
@@ -77,7 +77,7 @@ def ismGeneratePerfectLattice2D(m, n, a1x, a1y, a2x, a2y, atomSize=None, atomCur
     
     data_simulated = lattice2D.generateLattice2D(atomSize, atomCurve, p1, p2)
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_PerfectLattice2D')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_PerfectLattice2D')
     
     return uds3D_data_simulated
 
@@ -88,7 +88,7 @@ def ismGenerateLattice2DWithLineDomainWall(m, n, a1x, a1y, a2x, a2y, atomSize=No
     
     data_simulated = lattice2D.generateLattice2D(atomSize, atomCurve)
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Lattice2D_LineDomainWall')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_Lattice2D_LineDomainWall')
     
     return uds3D_data_simulated
 
@@ -101,7 +101,7 @@ def ismGeneratelattice2DWithPeriodicDistortion(m, n, a1x, a1y, a2x, a2y, d1x, d1
     
     data_simulated = lattice2D.generateLattice2D(atomSize, atomCurve)
     
-    uds3D_data_simulated = UdsDataStru3D(data_simulated[np.newaxis,:,:], 'uds3D_Lattice2D_PeriodicDistortions')
+    uds3D_data_simulated = UdsDataStru(data_simulated[np.newaxis,:,:], 'uds3D_Lattice2D_PeriodicDistortions')
     
 
     

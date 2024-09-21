@@ -23,7 +23,7 @@ User Modules
 from .GuiFrame import GuiFrame
 from .Image2Uds3Widget import Image2Uds3Widget
 
-from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from ..ImageSimulate.GenerateCurve2D import sinusoidal2D
 from .ConfigManager import ConfigManager
 """
@@ -119,7 +119,7 @@ class RtSynthesis2Uds3(GuiFrame):
         self.data_simulated_sum = np.zeros((1, self.data_size, self.data_size))
         self.data_simulated_list = []
         
-        self.uds_data = UdsDataStru3D(self.data_simulated_sum, 'uds3D_RtSynthesis')
+        self.uds_data = UdsDataStru(self.data_simulated_sum, 'uds3D_RtSynthesis')
         
         
     def initCcMenuBar(self):
@@ -227,7 +227,7 @@ class RtSynthesis2Uds3(GuiFrame):
         self.ui_img_widget_main.setUdsData(self.uds_data)   
         
     def act_pb_save_var_to_local_list(self):
-        uds3D_data_current_simulation = UdsDataStru3D(self.uds_data.data , 'uds3D_RtSynthesis' )
+        uds3D_data_current_simulation = UdsDataStru(self.uds_data.data , 'uds3D_RtSynthesis' )
         uds3D_data_current_simulation.info['LayerValue']='0'
         
         self.appendToLocalVarList(uds3D_data_current_simulation)

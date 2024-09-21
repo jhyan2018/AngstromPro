@@ -96,3 +96,39 @@ class PixelInterpolation():
         return interplated_data
     def bicubicInterploate(self, offset_y_f, offset_x_f):
         pass
+    
+class RasterPixelInterpolation():
+    def __init__(self, src_data2D, src_X_f, src_Y_f, interpolate_method='bilinear'):
+        self.src_data = src_data2D
+        self.src_X_f = src_X_f
+        self.src_Y_f = src_Y_f
+        self.interpolate_method = interpolate_method
+    
+    def interpolate(self, MODULUS=False):
+        if self.interpolate_method == 'bilinear':
+            return self.bilinearInterpolate(MODULUS)
+        else:
+            pass
+          
+    def bilinearInterpolate(self, MODULUS):
+        interplated_data = np.zeros((1,len(self.src_X_f)))
+
+        for i in range(len(self.src_X_f)):
+            u_x = int(np.floor(self.src_X_f[i]))
+            v_y = int(np.floor(self.src_Y_f[i]))
+        
+            a_x = self.src_X_f[i] - u_x
+            b_y = self.src_Y_f[i] - v_y
+            
+            if MODULUS:
+                interplated_data[0,i] = (a_x-1)*(b_y-1)*abs(self.src_data[v_y, u_x])
+                interplated_data[0,i] += a_x*(1-b_y)*abs(self.src_data[v_y, u_x+1])
+                interplated_data[0,i] += (1-a_x)*b_y*abs(self.src_data[v_y+1, u_x])
+                interplated_data[0,i] += a_x*b_y*abs(self.src_data[v_y+1, u_x+1])
+            else:
+                interplated_data[0,i] = (a_x-1)*(b_y-1)*self.src_data[v_y, u_x]
+                interplated_data[0,i] += a_x*(1-b_y)*self.src_data[v_y, u_x+1]
+                interplated_data[0,i] += (1-a_x)*b_y*self.src_data[v_y+1, u_x]
+                interplated_data[0,i] += a_x*b_y*self.src_data[v_y+1, u_x+1]
+            
+        return interplated_data

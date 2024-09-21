@@ -23,32 +23,16 @@ User Modules
 function Module
 """
 
-class UdsDataStru3D():
+class UdsDataStru():
 
-    def __init__(self,data3D,name):        
-        self.data = np.copy(data3D)
+    def __init__(self,data,name):        
+        self.data = np.copy(data)
         self.name = name
+        self.axis_name = []
+        self.axis_value = []
         self.info = dict()
         self.proc_history = []
         self.proc_to_do = []
-
-class UdsDataStru2D(): 
-       
-     def __init__(self,data2D,name):        
-         self.data = np.copy(data2D)
-         self.name = name
-         self.info = dict()
-         self.proc_history = []
-         self.proc_to_do = []
-        
-class UdsDataStru1D(): 
-       
-     def __init__(self,data1D,name):        
-         self.data = np.copy(data1D)
-         self.name = name
-         self.info = dict()
-         self.proc_history = []
-         self.proc_to_do = []
          
 class UdsDataProcess():
     def __init__(self, path):
@@ -89,18 +73,18 @@ class UdsDataProcess():
         
         if len(shape) == 1: # 1D
             data = raw_data1D.reshape((shape[0]))
-            self.uds_data = UdsDataStru1D(data, name)
+            self.uds_data = UdsDataStru(data, name)
         elif len(shape) == 2: # 2D
             data = raw_data1D.reshape((shape[0], shape[1]))
-            self.uds_data = UdsDataStru2D(data, name)
+            self.uds_data = UdsDataStru(data, name)
         elif len(shape) == 3: # 3D
             data = raw_data1D.reshape((shape[0], shape[1], shape[2]))
-            self.uds_data = UdsDataStru3D(data, name)
+            self.uds_data = UdsDataStru(data, name)
             print('3D data readed!')
         else:
             print('Unknown shape of readed uds data.')
             data = np.zeros((100,100))
-            self.uds_data = UdsDataStru3D(data, 'uds3D_'+name)
+            self.uds_data = UdsDataStru(data, 'uds3D_'+name)
         
         # info
         f.seek(info_starter, 0)

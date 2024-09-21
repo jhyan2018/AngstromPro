@@ -22,7 +22,8 @@ User Modules
 from ScienceY.GUI import Image2Uds3, Plot1Uds2, RtSynthesis2Uds3, DataBrowser
 from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
-from ScienceY.RawDataProcess.UdsDataProcess import UdsDataProcess, UdsDataStru3D
+from ScienceY.RawDataProcess.UdsDataProcess import UdsDataProcess, UdsDataStru
+
 """
 Modules Definition
 """
@@ -257,6 +258,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def showSelectedWindow(self):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
         self.alive_window_pt_list[ct_w_index].show()
+        self.alive_window_pt_list[ct_w_index].raise_()
+        self.alive_window_pt_list[ct_w_index].activateWindow()
         
     def updateAlivedWindowList(self):
         self.ui_lw_uds_window_list.clear()
@@ -271,7 +274,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
                 
         dataName = self.uds_variable_name_list[ct_var_index]
-        dataCopy = UdsDataStru3D(globals()[dataName].data, globals()[dataName].name)  
+        dataCopy = UdsDataStru(globals()[dataName].data, globals()[dataName].name)  
         dataCopy.info = globals()[dataName].info.copy()
         dataCopy.proc_history = globals()[dataName].proc_history.copy()
         dataCopy.proc_to_do = globals()[dataName].proc_to_do.copy()
@@ -284,7 +287,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def getDataFromWindows(self, w_name, var_index):
         w_index = self.alive_window_name_list.index(w_name)
         var_name = self.alive_window_pt_list[w_index].uds_variable_name_list[var_index]
-        globals()[var_name] = UdsDataStru3D(self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].data ,var_name)
+        globals()[var_name] = UdsDataStru(self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].data ,var_name)
         globals()[var_name].proc_history = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].proc_history
         globals()[var_name].info = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].info        
         
@@ -390,11 +393,11 @@ class GuiVarManager(QtWidgets.QMainWindow):
         if file_type == '3ds':
             globals()['data3ds'] = NanonisDataProcess.Data3dsStru(full_path, file_name)  
             globals()['uds3D_'+file_name+'_topo'] = data3ds.get_Topo()
-            if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
+            if ('LI Demod 1 X (A)' in data3ds.channel_dict['dIdV'] ) or ('Input 2 (V)' in data3ds.channel_dict['dIdV']): 
                 globals()['uds3D_'+file_name+'_dIdV'] = data3ds.get_dIdV_data()
-            if 'Current (A)' in data3ds.channel_list:
+            if 'Current (A)' in data3ds.channel_dict['Current']:
                 globals()['uds3D_'+file_name+'_Current'] = data3ds.get_Current()
-            if 'LI Demod 1 Y (A)' in data3ds.channel_list:
+            if 'LI Demod 1 Y (A)' in data3ds.channel_dict['Phase']:
                 globals()['uds3D_'+file_name+'_Phase'] = data3ds.get_Phase()
         elif file_type == 'sxm':
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
@@ -427,6 +430,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
             globals()[uds_data.name] = uds_data
         else:
             pass
+        
+        self.updateVarList()
         
     def saveToFile(self):                        
         if self.ui_lw_uds_variable_name_list.count() < 1:

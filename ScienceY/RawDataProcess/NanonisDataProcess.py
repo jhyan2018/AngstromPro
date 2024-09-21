@@ -14,7 +14,7 @@ import re
 """
 User Modules
 """
-from .UdsDataProcess import UdsDataStru3D
+from .UdsDataProcess import UdsDataStru
 from ..GUI.general.NumberExpression import NumberExpression
 """
 Class Definition
@@ -192,8 +192,18 @@ class Data3dsStru():
         self.header = lData.header
         self.data3D = lData.data3D
         self.name = name
-        self.channel_list = lData.header['channels']
+        self.channel_dict = dict()
+        self.channel_dict['dIdV'] = ['LI Demod 1 X (A)', 'Input 2 (V)']
+        self.channel_dict['Topo'] = ['Scan:Z (m)']
+        self.channel_dict['Current'] = ['Current (A)']
+        self.channel_dict['Phase'] = ['LI Demod 1 Y (A)']
         self.layerValue = self.get_Layer_Value()
+        
+    def append_channel_dict(self, key, value):
+        if key in self.channel_dict:
+            self.channel_dict[key].append(value)
+        else:
+            print("Unknown key in channel dict!")
         
     def get_Layer_Value(self):
         points = self.header['points']
@@ -209,8 +219,46 @@ class Data3dsStru():
         
         return layer_value
     
+    def get_axis_name(self, isDimension3=True):
+        axis_name_list = []
+        if isDimension3:
+            axis_name_list.append('X (m)')
+            axis_name_list.append('Y (m)')
+        else:
+            axis_name_list.append('XY (m)')
+        axis_name_list.append(self.header['sweep signal'])
+        
+        separator = ','
+        axis_name = separator.join(axis_name_list)
+        
+        return axis_name
+    
+    def get_axis_value(self, isDimension3=True):
+        axis_value_list = []
+        if isDimension3:
+            x_width = self.header['grid settings']['W']
+            y_height = self.header['grid settings']['H']
+            x_points = self.header['grid dim'][1]
+            y_points = self.header['grid dim'][0]
+            
+            bias_points = self.header['points']
+            Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
+            Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
+            bias_raster = np.linspace(self.data3D[Sweep_start_index, 0, 0], self.data3D[Sweep_end_index, 0, 0], bias_points)
+            
+            xx = np.linspace(0,x_width, x_points)
+            yy = np.linspace(0,y_height, y_points)
+            axis_value_list.append(xx.tolist())
+            axis_value_list.append(yy.tolist())
+            axis_value_list.append(bias_raster.tolist())
+        else:
+            pass
+        
+        return axis_value_list
+    
     def setDataInfo(self, single_layer=True):
-        info = dict()
+        info = dict()       
+        
         if 'current>current (a)' in self.header.keys():
             current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
             info['Current Setpoint(A)'] = current
@@ -226,126 +274,102 @@ class Data3dsStru():
                 info['LayerValue'] = bias
             else:
                 info['LayerValue'] = '0'
+        
         return info
+    
+    # extract data
+    def extract_data(self, channel, param_type='Fixed'):
+        #
+        index = 0
+        if param_type == 'Fixed':
+            fixed_par_num = len(self.header['fixed parameters'])
+            channel_index = self.header['experiment parameters'].index(self.channel_dict[channel][0])            
+            index = fixed_par_num + channel_index          
+            extrated_data = self.data3D[index, :, :]
+        else:
+            ch_cnt = 0
+            channel_index = 0
+            for ch in self.channel_dict[channel]:
+                if ch in self.header['channels']:
+                    channel_index = self.header['channels'].index(ch)
+                    break
+                ch_cnt += 1            
+            if ch_cnt == len(self.channel_dict[channel]):
+                extrated_data = np.ones((1,100,100))
+            else:
+                par_num = self.header['# parameters (4 byte)']
+                points = self.header['points']            
+                index = par_num + channel_index * points           
+                extrated_data = self.data3D[index:index+points, :, :]
+                
+        ###
+        isDimension3=True
+        if extrated_data.shape[-1] == 1:
+            extrated_data_reshape = extrated_data.reshape((extrated_data.shape[0], extrated_data.shape[1]))
+            extrated_data_transpose = extrated_data_reshape.transpose()
+            uds_data = UdsDataStru(extrated_data_transpose, 'uds2D_'+self.name+'_'+channel)
+            isDimension3=False
+        else:
+            if param_type == 'Fixed':
+                uds_data = UdsDataStru(extrated_data[np.newaxis,:,:], 'uds3D_'+self.name+'_'+channel)
+            else:
+                uds_data = UdsDataStru(extrated_data, 'uds3D_'+self.name+'_'+channel)
+            
+        # info - basic
+        if param_type == 'Fixed':
+            uds_data.info = self.setDataInfo()
+        else:
+            uds_data.info = self.setDataInfo(False)
+        
+        # info - channel
+        if channel == 'dIdV':
+            uds_data.info['Channel'] = 'dI/dV Map'
+        elif channel == 'Topo':
+            uds_data.info['Channel'] = 'Topo'
+        else:
+            pass
+        
+        # axis name & value
+        uds_data.axis_name = self.get_axis_name(isDimension3)
+        uds_data.axis_value = self.get_axis_value(isDimension3)
+                
+        return uds_data
         
     # return the number n layer dIdV data
     def get_dIdV_data(self):
-        
-        points = self.header['points']
+        #
         if 'lock-in>amplitude' in self.header.keys():
             if self.header['lock-in>modulated signal'] == 'Bias (V)':
                 lockInAmp = self.header['lock-in>amplitude']
         else:
             lockInAmp = 1
-        # which channels is not decided yet
-        if 'LI Demod 1 X (A)' in self.header['channels']:
-            dIdV_channel_index = self.header['channels'].index('LI Demod 1 X (A)')
-        elif 'Input 2 (V)' in self.header['channels']:
-            dIdV_channel_index = self.header['channels'].index('Input 2 (V)')
-        par_num = self.header['# parameters (4 byte)']
-        
-        # data start index
-        index = par_num + dIdV_channel_index * points
-        
-        dIdV = self.data3D[index:index+points, :, :]/lockInAmp
-        
-        ###
-        if dIdV.shape[-1] == 1:
-            dIdV_reshape = dIdV.reshape((dIdV.shape[0], dIdV.shape[1]))
-            dIdV_transpose = dIdV_reshape.transpose()
-            uds_dIdV = UdsDataStru3D(dIdV_transpose, 'uds2D_'+self.name+'_dIdV')
-        else:
-            uds_dIdV = UdsDataStru3D(dIdV, 'uds3D_'+self.name+'_dIdV')
         
         #
-        uds_dIdV.info = self.setDataInfo(False)
-        uds_dIdV.info['Channel'] = 'dI/dV Map'
+        uds_dIdV = self.extract_data('dIdV','NonFixed') 
+        uds_dIdV.data = uds_dIdV.data / lockInAmp
         
-        return uds_dIdV
-    
+        #        
+        return uds_dIdV    
     
     def get_Topo(self):
-        '''
-        return the Z value of each point in the grid when mapping.
-    
-        '''
-        fixed_par_num = len(self.header['fixed parameters'])
-        
-        # whether Z, Z offset, Final Z or scan Z is the real topo is not decided
-        Z_index = self.header['experiment parameters'].index('Scan:Z (m)')
-        
-        index = fixed_par_num + Z_index
-        
-        Topo = self.data3D[index, :, :]
-        
-        ###
-        if Topo.shape[-1] == 1:
-            Topo_reshape = Topo.reshape((Topo.shape[0], Topo.shape[1]))
-            Topo_transpose = Topo_reshape.transpose()
-            uds_Topo = UdsDataStru3D(Topo_transpose, 'uds2D_'+self.name+'_Topo')
-        else:
-            uds_Topo = UdsDataStru3D(Topo[np.newaxis,:,:], 'uds3D_' + self.name+'_Topo')
-        
         #
-        uds_Topo.info = self.setDataInfo()
-        uds_Topo.info['Channel'] = 'Topo'
+        uds_Topo = self.extract_data('Topo')
         
         return uds_Topo
     
     def get_Phase(self):
-        '''
-        phase = arctan(LI Demod 1 Y (A)/LI Demod 1 X (A))
-        '''
-        points = self.header['points']
-        dIdV_X_channel_index = self.header['channels'].index('LI Demod 1 X (A)')
-        dIdV_Y_channel_index = self.header['channels'].index('LI Demod 1 Y (A)')
-        par_num = self.header['# parameters (4 byte)']
-        X_index = par_num + dIdV_X_channel_index * points
-        Y_index = par_num + dIdV_Y_channel_index * points
-        dIdV_X = self.data3D[X_index : X_index+points, :, :]
-        dIdV_Y = self.data3D[Y_index : Y_index+points, :, :]
-        phase = np.arctan2(dIdV_Y, dIdV_X)
+        #phase = arctan(LI Demod 1 Y (A)/LI Demod 1 X (A))
+        uds_dIdV_X = self.extract_data('dIdV','NonFixed')
+        uds_dIdV_Phase = self.extract_data('Phase','NonFixed')
+        uds_dIdV_Phase.data = np.arctan2(uds_dIdV_Phase.data, uds_dIdV_X.data)
         
-        ###
-        if phase.shape[-1] == 1:
-            phase_reshape = phase.reshape((phase.shape[0], phase.shape[1]))
-            phase_transpose = phase_reshape.transpose()
-            uds_Phase = UdsDataStru3D(phase_transpose, 'uds2D_'+self.name+'_Phase')
-        else:
-            uds_Phase = UdsDataStru3D(phase, 'uds3D_'+self.name+'_Phase')
-        
-        #
-        uds_Phase.info = self.setDataInfo(False)
-        uds_Phase.info['Channel'] = 'dI/dV Phase Map'
-        
-        return uds_Phase
+        return uds_dIdV_Phase
     
     def get_Current(self):
-        points = self.header['points']
-        # which channels is not decided yet
-        if 'Current (A)' in self.header['channels']:
-            Current_channel_index = self.header['channels'].index('Current (A)')
-        par_num = self.header['# parameters (4 byte)']
-        
-        # data start index
-        index = par_num + Current_channel_index * points
-        Current = self.data3D[index:index+points, :, :]
-        
-        ####
-        if Current.shape[-1] == 1:
-            current_reshape = Current.reshape((Current.shape[0], Current.shape[1]))
-            current_transpose = current_reshape.transpose()
-            uds_Current = UdsDataStru3D(current_transpose, 'uds2D_'+self.name+'_Current')
-        else:
-            uds_Current = UdsDataStru3D(Current, 'uds3D_'+self.name+'_Current')
-        
         #
-        uds_Current.info = self.setDataInfo(False)
-        uds_Current.info['Channel'] = 'Current Map'
-        
+        uds_Current = self.extract_data('Current','NonFixed') 
+                
         return uds_Current
-
-
 
 ## Data structure of sxm file
 class DataSxmStru():
@@ -379,7 +403,7 @@ class DataSxmStru():
         index = self.header['channels'].index('Z')
         Topo_fwd = self.data3D[index, :, :]
         ###
-        uds_Topo_fwd = UdsDataStru3D(Topo_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_fwd')
+        uds_Topo_fwd = UdsDataStru(Topo_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_fwd')
         
         #
         uds_Topo_fwd.info = self.setDataInfo()
@@ -397,7 +421,7 @@ class DataSxmStru():
             Topo_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
-        uds_Topo_bwd = UdsDataStru3D(Topo_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_bwd')
+        uds_Topo_bwd = UdsDataStru(Topo_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Topo_bwd')
         
         #
         uds_Topo_bwd.info = self.setDataInfo()
@@ -416,7 +440,7 @@ class DataSxmStru():
             dIdV_fwd = self.data3D[index*2, :, :]
         
         ###
-        uds_dIdV_fwd = UdsDataStru3D(dIdV_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_fwd')
+        uds_dIdV_fwd = UdsDataStru(dIdV_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_fwd')
         
         #
         uds_dIdV_fwd.info = self.setDataInfo()
@@ -437,7 +461,7 @@ class DataSxmStru():
             dIdV_bwd = self.data3D[index*2 + 1, :,:]
         
         ###
-        uds_dIdV_bwd = UdsDataStru3D(dIdV_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_bwd')
+        uds_dIdV_bwd = UdsDataStru(dIdV_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_bwd')
         
         #
         uds_dIdV_bwd.info = self.setDataInfo()
@@ -456,7 +480,7 @@ class DataSxmStru():
             dIdV_Y_fwd = self.data3D[index*2, :, :]
         
         ###
-        uds_dIdV_Y_fwd = UdsDataStru3D(dIdV_Y_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_fwd')
+        uds_dIdV_Y_fwd = UdsDataStru(dIdV_Y_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_fwd')
         
         #
         uds_dIdV_Y_fwd.info = self.setDataInfo()
@@ -477,7 +501,7 @@ class DataSxmStru():
             dIdV_Y_bwd = self.data3D[index*2 + 1, :, :]
         
         ###
-        uds_dIdV_Y_bwd = UdsDataStru3D(dIdV_Y_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_bwd')
+        uds_dIdV_Y_bwd = UdsDataStru(dIdV_Y_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_dIdV_Y_bwd')
         
         #
         uds_dIdV_Y_bwd.info = self.setDataInfo()
@@ -493,7 +517,7 @@ class DataSxmStru():
         dIdV_X = self.data3D[Xindex*2, :, :]
         Theta = np.arctan2(dIdV_Y, dIdV_X)
         
-        uds_Theta = UdsDataStru3D(Theta[np.newaxis,:,:], 'uds3D_'+self.name+'_theta')
+        uds_Theta = UdsDataStru(Theta[np.newaxis,:,:], 'uds3D_'+self.name+'_theta')
         
         #
         uds_Theta.info = self.setDataInfo()
@@ -511,7 +535,7 @@ class DataSxmStru():
             Current_fwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
-        uds_Current_fwd = UdsDataStru3D(Current_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_fwd')
+        uds_Current_fwd = UdsDataStru(Current_fwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_fwd')
         
         #
         uds_Current_fwd.info = self.setDataInfo()
@@ -529,7 +553,7 @@ class DataSxmStru():
             Current_bwd = np.zeros(self.header['xPixels'],self.header['yPixels'])
         
         ###
-        uds_Current_bwd = UdsDataStru3D(Current_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_bwd')
+        uds_Current_bwd = UdsDataStru(Current_bwd[np.newaxis,:,:], 'uds3D_'+self.name+'_Current_bwd')
         
         #
         uds_Current_bwd.info = self.setDataInfo()

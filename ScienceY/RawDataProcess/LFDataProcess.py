@@ -13,7 +13,7 @@ import numpy as np
 """
 User Modules
 """
-from .UdsDataProcess import UdsDataStru3D
+from .UdsDataProcess import UdsDataStru
 
 """
 Class Definition
@@ -86,7 +86,7 @@ class Data1FLStru():
         else:
             name = 'uds3D_'+self.name+'_unknown'
             
-        uds3D_data = UdsDataStru3D(self.data3D, name)
+        uds3D_data = UdsDataStru(self.data3D, name)
         
         return uds3D_data    
         
