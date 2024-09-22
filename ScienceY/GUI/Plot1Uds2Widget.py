@@ -97,12 +97,14 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         self.static_canvas.setFixedHeight(h)
         
     def setUdsData(self, uds_data):
-        print('plot 1d set data')
         self.static_ax.clear()
         
-        x_axis = range(uds_data.data.shape[1])
+        if len(uds_data.axis_value[0]) > 0:
+            x_axis = np.array(uds_data.axis_value[0])
+        else:
+            x_axis = range(uds_data.data.shape[1])
         for i in range(uds_data.data.shape[0]):
-            self.static_ax.plot( uds_data.data[i,:] + i*5e-9, linewidth = 1.0, label='c'+str(i))
+            self.static_ax.plot(x_axis, uds_data.data[i,:] + i*5e-9, linewidth = 1.0, label='c'+str(i))
         
         self.static_ax.set_xlabel('Energy (V)', fontsize=20)
         self.static_ax.set_ylabel('Intensity (S)', fontsize=20)
