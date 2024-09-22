@@ -60,6 +60,12 @@ class UdsDataProcess():
         # data type
         data_type = f.readline().decode('utf-8').strip().split('=')[-1]
         
+        # axis name
+        axis_name = f.readline().decode('utf-8').strip().split('=')[-1]
+        
+        # axis value
+        axis_value = f.readline().decode('utf-8').strip().split('=')[-1]
+        
         info_starter = f.tell()
         
         # data
@@ -95,7 +101,26 @@ class UdsDataProcess():
             key = line.split('=')[0]
             value = line.split('=')[1]
             self.uds_data.info[key] = value
+            
+        # axis name
+        self.uds_data.axis_name = axis_name.split(',')
         
+        # axis value
+        axis_value_text_list = axis_value.split(';')
+        axis_value_list = []
+        for av_txt in axis_value_text_list:
+            if not '&' in av_txt:
+                av_float = list(map(float,av_txt.split(',')))
+
+            else:
+                av_cpl = av_txt.split(',')
+                av_float = []
+                for av_cpl_txt in av_cpl:
+                    av_cpl_float = list(map(float,av_cpl_txt.split('&')))
+                    av_float.append(av_cpl_float)
+            axis_value_list.append(av_float)
+        self.uds_data.axis_value = axis_value_list       
+                   
         # proc_history
         while 1:
             line = f.readline().decode('utf-8').strip()
@@ -133,6 +158,28 @@ class UdsDataProcess():
         # data type
         data_type = 'DataType=' + self.uds_data.data.dtype.name + '\n'
         f.write(data_type.encode('utf-8'))
+        
+        # axis name
+        axis_name = 'Axis Name=' + separator.join(self.uds_data.axis_name) + '\n'
+        f.write(axis_name.encode('utf-8'))
+        
+        # axis value
+        axis_value_text = []
+        separator_l1 = ';'
+        separator_l2 = ','
+        separator_l3 = '&'
+        for av in self.uds_data.axis_value:
+            if type(av[0]) == list:
+                av_cpl_txt = []
+                for av_cpl in av:
+                    av_cpl_str = list(map(str, av_cpl))
+                    av_cpl_txt.append(separator_l3.join(av_cpl_str))
+                axis_value_text.append(separator_l2.join(av_cpl_txt))
+            else:
+                av_str = list(map(str, av))
+                axis_value_text.append(separator_l2.join(av_str))
+        axis_value = 'Axis Value=' + separator_l1.join(axis_value_text) + '\n'
+        f.write(axis_value.encode('utf-8'))
         
         #
         info = []

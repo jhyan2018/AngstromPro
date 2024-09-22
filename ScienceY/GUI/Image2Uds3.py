@@ -1475,6 +1475,10 @@ class Image2Uds3(GuiFrame):
            
     # Option Menu
     def actPreference(self):
+        window_state = self.ui_preference.windowState()
+        if window_state & QtCore.Qt.WindowMinimized:
+            self.ui_preference.setWindowState(window_state & ~QtCore.Qt.WindowMinimized)
+        
         self.ui_preference.show()
         self.ui_preference.raise_()
         self.ui_preference.activateWindow()

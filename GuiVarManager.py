@@ -257,6 +257,11 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
     def showSelectedWindow(self):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
+        
+        window_state = self.alive_window_pt_list[ct_w_index].windowState()
+        if window_state & QtCore.Qt.WindowMinimized:
+            self.alive_window_pt_list[ct_w_index].setWindowState(window_state & ~QtCore.Qt.WindowMinimized)
+            
         self.alive_window_pt_list[ct_w_index].show()
         self.alive_window_pt_list[ct_w_index].raise_()
         self.alive_window_pt_list[ct_w_index].activateWindow()
