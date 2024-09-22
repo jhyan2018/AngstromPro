@@ -197,27 +197,14 @@ class Data3dsStru():
         self.channel_dict['Topo'] = ['Scan:Z (m)']
         self.channel_dict['Current'] = ['Current (A)']
         self.channel_dict['Phase'] = ['LI Demod 1 Y (A)']
-        self.layerValue = self.get_Layer_Value()
+        self.channel_dict['X'] = ['X (m)']
+        self.channel_dict['Y'] = ['Y (m)']
         
     def append_channel_dict(self, key, value):
         if key in self.channel_dict:
             self.channel_dict[key].append(value)
         else:
             print("Unknown key in channel dict!")
-        
-    def get_Layer_Value(self):
-        points = self.header['points']
-        Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
-        Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
-        layer_value_list = []
-        
-        for i in range(points):
-            value = (self.data3D[Sweep_end_index, 0, 0] - self.data3D[Sweep_start_index, 0, 0]) / (points - 1) * i + self.data3D[Sweep_start_index, 0, 0]
-            layer_value_list.append(NumberExpression.float_to_simplified_number(value))
-        separator = ','
-        layer_value = separator.join(layer_value_list)
-        
-        return layer_value
     
     def get_axis_name(self, isDimension3=True):
         axis_name_list = []
@@ -241,23 +228,31 @@ class Data3dsStru():
             x_points = self.header['grid dim'][1]
             y_points = self.header['grid dim'][0]
             
-            bias_points = self.header['points']
-            Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
-            Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
-            bias_raster = np.linspace(self.data3D[Sweep_start_index, 0, 0], self.data3D[Sweep_end_index, 0, 0], bias_points)
-            
             xx = np.linspace(0,x_width, x_points)
             yy = np.linspace(0,y_height, y_points)
             axis_value_list.append(xx.tolist())
             axis_value_list.append(yy.tolist())
-            axis_value_list.append(bias_raster.tolist())
         else:
-            pass
+            xx = self.extract_data_layers('X')
+            yy = self.extract_data_layers('Y')
+            xx_reshape = xx.reshape((xx.shape[0] * xx.shape[1]))
+            yy_reshape = yy.reshape((yy.shape[0] * yy.shape[1]))
+
+            xy = np.zeros((xx.shape[0],2))
+            xy[:,0]=xx_reshape
+            xy[:,1]=yy_reshape            
+            axis_value_list.append(xy.tolist()) # reversed
+            
+        bias_points = self.header['points']
+        Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
+        Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
+        bias_raster = np.linspace(self.data3D[Sweep_start_index, 0, 0], self.data3D[Sweep_end_index, 0, 0], bias_points)
+        axis_value_list.append(bias_raster.tolist())    
         
         return axis_value_list
     
-    def setDataInfo(self, single_layer=True):
-        info = dict()       
+    def setDataInfo(self, uds_data, single_layer=True):
+        info = uds_data.info
         
         if 'current>current (a)' in self.header.keys():
             current = NumberExpression.float_to_simplified_number(self.header['current>current (a)'])
@@ -266,8 +261,12 @@ class Data3dsStru():
             bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
             info['Bias Setpoint(V)'] =  bias
         if not single_layer:
-            info['LayerSignal'] = self.header['sweep signal']
-            info['LayerValue'] = self.layerValue
+            info['LayerSignal'] = self.header['sweep signal']            
+            layer_value_list = []
+            for a_v in uds_data.axis_value[-1]:
+                layer_value_list.append(NumberExpression.float_to_simplified_number(a_v))
+            separator = ',' 
+            info['LayerValue'] = separator.join(layer_value_list)
         else:
             if 'bias>bias (v)' in self.header.keys():
                 bias = NumberExpression.float_to_simplified_number(self.header['bias>bias (v)'])
@@ -278,7 +277,7 @@ class Data3dsStru():
         return info
     
     # extract data
-    def extract_data(self, channel, param_type='Fixed'):
+    def extract_data_layers(self, channel, param_type='Fixed'):
         #
         index = 0
         if param_type == 'Fixed':
@@ -302,6 +301,11 @@ class Data3dsStru():
                 index = par_num + channel_index * points           
                 extrated_data = self.data3D[index:index+points, :, :]
                 
+        return extrated_data
+    
+    def extractData(self, channel, param_type='Fixed'):
+        extrated_data = self.extract_data_layers(channel, param_type)
+                
         ###
         isDimension3=True
         if extrated_data.shape[-1] == 1:
@@ -314,12 +318,16 @@ class Data3dsStru():
                 uds_data = UdsDataStru(extrated_data[np.newaxis,:,:], 'uds3D_'+self.name+'_'+channel)
             else:
                 uds_data = UdsDataStru(extrated_data, 'uds3D_'+self.name+'_'+channel)
-            
+        
+        # axis name & value
+        uds_data.axis_name = self.get_axis_name(isDimension3)
+        uds_data.axis_value = self.get_axis_value(isDimension3)
+        
         # info - basic
         if param_type == 'Fixed':
-            uds_data.info = self.setDataInfo()
+            self.setDataInfo(uds_data)
         else:
-            uds_data.info = self.setDataInfo(False)
+            self.setDataInfo(uds_data, False)
         
         # info - channel
         if channel == 'dIdV':
@@ -328,10 +336,6 @@ class Data3dsStru():
             uds_data.info['Channel'] = 'Topo'
         else:
             pass
-        
-        # axis name & value
-        uds_data.axis_name = self.get_axis_name(isDimension3)
-        uds_data.axis_value = self.get_axis_value(isDimension3)
                 
         return uds_data
         
@@ -345,7 +349,7 @@ class Data3dsStru():
             lockInAmp = 1
         
         #
-        uds_dIdV = self.extract_data('dIdV','NonFixed') 
+        uds_dIdV = self.extractData('dIdV','NonFixed') 
         uds_dIdV.data = uds_dIdV.data / lockInAmp
         
         #        
@@ -353,21 +357,21 @@ class Data3dsStru():
     
     def get_Topo(self):
         #
-        uds_Topo = self.extract_data('Topo')
+        uds_Topo = self.extractData('Topo')
         
         return uds_Topo
     
     def get_Phase(self):
         #phase = arctan(LI Demod 1 Y (A)/LI Demod 1 X (A))
-        uds_dIdV_X = self.extract_data('dIdV','NonFixed')
-        uds_dIdV_Phase = self.extract_data('Phase','NonFixed')
+        uds_dIdV_X = self.extractData('dIdV','NonFixed')
+        uds_dIdV_Phase = self.extractData('Phase','NonFixed')
         uds_dIdV_Phase.data = np.arctan2(uds_dIdV_Phase.data, uds_dIdV_X.data)
         
         return uds_dIdV_Phase
     
     def get_Current(self):
         #
-        uds_Current = self.extract_data('Current','NonFixed') 
+        uds_Current = self.extractData('Current','NonFixed') 
                 
         return uds_Current
 
