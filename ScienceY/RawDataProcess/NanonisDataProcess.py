@@ -1,7 +1,7 @@
 '''
 Load the Nanonis 3ds file data into dict named header and a 3D array named data3D.
 Get the dI/dV map and Topo form the data3D
-@author: Huiyu Zhao
+@author: Huiyu Zhao, Jiahao Yan
 Created on: Jul 20, 2023 
 
 '''
@@ -177,8 +177,43 @@ class LoadSxm():
         
         return data3D
 
-
-
+## Load sxm file
+class LoadDat():
+    
+    def __init__(self, path):
+        self.path = path
+        self.header = self.get_header()
+        self.data2D = self.load_data()
+    
+    def get_header(self):
+        f =open(self.path, 'rb')
+        
+        header = {}
+        while 1:
+            Line = f.readline().decode().strip()
+            if Line == '':
+                Line = f.readline().decode().strip()
+            if '[DATA]' == Line :
+                data_content = f.readline().decode().strip()
+                data_starter = f.tell()
+                break
+            line1 = Line.split('\t')
+            s_key = line1[0]
+            if len(line1) < 2:
+                s_val = ' '
+            else:
+                s_val = line1[-1]
+            header.update({s_key : s_val})
+        f.close()
+        header.update({'data starter' : data_starter})
+        header.update({'data content' : data_content})
+        return header
+    
+    def load_data(self):
+        f = open(self.path, 'rb')
+        f.seek(self.header['data starter'], 0)
+        data = np.loadtxt( f, dtype = np.float64, encoding = 'utf-8')
+        return data
 
 '''
 put the data into a Data Structure
@@ -494,3 +529,124 @@ class DataSxmStru():
         uds_Current_fwd = self.extractData('Current')
         
         return uds_Current_fwd
+    
+## Data structure of sxm file
+class DataDatStru():
+    
+    def __init__(self, path, name):
+        lData = LoadDat(path)
+        self.header = lData.header
+        self.data2D = lData.data2D
+        self.name = name
+        self.channel_dict = dict()
+        if self.header['Experiment'] == 'bias spectroscopy':
+            self.channel_dict['dIdV'] = ['LI Demod 1 X (A)']
+            self.channel_dict['Current'] = ['Current (A)']
+            self.channel_dict['Phase'] = ['LI Demod 1 Y (A)']
+        elif self.header['Experiment'] == 'Z spectroscopy':
+            self.channel_dict['I-Z'] = ['Current (A)']
+            self.channel_dict['I-Z bwd'] = ['Current [bwd] (A)']
+        else:
+            pass
+    
+    def append_channel_dict(self, key, value):
+        if key in self.channel_dict:
+            self.channel_dict[key].append(value)
+        else:
+            print("Unknown key in channel dict!")
+    
+    def get_axis_name(self):
+        axis_name_list = []
+        axis_name_list.append(self.header['data content'].split('\t')[0])
+        axis_name_list.append('XY (m)')
+                
+        return axis_name_list
+    
+    def get_axis_value(self):
+        axis_value_list = []
+        av_ = self.data2D[:, 0]
+        axis_value_list.append(av_.tolist())
+        
+        x_pos = float(self.header['X (m)'])
+        y_pos = float(self.header['Y (m)'])
+        axis_value_list.append([[x_pos, y_pos]])
+        
+        return axis_value_list
+            
+    def setDataInfo(self, uds_data, channel):
+        info = uds_data.info
+        if 'Current>Current (A)' in self.header.keys():
+            current = NumberExpression.float_to_simplified_number(float(self.header['Current>Current (A)']))
+            info['Current Setpoint(A)'] = current
+        if 'Bias>Bias (V)' in self.header.keys():
+            bias = NumberExpression.float_to_simplified_number(float(self.header['Bias>Bias (V)']))
+            info['Bias Setpoint(V)'] = bias
+        
+        # info - channel
+        if channel == 'dIdV':
+            info['Channel'] = 'dI/dV Curve'
+        elif channel == 'Current':
+            info['Channel'] = 'I(V) Curve'
+        elif channel == 'Phase':
+            info['Channel'] = 'dI/dV Phase Curve'
+        elif channel == 'I-Z':
+            info['Channel'] = 'I(Z) Curve'
+        else:
+            pass 
+    
+    def extractData(self, channel):
+        ch_cnt = 0
+        channel_index = 0
+        for ch in self.channel_dict[channel]:
+            if ch in self.header['data content'].split('\t'):
+                channel_index = self.header['data content'].split('\t').index(ch)
+                break
+            ch_cnt += 1            
+        if ch_cnt == len(self.channel_dict[channel]):
+            extrated_data_reshape = np.ones((1,100))
+        else:          
+            extrated_data = self.data2D[:, channel_index]
+            extrated_data_reshape = extrated_data.reshape((1,len(extrated_data)))
+        
+        uds_data = UdsDataStru(extrated_data_reshape, 'uds2D_'+self.name+'_'+channel)
+        
+        # axis name & value
+        uds_data.axis_name = self.get_axis_name()
+        uds_data.axis_value = self.get_axis_value()
+        
+        # info
+        self.setDataInfo(uds_data, channel)
+        
+        return uds_data
+         
+    def get_dIdV(self):
+        uds_dIdV = self.extractData('dIdV')
+        if 'Lock-in>Amplitude' in self.header.keys():
+            lockInAmp = float(self.header['Lock-in>Amplitude'])
+            if self.header['Lock-in>Modulated signal'] == 'Bias (V)':
+                uds_dIdV.data = uds_dIdV.data / lockInAmp
+        
+        return uds_dIdV
+    
+    def get_theta(self):
+        uds_dIdV_Phase = self.extractData('Phase')
+        uds_dIdV_X = self.extractData('dIdV')
+        if uds_dIdV_X.data.shape == uds_dIdV_Phase.data.shape:
+            uds_dIdV_Phase.data = np.arctan2(uds_dIdV_Phase.data, uds_dIdV_X.data)
+        
+        return uds_dIdV_Phase
+    
+    def get_Current(self):
+        uds_Current = self.extractData('Current')
+        
+        return uds_Current
+    
+    def get_I_Z(self):
+        uds_I_Z = self.extractData('I-Z')
+        
+        return uds_I_Z
+    
+    def get_I_Z_bwd(self):
+        uds_I_Z_bwd = self.extractData('I-Z bwd')
+        
+        return uds_I_Z_bwd

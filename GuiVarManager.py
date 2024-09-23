@@ -429,6 +429,18 @@ class GuiVarManager(QtWidgets.QMainWindow):
             udp = UdsDataProcess(full_path)
             uds_data = udp.readFromFile()
             globals()[uds_data.name] = uds_data
+        elif file_type == 'dat':
+            globals()['dataDat'] = NanonisDataProcess.DataDatStru(full_path, file_name)
+            if 'dIdV' in dataDat.channel_dict and 'LI Demod 1 X (A)' in dataDat.channel_dict['dIdV']:
+                globals()['uds2D_'+file_name+'_dIdV'] = dataDat.get_dIdV()
+            if 'Phase' in dataDat.channel_dict and 'LI Demod 1 Y (A)' in dataDat.channel_dict['Phase']:
+                globals()['uds2D_'+file_name+'_Phase'] = dataDat.get_theta()
+            if 'Current' in dataDat.channel_dict and 'Current (A)' in dataDat.channel_dict['Current']:
+                globals()['uds2D_'+file_name+'_Current'] = dataDat.get_Current()
+            if 'I-Z' in dataDat.channel_dict and 'Current (A)' in dataDat.channel_dict['I-Z']:
+                globals()['uds2D_'+file_name+'_I-Z'] = dataDat.get_I_Z()
+            if 'I-Z bwd' in dataDat.channel_dict and 'Current [bwd] (A)' in dataDat.channel_dict['I-Z bwd']:
+                globals()['uds2D_'+file_name+'_I-Z_bwd'] = dataDat.get_I_Z_bwd()
         else:
             pass
         
