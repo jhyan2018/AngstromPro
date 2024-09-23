@@ -417,11 +417,11 @@ class GuiVarManager(QtWidgets.QMainWindow):
             if 'LI_Demod_1_Y' in dataSxm.channel_dict['Phase']:
                 globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta_fwd()
         elif file_type == 'TFR':
-            data1fl = LFDataProcess.Data1FLStru(full_path)
-            globals()['uds3D_'+file_name+'_topo'] = data1fl.get_data()       
+            globals()['data1fl'] = LFDataProcess.Data1FLStru(full_path)
+            globals()['uds3D_'+file_name+'_topo'] = data1fl.get_Topo()       
         elif file_type == '1FL':
-            data1fl = LFDataProcess.Data1FLStru(full_path)
-            globals()['uds3D_'+file_name+'_dIdV'] = data1fl.get_data()
+            globals()['data1fl'] = LFDataProcess.Data1FLStru(full_path)
+            globals()['uds3D_'+file_name+'_dIdV'] = data1fl.get_dIdV()
         elif file_type == 'txt':
             dataTxt = TxtDataProcess.DataTxtStru(full_path)   
             globals()['uds3D_'+file_name] = dataTxt.get_txt_data()
