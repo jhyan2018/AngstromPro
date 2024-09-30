@@ -13,6 +13,7 @@ import os
 Third-party Modules
 """
 import numpy as np
+import math
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtCore import QFileInfo
 """
@@ -124,6 +125,13 @@ class GalleryViewManager(QtWidgets.QWidget):
     def is_channel_hidden(self, suffix, channel):
         ch_idx = self.gallery_filter[suffix].index(channel)
         return not self.gallery_filter_bool[suffix][ch_idx]
+    
+class GalleryWidget(QtWidgets.QWidget):
+    viewChangedSignal = QtCore.pyqtSignal(int)
+    filterSelectionChangedSignal = QtCore.pyqtSignal()
+    
+    def __init__(self, *args, **kwargs):
+        super(GalleryWidget, self).__init__( *args, **kwargs)
 
 class DataBrowser(GuiFrame):
     
@@ -137,10 +145,18 @@ class DataBrowser(GuiFrame):
         
     def initCcUiMembers(self):
         # 
-        self.ui_snap_gallery = ScrollArea()
-        self.ui_snap_gallery.resizeSignal.connect(self.resizeGallery)
-        self.snap_gallery_container = QtWidgets.QWidget()
-        self.ui_snap_gallery.setWidget(self.snap_gallery_container)
+        #self.ui_snap_gallery = ScrollArea()
+        self.ui_snap_gallery = GalleryWidget()
+        #self.ui_snap_gallery.resizeSignal.connect(self.resizeGallery)
+        #self.ui_snap_gallery.verticalScrollBar().valueChanged.connect(self.GalleryScrollbarMoved)
+        self.ui_snap_gallery_container = QtWidgets.QWidget()
+        #self.ui_snap_gallery.setWidget(self.ui_snap_gallery_container)
+        self.ui_snap_gallery_scrollbar = QtWidgets.QScrollBar(QtCore.Qt.Vertical)
+        self.ui_snap_gallery_scrollbar.setMinimum(0)
+        self.ui_snap_gallery_scrollbar.setMaximum(100)
+        self.ui_snap_gallery_scrollbar.setValue(50)
+        self.ui_snap_gallery_scrollbar.valueChanged.connect(self.GalleryScrollbarMoved)
+
         
         # dockWiget filesystem tree
         self.ui_dockWidget_fs_tree = DockWidget()
@@ -199,12 +215,13 @@ class DataBrowser(GuiFrame):
         self.tabifyDockWidget(self.ui_dockWidget_gvm, self.ui_dockWidget_fs_tree)
         
         #
-        self.ui_horizontalLayout.addWidget(self.ui_snap_gallery)
+        self.ui_horizontalLayout.addWidget(self.ui_snap_gallery_container)
+        self.ui_horizontalLayout.addWidget(self.ui_snap_gallery_scrollbar)
         
         #
         gallery_layout = QtWidgets.QGridLayout()
         gallery_layout.setContentsMargins(0,0,0,0) # left, top, right, bottom   
-        self.snap_gallery_container.setLayout(gallery_layout)
+        self.ui_snap_gallery_container.setLayout(gallery_layout)
         
         # Set minimum size to current screen size
         screen_geometry = QtWidgets.QApplication.desktop().availableGeometry()
@@ -228,9 +245,14 @@ class DataBrowser(GuiFrame):
         
         #
         self.gallery_contents_per_line = 3
-        self.gallery_content_list = []
+        self.gallery_snapshots_info_full_list = []
+        
+        self.gallery_filter = {} #dict        
+        self.gallery_filtered_channel_counts = 0
+        self.gallery_filtered_info_ch_idx_list = []
+
         self.gallery_content_show_list = []
-        self.gallery_filter = {} #dict
+
         
     def initCcMenuBar(self):
         pass
@@ -278,10 +300,20 @@ class DataBrowser(GuiFrame):
         
         self.setGallery(child_folder_files, child_folder_files_lastmodified)
 
-    def resizeGallery(self):
-        gallery_size = self.ui_snap_gallery.size()
+    def GalleryScrollbarMoved(self, value):
+        min_value = self.ui_snap_gallery_scrollbar.minimum()
+        max_value = self.ui_snap_gallery_scrollbar.maximum()
+        pos = float(value) / (max_value - min_value)
+        #print('pos:',pos)
+        print(value,',', max_value)
         
-        current_container = self.ui_snap_gallery.widget()
+        self.updateGallery(value)
+        
+        
+    def resizeGallery(self):
+        gallery_size = self.ui_snap_gallery_container.size()
+        
+        current_container = self.ui_snap_gallery_container
         if not current_container == None:
             new_container_width = gallery_size.width() - 30
             current_container.setFixedWidth(new_container_width)
@@ -296,64 +328,84 @@ class DataBrowser(GuiFrame):
             for gallery_content in self.gallery_content_show_list:
                 gallery_content.resize(gallery_content_width, gallery_content_height)
                 
-    def updateGallery(self):
+    def updateGallery(self, line=0):
         self.gallery_content_show_list = []
         
         #
-        layout = self.snap_gallery_container.layout()
+        layout = self.ui_snap_gallery_container.layout()
         while layout.count():
             item = layout.takeAt(0)
             widget = item.widget()
             widget.setParent(None)
         
-        shown_contents_count = 0
-        for gallery_content in self.gallery_content_list:
-            suffix = gallery_content.snapshots_info.src_file_path.split('.')[-1]
-            channel = gallery_content.snapshots_info.channel[gallery_content.ch_idx]
-            
-            if not self.ui_dockWidget_gvm_content.is_channel_hidden(suffix, channel):
-                row = shown_contents_count // self.gallery_contents_per_line  # Determine the row (2 rows, 0 and 1)
-                col = shown_contents_count % self.gallery_contents_per_line   # Determine the column (3 columns, 0, 1, 2)     
-                shown_contents_count += 1
-                self.gallery_content_show_list.append(gallery_content)
-                layout.addWidget(gallery_content, row, col)
         #
-        self.resizeGallery()        
+        idx_start = line * self.gallery_contents_per_line
+        if idx_start + 6 > self.gallery_filtered_channel_counts:
+            idx_end = self.gallery_filtered_channel_counts
+        else:
+            idx_end = idx_start + 6
+            
+        for i, idx in enumerate(range(idx_start, idx_end)):
+            info_idx = self.gallery_filtered_info_ch_idx_list[idx][0]
+            snapshots_info = self.gallery_snapshots_info_full_list[info_idx]
+            ch_idx = self.gallery_filtered_info_ch_idx_list[idx][1]
+            gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx, self.ui_colorbar_pixmap) 
+            gallery_content.sendChannelDataSignal.connect(self.sendChannelDataToVarList)
+                        
+            row = i // self.gallery_contents_per_line  # Determine the row (2 rows, 0 and 1)
+            col = i % self.gallery_contents_per_line   # Determine the column (3 columns, 0, 1, 2)
+            layout.addWidget(gallery_content, row, col)
 
-    def setGallery(self, src_files_path, src_files_lastmodified):        
-        gallery_content_counts = 0
-        self.gallery_content_list = []
+        #
+        #self.resizeGallery()    
+        
+    def updateGalleryContentCounts(self):
+        self.gallery_filtered_channel_counts = 0
+        self.gallery_filtered_info_ch_idx_list = []
+        
+        for info_idx,snapshots_info in enumerate(self.gallery_snapshots_info_full_list):
+            for ch_idx, channel in enumerate(snapshots_info.channel):
+                suffix = snapshots_info.src_file_path.split('.')[-1]
+                if not self.ui_dockWidget_gvm_content.is_channel_hidden(suffix, channel):
+                    self.gallery_filtered_channel_counts += 1
+                    self.gallery_filtered_info_ch_idx_list.append([info_idx, ch_idx])
+        
+        # set scroll bar
+        self.ui_snap_gallery_scrollbar.setMinimum(0)
+        scrollbar_max = math.ceil(self.gallery_filtered_channel_counts/self.gallery_contents_per_line) 
+        self.ui_snap_gallery_scrollbar.setMaximum(scrollbar_max-1)
+        self.ui_snap_gallery_scrollbar.setValue(0)
+        
+        self.updateGallery()
+                
+    def setGallery(self, src_files_path, src_files_lastmodified):
+        self.gallery_snapshots_info_full_list = []
         self.gallery_filter = {}
         
-        for index, file_path in enumerate(src_files_path):
-            # file suffix filter
+        # file suffix filter
+        for index, file_path in enumerate(src_files_path):            
             suffix = file_path.split('.')[-1]          
             if suffix not in self.data_format_filter:
                 continue
             
             metadata_file_path= self.getSnapshotsInfo(file_path, src_files_lastmodified[index])
             snapshots_info = self.snapshots_manager.load_metadata_file(metadata_file_path)
-            for ch_idx, channel in enumerate(snapshots_info.channel):
-                gallery_content_counts += 1
-                gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx, self.ui_colorbar_pixmap)          
-                gallery_content.sendChannelDataSignal.connect(self.sendChannelDataToVarList)
-                self.gallery_content_list.append(gallery_content)
+            self.gallery_snapshots_info_full_list.append(snapshots_info)
         
         # get all suffixes and its channels
-        for gallery_content in self.gallery_content_list:
-            suffix = gallery_content.snapshots_info.src_file_path.split('.')[-1]
-            if not suffix in self.gallery_filter:
-                self.gallery_filter[suffix] = []
+        for snapshots_info in self.gallery_snapshots_info_full_list:
+            for ch_idx, channel in enumerate(snapshots_info.channel):
+                suffix = snapshots_info.src_file_path.split('.')[-1]
+                if not suffix in self.gallery_filter:
+                    self.gallery_filter[suffix] = []
             
-            channel = gallery_content.snapshots_info.channel[gallery_content.ch_idx]
-            ch_list =self.gallery_filter.get(suffix)
-            if not channel in ch_list:
-                self.gallery_filter[suffix].append(channel)
+                ch_list =self.gallery_filter.get(suffix)
+                if not channel in ch_list:
+                    self.gallery_filter[suffix].append(channel)
 
-        self.ui_dockWidget_gvm_content.set_gallery_filter(self.gallery_filter, self.settings)         
-        
-        #
-        self.updateGallery()
+        self.ui_dockWidget_gvm_content.set_gallery_filter(self.gallery_filter, self.settings)     
+            
+        self.updateGalleryContentCounts()      
        
     def getSnapshotsInfo(self,src_file_path, src_file_lastmodified):
         metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
@@ -365,19 +417,3 @@ class DataBrowser(GuiFrame):
             metadata_file_path = self.snapshots_manager.get_snapshots_info(src_file_path, src_file_lastmodified)
             
         return metadata_file_path
-    
-    
-        """
-        #
-        gallery_content_list[0].setFixedHeight(386)
-        gallery_content_list[0].setFixedWidth(386)
-        #gallery_content_list[0].setAttribute(QtCore.Qt.WA_TranslucentBackground)
-        gallery_content_list[0].setStyleSheet("QWidget { background-color: #FFFFFF; }")
-        pixmap = QtGui.QPixmap(gallery_content_list[0].size())
-        pixmap.fill(QtCore.Qt.transparent)
-        painter = QtGui.QPainter(pixmap)
-        gallery_content_list[0].render(painter)
-        painter.end()
-        
-        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
-        """

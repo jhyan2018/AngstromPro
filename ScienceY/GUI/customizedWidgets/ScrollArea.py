@@ -30,3 +30,4 @@ class ScrollArea(QtWidgets.QScrollArea):
         
     def resizeEvent(self, event):
         self.resizeSignal.emit()
+        print('scroll area resize')

@@ -405,7 +405,7 @@ class SnapshotManager:
         
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
         
-        if 'Z' in dataSxm.channel_list[0]:
+        if 'Z' in dataSxm.channel_dict['Topo']:
             uds3D_topo = dataSxm.get_Topo_fwd()
             channel = uds3D_topo.info.get('Channel', None)
             if not channel == None:
@@ -420,7 +420,7 @@ class SnapshotManager:
             self.set_snapshots_render_image_data(uds3D_topo_bg)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
-        if 'LI_Demod_1_X' in dataSxm.channel_list[0]:            
+        if 'LI_Demod_1_X' in dataSxm.channel_dict['dIdV']:            
             uds3D_didv = dataSxm.get_dIdV_fwd()
             channel = uds3D_didv.info.get('Channel', None)
             if not channel == None:
@@ -432,7 +432,7 @@ class SnapshotManager:
             self.set_snapshots_render_image_data(uds3D_didv)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
-        if 'Current' in dataSxm.channel_list[0]:
+        if 'Current' in dataSxm.channel_dict['Current']:
             uds3D_current = dataSxm.get_Current_fwd()
             channel = uds3D_current.info.get('Channel', None)
             if not channel == None:
@@ -444,8 +444,8 @@ class SnapshotManager:
             self.set_snapshots_render_image_data(uds3D_current)
             self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
             
-        if 'LI_Demod_1_Y' in dataSxm.channel_list[0]:
-            uds3D_didv_phase = dataSxm.get_theta()
+        if 'LI_Demod_1_Y' in dataSxm.channel_dict['Phase']:
+            uds3D_didv_phase = dataSxm.get_theta_fwd()
             channel = uds3D_didv_phase.info.get('Channel', None)
             if not channel == None:
                 snapshot_info.channel.append(channel)

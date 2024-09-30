@@ -8,7 +8,7 @@ Created on Mon May 13 16:13:59 2024
 """
 System modules
 """
-import os
+import os, gc
 """
 Third-party Modules
 """
@@ -23,6 +23,50 @@ from .SnapshotManager import SnapshotInfo
 """ *************************************** """
 """ DO NOT MODIFY THIS FILE"""
 """ *************************************** """
+
+class ImageDisplayWidget(QtWidgets.QWidget):
+    def __init__(self, image_path=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.image = None
+        if image_path:
+            self.load_image(image_path)
+
+    def load_image(self, image_path):
+        """Load a PNG image into the widget."""
+        self.image = QtGui.QImage(image_path)  # Load the image using QImage
+
+        if self.image.isNull():
+            print("Failed to load the image.")
+        else:
+            #self.setMinimumSize(self.image.width(), self.image.height())
+            pass
+
+        # Force the widget to repaint with the new image
+        self.update()
+
+    def remove_image(self):
+        if self.image:
+            self.image = None  # Clear the QImage object
+            self.update()  # Repaint the widget to clear the display
+            
+            # Force garbage collection to ensure memory is released
+            #gc.collect()
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+
+        # Only draw the image if it exists
+        if self.image:
+            # Optionally, you can scale the image to fit the widget size
+            scaled_image = self.image.scaled(self.size(), QtCore.Qt.KeepAspectRatio)
+            painter.drawImage(0, 0, scaled_image)
+
+        painter.end()
+        
+    def resizeEvent(self, event):
+        """Handle widget resize to optionally scale the image."""
+        self.update()  # Repaint when resized
+        super().resizeEvent(event)
 
 class GalleryContentWidget(QtWidgets.QWidget):
     sendChannelDataSignal = QtCore.pyqtSignal(str, str)
@@ -51,8 +95,8 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
     def initUiMembers(self):
         #
-        self.ui_lb_png_display = QtWidgets.QLabel()
-
+        self.ui_png_display = ImageDisplayWidget()
+        
         #
         self.ui_lb_file_path = QtWidgets.QLineEdit()
         self.ui_lb_channel = QtWidgets.QLabel()
@@ -85,10 +129,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.ui_pb_send_to_gui_manager.clicked.connect(self.sendChannelDataToGuiManager)
 
         #
-        png_path = os.path.join(self.snapshots_manager.snapshots_dir, self.snapshots_info.ch_uuid[self.ch_idx])
+        self.png_path = os.path.join(self.snapshots_manager.snapshots_dir, self.snapshots_info.ch_uuid[self.ch_idx])
         if not self.snapshots_info.ch_layers[self.ch_idx] == '1':
-            png_path = os.path.join(png_path, 'layer0.png')
-        self.pixmap = QtGui.QPixmap(png_path)
+            self.png_path = os.path.join(self.png_path, 'layer0.png')
+        #self.pixmap = QtGui.QPixmap(png_path)
         self.drawPngDisplay()
 
         #
@@ -118,8 +162,10 @@ class GalleryContentWidget(QtWidgets.QWidget):
         ui_horizontalLayout1.addWidget(self.ui_le_channel_layers_v)
         ui_verticalLayout3.addLayout(ui_horizontalLayout1)
         ui_verticalLayout3.addWidget(self.ui_pb_send_to_gui_manager)
+        
+        
 
-        layout.addWidget(self.ui_lb_png_display, 0, 0)
+        layout.addWidget(self.ui_png_display, 0, 0)
         layout.addLayout(ui_verticalLayout1, 1, 0)
         layout.addLayout(ui_verticalLayout2, 0, 1)
         layout.addLayout(ui_verticalLayout3, 1, 1)
@@ -152,33 +198,35 @@ class GalleryContentWidget(QtWidgets.QWidget):
         channel = self.snapshots_info.channel[self.ch_idx]
         
         self.sendChannelDataSignal.emit(file_path, channel)
+        
 
     """ Regular function"""
     def resize(self, width, height):
         self.setFixedWidth(width)
-        self.setFixedHeight(height)
-        
+        self.setFixedHeight(height)       
+
         # pnd display
-        self.ui_lb_png_display.setFixedSize(int(width*0.7), int(height*0.7))
+        self.ui_png_display.setFixedSize(int(width*0.7), int(height*0.7))
         self.drawPngDisplay()
-        
+
         # colobar
         self.ui_lb_colorbar.setFixedSize(int(width*0.05), int(height*0.5))
         self.drawColorbar() 
         
         #
         
-    def drawPngDisplay(self):
-        if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
-            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.FastTransformation)
-        else:
-            scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.FastTransformation)
+    def drawPngDisplay(self): 
+        #if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
+            #scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.FastTransformation)
+        #else:
+            #scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.FastTransformation)
         
-        self.ui_lb_png_display.setPixmap(scaled_pixmap)
+        self.ui_png_display.remove_image()
+        self.ui_png_display.load_image(self.png_path)
         
     def setColorbarPixmap(self, pixmap):
         self.colorbar_pixmap = pixmap
     
     def drawColorbar(self):                
         scaled_pixmap = self.colorbar_pixmap.scaled(self.ui_lb_colorbar.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
-        self.ui_lb_colorbar.setPixmap(scaled_pixmap)
+        #self.ui_lb_colorbar.setPixmap(scaled_pixmap)
