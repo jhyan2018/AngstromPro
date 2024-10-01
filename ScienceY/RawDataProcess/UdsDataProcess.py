@@ -23,32 +23,16 @@ User Modules
 function Module
 """
 
-class UdsDataStru3D():
+class UdsDataStru():
 
-    def __init__(self,data3D,name):        
-        self.data = np.copy(data3D)
+    def __init__(self,data,name):        
+        self.data = np.copy(data)
         self.name = name
+        self.axis_name = []
+        self.axis_value = []
         self.info = dict()
         self.proc_history = []
         self.proc_to_do = []
-
-class UdsDataStru2D(): 
-       
-     def __init__(self,data2D,name):        
-         self.data = np.copy(data2D)
-         self.name = name
-         self.info = dict()
-         self.proc_history = []
-         self.proc_to_do = []
-        
-class UdsDataStru1D(): 
-       
-     def __init__(self,data1D,name):        
-         self.data = np.copy(data1D)
-         self.name = name
-         self.info = dict()
-         self.proc_history = []
-         self.proc_to_do = []
          
 class UdsDataProcess():
     def __init__(self, path):
@@ -76,6 +60,12 @@ class UdsDataProcess():
         # data type
         data_type = f.readline().decode('utf-8').strip().split('=')[-1]
         
+        # axis name
+        axis_name = f.readline().decode('utf-8').strip().split('=')[-1]
+        
+        # axis value
+        axis_value = f.readline().decode('utf-8').strip().split('=')[-1]
+        
         info_starter = f.tell()
         
         # data
@@ -89,18 +79,18 @@ class UdsDataProcess():
         
         if len(shape) == 1: # 1D
             data = raw_data1D.reshape((shape[0]))
-            self.uds_data = UdsDataStru1D(data, name)
+            self.uds_data = UdsDataStru(data, name)
         elif len(shape) == 2: # 2D
             data = raw_data1D.reshape((shape[0], shape[1]))
-            self.uds_data = UdsDataStru2D(data, name)
+            self.uds_data = UdsDataStru(data, name)
         elif len(shape) == 3: # 3D
             data = raw_data1D.reshape((shape[0], shape[1], shape[2]))
-            self.uds_data = UdsDataStru3D(data, name)
+            self.uds_data = UdsDataStru(data, name)
             print('3D data readed!')
         else:
             print('Unknown shape of readed uds data.')
             data = np.zeros((100,100))
-            self.uds_data = UdsDataStru3D(data, 'uds3D_'+name)
+            self.uds_data = UdsDataStru(data, 'uds3D_'+name)
         
         # info
         f.seek(info_starter, 0)
@@ -111,7 +101,26 @@ class UdsDataProcess():
             key = line.split('=')[0]
             value = line.split('=')[1]
             self.uds_data.info[key] = value
+            
+        # axis name
+        self.uds_data.axis_name = axis_name.split(',')
         
+        # axis value
+        axis_value_text_list = axis_value.split(';')
+        axis_value_list = []
+        for av_txt in axis_value_text_list:
+            if not '&' in av_txt:
+                av_float = list(map(float,av_txt.split(',')))
+
+            else:
+                av_cpl = av_txt.split(',')
+                av_float = []
+                for av_cpl_txt in av_cpl:
+                    av_cpl_float = list(map(float,av_cpl_txt.split('&')))
+                    av_float.append(av_cpl_float)
+            axis_value_list.append(av_float)
+        self.uds_data.axis_value = axis_value_list       
+                   
         # proc_history
         while 1:
             line = f.readline().decode('utf-8').strip()
@@ -149,6 +158,28 @@ class UdsDataProcess():
         # data type
         data_type = 'DataType=' + self.uds_data.data.dtype.name + '\n'
         f.write(data_type.encode('utf-8'))
+        
+        # axis name
+        axis_name = 'Axis Name=' + separator.join(self.uds_data.axis_name) + '\n'
+        f.write(axis_name.encode('utf-8'))
+        
+        # axis value
+        axis_value_text = []
+        separator_l1 = ';'
+        separator_l2 = ','
+        separator_l3 = '&'
+        for av in self.uds_data.axis_value:
+            if type(av[0]) == list:
+                av_cpl_txt = []
+                for av_cpl in av:
+                    av_cpl_str = list(map(str, av_cpl))
+                    av_cpl_txt.append(separator_l3.join(av_cpl_str))
+                axis_value_text.append(separator_l2.join(av_cpl_txt))
+            else:
+                av_str = list(map(str, av))
+                axis_value_text.append(separator_l2.join(av_str))
+        axis_value = 'Axis Value=' + separator_l1.join(axis_value_text) + '\n'
+        f.write(axis_value.encode('utf-8'))
         
         #
         info = []

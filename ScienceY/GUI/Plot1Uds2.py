@@ -85,7 +85,7 @@ class Plot1Uds2(GuiFrame):
         #self.getMsgFromImgMainWidget(self.ui_img_widget_main.msg_type.index('SELECT_USD_VARIABLE'))
         selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
         selected_var = self.uds_variable_pt_list[selected_var_index]        
-        
+
         self.ui_plot_widget.setUdsData(selected_var)
         
   

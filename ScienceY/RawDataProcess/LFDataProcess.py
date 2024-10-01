@@ -13,7 +13,8 @@ import numpy as np
 """
 User Modules
 """
-from .UdsDataProcess import UdsDataStru3D
+from .UdsDataProcess import UdsDataStru
+from ..GUI.general.NumberExpression import NumberExpression
 
 """
 Class Definition
@@ -22,19 +23,6 @@ Class Definition
 '''
 Load the header and data
 '''
-
-class LoadTFR():
-    def __init__(self, path):
-        self.path = path
-        self.header = self.get_header()
-        self.data3D = self.load_data()
-        
-    def get_header(self):
-        pass
-    
-    def load_data(self):
-        pass
-
 
 class Load1FL():
     
@@ -54,6 +42,17 @@ class Load1FL():
         
         f.seek(480, 0)
         header['zSize']=np.fromfile(f, dtype = np.int16, count = 1 )[0]
+        
+        f.seek(1024 + 22, 0)
+        header['Bias (V)']=np.fromfile(f, dtype = np.float32, count = 1 )[0] * 1e-3
+        header['Current Setpoint (A)']=np.fromfile(f, dtype = np.float32, count = 1 )[0] * 1e-9
+
+        f.seek(1024 + 34, 0)
+        header['Scan Range (m)']=np.fromfile(f, dtype = np.float32, count = 1 )[0] * 1e-10
+        
+        f.seek(1280, 0)
+        header['sweep start (V)']=np.fromfile(f, dtype = np.float32, count = 1 )[0]
+        header['sweep stop (V)']=np.fromfile(f, dtype = np.float32, count = 1 )[0]
         
         f.close()
         return header
@@ -78,7 +77,25 @@ class Data1FLStru():
         self.name = path.split('.')[-2].split('/')[-1]
         self.suffix = path.split('.')[-1]
         
-    def get_data(self):        
+    def setDataInfo(self, uds_data):
+        info = uds_data.info
+        
+        info['Current Setpoint(A)'] = str(self.header['Current Setpoint (A)'])
+        info['Bias Setpoint(V)'] = str(self.header['Bias (V)'])
+        
+        if self.suffix == '1FL':
+            info['LayerSignal'] = 'Bias (V)'
+            layer_value_list = []
+            for a_v in uds_data.axis_value[-1]:
+                layer_value_list.append(NumberExpression.float_to_simplified_number(a_v))
+            separator = ',' 
+            info['LayerValue'] = separator.join(layer_value_list)
+        elif self.suffix == 'TFR':
+            info['LayerValue'] = str(self.header['Bias (V)'])            
+        else:
+            pass
+    
+    def extractData(self):
         if self.suffix == '1FL':
             name = 'uds3D_'+self.name+'_dIdV'
         elif self.suffix == 'TFR':
@@ -86,7 +103,45 @@ class Data1FLStru():
         else:
             name = 'uds3D_'+self.name+'_unknown'
             
-        uds3D_data = UdsDataStru3D(self.data3D, name)
+        uds_data = UdsDataStru(self.data3D, name)
         
-        return uds3D_data    
+        # axis name
+        uds_data.axis_name = ['X (m)', 'Y (m)', 'Bias (V)']
+        
+        # axis value
+        x_width = self.header['Scan Range (m)']
+        y_height = self.header['Scan Range (m)']
+        x_points = self.header['xSize']
+        y_points = self.header['ySize']
+            
+        xx = np.linspace(0,x_width, x_points)
+        yy = np.linspace(0,y_height, y_points)
+        uds_data.axis_value.append(xx.tolist())
+        uds_data.axis_value.append(yy.tolist())
+        
+        if self.suffix == '1FL':
+            vStart = self.header['sweep start (V)']
+            vStop = self.header['sweep stop (V)']
+            vPoints = self.header['zSize']
+            vv = np.linspace(vStart, vStop, vPoints)
+            uds_data.axis_value.append(vv.tolist())
+        elif self.suffix == 'TFR':
+            uds_data.axis_value.append([self.header['Bias (V)']])
+        else:
+            print('Unknow file type for STM1&2!')       
+        
+        # info
+        self.setDataInfo(uds_data)
+        
+        return uds_data
+    
+    def get_dIdV(self):
+        uds_dIdV = self.extractData()
+        
+        return uds_dIdV
+    
+    def get_Topo(self):
+        uds_Topo = self.extractData()
+        
+        return uds_Topo  
         

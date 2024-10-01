@@ -13,7 +13,7 @@ import numpy as np
 """
 User Modules
 """
-from .UdsDataProcess import UdsDataStru3D
+from .UdsDataProcess import UdsDataStru
 
 """
 Class Definition
@@ -35,7 +35,7 @@ class DataTxtStru():
         data = np.loadtxt(self.path, dtype = np.str_, encoding = 'utf-8')
         data = data[:,:].astype(dtype = np.float_)
         data = data[np.newaxis,:,:]
-        uds_txt = UdsDataStru3D(data, 'uds3D_'+self.name)
+        uds_txt = UdsDataStru(data, 'uds3D_'+self.name)
         
         return uds_txt
     

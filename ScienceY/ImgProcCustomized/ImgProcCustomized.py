@@ -16,7 +16,7 @@ import numpy as np
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataProcess import UdsDataStru3D
+from ..RawDataProcess.UdsDataProcess import UdsDataStru
 
 """
 function Module
@@ -33,7 +33,7 @@ def IPC(uds3D_data_A, uds3D_data_B, parameters):
           
     data_processed = CustomizedAlgorithm(uds3D_data_A, uds3D_data_B, parameters) 
    
-    uds3D_data_processed = UdsDataStru3D(data_processed, uds3D_data_A.name+'_ipc')
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data_A.name+'_ipc')
     
     uds3D_data_processed.info = uds3D_data_A.info.copy()
     
