@@ -127,12 +127,29 @@ class GalleryViewManager(QtWidgets.QWidget):
         return not self.gallery_filter_bool[suffix][ch_idx]
     
 class GalleryWidget(QtWidgets.QWidget):
-    viewChangedSignal = QtCore.pyqtSignal(int)
-    filterSelectionChangedSignal = QtCore.pyqtSignal()
+    resizeSignal = QtCore.pyqtSignal()
+    wheelEventSignal = QtCore.pyqtSignal(int)
     
     def __init__(self, *args, **kwargs):
         super(GalleryWidget, self).__init__( *args, **kwargs)
-
+        self.wheel_value = 0
+        self.wheel_div = 120
+        
+    def resizeEvent(self, event):
+        self.resizeSignal.emit()
+    
+    def wheelEvent(self, event):
+        event_angleDelta_y = event.angleDelta().y()
+        self.wheel_value += event_angleDelta_y
+        
+        if abs(self.wheel_value) / self.wheel_div >= 1:
+            if self.wheel_value > 0:
+                self.wheel_value -= self.wheel_div
+                self.wheelEventSignal.emit(-1)
+            else:
+                self.wheel_value += self.wheel_div
+                self.wheelEventSignal.emit(1)        
+        
 class DataBrowser(GuiFrame):
     
     def __init__(self, wtype, index, *args, **kwargs):
@@ -145,12 +162,9 @@ class DataBrowser(GuiFrame):
         
     def initCcUiMembers(self):
         # 
-        #self.ui_snap_gallery = ScrollArea()
-        self.ui_snap_gallery = GalleryWidget()
-        #self.ui_snap_gallery.resizeSignal.connect(self.resizeGallery)
-        #self.ui_snap_gallery.verticalScrollBar().valueChanged.connect(self.GalleryScrollbarMoved)
-        self.ui_snap_gallery_container = QtWidgets.QWidget()
-        #self.ui_snap_gallery.setWidget(self.ui_snap_gallery_container)
+        self.ui_snap_gallery_container = GalleryWidget()
+        self.ui_snap_gallery_container.wheelEventSignal.connect(self.galleryWheelMoved)
+        self.ui_snap_gallery_container.resizeSignal.connect(self.resizeGallery)
         self.ui_snap_gallery_scrollbar = QtWidgets.QScrollBar(QtCore.Qt.Vertical)
         self.ui_snap_gallery_scrollbar.setMinimum(0)
         self.ui_snap_gallery_scrollbar.setMaximum(100)
@@ -185,7 +199,7 @@ class DataBrowser(GuiFrame):
         #
         self.ui_colorbar = ColorBar()
         self.ui_colorbar.setColorMap('blue1', 1)
-        self.ui_colorbar_pixmap = self.ui_colorbar.copyToPixmap()
+        self.ui_colorbar_pixmap = QtGui.QPixmap(self.ui_colorbar.copyToPixmap())
     
     def initCcUiLayout(self):
         # dockWiget filesystem tree
@@ -217,6 +231,7 @@ class DataBrowser(GuiFrame):
         #
         self.ui_horizontalLayout.addWidget(self.ui_snap_gallery_container)
         self.ui_horizontalLayout.addWidget(self.ui_snap_gallery_scrollbar)
+        self.ui_horizontalLayout.setContentsMargins(0,0,0,0) # left, top, right, bottom  
         
         #
         gallery_layout = QtWidgets.QGridLayout()
@@ -250,9 +265,9 @@ class DataBrowser(GuiFrame):
         self.gallery_filter = {} #dict        
         self.gallery_filtered_channel_counts = 0
         self.gallery_filtered_info_ch_idx_list = []
-
-        self.gallery_content_show_list = []
-
+        self.gallery_current_line = 0
+        self.gallery_content_widget_width = 0
+        self.gallery_content_widget_height = 0
         
     def initCcMenuBar(self):
         pass
@@ -274,10 +289,10 @@ class DataBrowser(GuiFrame):
     
     def galleryViewChanged(self, content_per_row):
         self.gallery_contents_per_line = content_per_row
-        self.updateGallery()
+        self.updateGalleryContentCounts()
         
     def galleryFilterSelectionChanged(self):
-        self.updateGallery()
+        self.updateGalleryContentCounts()
     
     def browseDirectry(self):
         data_path = self.ui_le_data_path.text()
@@ -300,37 +315,33 @@ class DataBrowser(GuiFrame):
         
         self.setGallery(child_folder_files, child_folder_files_lastmodified)
 
-    def GalleryScrollbarMoved(self, value):
-        min_value = self.ui_snap_gallery_scrollbar.minimum()
-        max_value = self.ui_snap_gallery_scrollbar.maximum()
-        pos = float(value) / (max_value - min_value)
-        #print('pos:',pos)
-        print(value,',', max_value)
-        
+    def GalleryScrollbarMoved(self, value):      
         self.updateGallery(value)
         
+    def galleryWheelMoved(self, value):
+        sb_value = self.ui_snap_gallery_scrollbar.value()
+        sb_min = self.ui_snap_gallery_scrollbar.minimum()
+        sb_max = self.ui_snap_gallery_scrollbar.maximum()
+        
+        sb_value += value
+        if sb_value >= sb_min and sb_value <= sb_max:
+            self.ui_snap_gallery_scrollbar.setValue(sb_value)
         
     def resizeGallery(self):
+        self.setGalleryContentWidgetSize()
+
+    def setGalleryContentWidgetSize(self):
         gallery_size = self.ui_snap_gallery_container.size()
         
-        current_container = self.ui_snap_gallery_container
-        if not current_container == None:
-            new_container_width = gallery_size.width() - 30
-            current_container.setFixedWidth(new_container_width)
+        width = int( (gallery_size.width() - 50) /  self.gallery_contents_per_line)
+        height = int( (gallery_size.height() ) /  2)
                 
-            gallery_content_width = int(new_container_width /  self.gallery_contents_per_line)
-            gallery_content_height = gallery_content_width
-            
-            gallery_content_count = len(self.gallery_content_show_list)
-            new_container_height = int(np.ceil(gallery_content_count * 1.0 / self.gallery_contents_per_line) * gallery_content_width)
-            current_container.setFixedHeight(new_container_height)
-
-            for gallery_content in self.gallery_content_show_list:
-                gallery_content.resize(gallery_content_width, gallery_content_height)
-                
+        self.gallery_content_widget_width = min(width,height)
+        self.gallery_content_widget_height = self.gallery_content_widget_width      
+    
     def updateGallery(self, line=0):
-        self.gallery_content_show_list = []
-        
+        empty_gallery_content_counts = 0
+
         #
         layout = self.ui_snap_gallery_container.layout()
         while layout.count():
@@ -342,22 +353,35 @@ class DataBrowser(GuiFrame):
         idx_start = line * self.gallery_contents_per_line
         if idx_start + 6 > self.gallery_filtered_channel_counts:
             idx_end = self.gallery_filtered_channel_counts
+            empty_gallery_content_counts = idx_start + 6 - self.gallery_filtered_channel_counts
         else:
             idx_end = idx_start + 6
             
+        occupied_gallery_content_counts = 0
+        gcw_width = self.gallery_content_widget_width
+        gcw_height = self.gallery_content_widget_height
         for i, idx in enumerate(range(idx_start, idx_end)):
             info_idx = self.gallery_filtered_info_ch_idx_list[idx][0]
             snapshots_info = self.gallery_snapshots_info_full_list[info_idx]
             ch_idx = self.gallery_filtered_info_ch_idx_list[idx][1]
-            gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx, self.ui_colorbar_pixmap) 
+            gallery_content = GalleryContentWidget(self.snapshots_manager, snapshots_info, ch_idx, self.ui_colorbar_pixmap)
+            gallery_content.resize(gcw_width , gcw_height)
             gallery_content.sendChannelDataSignal.connect(self.sendChannelDataToVarList)
                         
             row = i // self.gallery_contents_per_line  # Determine the row (2 rows, 0 and 1)
             col = i % self.gallery_contents_per_line   # Determine the column (3 columns, 0, 1, 2)
             layout.addWidget(gallery_content, row, col)
-
-        #
-        #self.resizeGallery()    
+            occupied_gallery_content_counts += 1
+            
+        #   
+        if empty_gallery_content_counts > 0:
+            for i in range(occupied_gallery_content_counts, occupied_gallery_content_counts+empty_gallery_content_counts):
+                empty_gallery_content = QtWidgets.QWidget()
+                empty_gallery_content.setFixedSize(gcw_width, gcw_height)
+                
+                row = i // self.gallery_contents_per_line  # Determine the row (2 rows, 0 and 1)
+                col = i % self.gallery_contents_per_line   # Determine the column (3 columns, 0, 1, 2)
+                layout.addWidget(empty_gallery_content, row, col)   
         
     def updateGalleryContentCounts(self):
         self.gallery_filtered_channel_counts = 0
@@ -376,6 +400,10 @@ class DataBrowser(GuiFrame):
         self.ui_snap_gallery_scrollbar.setMaximum(scrollbar_max-1)
         self.ui_snap_gallery_scrollbar.setValue(0)
         
+        # gallery content widget size
+        self.setGalleryContentWidgetSize()
+        
+        #
         self.updateGallery()
                 
     def setGallery(self, src_files_path, src_files_lastmodified):

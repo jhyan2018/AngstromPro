@@ -25,16 +25,17 @@ from .SnapshotManager import SnapshotInfo
 """ *************************************** """
 
 class ImageDisplayWidget(QtWidgets.QWidget):
-    def __init__(self, image_path=None, *args, **kwargs):
+    def __init__(self, pixmap=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.image = None
-        if image_path:
-            self.load_image(image_path)
+        if pixmap:
+            self.load_image(pixmap)
 
-    def load_image(self, image_path):
+    def load_image(self, pixmap):
         """Load a PNG image into the widget."""
-        self.image = QtGui.QImage(image_path)  # Load the image using QImage
-
+        #self.image = QtGui.QImage(image_path)  # Load the image using QImage
+        self.image = pixmap.toImage()
+        
         if self.image.isNull():
             print("Failed to load the image.")
         else:
@@ -50,7 +51,7 @@ class ImageDisplayWidget(QtWidgets.QWidget):
             self.update()  # Repaint the widget to clear the display
             
             # Force garbage collection to ensure memory is released
-            #gc.collect()
+            gc.collect()
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
@@ -64,7 +65,7 @@ class ImageDisplayWidget(QtWidgets.QWidget):
         painter.end()
         
     def resizeEvent(self, event):
-        """Handle widget resize to optionally scale the image."""
+        #Handle widget resize to optionally scale the image.
         self.update()  # Repaint when resized
         super().resizeEvent(event)
 
@@ -90,7 +91,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.ch_layer_value = self.snapshots_info.ch_layer_value[self.ch_idx].split(',')
         if snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
             self.ch_layer_scale = self.snapshots_info.ch_layer_scale[self.ch_idx].split(',')
-        self.colorbar_pixmap = colorbarPixmap
+        self.colorbar_pixmap = QtGui.QPixmap(colorbarPixmap)
 
         
     def initUiMembers(self):
@@ -103,8 +104,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.ui_pivotal_info = QtWidgets.QLabel()           
 
         #
-        self.ui_lb_colorbar = QtWidgets.QLabel()
-        self.drawColorbar()
+        self.ui_png_colorbar = ImageDisplayWidget()
         
         self.ui_lb_data_scale_u = QtWidgets.QLabel()
         self.ui_lb_data_scale_l = QtWidgets.QLabel()
@@ -132,8 +132,6 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.png_path = os.path.join(self.snapshots_manager.snapshots_dir, self.snapshots_info.ch_uuid[self.ch_idx])
         if not self.snapshots_info.ch_layers[self.ch_idx] == '1':
             self.png_path = os.path.join(self.png_path, 'layer0.png')
-        #self.pixmap = QtGui.QPixmap(png_path)
-        self.drawPngDisplay()
 
         #
         self.ui_lb_file_path.setText(self.snapshots_info.src_file_path.split('/')[-1])
@@ -153,7 +151,7 @@ class GalleryContentWidget(QtWidgets.QWidget):
         ui_verticalLayout2 = QtWidgets.QVBoxLayout()
         if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
             ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=QtCore.Qt.AlignCenter)
-            ui_verticalLayout2.addWidget(self.ui_lb_colorbar, alignment=QtCore.Qt.AlignCenter)
+            ui_verticalLayout2.addWidget(self.ui_png_colorbar, alignment=QtCore.Qt.AlignCenter)
             ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=QtCore.Qt.AlignCenter)
         
         ui_verticalLayout3 = QtWidgets.QVBoxLayout()
@@ -165,10 +163,11 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
         
 
-        layout.addWidget(self.ui_png_display, 0, 0)
+        layout.addWidget(self.ui_png_display, 0, 0)        
         layout.addLayout(ui_verticalLayout1, 1, 0)
         layout.addLayout(ui_verticalLayout2, 0, 1)
         layout.addLayout(ui_verticalLayout3, 1, 1)
+        layout.setContentsMargins(0,0,0,0) # left, top, right, bottom 
         
         #
         self.setLayout(layout)
@@ -184,8 +183,8 @@ class GalleryContentWidget(QtWidgets.QWidget):
         self.snapshots_manager.generate_snapshots(srcfile_path, src_file_lastmodified, channel, layer, snapshots_info)
 
         #
-        self.pixmap = snapshots_info.pixmap[0]
-        self.drawPngDisplay()
+        pixmap = snapshots_info.pixmap[0]
+        self.drawPngDisplay(pixmap)
         
         self.ui_le_channel_layers_v.setText(self.ch_layer_value[layer])
         
@@ -207,26 +206,20 @@ class GalleryContentWidget(QtWidgets.QWidget):
 
         # pnd display
         self.ui_png_display.setFixedSize(int(width*0.7), int(height*0.7))
-        self.drawPngDisplay()
+        pixmap = QtGui.QPixmap(self.png_path)
+        self.drawPngDisplay(pixmap)
 
         # colobar
-        self.ui_lb_colorbar.setFixedSize(int(width*0.05), int(height*0.5))
-        self.drawColorbar() 
+        self.ui_png_colorbar.setFixedSize(int(width*0.05), int(height*0.5))
+        self.drawColorbar(self.colorbar_pixmap)
         
-        #
-        
-    def drawPngDisplay(self): 
-        #if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
-            #scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.KeepAspectRatioByExpanding, QtCore.Qt.FastTransformation)
-        #else:
-            #scaled_pixmap = self.pixmap.scaled(self.ui_lb_png_display.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.FastTransformation)
-        
+    def drawPngDisplay(self, pixmap): 
         self.ui_png_display.remove_image()
-        self.ui_png_display.load_image(self.png_path)
+        self.ui_png_display.load_image(pixmap)
         
     def setColorbarPixmap(self, pixmap):
         self.colorbar_pixmap = pixmap
     
-    def drawColorbar(self):                
-        scaled_pixmap = self.colorbar_pixmap.scaled(self.ui_lb_colorbar.size(), QtCore.Qt.IgnoreAspectRatio, QtCore.Qt.SmoothTransformation)
-        #self.ui_lb_colorbar.setPixmap(scaled_pixmap)
+    def drawColorbar(self, pixmap): 
+        self.ui_png_colorbar.remove_image()              
+        self.ui_png_colorbar.load_image(pixmap)
