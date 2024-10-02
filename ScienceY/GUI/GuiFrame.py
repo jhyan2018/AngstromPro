@@ -62,7 +62,7 @@ class GuiFrame(QtWidgets.QMainWindow):
         self.ui_verticalLayout_varList.addWidget(self.ui_lw_uds_variable_history_list)
         
         # dockWiget Var
-        self.ui_dockWideget_var = QtWidgets.QDockWidget()
+        self.ui_dockWideget_var = QtWidgets.QDockWidget('Var')
         self.ui_dockWidget_var_Content = QtWidgets.QWidget()
         self.ui_gridLayout_dock_var= QtWidgets.QGridLayout()
         self.ui_gridLayout_dock_var.addLayout(self.ui_verticalLayout_varList, 0, 0, 1, 1)

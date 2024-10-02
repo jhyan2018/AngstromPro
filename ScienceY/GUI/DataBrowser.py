@@ -173,7 +173,7 @@ class DataBrowser(GuiFrame):
 
         
         # dockWiget filesystem tree
-        self.ui_dockWidget_fs_tree = DockWidget()
+        self.ui_dockWidget_fs_tree = DockWidget('Files')
         self.ui_dockWidget_fs_tree_content = FileSystemTree()
         self.ui_dockWidget_fs_tree_content.selectionChangedSignal.connect(self.fileTreeSelectionChanged)
         
@@ -191,7 +191,7 @@ class DataBrowser(GuiFrame):
         self.ui_pb_save_settings.clicked.connect(self.saveSettings)
         
         # dockWiget GalleryViewManager
-        self.ui_dockWidget_gvm = DockWidget()
+        self.ui_dockWidget_gvm = DockWidget('Channels')
         self.ui_dockWidget_gvm_content = GalleryViewManager()
         self.ui_dockWidget_gvm_content.viewChangedSignal.connect(self.galleryViewChanged)
         self.ui_dockWidget_gvm_content.filterSelectionChangedSignal.connect(self.galleryFilterSelectionChanged)
@@ -223,9 +223,11 @@ class DataBrowser(GuiFrame):
         
         # dockWiget GalleryViewManager
         self.ui_dockWidget_gvm.setWidget(self.ui_dockWidget_gvm_content)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_gvm)
         
         #
-        self.tabifyDockWidget(self.ui_dockWideget_var, self.ui_dockWidget_gvm)
+        self.removeDockWidget(self.ui_dockWideget_var)
+        #self.tabifyDockWidget(self.ui_dockWideget_var, self.ui_dockWidget_gvm)
         self.tabifyDockWidget(self.ui_dockWidget_gvm, self.ui_dockWidget_fs_tree)
         
         #
@@ -286,6 +288,11 @@ class DataBrowser(GuiFrame):
         #
         if not uds_data == None:
             self.appendToLocalVarList(uds_data)
+            self.sendDataSingalEmit()
+            
+            # remove var from local list 
+            self.ui_lw_uds_variable_name_list.setCurrentRow(0)
+            self.removeFromLocalVarList()
     
     def galleryViewChanged(self, content_per_row):
         self.gallery_contents_per_line = content_per_row
