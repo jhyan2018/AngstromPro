@@ -295,9 +295,13 @@ class GuiVarManager(QtWidgets.QMainWindow):
         w_index = self.alive_window_name_list.index(w_name)
         var_name = self.alive_window_pt_list[w_index].uds_variable_name_list[var_index]
         globals()[var_name] = UdsDataStru(self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].data ,var_name)
-        globals()[var_name].proc_history = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].proc_history
-        globals()[var_name].info = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].info        
+        globals()[var_name].axis_name = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].axis_name.copy()
+        globals()[var_name].axis_value = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].axis_value.copy()
+        globals()[var_name].info = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].info.copy()
+        globals()[var_name].proc_history = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].proc_history.copy()
+        globals()[var_name].proc_to_do = self.alive_window_pt_list[w_index].uds_variable_pt_list[var_index].proc_to_do.copy()
         
+        self.updateVarList()
         
     """ Regular Functions """
     
@@ -338,6 +342,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         # Window Menu
         windowMenu.addAction(self.dataBrowserAction)
         windowMenu.addAction(self.image2or3DAction)
+        windowMenu.addAction(self.plot1u2Action)
         windowMenu.addAction(self.rtSynthesis2DAction)
         
         
@@ -363,6 +368,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         # Window
         self.dataBrowserAction = QtWidgets.QAction("Data Browser",self)
         self.image2or3DAction = QtWidgets.QAction("Image2or3D",self)
+        self.plot1u2Action = QtWidgets.QAction("Plot1U2",self)
         self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2D",self)
         
         # Option
@@ -376,6 +382,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         # Window Menu
         self.dataBrowserAction.triggered.connect(self.newDataBrowserWindow)
         self.image2or3DAction.triggered.connect(self.newImage2or3DWindow)
+        self.plot1u2Action.triggered.connect(self.newPlot1Uds2Window)
         self.rtSynthesis2DAction.triggered.connect(self.newRtSynthesis2D)
         
         # Option Menu
