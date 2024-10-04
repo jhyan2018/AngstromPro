@@ -306,7 +306,7 @@ class SnapshotManager:
         
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
 
-        if 'Z (m)' in data3ds.channel_list:
+        if 'Scan:Z (m)' in data3ds.channel_dict['Topo']:
             uds_topo = data3ds.get_Topo()
             
             channel = uds_topo.info.get('Channel', None)
@@ -328,7 +328,7 @@ class SnapshotManager:
             else:
                 print('Snapmanager: Unknow uds data type')
                     
-        if ('LI Demod 1 X (A)' in data3ds.channel_list) or ('Input 2 (V)' in data3ds.channel_list): 
+        if ('LI Demod 1 X (A)' in data3ds.channel_dict['dIdV']) or ('Input 2 (V)' in data3ds.channel_dict['dIdV']): 
             uds_didv = data3ds.get_dIdV_data()
             channel = uds_didv.info.get('Channel', None)
             if not channel == None:
@@ -347,7 +347,7 @@ class SnapshotManager:
             else:
                 print('Snapmanager: Unknow uds data type')
             
-        if 'Current (A)' in data3ds.channel_list:
+        if 'Current (A)' in data3ds.channel_dict['Current']:
             uds_current = data3ds.get_Current()
             channel = uds_current.info.get('Channel', None)
             if not channel == None:
@@ -366,7 +366,7 @@ class SnapshotManager:
             else:
                 print('Snapmanager: Unknow uds data type')
             
-        if 'LI Demod 1 Y (A)' in data3ds.channel_list:
+        if 'LI Demod 1 Y (A)' in data3ds.channel_dict['Phase']:
             uds_didv_phase = data3ds.get_Phase()
             channel = uds_didv_phase.info.get('Channel', None)
             if not channel == None:
