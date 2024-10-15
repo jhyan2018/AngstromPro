@@ -40,8 +40,8 @@ class PlotConfig():
         self.config_axis_base={}
         
         # Base configuration for lines
-        self.config_line_base={'linestyle':'--',
-                               'linewidth':3}
+        self.config_line_base={'linestyle':'-',
+                               'linewidth':2}
         
         if config_base:
             self.update_config_base(config_base)

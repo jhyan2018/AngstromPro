@@ -75,7 +75,7 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         
     def initUiMembers(self):
         # Canvas
-        self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = 100))
+        self.static_canvas = QtMatplotCanvas(Figure(figsize=(20, 20), dpi = 200))
         #self.static_canvas.figure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
         #self.static_canvas.figure.patch.set_visible( False )
         
@@ -83,7 +83,7 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         self.add_axis_item(static_ax, 1, 1)
         
     def initNonUiMembers(self):
-        self.uds_data = None
+        self.uds_data_list = []
         self.plot_config = None
         self.axis_list=[]
         self.line_list=[]
@@ -99,6 +99,8 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
     def setCanvasWidgetSize(self, w, h):
         self.static_canvas.setFixedWidth(w)
         self.static_canvas.setFixedHeight(h)
+        self.static_canvas.figure.tight_layout()
+        self.static_canvas.figure.canvas.draw()
     
     def add_axis_item(self, ax, nrow, ncol):
         axis_item = {'ax':None,
@@ -121,27 +123,32 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
     def get_line(self, line_idx):
         return self.line_list[line_idx]['line']
         
-    def plotLines(self):
+    def plotLines(self, uds_data_idx):
         self.get_axis(0) .clear()
         
+        uds_data = self.uds_data_list[uds_data_idx]
         #
-        if len(self.uds_data.axis_value[0]) > 0:
-            x_axis = np.array(self.uds_data.axis_value[0])
+        if len(uds_data.axis_value[0]) > 0:
+            x_axis = np.array(uds_data.axis_value[0])
         else:
-            x_axis = range(self.uds_data.data.shape[1])
+            x_axis = range(uds_data.data.shape[1])
         
         #   
-        for i in range(self.uds_data.data.shape[0]):
-            line, = self.get_axis(0).plot(x_axis, self.uds_data.data[i,:])
+        for i in range(uds_data.data.shape[0]):
+            line, = self.get_axis(0).plot(x_axis, uds_data.data[i,:])
             self.add_line_item(line, 0)
-            
+        
         self.get_axis(0).figure.canvas.draw()
         
     def setUdsData(self, uds_data):
         if len(uds_data.data.shape) == 2:
             self.line_list = []
-            self.uds_data = uds_data
-            self.plotLines()
+            self.uds_data_list = []
+            
+            self.uds_data_list.append(uds_data)            
+            uds_data_idx = len(self.uds_data_list) - 1
+            self.plotLines(uds_data_idx)
+            #
             if 'Plot_Config' in uds_data.hidden_info:
                 self.plot_config = uds_data.hidden_info['Plot_Config']
             else:
@@ -154,19 +161,37 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
                           'title':'dI/dV'}
                 self.plot_config.update_axis_config(0, config)
                 self.plot_config.apply_axis_config(self.get_axis(0) , 0)
-                
                 #self.get_axis(0).tick_params(axis='x', labelsize=18)
                 #self.get_axis(0).tick_params(axis='y', labelsize=18)
                 
                 # line config
-                for i in range(self.uds_data.data.shape[0]):
+                for i in range(uds_data.data.shape[0]):
                     self.plot_config.add_config_line()
                     self.plot_config.apply_line_config(self.get_line(i) , i)
+                    
+                        
+                self.static_canvas.figure.tight_layout()
+                self.static_canvas.figure.canvas.draw()
                 
         else:
             print('Unaccepted data dimension!')
             return -1
+    
+    def addUdsData(self, uds_data):
+        #if len(uds_data.data.shape) == 2:
+        self.uds_data_list.append(uds_data)
         
-    """ Dynamic Fucntions"""
+        uds_data_idx = len(self.uds_data_list) - 1
+        self.plotLines(uds_data_idx)
         
+        #
+        config = {'xlabel':'Energy (V)',
+                  'ylabel':'Intensity (S)',
+                  'title':'dI/dV'}
+        self.plot_config.update_axis_config(0, config)
+        self.plot_config.apply_axis_config(self.get_axis(0) , 0)
         
+        # line config
+        for i in range(uds_data.data.shape[0]):
+            self.plot_config.add_config_line()
+            self.plot_config.apply_line_config(self.get_line(i) , i)
