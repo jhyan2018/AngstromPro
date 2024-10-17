@@ -142,7 +142,7 @@ class Plot1Uds2(GuiFrame):
         self.ui_dockWidget_plot_config.setWidget(self.ui_dockWidget_plot_config_content)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_plot_config)
         
-        self.tabifyDockWidget(self.ui_dockWideget_var, self.ui_dockWidget_plot_config)
+        self.tabifyDockWidget(self.ui_dockWidget_plot_config, self.ui_dockWideget_var)
         
     def initCcNonUiMembers(self):
         # Settings

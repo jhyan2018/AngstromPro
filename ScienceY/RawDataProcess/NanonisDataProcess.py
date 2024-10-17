@@ -243,25 +243,28 @@ class Data3dsStru():
     
     def get_axis_name(self, isDimension3=True):
         axis_name_list = []
-        axis_name_list.append(self.header['sweep signal'])
+        
         if isDimension3:
+            axis_name_list.append(self.header['sweep signal'])
             axis_name_list.append('X (m)')
             axis_name_list.append('Y (m)')
         else:
             axis_name_list.append('XY (m)')
+            axis_name_list.append(self.header['sweep signal'])
         
         return axis_name_list
     
-    def get_axis_value(self, isDimension3=True):
+    def get_axis_value(self, channel, isDimension3=True):
         axis_value_list = []
         
         bias_points = self.header['points']
         Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
         Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
         bias_raster = np.linspace(self.data3D[Sweep_start_index, 0, 0], self.data3D[Sweep_end_index, 0, 0], bias_points)
-        axis_value_list.append(bias_raster.tolist())   
         
         if isDimension3:
+            axis_value_list.append(bias_raster.tolist())
+            
             x_width = self.header['grid settings']['W']
             y_height = self.header['grid settings']['H']
             x_points = self.header['grid dim'][1]
@@ -281,7 +284,14 @@ class Data3dsStru():
             xy[:,0]=xx_reshape
             xy[:,1]=yy_reshape            
             axis_value_list.append(xy.tolist()) # reversed
-        
+            if channel == 'Topo':
+                if 'bias>bias (v)' in self.header.keys():
+                    bias_sp = [self.header['bias>bias (v)']]
+                else:
+                    bias_sp = [0]
+                axis_value_list.append(bias_sp)
+            else:
+                axis_value_list.append(bias_raster.tolist())
         return axis_value_list
     
     def setDataInfo(self, uds_data, channel, single_layer=True):
@@ -296,7 +306,8 @@ class Data3dsStru():
         if not single_layer:
             info['LayerSignal'] = self.header['sweep signal']            
             layer_value_list = []
-            for a_v in uds_data.axis_value[0]:
+            layer_idx =  uds_data.axis_name.index('Bias (V)')
+            for a_v in uds_data.axis_value[layer_idx]:
                 layer_value_list.append(NumberExpression.float_to_simplified_number(a_v))
             separator = ',' 
             info['LayerValue'] = separator.join(layer_value_list)
@@ -310,12 +321,16 @@ class Data3dsStru():
         # info - channel
         if channel == 'dIdV':
             info['Channel'] = 'dI/dV Map'
+            info['Data_Name_Unit'] = 'dI/dV (S)'
         elif channel == 'Topo':
             info['Channel'] = 'Topo'
+            info['Data_Name_Unit'] = 'Z (m)'
         elif channel == 'Current':
             info['Channel'] = 'Current Map'
+            info['Data_Name_Unit'] = 'Current (A)'
         elif channel == 'Phase':
             info['Channel'] = 'dI/dV Phase Map'
+            info['Data_Name_Unit'] = 'Phase (rad)'
         else:
             pass
     
@@ -348,11 +363,14 @@ class Data3dsStru():
     
     def extractData(self, channel, param_type='Fixed'):
         extrated_data = self.extract_data_layers(channel, param_type)
-                
         ###
         isDimension3=True
         if extrated_data.shape[-1] == 1:
-            extrated_data_reshape = extrated_data.reshape((extrated_data.shape[0], extrated_data.shape[1]))
+            if channel == 'Topo':
+                extrated_data_reshape = extrated_data.reshape((extrated_data.shape[1], extrated_data.shape[0]))
+            else:
+                extrated_data_reshape = extrated_data.reshape((extrated_data.shape[0], extrated_data.shape[1]))
+                
             extrated_data_transpose = extrated_data_reshape.transpose()
             uds_data = UdsDataStru(extrated_data_transpose, 'uds2D_'+self.name+'_'+channel)
             isDimension3=False
@@ -364,7 +382,7 @@ class Data3dsStru():
         
         # axis name & value
         uds_data.axis_name = self.get_axis_name(isDimension3)
-        uds_data.axis_value = self.get_axis_value(isDimension3)
+        uds_data.axis_value = self.get_axis_value(channel, isDimension3)
         
         # info
         if param_type == 'Fixed':
@@ -557,19 +575,20 @@ class DataDatStru():
     
     def get_axis_name(self):
         axis_name_list = []
-        axis_name_list.append(self.header['data content'].split('\t')[0])
         axis_name_list.append('XY (m)')
+        axis_name_list.append(self.header['data content'].split('\t')[0])
                 
         return axis_name_list
     
     def get_axis_value(self):
         axis_value_list = []
-        av_ = self.data2D[:, 0]
-        axis_value_list.append(av_.tolist())
         
         x_pos = float(self.header['X (m)'])
         y_pos = float(self.header['Y (m)'])
         axis_value_list.append([[x_pos, y_pos]])
+        
+        av_ = self.data2D[:, 0]
+        axis_value_list.append(av_.tolist())
         
         return axis_value_list
             

@@ -129,7 +129,7 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         uds_data = self.uds_data_list[uds_data_idx]
         #
         if len(uds_data.axis_value[0]) > 0:
-            x_axis = np.array(uds_data.axis_value[0])
+            x_axis = np.array(uds_data.axis_value[-1])
         else:
             x_axis = range(uds_data.data.shape[1])
         
@@ -156,9 +156,9 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
                 
                 # axis config
                 self.plot_config.add_config_axis()
-                config = {'xlabel':'Energy (V)',
-                          'ylabel':'Conductance (S)',
-                          'title':'dI/dV'}
+                config = {'xlabel':uds_data.axis_name[-1]}
+                if 'Data_Name_Unit' in uds_data.info:
+                   config['ylabel'] = uds_data.info['Data_Name_Unit']
                 self.plot_config.update_axis_config(0, config)
                 self.plot_config.apply_axis_config(self.get_axis(0) , 0)
                 #self.get_axis(0).tick_params(axis='x', labelsize=18)
