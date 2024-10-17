@@ -157,7 +157,20 @@ class Plot1Uds2(GuiFrame):
         self.canvas_size_factor = 0.33
         
     def initCcMenuBar(self):
-        pass
+        # Actions
+        self.creat_actions()
+        
+        # connect actions
+        self.connect_actions()
+        
+        # MenuBar
+        self.creat_menuBar()
+        
+        # ToolBar
+        #self._creat_toolBar()
+        
+        # StatusBar
+        self.creat_statusBar()
 
     """ Settings """
     def loadSettings(self):
@@ -194,4 +207,166 @@ class Plot1Uds2(GuiFrame):
     def ui_pb_remove_var_from_plot_clicked(self):
         pass
         
+    
+    """ *************************************************************** """
+    """ INDICATION: MODIFY THE FOLLOWING CODE UNTIL INDICATED IF NEEDED """
+    """ *************************************************************** """
+    
+    """    Menu and Actions    """       
+    def creat_menuBar(self):
+        menuBar = QtWidgets.QMenuBar(self)
+        
+        # Top Menu
+        FileMenu = menuBar.addMenu("&File")
+        processMenu = menuBar.addMenu("&Process")
+        analysisMenu = menuBar.addMenu("&Analysis")
+        simulateMenu = menuBar.addMenu("&Simulate")
+        widgetssMenu = menuBar.addMenu("&Widgets")
+        optionMenu = menuBar.addMenu("&Options")
+        
+        # Image Menu
+        exportMenu = FileMenu.addMenu("Export")
+        exportMenu.addAction(self.exportMainToImage)
+        exportMenu.addAction(self.exportSlaveToImage)
+        exportMenu.addAction(self.exportMainToClipboard)
+        exportMenu.addAction(self.exportSlaveToClipboard)
+        makeMovieMenu = FileMenu.addMenu("Make Movie from")
+        makeMovieMenu.addAction(self.makeMovieFromMain)
+        makeMovieMenu.addAction(self.makeMovieFromSlave)
+        
+        # Process Menu
+        backgdSubtractMenu = processMenu.addMenu("Background Subtract")
+        backgdSubtractMenu.addAction(self.backgdSubtract2DPlane)
+        backgdSubtractMenu.addAction(self.backgdSubtractPerLine)
+        processMenu.addAction(self.cropRegion)
+        perfectLatticeMenu = processMenu.addMenu("Perfect Lattice")
+        perfectLatticeMenu.addAction(self.perfectLatticeSquare)
+        perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
+        processMenu.addAction(self.lfCorrection)
+        processMenu.addAction(self.lineCut)
+        processMenu.addAction(self.lineCuts)
+        fourierFilterMenu = processMenu.addMenu("Fourier Filter")
+        fourierFilterMenu.addAction(self.fourierFilterOut)
+        fourierFilterMenu.addAction(self.fourierFilterIsolate)
+        processMenu.addAction(self.register)
+        mathMenu = processMenu.addMenu("Math")
+        mathMenu.addAction(self.mathAdd)
+        mathMenu.addAction(self.mathSubtract)
+        mathMenu.addAction(self.mathMultiply)
+        mathMenu.addAction(self.mathMultiplyByConst)
+        mathMenu.addAction(self.mathDivide)
+        mathMenu.addAction(self.mathDivideByConst)
+        mathMenu.addAction(self.mathDivideConstBy)
+        mathMenu.addAction(self.integral)
+        mathMenu.addAction(self.normalization)
+        processMenu.addAction(self.extractOneLayer)
+        
+        processMenu.addAction(self.imageProcessCustomized)
+        
+        # Analysis Menu
+        analysisMenu.addAction(self.fourierTransform)
+        lockIn2DMenu = analysisMenu.addMenu("2D Lock-in")        
+        lockIn2DMenu.addAction(self.lockIn2DAmplitudeMap)
+        lockIn2DMenu.addAction(self.lockIn2DPhaseMap)
+        analysisMenu.addAction(self.rMap)
+        analysisMenu.addAction(self.gapMap)
+        crossCorrMenu = analysisMenu.addMenu("Cross-Correlation")        
+        crossCorrMenu.addAction(self.crossCorrelation)
+        crossCorrMenu.addAction(self.statisticCrossCorrelation)
+        
+        # Simulate Menu
+        generateCurveMenu = simulateMenu.addMenu("Generate Curve")
+        generateCurveMenu.addAction(self.generateHeavisideCurve)
+        generateCurveMenu.addAction(self.generateCircleCurve)
+        generateCurveMenu.addAction(self.generateGaussianCurve)
+        generateCurveMenu.addAction(self.generateSinusoidalCurve)
+        generateLatticeMenu = simulateMenu.addMenu("Generate Lattice")
+        generateLatticeMenu.addAction(self.generatePerfectLattice)
+        generateLatticeMenu.addAction(self.generateLatticeWithLineDomainWall)
+        generateLatticeMenu.addAction(self.generateLatticeWithPeriodicDistortion)
+        
+        # Widgets Menu
+        widgetssMenu.addAction(self.showVarDockWidget)
+        widgetssMenu.addAction(self.showPlot1DDockWidget)
+        
+        # Options Menu
+        optionMenu.addAction(self.preferenceAction)
+        
+        #
+        self.setMenuBar(menuBar)
+        
+    def creat_statusBar(self):
+        self.status_bar = self.statusBar()
+        
+    def creat_actions(self):
+        # Image Menu
+        self.exportMainToImage = QtWidgets.QAction("Main to Image",self)
+        self.exportSlaveToImage = QtWidgets.QAction("Slave to Image",self)
+        self.exportMainToClipboard = QtWidgets.QAction("Main to Clipboard",self)
+        self.exportSlaveToClipboard = QtWidgets.QAction("Slave to Clipboard",self)
+        self.makeMovieFromMain = QtWidgets.QAction("Main",self)
+        self.makeMovieFromSlave = QtWidgets.QAction("Slave",self)
+        
+        # Process Menu
+        self.backgdSubtract2DPlane = QtWidgets.QAction("2D Plane",self)
+        self.backgdSubtractPerLine = QtWidgets.QAction("per line",self)
+        self.cropRegion = QtWidgets.QAction("Crop Region",self)
+        self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
+        self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
+        self.lfCorrection = QtWidgets.QAction("LF Correction",self)
+        self.lineCut = QtWidgets.QAction('Line Cut',self)
+        self.lineCuts = QtWidgets.QAction('Line Cuts',self)
+        self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
+        self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
+        self.register = QtWidgets.QAction("Register",self)
+        self.mathAdd = QtWidgets.QAction("m+s",self)
+        self.mathSubtract = QtWidgets.QAction("m-s",self)
+        self.mathMultiply = QtWidgets.QAction("m*s",self)
+        self.mathMultiplyByConst = QtWidgets.QAction("m*const.",self)
+        self.mathDivide = QtWidgets.QAction("m/s",self)
+        self.mathDivideByConst = QtWidgets.QAction("m/const.",self)
+        self.mathDivideConstBy = QtWidgets.QAction("const./m",self)
+        self.integral = QtWidgets.QAction("Integral",self)
+        self.normalization = QtWidgets.QAction("Normalization",self)
+        self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
+        
+        self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
+        
+        # Analysis Menu
+        self.fourierTransform = QtWidgets.QAction("Fourier Transform",self)
+        self.lockIn2DAmplitudeMap = QtWidgets.QAction("Amplitude Map",self)
+        self.lockIn2DPhaseMap = QtWidgets.QAction("Phase Map",self)
+        self.rMap = QtWidgets.QAction("R-Map",self)
+        self.gapMap = QtWidgets.QAction("Gap-Map",self)
+        self.crossCorrelation = QtWidgets.QAction('Cross Correlation',self)
+        self.statisticCrossCorrelation = QtWidgets.QAction('Statistic Cross Correlation',self)
+        
+        # Points Menu
+        self.setBraggPeaks = QtWidgets.QAction("Set Bragg Peaks",self)
+        self.setFilterPoints = QtWidgets.QAction("Set Filter Points",self)
+        self.setLockInPoints = QtWidgets.QAction("Set 2D Lock-in Points",self)
+        self.setLineCutPoints = QtWidgets.QAction("Set Line Cut Points",self)
+        self.setRegisterPointsFromMain = QtWidgets.QAction("Set Register Points from Main",self)
+        self.setRegisterPointsFromSlave = QtWidgets.QAction("Set Register Reference Points from Slave",self)
+        
+        # Simulate Menu
+        self.generateHeavisideCurve = QtWidgets.QAction("Heaviside2D")
+        self.generateCircleCurve = QtWidgets.QAction("Circle2D",self)
+        self.generateGaussianCurve = QtWidgets.QAction("Gaussian2D",self)
+        self.generateSinusoidalCurve = QtWidgets.QAction("Sinusoidal2D",self)
+        self.generatePerfectLattice = QtWidgets.QAction("Perfect Lattice",self)
+        self.generateLatticeWithLineDomainWall = QtWidgets.QAction("Lattice with Line Domain Wall",self)
+        self.generateLatticeWithPeriodicDistortion = QtWidgets.QAction("Lattice with Periodic Distortions",self)
+        
+        # Widgets Menu
+        self.showVarDockWidget = QtWidgets.QAction("Variables DockWidget",self)
+        self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D DockWidget",self)
+        
+        # Option Menu
+        self.preferenceAction = QtWidgets.QAction("Preference",self)
+        
+    def connect_actions(self):
+        pass
+        
+    """   Slots for Menu Actions   """ 
   

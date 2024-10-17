@@ -157,7 +157,7 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
                 # axis config
                 self.plot_config.add_config_axis()
                 config = {'xlabel':'Energy (V)',
-                          'ylabel':'Intensity (S)',
+                          'ylabel':'Conductance (S)',
                           'title':'dI/dV'}
                 self.plot_config.update_axis_config(0, config)
                 self.plot_config.apply_axis_config(self.get_axis(0) , 0)

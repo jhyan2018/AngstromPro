@@ -37,10 +37,14 @@ class PlotConfigWidget(QtWidgets.QWidget):
         # Create QToolBox for collapsible sections
         self.ui_toolbox = QtWidgets.QToolBox()
         self.ui_toolbox.addItem(self.create_figure_config_group(), "Figure Configuration")
-        self.ui_toolbox.addItem(self.create_axes_config_group(), "Axes Configuration")
+        self.ui_toolbox.addItem(self.create_axes_config_group(), "Axis Configuration")
         self.ui_toolbox.addItem(self.create_line_config_group(), "Line Configuration")
-
-            
+        self.ui_toolbox.addItem(self.create_tick_config_group(),'Tick Configuration')
+        self.ui_toolbox.addItem(self.create_legend_config_group(),'Legend Configuration')
+        self.ui_toolbox.addItem(self.create_grid_config_group(),'Grid Configuration')
+        self.ui_toolbox.addItem(self.create_spine_config_group(),'Spine Configuration')
+        self.ui_toolbox.addItem(self.create_annotation_config_group(),'Annotation Configuration')
+    
     def initNonUiMembers(self):
         pass
     
@@ -54,31 +58,57 @@ class PlotConfigWidget(QtWidgets.QWidget):
         """Create a QWidget for figure-level configurations."""
         group_widget = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout(group_widget)
-
+        
+        # Figure size
+        self.figure_width = QtWidgets.QSpinBox()
+        self.figure_width.setValue(10)
+        self.figure_height = QtWidgets.QSpinBox()
+        self.figure_height.setValue(10)
+        layout.addRow(QtWidgets.QLabel("Width:"),self.figure_width)
+        layout.addRow(QtWidgets.QLabel("Height:"),self.figure_height)
+        
         # DPI setting
         self.dpi_spinbox = QtWidgets.QSpinBox()
         self.dpi_spinbox.setRange(50, 300)
         self.dpi_spinbox.setValue(100)
         layout.addRow(QtWidgets.QLabel("DPI:"), self.dpi_spinbox)
-
-        # Face color setting
-        self.facecolor_button = QtWidgets.QPushButton("Choose Face Color")
-        self.facecolor_button.clicked.connect(self.choose_face_color)
-        self.facecolor_label = QtWidgets.QLabel("white")  # Display the selected color
-        layout.addRow(QtWidgets.QLabel("Face Color:"), self.facecolor_button)
-        layout.addRow(QtWidgets.QLabel("Selected:"), self.facecolor_label)
-
-        # Edge color setting
-        self.edgecolor_button = QtWidgets.QPushButton("Choose Edge Color")
-        self.edgecolor_button.clicked.connect(self.choose_edge_color)
-        self.edgecolor_label = QtWidgets.QLabel("black")  # Display the selected color
-        layout.addRow(QtWidgets.QLabel("Edge Color:"), self.edgecolor_button)
-        layout.addRow(QtWidgets.QLabel("Selected:"), self.edgecolor_label)
-
+        
         # Figure title setting
         self.fig_title_input = QtWidgets.QLineEdit()
         layout.addRow(QtWidgets.QLabel("Figure Title:"), self.fig_title_input)
+        
+        # Face color setting
+        self.facecolor_button = QtWidgets.QPushButton("C")
+        self.facecolor_button.clicked.connect(self.choose_face_color)
+        self.facecolor_value = QtWidgets.QLineEdit("white")  # Display the selected color
+        layout_facecolor = QtWidgets.QHBoxLayout()
+        layout_facecolor.addWidget(self.facecolor_value)
+        layout_facecolor.addWidget(self.facecolor_button)       
+        layout.addRow(QtWidgets.QLabel("Face Color:"), layout_facecolor)
+        
+        # Edge color setting
+        self.edgecolor_button = QtWidgets.QPushButton("C")
+        self.edgecolor_button.clicked.connect(self.choose_edge_color)
+        self.edgecolor_value = QtWidgets.QLineEdit("black")  # Display the selected color
+        layout_edgecolor = QtWidgets.QHBoxLayout()
+        layout_edgecolor.addWidget(self.edgecolor_value)
+        layout_edgecolor.addWidget(self.edgecolor_button)
+        layout.addRow(QtWidgets.QLabel("Edge Color:"), layout_edgecolor)
+        
+        # Transparency
+        self.figure_transparency = QtWidgets.QSpinBox()
+        self.figure_transparency.setValue(10)
+        layout.addRow(QtWidgets.QLabel("Transparency:"),self.figure_transparency)
 
+        # Padding
+        self.figure_padding = QtWidgets.QSpinBox()
+        self.figure_padding.setValue(10)
+        layout.addRow(QtWidgets.QLabel("Padding:"),self.figure_padding)
+        
+        # Frame
+        self.figure_frame = QtWidgets.QCheckBox()
+        layout.addRow(QtWidgets.QLabel("Frame:"),self.figure_frame)
+        
         return group_widget
 
     def create_axes_config_group(self):
@@ -102,19 +132,20 @@ class PlotConfigWidget(QtWidgets.QWidget):
         layout.addRow(QtWidgets.QLabel("Y-axis Min:"), self.ylim_min_input)
         layout.addRow(QtWidgets.QLabel("Y-axis Max:"), self.ylim_max_input)
 
-        # Axis ticks
-        self.xticks_input = QtWidgets.QLineEdit()
-        self.yticks_input = QtWidgets.QLineEdit()
-        layout.addRow(QtWidgets.QLabel("X-axis Ticks (comma-separated):"), self.xticks_input)
-        layout.addRow(QtWidgets.QLabel("Y-axis Ticks (comma-separated):"), self.yticks_input)
-
         # Axes title
         self.axes_title_input = QtWidgets.QLineEdit()
         layout.addRow(QtWidgets.QLabel("Axes Title:"), self.axes_title_input)
 
-        # Grid option
-        self.grid_checkbox = QtWidgets.QCheckBox("Show Grid")
-        layout.addRow(self.grid_checkbox)
+        # Aspect ratio
+        self.aspect_ratio = QtWidgets.QLineEdit()
+        layout.addRow(QtWidgets.QLabel("Aspect ratio:"), self.aspect_ratio)
+        
+        # Scale
+        self.log_scale = QtWidgets.QComboBox()
+        self.log_scale.addItems(['Linear','Log'])
+        layout.addRow(QtWidgets.QLabel("Scale:"), self.log_scale)
+        
+        # Axis position
 
         return group_widget
 
@@ -154,11 +185,51 @@ class PlotConfigWidget(QtWidgets.QWidget):
 
         return group_widget
     
+    def create_tick_config_group(self):
+        group_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(group_widget)
+        
+        # Axis ticks
+        self.xticks_input = QtWidgets.QLineEdit()
+        self.yticks_input = QtWidgets.QLineEdit()
+        layout.addRow(QtWidgets.QLabel("X-axis Ticks (comma-separated):"), self.xticks_input)
+        layout.addRow(QtWidgets.QLabel("Y-axis Ticks (comma-separated):"), self.yticks_input)
+
+        return group_widget
+    
+    def create_legend_config_group(self):
+        group_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(group_widget)
+        
+        return group_widget
+    
+    def create_grid_config_group(self):
+        group_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(group_widget)
+        
+        # Grid option
+        self.grid_checkbox = QtWidgets.QCheckBox("Show Grid")
+        layout.addRow(self.grid_checkbox)
+        
+        return group_widget
+    
+    def create_spine_config_group(self):
+        group_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(group_widget)
+        
+        return group_widget
+    
+    def create_annotation_config_group(self):
+        group_widget = QtWidgets.QWidget()
+        layout = QtWidgets.QFormLayout(group_widget)
+        
+        return group_widget
+    
     def choose_face_color(self):
         """Open a color dialog to choose the figure face color."""
         color = QtWidgets.QColorDialog.getColor()
         if color.isValid():
-            self.facecolor_label.setText(color.name())  # Update the label text
+            self.facecolor_value.setText(color.name())  # Update the label text
 
     def choose_edge_color(self):
         """Open a color dialog to choose the figure edge color."""
