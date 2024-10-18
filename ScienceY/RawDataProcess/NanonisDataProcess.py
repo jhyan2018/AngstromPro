@@ -604,12 +604,16 @@ class DataDatStru():
         # info - channel
         if channel == 'dIdV':
             info['Channel'] = 'dI/dV Curve'
+            info['Data_Name_Unit'] = 'dI/dV (S)'
         elif channel == 'Current':
             info['Channel'] = 'I(V) Curve'
+            info['Data_Name_Unit'] = 'Current (A)'
         elif channel == 'Phase':
             info['Channel'] = 'dI/dV Phase Curve'
+            info['Data_Name_Unit'] = 'Phase (rad)'
         elif channel == 'I-Z':
             info['Channel'] = 'I(Z) Curve'
+            info['Data_Name_Unit'] = 'Current (A)'
         else:
             pass 
     
