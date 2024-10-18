@@ -81,17 +81,27 @@ class Data1FLStru():
         info = uds_data.info
         
         info['Current Setpoint(A)'] = str(self.header['Current Setpoint (A)'])
-        info['Bias Setpoint(V)'] = str(self.header['Bias (V)'])
+        info['Bias (V)'] = str(self.header['Bias (V)'])
         
         if self.suffix == '1FL':
             info['LayerSignal'] = 'Bias (V)'
             layer_value_list = []
-            for a_v in uds_data.axis_value[-1]:
+            for a_v in uds_data.axis_value[0]:
                 layer_value_list.append(NumberExpression.float_to_simplified_number(a_v))
             separator = ',' 
             info['LayerValue'] = separator.join(layer_value_list)
         elif self.suffix == 'TFR':
             info['LayerValue'] = str(self.header['Bias (V)'])            
+        else:
+            pass
+        
+        # info - channel
+        if self.suffix == '1FL':
+            info['Channel'] = 'dI/dV Map'
+            info['Data_Name_Unit'] = 'dI/dV (S)'
+        elif self.suffix == 'TFR':
+            info['Channel'] = 'Topo'
+            info['Data_Name_Unit'] = 'Z (m)'
         else:
             pass
     
@@ -106,19 +116,9 @@ class Data1FLStru():
         uds_data = UdsDataStru(self.data3D, name)
         
         # axis name
-        uds_data.axis_name = ['X (m)', 'Y (m)', 'Bias (V)']
+        uds_data.axis_name = ['Bias (V)', 'X (m)', 'Y (m)']
         
         # axis value
-        x_width = self.header['Scan Range (m)']
-        y_height = self.header['Scan Range (m)']
-        x_points = self.header['xSize']
-        y_points = self.header['ySize']
-            
-        xx = np.linspace(0,x_width, x_points)
-        yy = np.linspace(0,y_height, y_points)
-        uds_data.axis_value.append(xx.tolist())
-        uds_data.axis_value.append(yy.tolist())
-        
         if self.suffix == '1FL':
             vStart = self.header['sweep start (V)']
             vStop = self.header['sweep stop (V)']
@@ -128,7 +128,17 @@ class Data1FLStru():
         elif self.suffix == 'TFR':
             uds_data.axis_value.append([self.header['Bias (V)']])
         else:
-            print('Unknow file type for STM1&2!')       
+            print('Unknow file type for STM1&2!') 
+
+        x_width = self.header['Scan Range (m)']
+        y_height = self.header['Scan Range (m)']
+        x_points = self.header['xSize']
+        y_points = self.header['ySize']
+            
+        xx = np.linspace(0,x_width, x_points)
+        yy = np.linspace(0,y_height, y_points)
+        uds_data.axis_value.append(xx.tolist())
+        uds_data.axis_value.append(yy.tolist())
         
         # info
         self.setDataInfo(uds_data)

@@ -22,8 +22,7 @@ User Modules
 """
 from ..GUI.Image2Uds3Widget import Image2Uds3Widget
 from ..GUI.Plot1Uds2Widget import Plot1Uds2Widget
-from ..RawDataProcess import NanonisDataProcess
-from ..RawDataProcess.UdsDataProcess import UdsDataProcess
+from ..RawDataProcess import NanonisDataProcess, LFDataProcess, UdsDataProcess
 from ..ImageProcess import ImgProc
 from ..GUI.general.NumberExpression import NumberExpression
 """
@@ -81,8 +80,8 @@ class SnapshotManager:
         
         #
         self.snapshots_render_plot = Plot1Uds2Widget()
-        self.snapshots_render_plot.static_canvas.setFixedHeight(256)
-        self.snapshots_render_plot.static_canvas.setFixedWidth(256)
+        self.snapshots_render_plot.static_canvas.setFixedHeight(512)
+        self.snapshots_render_plot.static_canvas.setFixedWidth(512)
 
     def load_metadata_srcfile(self):
         if os.path.exists(self.metadata_srcfile):
@@ -192,6 +191,11 @@ class SnapshotManager:
                 self.generate_snapshots_to_metafile_from_sxm(srcfile_path, src_file_lastmodified)
             else:
                 pass
+        elif suffix == 'dat':
+            if channel == None:
+                self.generate_snapshots_to_metafile_from_dat(srcfile_path, src_file_lastmodified)
+            else:
+                pass
         elif suffix == 'TFR':
             self.generate_snapshots_to_metafile_from_TFR(srcfile_path, src_file_lastmodified)
         elif suffix == '1FL':
@@ -213,11 +217,15 @@ class SnapshotManager:
     
     def generate_singlelayer_snapshots_Plot1U2Widget(self, snapshot_info):
         # use BytesIo to make sure rendering the whole canvas
+        """
         buffer = BytesIO()
         self.snapshots_render_plot.static_canvas.figure.savefig(buffer, format='png', bbox_inches='tight')
         buffer.seek(0)
         pixmap = QtGui.QPixmap()
         pixmap.loadFromData(buffer.getvalue())
+        """
+        pixmap = QtGui.QPixmap(self.snapshots_render_plot.static_canvas.size())
+        self.snapshots_render_plot.static_canvas.render(pixmap)
         snapshot_info.pixmap.append(pixmap)
         
         snapshot_info.ch_layer_value.append('0')
@@ -474,19 +482,133 @@ class SnapshotManager:
         self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
         self.save_metadata_srcfile()    
         self.save_snapshots(snapshot_info)
+        
+    def generate_snapshots_to_metafile_from_dat(self, srcfile_path, src_file_lastmodified):
+        srcfile_name = srcfile_path.split('/')[-1].split('.')[0]
+        dataDat = NanonisDataProcess.DataDatStru(srcfile_path, srcfile_name)  
+        
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        if dataDat.header['Experiment'] == 'bias spectroscopy':            
+            if ('LI Demod 1 X (A)' in dataDat.channel_dict['dIdV']) or ('Input 2 (V)' in dataDat.channel_dict['dIdV']): 
+                uds_didv = dataDat.get_dIdV()
+                channel = uds_didv.info.get('Channel', None)
+                if not channel == None:
+                    snapshot_info.channel.append(channel)
+                else:
+                    snapshot_info.channel.append('dI/dV Map')
+                    
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_didv)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+                
+            if 'Current (A)' in dataDat.channel_dict['Current']:
+                uds_current = dataDat.get_Current()
+                channel = uds_current.info.get('Channel', None)
+                if not channel == None:
+                    snapshot_info.channel.append(channel)
+                else:
+                    snapshot_info.channel.append('Current Map')
+                
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_current)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+                
+            if 'LI Demod 1 Y (A)' in dataDat.channel_dict['Phase']:
+                uds_didv_phase = dataDat.get_theta()
+                channel = uds_didv_phase.info.get('Channel', None)
+                if not channel == None:
+                    snapshot_info.channel.append(channel)
+                else:
+                    snapshot_info.channel.append('dI/dV Phase Map')
+                
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_didv_phase)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+        elif dataDat.header['Experiment'] == 'Z spectroscopy':
+            if 'Current (A)' in dataDat.channel_dict['I-Z']:
+                uds_I_Z = dataDat.get_I_Z()
+                channel = uds_I_Z.info.get('Channel', None)
+                if not channel == None:
+                    snapshot_info.channel.append(channel)
+                else:
+                    snapshot_info.channel.append('I-Z Map')
+                
+                snapshot_info.ch_type.append('PLOT')
+                self.set_snapshots_render_plot_data(uds_I_Z)
+                self.generate_singlelayer_snapshots_Plot1U2Widget(snapshot_info)
+                
+        # pivotal_info
+        if 'Current>Current (A)' in dataDat.header.keys():
+            current = NumberExpression.float_to_simplified_number(float(dataDat.header['Current>Current (A)']))
+            snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        if 'Bias>Bias (V)' in dataDat.header.keys():
+            bias = NumberExpression.float_to_simplified_number(float(dataDat.header['Bias>Bias (V)']))
+            snapshot_info.pivotal_info.append('Bias Setpoint(V):' + bias)
 
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)
+        
     def generate_snapshots_to_metafile_from_TFR(self, srcfile_path, src_file_lastmodified):
-        pass
-        """    
-        data1fl = LFDataProcess.Data1FLStru(full_path)
-        globals()['uds3D_'+file_name+'_topo'] = data1fl.get_data() 
-        """ 
-    def generate_snapshots_to_metatfile_from_1FL(self, srcfile_path, src_file_lastmodified):
-        pass
-        """    
-        data1fl = LFDataProcess.Data1FLStru(full_path)
-            globals()['uds3D_'+file_name+'_dIdV'] = data1fl.get_data()
-        """     
+        dataTFR = LFDataProcess.Data1FLStru(srcfile_path)
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        uds_topo = dataTFR.get_Topo()
+        channel = uds_topo.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Topo')
+        snapshot_info.ch_type.append('IMAGE')
+        #background subtract
+        uds_topo_bg = ImgProc.ipBackgroundSubtract2D(uds_topo, 2, 'PerLine')
+        
+        self.set_snapshots_render_image_data(uds_topo_bg)
+        self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        # pivotal_info
+        
+        current = str(dataTFR.header['Current Setpoint (A)'])
+        snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        bias = str(dataTFR.header['Bias (V)'])
+        snapshot_info.pivotal_info.append('Bias (V):' + bias)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)      
+        
+    def generate_snapshots_to_metafile_from_1FL(self, srcfile_path, src_file_lastmodified):
+        data1fl = LFDataProcess.Data1FLStru(srcfile_path)
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        uds_didv = data1fl.get_dIdV()
+        channel = uds_didv.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Topo')
+        snapshot_info.ch_type.append('IMAGE')
+        
+        self.set_snapshots_render_image_data(uds_didv)
+        self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        # pivotal_info
+        
+        current = str(data1fl.header['Current Setpoint (A)'])
+        snapshot_info.pivotal_info.append('Current Setpoint(A):' + current)
+        bias = str(data1fl.header['Bias (V)'])
+        snapshot_info.pivotal_info.append('Bias (V):' + bias)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)    
+        
     def generate_snapshots_to_metafile_from_uds(self, srcfile_path, src_file_lastmodified):
         dataUdp = UdsDataProcess(srcfile_path)
         
@@ -543,10 +665,25 @@ class SnapshotManager:
             else:
                 print('Load sxm channel data error: Unknown channel!')
                 return None
+        elif suffix == 'dat':
+            dataDat = NanonisDataProcess.DataDatStru(srcfile_path, srcfile_name)
+            if channel == 'dI/dV Curve':
+                return dataDat.get_dIdV()
+            elif channel == 'Current Curve':
+                return dataDat.get_Current()
+            elif channel =='dI/dV Phase Curve':
+                return dataDat.get_theta()
+            elif channel == 'I(Z) Curve':
+                return dataDat.get_I_Z()
+            else:
+                print('Load sxm channel data error: Unknown channel!')
+                return None
         elif suffix == 'TFR':
-            pass
+            dataTFR = LFDataProcess.Data1FLStru(srcfile_path)
+            return dataTFR.get_Topo()
         elif suffix == '1FL':
-            pass
+            data1FL = LFDataProcess.Data1FLStru(srcfile_path)
+            return data1FL.get_dIdV()
         elif suffix == 'uds':
             if channel == None:
                 pass
