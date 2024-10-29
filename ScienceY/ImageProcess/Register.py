@@ -37,7 +37,7 @@ def Register(data3D, register_points, register_points_reference):
     
     affine.srcMappedPoints(data3D.shape[-2], data3D.shape[-1])
     
-    data_processed = np.zeros((data3D.shape[0], data3D.shape[-2], data3D.shape[-1]))
+    data_processed = np.zeros_like(data3D)
     
     for i in range(data3D.shape[0]):
         data_processed[i,:,:] = affine.affineMappingForRegister(data3D[i,:,:],'bilinear','constant')
