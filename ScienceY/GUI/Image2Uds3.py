@@ -368,8 +368,15 @@ class Image2Uds3(GuiFrame):
         perfectLatticeMenu.addAction(self.perfectLatticeSquare)
         perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
         processMenu.addAction(self.lfCorrection)
-        processMenu.addAction(self.lineCut)
-        processMenu.addAction(self.lineCuts)
+        lineCutMenu = processMenu.addMenu('Line Cut')
+        lineCutMenu.addAction(self.rAxisLineCut)
+        lineCutMenu.addAction(self.eAxisLineCut)
+        lineCutMenu.addAction(self.eVSrLineCut)
+        circleCutMenu = processMenu.addMenu('Circle Cut')
+        circleCutMenu.addAction(self.rAxisCircleCut)
+        circleCutMenu.addAction(self.eAxisCircleCut)
+        circleCutMenu.addAction(self.eVStCircleCut)
+        #processMenu.addAction(self.lineCuts)
         fourierFilterMenu = processMenu.addMenu("Fourier Filter")
         fourierFilterMenu.addAction(self.fourierFilterOut)
         fourierFilterMenu.addAction(self.fourierFilterIsolate)
@@ -403,7 +410,7 @@ class Image2Uds3(GuiFrame):
         pointsMenu.addAction(self.setBraggPeaks)
         pointsMenu.addAction(self.setFilterPoints)
         pointsMenu.addAction(self.setLockInPoints)
-        pointsMenu.addAction(self.setLineCutPoints)
+        pointsMenu.addAction(self.setLineOrCircleCutPoints)
         registerMenu = pointsMenu.addMenu('set Register Points')
         registerMenu.addAction(self.setRegisterPointsFromMain)
         registerMenu.addAction(self.setRegisterPointsFromSlave)
@@ -448,8 +455,13 @@ class Image2Uds3(GuiFrame):
         self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
         self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
         self.lfCorrection = QtWidgets.QAction("LF Correction",self)
-        self.lineCut = QtWidgets.QAction('Line Cut',self)
-        self.lineCuts = QtWidgets.QAction('Line Cuts',self)
+        self.rAxisLineCut = QtWidgets.QAction('A(r)',self)
+        self.eAxisLineCut = QtWidgets.QAction('A(E)',self)
+        self.eVSrLineCut = QtWidgets.QAction('E VS r',self)
+        self.rAxisCircleCut = QtWidgets.QAction('A(r)',self)
+        self.eAxisCircleCut = QtWidgets.QAction('A(E)',self)
+        self.eVStCircleCut = QtWidgets.QAction('E VS theta',self)
+        #self.lineCuts = QtWidgets.QAction('Line Cuts',self)
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
         self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
         self.register = QtWidgets.QAction("Register",self)
@@ -479,7 +491,7 @@ class Image2Uds3(GuiFrame):
         self.setBraggPeaks = QtWidgets.QAction("Set Bragg Peaks",self)
         self.setFilterPoints = QtWidgets.QAction("Set Filter Points",self)
         self.setLockInPoints = QtWidgets.QAction("Set 2D Lock-in Points",self)
-        self.setLineCutPoints = QtWidgets.QAction("Set Line Cut Points",self)
+        self.setLineOrCircleCutPoints = QtWidgets.QAction("Set Line/Circle Cut Points",self)
         self.setRegisterPointsFromMain = QtWidgets.QAction("Set Register Points from Main",self)
         self.setRegisterPointsFromSlave = QtWidgets.QAction("Set Register Reference Points from Slave",self)
         
@@ -514,8 +526,13 @@ class Image2Uds3(GuiFrame):
         self.perfectLatticeSquare.triggered.connect(self.actPerfectLatticeSqaure)
         self.perfectLatticeHexagonal.triggered.connect(self.actPerfectLatticeHexagonal)
         self.lfCorrection.triggered.connect(self.actLFCorrection)
-        self.lineCut.triggered.connect(self.actLineCut)
-        self.lineCuts.triggered.connect(self.actLineCuts)
+        self.rAxisLineCut.triggered.connect(self.actRAxisLineCut)
+        self.eAxisLineCut.triggered.connect(self.actEAxisLineCut)
+        self.eVSrLineCut.triggered.connect(self.actEvsRLineCut)
+        self.rAxisCircleCut.triggered.connect(self.actRAxisCircleCut)
+        self.eAxisCircleCut.triggered.connect(self.actEAxisCircleCut)
+        self.eVStCircleCut.triggered.connect(self.actTvsECircleCut)
+        #self.lineCuts.triggered.connect(self.actLineCuts)
         self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
         self.fourierFilterIsolate.triggered.connect(self.actFourierFilterIsolate)
         self.register.triggered.connect(self.actRegister)
@@ -545,7 +562,7 @@ class Image2Uds3(GuiFrame):
         self.setBraggPeaks.triggered.connect(self.actSetBraggPeaks)
         self.setFilterPoints.triggered.connect(self.actSetFilterPoints)
         self.setLockInPoints.triggered.connect(self.actSetLockInPoints)
-        self.setLineCutPoints.triggered.connect(self.actSetLineCutPoints)
+        self.setLineOrCircleCutPoints.triggered.connect(self.actSetLineOrCircleCutPoints)
         self.setRegisterPointsFromMain.triggered.connect(self.actSetRegisterPointsFromMain)
         self.setRegisterPointsFromSlave.triggered.connect(self.actSetRegisterPointsFromSlave)
         
@@ -794,7 +811,111 @@ class Image2Uds3(GuiFrame):
             
         # update var list
         self.appendToLocalVarList(uds_data_processed)
+    
+    def LineCut(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 1
+        W = 0
+        num_points = None
+        
+        if len(params) != 0:
+            params = params.replace(' ','').split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                order = int(params[0])
+            elif param_numbers == 2:
+                order = int(params[0])
+                W = int(params[1])
+            elif param_numbers == 3:
+                order = int(params[0])
+                W = int(params[1])
+                if params[2] == 'None':
+                    num_points = None
+                else:
+                    num_points = int(params[2])
+                
+        # process
+        uds_data_processed = ImgProc.ipLineCut(self.uds_variable_pt_list[ct_var_index], order, W, num_points) 
+        
+        return uds_data_processed # linecut_values.shape[0] = energy.shape[0], linecut_values.shape[1] = distances.shape[0]
+        
+    def actRAxisLineCut(self):
+        uds_data = self.LineCut()
+        for i in range(len(uds_data.axis_name)):
+            if uds_data.axis_name[i] == 'Bias (V)':
+                energy = uds_data.axis_value[i]
+            if uds_data.axis_name[i] == 'Distance (m)':
+                distance = uds_data.axis_value[i]
+        pass
+    
+    def actEAxisLineCut(self):
+        uds_data = self.LineCut()
+        for i in range(len(uds_data.axis_name)):
+            if uds_data.axis_name[i] == 'Bias (V)':
+                energy = uds_data.axis_value[i]
+            if uds_data.axis_name[i] == 'Distance (m)':
+                distance = uds_data.axis_value[i]
+        pass
+        
+    def actEvsRLineCut(self):
+        uds_data_processed = self.LineCut()
+    
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        #
+        self.clearWidgetsContents()
+    
+    def CircleCut(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 1
+        W = 0
+        num_points = None
+        
+        if len(params) != 0:
+            params = params.replace(' ','').split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                order = int(params[0])
+            elif param_numbers == 2:
+                order = int(params[0])
+                W = int(params[1])
+            elif param_numbers == 3:
+                order = int(params[0])
+                W = int(params[1])
+                if params[2] == 'None':
+                    num_points = None
+                else:
+                    num_points = int(params[2])
+                
+        # process
+        uds_data_processed = ImgProc.ipCircleCut(self.uds_variable_pt_list[ct_var_index], order, W, num_points) 
+        return uds_data_processed
+    
+    def actRAxisCircleCut(self):
+        uds_data = self.CircleCut()
+        pass
+    
+    def actEAxisCircleCut(self):
+        uds_data = self.CircleCut()
+        pass
+    
+    def actTvsECircleCut(self):
+        uds_data_processed = self.CircleCut()
+    
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        #
+        self.clearWidgetsContents()   
+        
+        
+        
+    '''
     def actLineCut(self):
         if 'LineCutPoints' in self.ui_img_widget_main.uds_variable.info:
             
@@ -818,7 +939,9 @@ class Image2Uds3(GuiFrame):
                 self.ui_img_widget_main.uds_variable.info['LineCutPoints'], start = energy_start, end = energy_end, pcs = p)
         else:
             print('No - LineCutPoints - keys exists.')
-            
+
+
+
     def actLineCuts(self):
         self.status_bar.showMessage("Params()",5000)
         
@@ -848,6 +971,7 @@ class Image2Uds3(GuiFrame):
             
             #
             self.clearWidgetsContents()
+        '''
             
     def actFourierFilterOut(self):
         self.status_bar.showMessage("Params(kSigma=1.0)",5000)
@@ -1255,21 +1379,23 @@ class Image2Uds3(GuiFrame):
         #
         self.clearWidgetsContents()
         
-    def actSetLineCutPoints(self):
+    def actSetLineOrCircleCutPoints(self):
         var_name = self.ui_img_widget_main.uds_variable.name
         bp_var_index = self.uds_variable_name_list.index(var_name)
         
         points = len (self.ui_img_widget_main.img_picked_points_list)
-        if   points > 1:
+        if   points == 2:
             separator = ','
             picked_points = separator.join(self.ui_img_widget_main.img_picked_points_list)
 
-            self.uds_variable_pt_list[bp_var_index].info['LineCutPoints'] = picked_points
+            self.uds_variable_pt_list[bp_var_index].info['LineOrCircleCutPoints'] = picked_points
             
             #
             if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
-                self.ui_img_widget_main.uds_variable.info['LineCutPoints'] = picked_points
+                self.ui_img_widget_main.uds_variable.info['LineOrCircleCutPoints'] = picked_points
                 self.ui_img_widget_main.updateDataInfo()
+        else:
+            print('incorrect points number')
         #
         self.clearWidgetsContents()
                 

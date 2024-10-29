@@ -28,6 +28,7 @@ from .Register import Register
 from . StatisticCrossCorrelation import StatisticCrossCorrelation
 from . CrossCorrelation import CrossCorrelation
 from .PixelInterpolation import RasterPixelInterpolation
+from .LineAndCircleCut import LineCut, CircleCut
 """
 function Module
 """
@@ -79,8 +80,10 @@ def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-            
-    #
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history = 'ImgProc.ipBackgroundSubtract2D:'
     c_history += 'order=' + str(order) + ';'
     c_history += 'method=' + method
@@ -102,7 +105,10 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    #
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = [uds3D_data.axis_value[0], uds3D_data.axis_value[1][r_topLeft:r_bottomRight+1], uds3D_data.axis_value[c_topLeft:c_bottomRight+1]]
+    
     c_history = 'ImgProc.ipCropRegion2D:'   
     c_history += 'r_topLeft=' + str(r_topLeft) + ';'
     c_history += 'c_topLeft=' + str(c_topLeft) + ';'
@@ -123,8 +129,12 @@ def ipFourierTransform2D(uds3D_data):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history = 'ImgProc.ipFourierTransform2D:'
     uds3D_data_processed.proc_history.append(c_history)
     
@@ -159,7 +169,13 @@ def ipPerfectLattice(uds3D_data, lattice_type):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    #
+    
+    e,X,Y = uds3D_data_processed.shape
+    inter_X = uds3D_data.axis_value[1][1] - uds3D_data.axis_value[1][0]
+    inter_Y = uds3D_data.axis_value[2][1] - uds3D_data.axis_value[2][0]
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = [uds3D_data.axis_value[0], inter_X * list(range(X)), inter_Y * list(range(Y))]
+    
     c_history = 'ImgProc.ipPerfectLattice:'
     c_history += 'lattice_type=' + lattice_type + ';'
     c_history += 'BraggPeaks=' + uds3D_data.info['BraggPeaks']
@@ -253,7 +269,9 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipLFCorrection:'
     c_history += 'rSigma_ref_a0=' + str(rSigma_ref_a0) + ';'
     c_history += 'displacementField=' + displacementField.name + ';'
@@ -262,6 +280,7 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
 
     return uds3D_data_processed
 
+'''
 def ipLineCuts(uds3D_data, linecut_pts, intercaltion_pts=30, lc_type='RAIDAL'):
     lc_pts = linecut_pts.split(',')
     lcPx1 = int(lc_pts[0])
@@ -293,7 +312,7 @@ def ipLineCuts(uds3D_data, linecut_pts, intercaltion_pts=30, lc_type='RAIDAL'):
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
     
     return uds3D_data_processed
-    
+ '''   
 
 def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1): 
     uds3D_dataCopy = UdsDataStru(uds3D_data.data, uds3D_data.name)
@@ -312,7 +331,10 @@ def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    #
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipFourierFilterOut:'
     c_history += 'windowType=' + windowType + ';'
     c_history += 'kSigma=' + str(kSigma) + ';'
@@ -349,7 +371,10 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-    #
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipFourierFilterIsolate:'
     c_history += 'windowType=' + windowType + ';'
     c_history += 'kSigma=' + str(kSigma) + ';'
@@ -404,7 +429,9 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True, pha
         for i in uds3D_data.proc_history:
             uds3D_data_analysed.proc_history.append(i)
     
-    #
+    uds3D_data_analysed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_analysed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipLockIn2D:'
     c_history += 'px=' + str(px) + ';'
     c_history += 'py=' + str(py) + ';'
@@ -438,7 +465,9 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
         for i in uds3D_data_A.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data_A.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data_A.axis_value.copy()
+    
     c_history ='ImgProc.ipMath:'
     c_history += 'operator=' + operator + ';'
     c_history += 'uds3D_data_B=' + uds3D_data_B.name     
@@ -456,7 +485,9 @@ def ipMathX(uds3D_data, Const = 1):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipMath:'
     c_history += 'Multiplied by' + str(Const)  
     uds3D_data_processed.proc_history.append(c_history)
@@ -473,7 +504,9 @@ def ipMathDC(uds3D_data, Const = 1):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipMath:'
     c_history += 'Divided by' + str(Const)  
     uds3D_data_processed.proc_history.append(c_history)
@@ -490,7 +523,9 @@ def ipMathCD(uds3D_data, Const = 1):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history ='ImgProc.ipMath:'
     c_history += str(Const) + 'Divided by' + uds3D_data.name
     uds3D_data_processed.proc_history.append(c_history)
@@ -508,11 +543,13 @@ def ipRmap(uds3D_data):
                     rMap_layers_value.append( abs(uds_var_layer_value[i]) )
     
     rMap_layers = len(rMap_layers_value)
-    data_processed = np.zeros( (rMap_layers, uds3D_data.data.shape[-2], uds3D_data.data.shape[-1]) )   
+    data_processed = np.zeros( (rMap_layers, uds3D_data.data.shape[-2], uds3D_data.data.shape[-1]) )
+    energy_axis_value = []
     for i in range( rMap_layers ):
         posIdx = uds_var_layer_value.index( rMap_layers_value[i]) 
         negIdx = uds_var_layer_value.index( -rMap_layers_value[i] )
         data_processed[i,:,:] = uds3D_data.data[posIdx,:,:] / uds3D_data.data[negIdx,:,:]
+        energy_axis_value.append(uds3D_data.axis_value[0][posIdx])
                 
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_rmp')
     
@@ -528,7 +565,9 @@ def ipRmap(uds3D_data):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = [energy_axis_value,uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
+    
     c_history ='ImgProc.ipRmap:'
     uds3D_data_processed.proc_history.append(c_history)
     
@@ -552,8 +591,10 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.axis_name = ['Gap (V)', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
+    uds3D_data_processed.axis_value = [[],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
     
-    #
     c_history ='ImgProc.ipGapMap:'
     c_history += 'order=' + str(order) + ';'
     c_history += 'enery_start=' + str(enery_start) + ';'
@@ -584,8 +625,10 @@ def ipRegister(uds3D_data):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
     
-    #
     c_history ='ImgProc.ipRegister:'
     c_history += 'RegisterPoints=' + uds3D_data.info['RegisterPoints'] + ';'
     c_history += 'RegisterReferencePoints=' + uds3D_data.info['RegisterReferencePoints']
@@ -643,8 +686,10 @@ def ipExtractOneLayer(uds3D_data, layer = 0):
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
-            
-    #
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = [uds3D_data.axis_value[0][layer], uds3D_data.axis_value[1], uds3D_data.axis_value[2]]
+    
     c_history ='ImgProc.ipExtractOneLayer:' + str(layer)
     uds3D_data_processed.proc_history.append(c_history)
     
@@ -662,7 +707,9 @@ def ipIntegral(uds3D_data, start, end):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
             
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = [[], uds3D_data.axis_value[1], uds3D_data.axis_value[2]]
+    
     c_history  = 'ImgProc.ipIntegral:'
     c_history += ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
     uds3D_data_processed.proc_history.append(c_history)
@@ -681,8 +728,96 @@ def ipNormalization(uds3D_data):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
             
-    #
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
     c_history = 'ImgProc.ipNormalization:' 
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
+    data3D = uds3D_data.data
+    LineCutPoints = ipGetPickedPoints(uds3D_data, 'LineOrCircleCutPoints')
+    lCPx1 = LineCutPoints[0][0]
+    lCPy1 = LineCutPoints[0][1]
+    lCPx2 = LineCutPoints[1][0]
+    lCPy2 = LineCutPoints[1][1]
+    
+    if order > 3:
+        lineCut = LineCut(data3D, lCPx1, lCPy1, lCPx2, lCPy2)
+        linecut_values, linecut_points = lineCut.bresenham_line()
+    else:
+        lineCut = LineCut(data3D, lCPx1, lCPy1, lCPx2, lCPy2, order = order, num_points = num_points)
+        if W == 0:
+            linecut_values, linecut_points = lineCut.linecut_interpolated()
+        else:
+            linecut_values, linecut_points, nearby_points = lineCut.linecut_with_width_average(W)
+    
+    distances = np.zeros(linecut_points.shape[0])
+    for i in range(linecut_points.shape[0]):
+        if i == 0:
+            distance = 0
+        else:
+            distance += np.hypot(linecut_points[i,0] - linecut_points[i-1,0], linecut_points[i,1] - linecut_points[i-1,1])
+        distances[i] = distance 
+    for i in range(len(uds3D_data.axis_name)):
+        if uds3D_data.axis_name[i] == 'X (m)':
+            distances = distances * (uds3D_data.axis_value[i][1]-uds3D_data.axis_value[i][0])
+            
+    uds3D_data_processed = UdsDataStru(linecut_values[np.newaxis,:], uds3D_data.name + '_lc') 
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.info['LayerValue'] = '0'
+    
+    for i in range(len(uds3D_data.axis_name)):
+        if uds3D_data.axis_name[i] == 'Bias (V)':
+            uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Distance (m)']
+            uds3D_data_processed.axis_value = [[], uds3D_data.axis_value[i], distances]
+    
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+    #
+    c_history = 'ImgProc.ipLineCut:' 
+    c_history += 'LineCutPoints: ' + uds3D_data.info['LineOrCircleCutPoints']+'; '
+    c_history += 'order: ' + str(order) +'; ' + 'linewidth: ' + str(W)
+    uds3D_data_processed.proc_history.append(c_history)
+        
+    return uds3D_data_processed 
+    
+
+def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
+    data3D = uds3D_data.data
+    CircleCutPoints = ipGetPickedPoints(uds3D_data, 'LineOrCircleCutPoints')
+    CCPx1 = CircleCutPoints[0][0]
+    CCPy1 = CircleCutPoints[0][1]
+    CCPx2 = CircleCutPoints[1][0]
+    CCPy2 = CircleCutPoints[1][1]
+    
+    circleCut = CircleCut(data3D, CCPx1, CCPy1, CCPx2, CCPy2, order = order, num_points = num_points)
+    if W == 0:
+        circlecut_values, circlecut_points = circleCut.circlecut_interpolated()
+    else:
+        circlecut_values, circlecut_points, nearby_points = circleCut.circlecut_with_width_average_circle(W)
+    
+    theta = np.linspace(0, 2, circlecut_points.shape[0])
+    
+    uds3D_data_processed = UdsDataStru(circlecut_values[np.newaxis,:], uds3D_data.name + '_cc') 
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.info['LayerValue'] = '0'
+    
+    for i in range(len(uds3D_data.axis_name)):
+        if uds3D_data.axis_name[i] == 'Bias (V)':
+            uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Theta (*\u03C0)']
+            uds3D_data_processed.axis_value = [[], uds3D_data.axis_value[i], theta]
+    
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+    #
+    c_history = 'ImgProc.ipCircleCut:' 
+    c_history += 'CircleCutPoints: ' + uds3D_data.info['LineOrCircleCutPoints']+'; '
+    c_history += 'order: ' + str(order) +'; ' + 'linewidth: ' + str(W)
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
