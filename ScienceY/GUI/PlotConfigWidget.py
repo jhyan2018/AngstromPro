@@ -61,6 +61,13 @@ class PlotObjManager:
 
 class PlotConfigKey:
     # Figure
+    FIGURE_SIZE = 'figsize'
+    DPI = 'dpi'
+    FIGURE_TITLE = 'suptitle'
+    FIGURE_FACECOLOR = 'figfacecolor'
+    FIGURE_EDGECOLOR = 'figedgecolor'
+    FIGURE_ALPHA = 'figalpha'
+    FIGURE_PADDING = 'figpadding'
     
     # Axis
     X_LABEL = 'xlabel'
@@ -187,12 +194,22 @@ class PlotConfigHandler:
         
     def handle_dpi(self, fig, value):
         fig.set_dpi(value)
-        
-    def handle_facecolor(self, fig, value):
-        fig.set_facecolor(value)
 
     def handle_suptitle(self, fig, value):
         fig.suptitle(value)
+        
+    def handle_figfacecolor(self, fig, value):
+        fig.set_facecolor(value)
+        
+    def handle_figedgecolor(self, fig, value):
+        fig.patch.set_edgecolor(value)
+        fig.patch.set_linewidth(5)
+
+    def handle_figalpha(self, fig, value):
+        fig.patch.set_alpha(value)
+    
+    def handle_figpadding(self, fig, value):
+        fig.subplots_adjust(left=value, right=1-value, top=1-value, bottom=value)
         
     # Axis
     def handle_xlabel(self, ax, value):
@@ -393,10 +410,12 @@ class PlotConfigWidget(QtWidgets.QWidget):
         layout = QtWidgets.QFormLayout(group_widget)
         
         # Figure size
-        self.figure_width = QtWidgets.QSpinBox()
+        self.figure_width = QtWidgets.QDoubleSpinBox()
         self.figure_width.setValue(10)
-        self.figure_height = QtWidgets.QSpinBox()
+        self.figure_width.editingFinished.connect(self.ui_config_figsize_changed)
+        self.figure_height = QtWidgets.QDoubleSpinBox()
         self.figure_height.setValue(10)
+        self.figure_height.editingFinished.connect(self.ui_config_figsize_changed)
         layout.addRow(QtWidgets.QLabel("Width:"),self.figure_width)
         layout.addRow(QtWidgets.QLabel("Height:"),self.figure_height)
         
@@ -404,16 +423,19 @@ class PlotConfigWidget(QtWidgets.QWidget):
         self.dpi_spinbox = QtWidgets.QSpinBox()
         self.dpi_spinbox.setRange(50, 300)
         self.dpi_spinbox.setValue(100)
+        self.dpi_spinbox.editingFinished.connect(self.ui_config_dpi_changed)
         layout.addRow(QtWidgets.QLabel("DPI:"), self.dpi_spinbox)
         
         # Figure title setting
         self.fig_title_input = QtWidgets.QLineEdit()
+        self.fig_title_input.editingFinished.connect(self.ui_config_suptitle_changed)
         layout.addRow(QtWidgets.QLabel("Figure Title:"), self.fig_title_input)
         
         # Face color setting
         self.facecolor_button = QtWidgets.QPushButton("C")
-        self.facecolor_button.clicked.connect(self.choose_face_color)
+        self.facecolor_button.clicked.connect(self.choose_fig_face_color)
         self.facecolor_value = QtWidgets.QLineEdit("white")  # Display the selected color
+        self.facecolor_value.textChanged.connect(self.ui_config_figfacecolor_changed)
         layout_facecolor = QtWidgets.QHBoxLayout()
         layout_facecolor.addWidget(self.facecolor_value)
         layout_facecolor.addWidget(self.facecolor_button)       
@@ -421,26 +443,27 @@ class PlotConfigWidget(QtWidgets.QWidget):
         
         # Edge color setting
         self.edgecolor_button = QtWidgets.QPushButton("C")
-        self.edgecolor_button.clicked.connect(self.choose_edge_color)
+        self.edgecolor_button.clicked.connect(self.choose_fig_edge_color)
         self.edgecolor_value = QtWidgets.QLineEdit("black")  # Display the selected color
+        self.edgecolor_value.textChanged.connect(self.ui_config_figedgecolor_changed)
         layout_edgecolor = QtWidgets.QHBoxLayout()
         layout_edgecolor.addWidget(self.edgecolor_value)
         layout_edgecolor.addWidget(self.edgecolor_button)
         layout.addRow(QtWidgets.QLabel("Edge Color:"), layout_edgecolor)
         
         # Transparency
-        self.figure_transparency = QtWidgets.QSpinBox()
-        self.figure_transparency.setValue(10)
+        self.figure_transparency = QtWidgets.QDoubleSpinBox()
+        self.figure_transparency.setValue(1)
+        self.figure_transparency.setRange(0,1)
+        self.figure_transparency.editingFinished.connect(self.ui_config_figtransparency_changed)
         layout.addRow(QtWidgets.QLabel("Transparency:"),self.figure_transparency)
 
         # Padding
-        self.figure_padding = QtWidgets.QSpinBox()
-        self.figure_padding.setValue(10)
+        self.figure_padding = QtWidgets.QDoubleSpinBox()
+        self.figure_padding.setValue(0.1)
+        self.figure_padding.setRange(0,0.45)
+        self.figure_padding.editingFinished.connect(self.ui_config_figpadding_changed)
         layout.addRow(QtWidgets.QLabel("Padding:"),self.figure_padding)
-        
-        # Frame
-        self.figure_frame = QtWidgets.QCheckBox()
-        layout.addRow(QtWidgets.QLabel("Frame:"),self.figure_frame)
         
         return group_widget
 
@@ -601,17 +624,17 @@ class PlotConfigWidget(QtWidgets.QWidget):
         
         return group_widget
     
-    def choose_face_color(self):
+    def choose_fig_face_color(self):
         """Open a color dialog to choose the figure face color."""
         color = QtWidgets.QColorDialog.getColor()
         if color.isValid():
             self.facecolor_value.setText(color.name())  # Update the label text
 
-    def choose_edge_color(self):
+    def choose_fig_edge_color(self):
         """Open a color dialog to choose the figure edge color."""
         color = QtWidgets.QColorDialog.getColor()
         if color.isValid():
-            self.edgecolor_label.setText(color.name())  # Update the label text
+            self.edgecolor_value.setText(color.name())  # Update the label text
 
     def choose_line_color(self):
         """Open a color dialog to choose the line color."""
@@ -634,6 +657,50 @@ class PlotConfigWidget(QtWidgets.QWidget):
     def update_whole_figure(self):
         self.obj_fig.tight_layout()
         self.obj_fig.canvas.draw()
+        
+    # Figure
+    def ui_config_figsize_changed(self):
+        if self.obj_fig:
+            fig_width = self.figure_width.value()
+            fig_height = self.figure_height.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.FIGURE_SIZE, (fig_width, fig_height))
+            self.update_whole_figure()
+    
+    def ui_config_dpi_changed(self):
+        if self.obj_fig:
+            dpi = self.dpi_spinbox.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.DPI, dpi)
+            self.update_whole_figure()
+    
+    def ui_config_suptitle_changed(self):
+        if self.obj_fig:
+            sup_title = self.fig_title_input.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.FIGURE_TITLE, sup_title)
+            self.update_whole_figure()
+            
+    def ui_config_figfacecolor_changed(self):
+        if self.obj_fig:
+            fig_face_color = self.facecolor_value.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.FIGURE_FACECOLOR, fig_face_color)
+            self.update_whole_figure()
+            
+    def ui_config_figedgecolor_changed(self):
+        if self.obj_fig:
+            fig_edge_color = self.edgecolor_value.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.FIGURE_EDGECOLOR, fig_edge_color)
+            self.update_whole_figure()
+    
+    def ui_config_figtransparency_changed(self):
+        if self.obj_fig:
+            fig_alpha = self.figure_transparency.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.FIGURE_ALPHA, fig_alpha)
+            self.update_whole_figure()
+            
+    def ui_config_figpadding_changed(self):
+        if self.obj_fig:
+            fig_padding = self.figure_padding.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_fig, self.cfg_key.FIGURE_PADDING, fig_padding)
+            self.update_whole_figure()
         
     # Axis
     def ui_config_axestitle_changed(self):
