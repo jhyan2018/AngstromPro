@@ -16,11 +16,11 @@ Third-party Modules
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from PyQt5 import QtCore, QtWidgets, QtGui
+from PyQt5 import QtWidgets
 """
 User Modules
 """
-
+from .customizedWidgets.SimplifiedNumberLineEditor import SimplifiedNumberLineEditor
 
 """ *************************************** """
 """ DO NOT MODIFY THE REGION UNTIL INDICATED"""
@@ -65,11 +65,35 @@ class PlotConfigKey:
     # Axis
     X_LABEL = 'xlabel'
     Y_LABEL = 'ylabel'
+    AXES_TITLE ='axestitle'
+    X_LIM_LOWER = 'xlimlower'
+    X_LIM_UPPER = 'xlimupper'
+    Y_LIM_LOWER = 'ylimlower'
+    Y_LIM_UPPER = 'ylimupper'
+    X_SCALE = 'xscale'
+    Y_SCALE = 'yscale'
     # Line
-    LINE_WIDTH = 'line_width'
+    LINE_WIDTH = 'linewidth'
+    LINE_STYLE = 'linestyle'
+    LINE_COLOR = 'linecolor'
+    MARKER = 'marker'
+    MARKER_SIZE = 'markersize'
+    MARKER_FACECOLOR = 'markerfacecolor'
+    MARKER_EDGECOLOR = 'markeredgecolor'
+    MARKER_EDGEWIDTH = 'markeredgewidth'
+    #Line Alpha
+    #Marker alpha
+    #Dash pattern
+    # Line antialiased
+    # label for legend
+    # custom marker path
+    # z-order
+    # clip on, whether the line/marker is clipped to axes
+    # pick radius
+    
     
     #FONT
-    FONT_SIZE = 'font_size'
+    FONT_SIZE = 'fontsize'
  
 class PlotConfig():
     def __init__(self, config_base=None):
@@ -177,20 +201,26 @@ class PlotConfigHandler:
     def handle_ylabel(self, ax, value):
         ax.set_ylabel(value)
 
-    def handle_title(self, ax, value):
+    def handle_axestitle(self, ax, value):
         ax.set_title(value)
         
-    def handle_xlim(self, ax, value):
-        ax.set_xlim(value)
+    def handle_xlimlower(self, ax, value):
+        ax.set_xlim(left=value)
+        
+    def handle_xlimupper(self, ax, value):
+        ax.set_xlim(right=value)
 
-    def handle_ylim(self, ax, value):
-        ax.set_ylim(value)
-
-    def handle_xticks(self, ax, value):
-        ax.set_xticks(value)
-
-    def handle_yticks(self, ax, value):
-        ax.set_yticks(value)   
+    def handle_ylimlower(self, ax, value):
+        ax.set_ylim(bottom=value)
+        
+    def handle_ylimupper(self, ax, value):
+        ax.set_ylim(top=value)
+    
+    def handle_xscale(self, ax, value):
+        ax.set_xscale(value)
+    
+    def handle_yscale(self, ax, value):
+        ax.set_yscale(value)    
     
     # position
     def handle_position(self, ax, value):
@@ -238,6 +268,12 @@ class PlotConfigHandler:
             legend.set_frame_on(value)
             
     # Ticks
+    def handle_xticks(self, ax, value):
+        ax.set_xticks(value)
+
+    def handle_yticks(self, ax, value):
+        ax.set_yticks(value)
+        
     def handle_tick_params(self, ax, **kwargs):
         ax.tick_params(**kwargs)
 
@@ -294,6 +330,18 @@ class PlotConfigHandler:
     
     def handle_marker(self, line, value):
         line.set_marker(value)
+        
+    def handle_markersize(self, line, value):
+        line.set_markersize(value)
+        
+    def handle_markerfacecolor(self, line, value):
+        line.set_markerfacecolor(value)
+        
+    def handle_markeredgecolor(self, line, value):
+        line.set_markeredgecolor(value)
+
+    def handle_markeredgewidth(self, line, value):
+        line.set_markeredgewidth(value)
 
     def handle_label(self, line, value):
         line.set_label(value)
@@ -329,6 +377,9 @@ class PlotConfigWidget(QtWidgets.QWidget):
         self.obj_fig = None
         self.obj_axis = None
         self.obj_line = None
+        
+        self.plot_config_hdlr = PlotConfigHandler()
+        self.cfg_key = PlotConfigKey()
     
     def initUiLayout(self):
         main_layout = QtWidgets.QVBoxLayout()
@@ -397,35 +448,43 @@ class PlotConfigWidget(QtWidgets.QWidget):
         """Create a QWidget for axes configurations."""
         group_widget = QtWidgets.QWidget()
         layout = QtWidgets.QFormLayout(group_widget)
-
-        # Axis titles
+        
+        # Axes title
+        self.axes_title_input = QtWidgets.QLineEdit()
+        self.axes_title_input.editingFinished.connect(self.ui_config_axestitle_changed)
+        layout.addRow(QtWidgets.QLabel("Axes Title:"), self.axes_title_input)
+        
+        # Axis label
         self.xlabel_input = QtWidgets.QLineEdit()
+        self.xlabel_input.editingFinished.connect(self.ui_config_xlabel_changed)
         self.ylabel_input = QtWidgets.QLineEdit()
+        self.ylabel_input.editingFinished.connect(self.ui_config_ylabel_changed)
         layout.addRow(QtWidgets.QLabel("X-axis Label:"), self.xlabel_input)
         layout.addRow(QtWidgets.QLabel("Y-axis Label:"), self.ylabel_input)
 
         # Axis limits
-        self.xlim_min_input = QtWidgets.QLineEdit()
-        self.xlim_max_input = QtWidgets.QLineEdit()
-        self.ylim_min_input = QtWidgets.QLineEdit()
-        self.ylim_max_input = QtWidgets.QLineEdit()
+        self.xlim_min_input = SimplifiedNumberLineEditor()
+        self.xlim_min_input.validTextChanged.connect(self.ui_config_xlimlower_changed)
+        self.xlim_max_input = SimplifiedNumberLineEditor()
+        self.xlim_max_input.validTextChanged.connect(self.ui_config_xlimupper_changed)
+        self.ylim_min_input = SimplifiedNumberLineEditor()
+        self.ylim_min_input.validTextChanged.connect(self.ui_config_ylimlower_changed)
+        self.ylim_max_input = SimplifiedNumberLineEditor()
+        self.ylim_max_input.validTextChanged.connect(self.ui_config_ylimupper_changed)
         layout.addRow(QtWidgets.QLabel("X-axis Min:"), self.xlim_min_input)
         layout.addRow(QtWidgets.QLabel("X-axis Max:"), self.xlim_max_input)
         layout.addRow(QtWidgets.QLabel("Y-axis Min:"), self.ylim_min_input)
         layout.addRow(QtWidgets.QLabel("Y-axis Max:"), self.ylim_max_input)
 
-        # Axes title
-        self.axes_title_input = QtWidgets.QLineEdit()
-        layout.addRow(QtWidgets.QLabel("Axes Title:"), self.axes_title_input)
-
-        # Aspect ratio
-        self.aspect_ratio = QtWidgets.QLineEdit()
-        layout.addRow(QtWidgets.QLabel("Aspect ratio:"), self.aspect_ratio)
-        
         # Scale
-        self.log_scale = QtWidgets.QComboBox()
-        self.log_scale.addItems(['Linear','Log'])
-        layout.addRow(QtWidgets.QLabel("Scale:"), self.log_scale)
+        self.xlog_scale = QtWidgets.QComboBox()
+        self.xlog_scale.addItems(['linear','log'])
+        self.xlog_scale.currentIndexChanged.connect(self.ui_config_xscale_changed)
+        self.ylog_scale = QtWidgets.QComboBox()
+        self.ylog_scale.addItems(['linear','log'])
+        self.ylog_scale.currentIndexChanged.connect(self.ui_config_yscale_changed)
+        layout.addRow(QtWidgets.QLabel("X-Scale:"), self.xlog_scale)
+        layout.addRow(QtWidgets.QLabel("Y-Scale:"), self.ylog_scale)
         
         # Axis position
 
@@ -440,31 +499,65 @@ class PlotConfigWidget(QtWidgets.QWidget):
         self.linewidth_spinbox = QtWidgets.QSpinBox()
         self.linewidth_spinbox.setRange(1, 10)
         self.linewidth_spinbox.setValue(2)
-        self.linewidth_spinbox.valueChanged.connect(self.config_linewidth_changed)
+        self.linewidth_spinbox.valueChanged.connect(self.ui_config_linewidth_changed)
         layout.addRow(QtWidgets.QLabel("Line Width:"), self.linewidth_spinbox)
 
         # Line style setting
         self.linestyle_combobox = QtWidgets.QComboBox()
-        self.linestyle_combobox.addItems(["-", "--", "-.", ":"])
+        self.linestyle_combobox.addItems(['-', '--', '-.', ':', 'None'])
+        self.linestyle_combobox.currentIndexChanged.connect(self.ui_config_linestyle_changed)
         layout.addRow(QtWidgets.QLabel("Line Style:"), self.linestyle_combobox)
 
         # Line color setting
-        self.linecolor_button = QtWidgets.QPushButton("Choose Line Color")
+        self.linecolor_button = QtWidgets.QPushButton("C")
         self.linecolor_button.clicked.connect(self.choose_line_color)
-        self.linecolor_label = QtWidgets.QLabel("blue")  # Display the selected color
-        layout.addRow(QtWidgets.QLabel("Line Color:"), self.linecolor_button)
-        layout.addRow(QtWidgets.QLabel("Selected:"), self.linecolor_label)
+        self.linecolor_value = QtWidgets.QLineEdit("black")  # Display the selected color
+        self.linecolor_value.textChanged.connect(self.ui_config_linecolor_changed)
+        layout_linecolor =  QtWidgets.QHBoxLayout()
+        layout_linecolor.addWidget(self.linecolor_value)
+        layout_linecolor.addWidget(self.linecolor_button)
+        layout.addRow(QtWidgets.QLabel("Line Color:"), layout_linecolor)
 
         # Marker style setting
         self.marker_combobox = QtWidgets.QComboBox()
-        self.marker_combobox.addItems(["o", "s", "D", "^", "v", "None"])
+        marker_list = ['None','.','o','v','^','<','>','1','2','3','4','8','s','p','*','h','H','+','x','D','d','|','_','P','X']
+        self.marker_combobox.addItems(marker_list)
+        self.marker_combobox.currentIndexChanged.connect(self.ui_config_marker_changed)
         layout.addRow(QtWidgets.QLabel("Marker Style:"), self.marker_combobox)
 
         # Marker size setting
         self.marker_size_spinbox = QtWidgets.QSpinBox()
         self.marker_size_spinbox.setRange(1, 20)
         self.marker_size_spinbox.setValue(6)
+        self.marker_size_spinbox.valueChanged.connect(self.ui_config_marker_size_changed)
         layout.addRow(QtWidgets.QLabel("Marker Size:"), self.marker_size_spinbox)
+        
+        # Marker Face Color setting
+        self.markerfacecolor_button = QtWidgets.QPushButton("C")
+        self.markerfacecolor_button.clicked.connect(self.choose_marker_face_color)
+        self.markerfacecolor_value = QtWidgets.QLineEdit("red")  # Display the selected color
+        self.markerfacecolor_value.textChanged.connect(self.ui_config_marker_face_color_changed)       
+        layout_markerfacecolor = QtWidgets.QHBoxLayout()
+        layout_markerfacecolor.addWidget(self.markerfacecolor_value)
+        layout_markerfacecolor.addWidget(self.markerfacecolor_button)        
+        layout.addRow(QtWidgets.QLabel("Marker Face Color:"), layout_markerfacecolor)
+        
+        # Marker Edge Width setting
+        self.marker_edgewidth_spinbox = QtWidgets.QSpinBox()
+        self.marker_edgewidth_spinbox.setRange(1, 10)  # Set the range for edge width
+        self.marker_edgewidth_spinbox.setValue(1)      # Default value
+        self.marker_edgewidth_spinbox.valueChanged.connect(self.ui_config_marker_edgewidth_changed)      
+        layout.addRow(QtWidgets.QLabel("Marker Edge Width:"), self.marker_edgewidth_spinbox)
+      
+        # Marker Edge Color setting
+        self.markeredgecolor_button = QtWidgets.QPushButton("C")
+        self.markeredgecolor_button.clicked.connect(self.choose_marker_edge_color)
+        self.markeredgecolor_value = QtWidgets.QLineEdit("black")  # Display the selected color
+        self.markeredgecolor_value.textChanged.connect(self.ui_config_marker_edge_color_changed)
+        layout_markeredgecolor = QtWidgets.QHBoxLayout()
+        layout_markeredgecolor.addWidget(self.markeredgecolor_value)
+        layout_markeredgecolor.addWidget(self.markeredgecolor_button)     
+        layout.addRow(QtWidgets.QLabel("Marker Edge Color:"), layout_markeredgecolor)
 
         return group_widget
     
@@ -524,18 +617,131 @@ class PlotConfigWidget(QtWidgets.QWidget):
         """Open a color dialog to choose the line color."""
         color = QtWidgets.QColorDialog.getColor()
         if color.isValid():
-            self.linecolor_label.setText(color.name())  # Update the label text
+            self.linecolor_value.setText(color.name())  # Update the label text
+            
+    def choose_marker_face_color(self):
+        color = QtWidgets.QColorDialog.getColor()
+        if color.isValid():
+            self.markerfacecolor_value.setText(color.name())
+    
+    def choose_marker_edge_color(self):
+        color = QtWidgets.QColorDialog.getColor()
+        if color.isValid():
+            self.markeredgecolor_value.setText(color.name())
+
 
     """ @SLOTS of UI Widgets"""
-    def config_linewidth_changed(self):
-
+    def update_whole_figure(self):
+        self.obj_fig.tight_layout()
+        self.obj_fig.canvas.draw()
+        
+    # Axis
+    def ui_config_axestitle_changed(self):
+        if self.obj_axis:
+            axes_title = self.axes_title_input.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.AXES_TITLE, axes_title)
+            self.update_whole_figure()
+            
+    def ui_config_xlabel_changed(self):
+        if self.obj_axis:
+            x_label = self.xlabel_input.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.X_LABEL, x_label)
+            self.update_whole_figure()
+            
+    def ui_config_ylabel_changed(self):
+        if self.obj_axis:
+            y_label = self.ylabel_input.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.Y_LABEL, y_label)
+            self.update_whole_figure()
+            
+    def ui_config_xlimlower_changed(self):
+        if self.obj_axis:
+            x_lim_lower = self.xlim_min_input.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.X_LIM_LOWER, x_lim_lower)
+            self.update_whole_figure()
+    
+    def ui_config_xlimupper_changed(self):
+        if self.obj_axis:
+            x_lim_upper = self.xlim_max_input.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.X_LIM_UPPER, x_lim_upper)
+            self.update_whole_figure()
+            
+    def ui_config_ylimlower_changed(self):
+        if self.obj_axis:
+            y_lim_lower = self.ylim_min_input.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.Y_LIM_LOWER, y_lim_lower)
+            self.update_whole_figure()
+    
+    def ui_config_ylimupper_changed(self):
+        if self.obj_axis:
+            y_lim_upper = self.ylim_max_input.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.Y_LIM_UPPER, y_lim_upper)
+            self.update_whole_figure()
+    
+    def ui_config_xscale_changed(self):
+        if self.obj_axis:
+            x_scale = self.xlog_scale.currentText()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.X_SCALE, x_scale)
+            self.update_whole_figure()
+    
+    def ui_config_yscale_changed(self):
+        if self.obj_axis:
+            y_scale = self.ylog_scale.currentText()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_axis, self.cfg_key.Y_SCALE, y_scale)
+            self.update_whole_figure()
+            
+    # Line    
+    def ui_config_linewidth_changed(self):
         if self.obj_line:
             line_width = self.linewidth_spinbox.value()
-            self.obj_line.set_linewidth(line_width)          
-            self.obj_fig.canvas.draw()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.LINE_WIDTH, line_width)        
+            self.update_whole_figure()
             
         # emit signal to plg_obj_mgr to update config in uds_data
-    
+        
+    def ui_config_linestyle_changed(self):        
+        if self.obj_line:
+            line_style = self.linestyle_combobox.currentText()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.LINE_STYLE, line_style)
+            self.update_whole_figure()
+            
+    def ui_config_linecolor_changed(self):
+        if self.obj_line:
+            line_color = self.linecolor_value.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.LINE_COLOR, line_color)
+            self.update_whole_figure()
+            
+    def ui_config_marker_changed(self):
+        if self.obj_line:
+            marker = self.marker_combobox.currentText()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.MARKER, marker)
+            self.update_whole_figure()
+            
+    def ui_config_marker_size_changed(self):
+        if self.obj_line:
+            marker_size = self.marker_size_spinbox.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.MARKER_SIZE, marker_size)
+            self.update_whole_figure()
+            
+    def ui_config_marker_face_color_changed(self):
+        if self.obj_line:
+            color = self.markerfacecolor_value.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.MARKER_FACECOLOR, color)
+            self.update_whole_figure()
+
+    def ui_config_marker_edge_color_changed(self):
+        if self.obj_line:
+            color = self.markeredgecolor_value.text()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.MARKER_EDGECOLOR, color)
+            self.update_whole_figure()
+            
+    def ui_config_marker_edgewidth_changed(self):
+        if self.obj_line:
+            marker_edgewidth = self.marker_edgewidth_spinbox.value()
+            self.plot_config_hdlr.set_obj_key_value(self.obj_line, self.cfg_key.MARKER_EDGEWIDTH, marker_edgewidth)
+            self.update_whole_figure()
+
+   
     """ Regular Functions """
     def set_obj_figure(self, obj_fig):
         self.obj_fig = obj_fig

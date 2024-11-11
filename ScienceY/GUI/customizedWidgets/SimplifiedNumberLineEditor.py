@@ -9,6 +9,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal
 
 from ..general.RegExpSimplifedNumber import RegExpSimplifiedNumber
+from ..general.NumberExpression import NumberExpression
 
 class SimplifiedNumberLineEditor(QtWidgets.QLineEdit):
     validTextChanged = pyqtSignal()  # Signal for value change
@@ -26,6 +27,10 @@ class SimplifiedNumberLineEditor(QtWidgets.QLineEdit):
         if RegExpSimplifiedNumber.isSimplifiedNumber(text):
             self.valid_text = text
             self.setText(text)
+    
+    def value(self):
+        sn_txt = self.valid_text
+        return NumberExpression.simplified_number_to_float(sn_txt)
             
     def isChangedTextValid(self):
         input_text = self.text()

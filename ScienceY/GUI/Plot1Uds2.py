@@ -132,6 +132,7 @@ class Plot1Uds2(GuiFrame):
         self.ui_dockWidget_plot_config = DockWidget('Plot Config')
         self.ui_dockWidget_plot_config_content = PlotConfigWidget()
         self.ui_dockWidget_plot_config_content.set_obj_figure(self.ui_plot_widget.get_fig_obj())
+        self.ui_dockWidget_plot_config_content.set_obj_axis(self.ui_plot_widget.get_axis_obj())
         #self.ui_dockWidget_fs_tree_content.selectionChangedSignal.connect(self.fileTreeSelectionChanged)
         
         
