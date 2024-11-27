@@ -24,7 +24,7 @@ User Modules
 """
 from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from .general.NumberExpression import NumberExpression
-from .PlotConfig import PlotConfig
+from .PlotConfigWidget import PlotConfigKey, PlotConfig, PlotObjManager, PlotConfigHandler
 
 """ *************************************** """
 """ DO NOT MODIFY THIS FILE"""
@@ -76,17 +76,18 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
     def initUiMembers(self):
         # Canvas
         self.static_canvas = QtMatplotCanvas(Figure(figsize=(20, 20), dpi = 200))
-        #self.static_canvas.figure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
-        #self.static_canvas.figure.patch.set_visible( False )
+        self.plot_obj_mgr.set_figure(self.static_canvas.figure)
         
+        #        
         static_ax = self.static_canvas.figure.add_subplot(1,1,1)
-        self.add_axis_item(static_ax, 1, 1)
+        self.plot_obj_mgr.add_axis(static_ax)
         
     def initNonUiMembers(self):
         self.uds_data_list = []
-        self.plot_config = None
-        self.axis_list=[]
-        self.line_list=[]
+        self.udata_name_list = []
+        self.plot_obj_mgr = PlotObjManager()
+        
+        self.cfg_key = PlotConfigKey()
     
     def initUiLayout(self):
         
@@ -101,31 +102,17 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         self.static_canvas.setFixedHeight(h)
         self.static_canvas.figure.tight_layout()
         self.static_canvas.figure.canvas.draw()
-    
-    def add_axis_item(self, ax, nrow, ncol):
-        axis_item = {'ax':None,
-                     'subplot':None}
-        axis_item['ax'] = ax        
-        ax_idx = len(self.axis_list) 
-        axis_item['subplot'] = [nrow, ncol, ax_idx]        
-        self.axis_list.append(axis_item)
-    
-    def get_axis(self, ax_idx):
-        return self.axis_list[ax_idx]['ax']
         
-    def add_line_item(self, line, ax_idx):
-        line_item = {'line':None,
-                     'ax_idx':None}
-        line_item['line'] = line
-        line_item['ax_idx'] = ax_idx
-        self.line_list.append(line_item)
+    def get_fig_obj(self):
+        return self.plot_obj_mgr.get_figure()
         
-    def get_line(self, line_idx):
-        return self.line_list[line_idx]['line']
+    def get_axis_obj(self):
+        return self.plot_obj_mgr.get_aixs()
+    
+    def get_line(self, udata_name, curve_idx):
+        return self.plot_obj_mgr.get_curve(udata_name, curve_idx)
         
     def plotLines(self, uds_data_idx):
-        self.get_axis(0) .clear()
-        
         uds_data = self.uds_data_list[uds_data_idx]
         #
         if len(uds_data.axis_value[0]) > 0:
@@ -135,63 +122,56 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         
         #   
         for i in range(uds_data.data.shape[0]):
-            line, = self.get_axis(0).plot(x_axis, uds_data.data[i,:])
-            self.add_line_item(line, 0)
+            line, = self.plot_obj_mgr.get_aixs().plot(x_axis, uds_data.data[i,:])
+            self.plot_obj_mgr.add_curve_to_axis(uds_data.name, line)
         
-        self.get_axis(0).figure.canvas.draw()
+        self.static_canvas.figure.tight_layout()
+        self.plot_obj_mgr.get_aixs().figure.canvas.draw()
+    
+    def loadPresetConfig(self, uds_data):
+        plot_config_hdlr = PlotConfigHandler()        
         
+        if 'Plot_Config' not in uds_data.config:
+            uds_data.config['Plot_Config'] = PlotConfig()
+            c_k = self.cfg_key
+            
+            # axis config            
+            config=dict()
+            config[c_k.X_LABEL] = uds_data.axis_name[-1]
+            if 'Data_Name_Unit' in uds_data.info:
+               config[c_k.Y_LABEL] = uds_data.info['Data_Name_Unit']
+               
+            uds_data.config['Plot_Config'].update_axis_config(config)
+        
+        #
+        plot_config_hdlr.apply_axis_config(self.plot_obj_mgr.get_aixs(), uds_data.config['Plot_Config'].config_axis)
+        
+        # line config
+        for i in range(uds_data.data.shape[0]):
+            uds_data.config['Plot_Config'].add_config_line()
+            plot_config_hdlr.apply_line_config(self.get_line(uds_data.name,i), uds_data.config['Plot_Config'].config_line_list[i])
+        
+        #             
+        self.static_canvas.figure.tight_layout()
+        self.static_canvas.figure.canvas.draw()
+    
     def setUdsData(self, uds_data):
         if len(uds_data.data.shape) == 2:
-            self.line_list = []
             self.uds_data_list = []
+            self.plot_obj_mgr.get_aixs().clear()
             
-            self.uds_data_list.append(uds_data)            
-            uds_data_idx = len(self.uds_data_list) - 1
-            self.plotLines(uds_data_idx)
-            #
-            if 'Plot_Config' in uds_data.hidden_info:
-                self.plot_config = uds_data.hidden_info['Plot_Config']
-            else:
-                self.plot_config = PlotConfig()
-                
-                # axis config
-                self.plot_config.add_config_axis()
-                config = {'xlabel':uds_data.axis_name[-1]}
-                if 'Data_Name_Unit' in uds_data.info:
-                   config['ylabel'] = uds_data.info['Data_Name_Unit']
-                self.plot_config.update_axis_config(0, config)
-                self.plot_config.apply_axis_config(self.get_axis(0) , 0)
-                #self.get_axis(0).tick_params(axis='x', labelsize=18)
-                #self.get_axis(0).tick_params(axis='y', labelsize=18)
-                
-                # line config
-                for i in range(uds_data.data.shape[0]):
-                    self.plot_config.add_config_line()
-                    self.plot_config.apply_line_config(self.get_line(i) , i)
-                    
-                        
-                self.static_canvas.figure.tight_layout()
-                self.static_canvas.figure.canvas.draw()
-                
+            self.addUdsData(uds_data)                
         else:
             print('Unaccepted data dimension!')
             return -1
     
     def addUdsData(self, uds_data):
-        #if len(uds_data.data.shape) == 2:
-        self.uds_data_list.append(uds_data)
-        
-        uds_data_idx = len(self.uds_data_list) - 1
-        self.plotLines(uds_data_idx)
-        
-        #
-        config = {'xlabel':'Energy (V)',
-                  'ylabel':'Intensity (S)',
-                  'title':'dI/dV'}
-        self.plot_config.update_axis_config(0, config)
-        self.plot_config.apply_axis_config(self.get_axis(0) , 0)
-        
-        # line config
-        for i in range(uds_data.data.shape[0]):
-            self.plot_config.add_config_line()
-            self.plot_config.apply_line_config(self.get_line(i) , i)
+        if len(uds_data.data.shape) == 2:
+            self.uds_data_list.append(uds_data)            
+            uds_data_idx = len(self.uds_data_list) - 1
+            self.plotLines(uds_data_idx)
+            
+            self.loadPresetConfig(uds_data)
+        else:
+            print('Unaccepted data dimension!')
+            return -1

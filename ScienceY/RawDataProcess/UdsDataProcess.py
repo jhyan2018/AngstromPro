@@ -31,7 +31,7 @@ class UdsDataStru():
         self.axis_name = []
         self.axis_value = []
         self.info = dict()
-        self.hidden_info = dict()
+        self.config = dict()
         self.proc_history = []
         self.proc_to_do = []
          

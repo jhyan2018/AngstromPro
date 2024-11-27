@@ -33,6 +33,8 @@ from .customizedWidgets.DockWidget import DockWidget
 """ *************************************** """
 
 class VarTreeWidget(QtWidgets.QWidget):
+    parentItemSelectedSignal = QtCore.pyqtSignal(str)
+    chileItemSelectedSignal = QtCore.pyqtSignal(str, int)
     def __init__(self):
         super().__init__()
 
@@ -43,7 +45,8 @@ class VarTreeWidget(QtWidgets.QWidget):
         self.tree = QtWidgets.QTreeWidget()
         self.tree.setHeaderLabels(["Var Name"])
         self.tree.itemChanged.connect(self.on_item_changed)
-
+        self.tree.itemClicked.connect(self.on_item_clicked)  # Connect itemClicked signal
+        
         # Set up the layout
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.tree)
@@ -55,8 +58,15 @@ class VarTreeWidget(QtWidgets.QWidget):
             self.uds_data_list.append(uds_data)
             self.setup_tree()
         elif method == 'Add':
-            self.uds_data_list.append(uds_data)
-            self.setup_tree()
+            added_uds_names = []
+            for u in self.uds_data_list:
+                added_uds_names.append(u.name)
+            if uds_data.name in added_uds_names:
+                return -1
+            else:
+                self.uds_data_list.append(uds_data)
+                self.setup_tree()
+                return None
         else:
             print('Unknown setUdsData Method')
                 
@@ -79,6 +89,15 @@ class VarTreeWidget(QtWidgets.QWidget):
             print(f"{item.text(0)} is checked.")
         else:
             print(f"{item.text(0)} is unchecked.")
+            
+    def on_item_clicked(self, item, column):
+        """Handle the item clicked signal to detect whether the selected item is top-level or child."""
+        if item.parent() is None:  # No parent means it's a top-level item
+            self.parentItemSelectedSignal.emit(f"{item.text(0)}")
+        else:
+            parent_item = item.parent()
+            item_idx = int(f"{item.text(0)}".split(' ')[-1])
+            self.chileItemSelectedSignal.emit(f"{parent_item.text(0)}", item_idx)
 
 class Plot1Uds2(GuiFrame):
     
@@ -99,6 +118,8 @@ class Plot1Uds2(GuiFrame):
     def initCcUiMembers(self):  
         self.ui_plot_widget = Plot1Uds2Widget()
         self.ui_var_plotted_widget = VarTreeWidget()
+        self.ui_var_plotted_widget.chileItemSelectedSignal.connect(self.ui_plot_var_tree_item_selected)
+        #self.ui_var_plotted_widget.
         self.ui_pb_select_all_lines = QtWidgets.QPushButton('Select All Lines')
         self.ui_pb_unselect_all_lines = QtWidgets.QPushButton('Unselect All Lines')
         self.ui_pb_add_var_to_plot = QtWidgets.QPushButton('Add to plot')
@@ -110,6 +131,8 @@ class Plot1Uds2(GuiFrame):
         #
         self.ui_dockWidget_plot_config = DockWidget('Plot Config')
         self.ui_dockWidget_plot_config_content = PlotConfigWidget()
+        self.ui_dockWidget_plot_config_content.set_obj_figure(self.ui_plot_widget.get_fig_obj())
+        self.ui_dockWidget_plot_config_content.set_obj_axis(self.ui_plot_widget.get_axis_obj())
         #self.ui_dockWidget_fs_tree_content.selectionChangedSignal.connect(self.fileTreeSelectionChanged)
         
         
@@ -188,21 +211,31 @@ class Plot1Uds2(GuiFrame):
                 height = width
                 self.ui_plot_widget.setCanvasWidgetSize(width, height)
                 self.ui_var_plotted_widget.setFixedWidth(int(width*0.5))
-          
+    
+    # plot var tree
+    def ui_plot_var_tree_item_selected(self, udata_name, curve_idx):
+        #print("ud_name:",udata_name)
+        print('curve idx:', curve_idx)
+        
+        #print('axis obj:',self.ui_plot_widget.get_axis_obj())
+
+        obj_curve = self.ui_plot_widget.get_line(udata_name, curve_idx)
+        self.ui_dockWidget_plot_config_content.set_obj_curve(obj_curve)
     #
     def ui_lw_uds_variable_name_list_doulbeClicked(self):
-        #self.getMsgFromImgMainWidget(self.ui_img_widget_main.msg_type.index('SELECT_USD_VARIABLE'))
         selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
         selected_var = self.uds_variable_pt_list[selected_var_index]        
-
-        self.ui_plot_widget.setUdsData(selected_var)
+       
         self.ui_var_plotted_widget.setUdsData(selected_var)
+        self.ui_plot_widget.setUdsData(selected_var)
         
     def ui_pb_add_var_to_plot_clicked(self):
         selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
         selected_var = self.uds_variable_pt_list[selected_var_index]
-        
-        self.ui_var_plotted_widget.setUdsData(selected_var, 'Add')
+                
+        r=self.ui_var_plotted_widget.setUdsData(selected_var, 'Add')
+        if r == None:
+            self.ui_plot_widget.addUdsData(selected_var)
         
     def ui_pb_remove_var_from_plot_clicked(self):
         pass
