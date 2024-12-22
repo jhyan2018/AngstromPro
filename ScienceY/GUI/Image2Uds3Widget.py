@@ -713,9 +713,12 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         # plot text
         if self.bias_text_shown:
             sn_text = self.ui_le_layer_value.text() + 'V'
-            txt_px = self.uds_variable.data.shape[-1]/2 - len(sn_text)*5
+            fig_width, fig_height = self.static_ax.figure.get_size_inches()
+            font_size = fig_width * 3
+            
+            txt_px = self.uds_variable.data.shape[-1]/2
             txt_py = self.uds_variable.data.shape[-2] - 20
-            self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=16,color='w')
+            self.static_ax.text(txt_px, txt_py, sn_text ,fontsize=font_size, color='r', horizontalalignment='center')
         
         # plot Cursor
         if self.sync_rt_points:
