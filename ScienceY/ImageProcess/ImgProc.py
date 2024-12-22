@@ -593,7 +593,7 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
             uds3D_data_processed.proc_history.append(i)
             
     uds3D_data_processed.axis_name = ['Gap (V)', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
-    uds3D_data_processed.axis_value = [[],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
+    uds3D_data_processed.axis_value = [[0],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
     
     c_history ='ImgProc.ipGapMap:'
     c_history += 'order=' + str(order) + ';'
@@ -708,7 +708,7 @@ def ipIntegral(uds3D_data, start, end):
             uds3D_data_processed.proc_history.append(i)
             
     uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
-    uds3D_data_processed.axis_value = [[], uds3D_data.axis_value[1], uds3D_data.axis_value[2]]
+    uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[1], uds3D_data.axis_value[2]]
     
     c_history  = 'ImgProc.ipIntegral:'
     c_history += ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
@@ -772,7 +772,7 @@ def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'Bias (V)':
             uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Distance (m)']
-            uds3D_data_processed.axis_value = [[], uds3D_data.axis_value[i], distances]
+            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], distances]
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -809,7 +809,7 @@ def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'Bias (V)':
             uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Theta (*\u03C0)']
-            uds3D_data_processed.axis_value = [[], uds3D_data.axis_value[i], theta]
+            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], theta]
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
