@@ -107,7 +107,12 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
             uds3D_data_processed.proc_history.append(i)
     
     uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
-    uds3D_data_processed.axis_value = [uds3D_data.axis_value[0], uds3D_data.axis_value[1][r_topLeft:r_bottomRight+1], uds3D_data.axis_value[c_topLeft:c_bottomRight+1]]
+    if uds3D_data.axis_value != []:
+        uds3D_data_processed.axis_value = [uds3D_data.axis_value[0], 
+                                           uds3D_data.axis_value[1][r_topLeft:r_bottomRight+1], 
+                                           uds3D_data.axis_value[2][c_topLeft:c_bottomRight+1]]
+    else:
+        uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
     
     c_history = 'ImgProc.ipCropRegion2D:'   
     c_history += 'r_topLeft=' + str(r_topLeft) + ';'
@@ -170,11 +175,13 @@ def ipPerfectLattice(uds3D_data, lattice_type):
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
     
-    e,X,Y = uds3D_data_processed.shape
+    e,X,Y = uds3D_data_processed.data.shape
     inter_X = uds3D_data.axis_value[1][1] - uds3D_data.axis_value[1][0]
     inter_Y = uds3D_data.axis_value[2][1] - uds3D_data.axis_value[2][0]
     uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
-    uds3D_data_processed.axis_value = [uds3D_data.axis_value[0], inter_X * list(range(X)), inter_Y * list(range(Y))]
+    uds3D_data_processed.axis_value = [uds3D_data.axis_value[0],
+                                       (inter_X * np.array(list(range(X)))).tolist(), 
+                                       (inter_Y * np.array(list(range(Y)))).tolist()]
     
     c_history = 'ImgProc.ipPerfectLattice:'
     c_history += 'lattice_type=' + lattice_type + ';'

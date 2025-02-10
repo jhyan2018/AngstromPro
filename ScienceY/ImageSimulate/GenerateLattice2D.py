@@ -87,7 +87,7 @@ class GenerateLattice2D():
                     dCenterX = (rSpaceRange - rSpaceRange%2)/2
                     dCenterY = (rSpaceRange - rSpaceRange%2)/2
                     
-                    latticeCurve2D += np.cos(2*np.pi* (col/p1 + row/p2) + 0.25*np.pi) * gaussian2D(rSpaceRange, rSigma, 
+                    latticeCurve2D += np.cos(2*np.pi* (col/p1 + row/p2)) * gaussian2D(rSpaceRange, rSigma, 
                                                  self.latticeSitesX[row,col] - dCenterX, 
                                                  self.latticeSitesY[row,col] - dCenterY)
                 else:
