@@ -1532,8 +1532,8 @@ class Image2Uds3(GuiFrame):
             phase = []
             
             for i in range( int((param_numbers-1)/3)):
-                qx.append( int(params.split(',')[3*i+1]) )
-                qy.append( int(params.split(',')[3*i+2]) )
+                qx.append( float(params.split(',')[3*i+1]) )
+                qy.append( float(params.split(',')[3*i+2]) )
                 phase.append( float(params.split(',')[3*i+3]) )
                 
             uds_data_simulated = ImgSimu.ismGenerateSinusoidal2D(size, qx, qy, phase)

@@ -80,9 +80,15 @@ class Load3ds():
         data2D = raw_data1D.astype('f4').reshape((-1, l))
         data3D = np.zeros((l, self.header['grid dim'][0], self.header['grid dim'][1]))
         
+        line_num = data2D.shape[0]//self.header['grid dim'][0]
+        last_line_points = np.mod(data2D.shape[0],self.header['grid dim'][0])
+        
         for i in range(l):
-            data3D[i,:,:] = data2D[:,i].reshape(self.header['grid dim'][0], self.header['grid dim'][1])
-                    
+            for j in range(line_num):
+                data3D[i,j,:] = data2D[j*self.header['grid dim'][0] : (j+1)*self.header['grid dim'][0],i]
+            if last_line_points != 0:
+                data3D[i,j+1,0:last_line_points] = data2D[(j+1)*self.header['grid dim'][0]:data2D.shape[0],i]
+            
         data3D = np.flip(data3D, axis=1)
         
         return data3D
@@ -125,7 +131,7 @@ class LoadSxm():
         channels_num = 0
         channels_dir = []
         for line in lines:
-            val = line.split()
+            val = line.split('\t')
             if len(val) > 1:
                 header['DATA_INFO'].append(val)
                 channels.append(val[1])
@@ -260,7 +266,7 @@ class Data3dsStru():
         bias_points = self.header['points']
         Sweep_start_index = self.header['fixed parameters'].index('Sweep Start')
         Sweep_end_index = self.header['fixed parameters'].index('Sweep End')
-        bias_raster = np.linspace(self.data3D[Sweep_start_index, 0, 0], self.data3D[Sweep_end_index, 0, 0], bias_points)
+        bias_raster = np.linspace(self.data3D[Sweep_start_index, -1, -1], self.data3D[Sweep_end_index, -1, -1], bias_points)
         
         if isDimension3:
             axis_value_list.append(bias_raster.tolist())
