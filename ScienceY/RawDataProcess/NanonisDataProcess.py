@@ -449,6 +449,11 @@ class DataSxmStru():
         self.channel_dict['Current'] = ['Current']
         self.channel_dict['Phase'] = ['LI_Demod_1_Y']
         
+        self.MultipassSet = False
+        if 'Multipass-Config' in self.header.keys():
+            self.MultipassSet = True
+        self.channels = self.header['channels']
+        
     def setDataInfo(self, uds_data, channel):
         info = uds_data.info
         if 'Current>Current (A)' in self.header.keys():
@@ -480,7 +485,7 @@ class DataSxmStru():
         elif channel == 'Phase':
             info['Channel'] = 'dI/dV Phase Map'
         else:
-            pass    
+            info['Channel'] = channel   
     #
     def extractData(self, channel, direction='fwd'):
         #
@@ -553,6 +558,43 @@ class DataSxmStru():
         uds_Current_fwd = self.extractData('Current')
         
         return uds_Current_fwd
+    
+    def get_Multipass_data(self, channel, direction='fwd'):
+        #
+        index_offset = 0
+        if direction == 'fwd':
+            pass
+        elif direction == 'bwd':
+            index_offset = 1
+        else:
+            print('Unknow scan direction!')
+            
+        channel_index = self.header['channels'].index(channel)
+            
+        extrated_data = self.data3D[channel_index*2+index_offset, :, :]
+        
+        #
+        uds_data=UdsDataStru(extrated_data[np.newaxis,:,:], 'uds3D_'+self.name+'_'+channel+'_'+direction)
+        
+        # info
+        self.setDataInfo(uds_data, channel)
+        
+        # axis_name
+        uds_data.axis_name = ['X (m)', 'Y (m)']
+        
+        # axis_value
+        x_width = float(uds_data.info['FOV'].split(',')[0])
+        y_height = float(uds_data.info['FOV'].split(',')[1])
+        x_points = self.header['xPixels']
+        y_points = self.header['yPixels']
+            
+        xx = np.linspace(0,x_width, x_points)
+        yy = np.linspace(0,y_height, y_points)
+        uds_data.axis_value.append(xx.tolist())
+        uds_data.axis_value.append(yy.tolist())
+        
+        return uds_data 
+        
     
 ## Data structure of sxm file
 class DataDatStru():
