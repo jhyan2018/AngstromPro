@@ -415,14 +415,19 @@ class GuiVarManager(QtWidgets.QMainWindow):
                 globals()['uds3D_'+file_name+'_Phase'] = data3ds.get_Phase()
         elif file_type == 'sxm':
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
-            if 'Z' in dataSxm.channel_dict['Topo']:
-                globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
-            if 'LI_Demod_1_X' in dataSxm.channel_dict['dIdV']:
-                globals()['uds3D_'+file_name+'_dIdV_fwd'] = dataSxm.get_dIdV_fwd()
-            if 'Current' in dataSxm.channel_dict['Current']:
-                globals()['uds3D_'+file_name+'_Currrent_fwd'] = dataSxm.get_Current_fwd()
-            if 'LI_Demod_1_Y' in dataSxm.channel_dict['Phase']:
-                globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta_fwd()
+            if dataSxm.MultipassSet == True:
+                for ch in dataSxm.channels:
+                    globals()['uds3D_'+file_name+'_'+ch+'_fwd'] = dataSxm.get_Multipass_data(ch)
+            else:
+                if 'Z' in dataSxm.channel_dict['Topo']:
+                    globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()
+                if 'LI_Demod_1_X' in dataSxm.channel_dict['dIdV']:
+                    globals()['uds3D_'+file_name+'_dIdV_fwd'] = dataSxm.get_dIdV_fwd()
+                if 'Current' in dataSxm.channel_dict['Current']:
+                    globals()['uds3D_'+file_name+'_Currrent_fwd'] = dataSxm.get_Current_fwd()
+                if 'LI_Demod_1_Y' in dataSxm.channel_dict['Phase']:
+                    globals()['uds3D_'+file_name+'_theta'] = dataSxm.get_theta_fwd()
+            
         elif file_type == 'TFR':
             globals()['data1fl'] = LFDataProcess.Data1FLStru(full_path)
             globals()['uds3D_'+file_name+'_topo'] = data1fl.get_Topo()       
