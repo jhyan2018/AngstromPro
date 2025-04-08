@@ -107,7 +107,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         #variables
         self.ui_lw_uds_variable_name_list = QtWidgets.QListWidget()
-
+        self.ui_lw_uds_variable_name_list.itemDoubleClicked.connect(self.varListDoubleClicked)
         #child widgets
         self.ui_lw_uds_window_list = QtWidgets.QListWidget()
         
@@ -115,8 +115,14 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_lb_varibale = QtWidgets.QLabel("USD Variables")
         self.ui_lb_window = QtWidgets.QLabel("Alive Windows")
 
-        self.ui_pb_update_var_list =  QtWidgets.QPushButton("Update")
-        self.ui_pb_update_var_list.clicked.connect(self.updateVarList) 
+        self.ui_pb_remove_var_list =  QtWidgets.QPushButton("Remove Var")
+        self.ui_pb_remove_var_list.clicked.connect(self.removeVarFromList) 
+        
+        self.ui_pb_rename_var = QtWidgets.QPushButton("Rename")
+        self.ui_pb_rename_var.clicked.connect(self.renameVar)
+        self.ui_pb_rename_var.setEnabled(False)
+        
+        self.ui_le_rename_var = QtWidgets.QLineEdit()        
         
         self.ui_pb_send_var_to_window =  QtWidgets.QPushButton("-> Send -> ")
         self.ui_pb_send_var_to_window.clicked.connect(self.sendDataToWindow) 
@@ -139,12 +145,15 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_dockWidget_settings.close()
         
     def initUiLayout(self):
-        self.ui_verticalLayout1 = QtWidgets.QVBoxLayout()
-        self.ui_verticalLayout1.addWidget(self.ui_pb_update_var_list)
+        self.ui_horizontalLayout1 = QtWidgets.QHBoxLayout()
+        self.ui_horizontalLayout1.addWidget(self.ui_pb_rename_var)
+        self.ui_horizontalLayout1.addWidget(self.ui_le_rename_var)
         
         self.ui_verticalLayout2 = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout2.addWidget(self.ui_lb_varibale)
         self.ui_verticalLayout2.addWidget(self.ui_lw_uds_variable_name_list)
+        self.ui_verticalLayout2.addLayout(self.ui_horizontalLayout1)
+        self.ui_verticalLayout2.addWidget(self.ui_pb_remove_var_list)
         
         self.ui_verticalLayout3 = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout3.addWidget(self.ui_pb_send_var_to_window)
@@ -160,7 +169,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_verticalLayout5.addWidget(self.ui_pb_remove_window)
         
         self.ui_horizontalLayout = QtWidgets.QHBoxLayout()
-        self.ui_horizontalLayout.addLayout(self.ui_verticalLayout1)
+        #self.ui_horizontalLayout.addLayout(self.ui_verticalLayout1)
         self.ui_horizontalLayout.addLayout(self.ui_verticalLayout2)
         self.ui_horizontalLayout.addLayout(self.ui_verticalLayout3) 
         self.ui_horizontalLayout.addLayout(self.ui_verticalLayout4)
@@ -244,6 +253,36 @@ class GuiVarManager(QtWidgets.QMainWindow):
         ct_var_index = self.ui_lw_uds_variable_name_list.currentRow()
         if ct_var_index == -1:
             self.ui_lw_uds_variable_name_list.setCurrentRow(0)
+    
+    def renameVar(self):
+        ct_var_index = self.ui_lw_uds_variable_name_list.currentRow()
+        
+        var = globals()[self.uds_variable_name_list[ct_var_index]]
+        var.name = self.ui_le_rename_var.text()
+        
+        del globals()[self.uds_variable_name_list[ct_var_index]]
+        self.uds_variable_name_list[ct_var_index] = var.name
+        
+        globals()[var.name] = var
+        
+        self.ui_pb_rename_var.setEnabled(False)
+        self.ui_le_rename_var.clear()
+        
+        self.updateVarList()
+        
+    def varListDoubleClicked(self):
+        ct_var_index = self.ui_lw_uds_variable_name_list.currentRow()
+        
+        self.ui_le_rename_var.setText(self.uds_variable_name_list[ct_var_index])
+        self.ui_pb_rename_var.setEnabled(True)
+        
+    def removeVarFromList(self):
+        ct_var_index = self.ui_lw_uds_variable_name_list.currentRow()
+        
+        if ct_var_index > -1:
+            del_var_name = self.uds_variable_name_list[ct_var_index]
+            del globals()[del_var_name]
+            self.updateVarList()
             
     def removeWindow(self):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
