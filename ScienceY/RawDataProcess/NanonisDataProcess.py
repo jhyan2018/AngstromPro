@@ -517,7 +517,7 @@ class DataSxmStru():
         self.setDataInfo(uds_data, channel)
         
         # axis_name
-        uds_data.axis_name = ['X (m)', 'Y (m)']
+        uds_data.axis_name = ['nan','X (m)', 'Y (m)']
         
         # axis_value
         x_width = float(uds_data.info['FOV'].split(',')[0])
@@ -527,6 +527,7 @@ class DataSxmStru():
             
         xx = np.linspace(0,x_width, x_points)
         yy = np.linspace(0,y_height, y_points)
+        uds_data.axis_value.append([0])
         uds_data.axis_value.append(xx.tolist())
         uds_data.axis_value.append(yy.tolist())
         

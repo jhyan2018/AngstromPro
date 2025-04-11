@@ -73,7 +73,7 @@ class LineCut():
         for i in range(self.data3D.shape[0]):
             linecut_values[i,:] = map_coordinates(self.data3D[i], [y_coords, x_coords], order = self.order)
         
-        linecut_points = np.column_stack((x_coords, y_coords)) # the shape of linecut_points is num_points*2
+        linecut_points = np.column_stack((x_coords, y_coords)) # the shape of linecut_points is (num_points,2)
         
         return linecut_values, linecut_points
     

@@ -29,6 +29,7 @@ from . StatisticCrossCorrelation import StatisticCrossCorrelation
 from . CrossCorrelation import CrossCorrelation
 from .PixelInterpolation import RasterPixelInterpolation
 from .LineAndCircleCut import LineCut, CircleCut
+from .LineWidth import LineWidth
 """
 function Module
 """
@@ -581,14 +582,14 @@ def ipRmap(uds3D_data):
     return uds3D_data_processed
 
 
-def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
+def ipGapMap(uds3D_data, order=2, energy_start = 0, energy_end = -1):
     layer_value = ipGetLayerValue(uds3D_data)
     if len(layer_value) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
         uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
         return uds3D_data_err
 
-    data_processed = GapMap(uds3D_data.data, layer_value, order, enery_start, enery_end)  
+    data_processed = GapMap(uds3D_data.data, layer_value, order, energy_start, energy_end)  
 
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_gm')
     
@@ -604,8 +605,8 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     
     c_history ='ImgProc.ipGapMap:'
     c_history += 'order=' + str(order) + ';'
-    c_history += 'enery_start=' + str(enery_start) + ';'
-    c_history += 'enery_end=' + str(enery_end)
+    c_history += 'energy_start=' + str(energy_start) + ';'
+    c_history += 'energy_end=' + str(energy_end)
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
@@ -771,6 +772,7 @@ def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'X (m)':
             distances = distances * (uds3D_data.axis_value[i][1]-uds3D_data.axis_value[i][0])
+            #Convert the unit of distance from pixels to meters.
             
     uds3D_data_processed = UdsDataStru(linecut_values[np.newaxis,:], uds3D_data.name + '_lc') 
     uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
@@ -779,7 +781,7 @@ def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'Bias (V)':
             uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Distance (m)']
-            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], distances]
+            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], distances.tolist()]
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -816,7 +818,7 @@ def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'Bias (V)':
             uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Theta (*\u03C0)']
-            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], theta]
+            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], theta.tolist()]
     
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -825,6 +827,68 @@ def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
     c_history = 'ImgProc.ipCircleCut:' 
     c_history += 'CircleCutPoints: ' + uds3D_data.info['LineOrCircleCutPoints']+'; '
     c_history += 'order: ' + str(order) +'; ' + 'linewidth: ' + str(W)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+def ipLineWidth(uds3D_data, layer_value, energy_start = 0, energy_end = -1):
+    
+    layer_value = ipGetLayerValue(uds3D_data)
+    if len(layer_value) == 0:
+        uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
+        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        return uds3D_data_err
+    
+    data3D = uds3D_data.data
+    p = 'linewidth'
+    data_processed = LineWidth(data3D, layer_value, p, energy_start, energy_end)
+    
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_lw')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+
+    uds3D_data_processed.info['LayerValue'] = '0'
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.axis_name = ['LineWidth (V)', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
+    uds3D_data_processed.axis_value = [[0],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
+    
+    c_history ='ImgProc.ipLineWidth:'
+    c_history += 'energy_start=' + str(energy_start) + ';'
+    c_history += 'energy_end=' + str(energy_end)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+def ipAInverse(uds3D_data, layer_value, energy_start = 0, energy_end = -1):
+    
+    layer_value = ipGetLayerValue(uds3D_data)
+    if len(layer_value) == 0:
+        uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
+        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        return uds3D_data_err
+    
+    data3D = uds3D_data.data
+    p = 'a inverse'
+    data_processed = LineWidth(data3D, layer_value, p, energy_start, energy_end)
+    
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_ai')
+    
+    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+
+    uds3D_data_processed.info['LayerValue'] = '0'
+    if len(uds3D_data.proc_history) > 0:
+        for i in uds3D_data.proc_history:
+            uds3D_data_processed.proc_history.append(i)
+            
+    uds3D_data_processed.axis_name = ['LineWidth (V)', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
+    uds3D_data_processed.axis_value = [[0],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
+    
+    c_history ='ImgProc.ipAInverse:'
+    c_history += 'energy_start=' + str(energy_start) + ';'
+    c_history += 'energy_end=' + str(energy_end)
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
