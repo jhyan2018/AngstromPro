@@ -401,8 +401,11 @@ class Image2Uds3(GuiFrame):
         lockIn2DMenu.addAction(self.lockIn2DAmplitudeMap)
         lockIn2DMenu.addAction(self.lockIn2DPhaseMap)
         analysisMenu.addAction(self.rMap)
-        analysisMenu.addAction(self.gapMap)
-        crossCorrMenu = analysisMenu.addMenu("Cross-Correlation")        
+        polynomialFitMenu = analysisMenu.addMenu("Polynomial Fit")
+        polynomialFitMenu.addAction(self.gapMap)
+        polynomialFitMenu.addAction(self.lineWidth)
+        polynomialFitMenu.addAction(self.aInverse)
+        crossCorrMenu = analysisMenu.addMenu("Cross Correlation")        
         crossCorrMenu.addAction(self.crossCorrelation)
         crossCorrMenu.addAction(self.statisticCrossCorrelation)
         
@@ -484,6 +487,8 @@ class Image2Uds3(GuiFrame):
         self.lockIn2DPhaseMap = QtWidgets.QAction("Phase Map",self)
         self.rMap = QtWidgets.QAction("R-Map",self)
         self.gapMap = QtWidgets.QAction("Gap-Map",self)
+        self.lineWidth = QtWidgets.QAction("Line Width",self)
+        self.aInverse = QtWidgets.QAction("a^-1",self)
         self.crossCorrelation = QtWidgets.QAction('Cross Correlation',self)
         self.statisticCrossCorrelation = QtWidgets.QAction('Statistic Cross Correlation',self)
         
@@ -555,6 +560,8 @@ class Image2Uds3(GuiFrame):
         self.lockIn2DPhaseMap.triggered.connect(self.actLockIn2DPhaseMap)
         self.rMap.triggered.connect(self.actRMap)
         self.gapMap.triggered.connect(self.actGapMap)
+        self.lineWidth.triggered.connect(self.actLineWidth)
+        self.aInverse.triggered.connect(self.actAInverse)
         self.crossCorrelation.triggered.connect(self.actCrossCorrelation)
         self.statisticCrossCorrelation.triggered.connect(self.actStatisticCrossCorrelation)
         
@@ -832,7 +839,7 @@ class Image2Uds3(GuiFrame):
             elif param_numbers == 3:
                 order = int(params[0])
                 W = int(params[1])
-                if params[2] == 'None':
+                if params[2] == 'None' or params[2] == 'none':
                     num_points = None
                 else:
                     num_points = int(params[2])
@@ -1317,6 +1324,53 @@ class Image2Uds3(GuiFrame):
 
         #
         self.clearWidgetsContents()
+        
+    def actLineWidth(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        enery_start = 0
+        enery_end = -1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 2:
+                enery_start = int(params[0])
+                enery_end = int(params[1])
+                
+        # process
+        uds_data_processed = ImgProc.ipLineWidth(
+                                self.uds_variable_pt_list[ct_var_index], enery_start, enery_end) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actAInverse(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        enery_start = 0
+        enery_end = -1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 2:
+                enery_start = int(params[0])
+                enery_end = int(params[1])
+                
+        # process
+        uds_data_processed = ImgProc.ipAInverse(
+                                self.uds_variable_pt_list[ct_var_index], enery_start, enery_end) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
     
     def actCrossCorrelation(self):
         ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
