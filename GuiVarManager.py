@@ -14,11 +14,12 @@ import sys, os
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 """
 User Modules
 """
+from ScienceY import config
 from ScienceY.GUI import Image2Uds3, Plot1Uds2, RtSynthesis2Uds3, DataBrowser
 from ScienceY.GUI.ConfigManager import ConfigManager
 from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
@@ -113,10 +114,21 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         #other widgets       
         self.ui_lb_varibale = QtWidgets.QLabel("USD Variables")
-        self.ui_lb_window = QtWidgets.QLabel("Alive Windows")
+        self.ui_lb_window = QtWidgets.QLabel("Alive Modules")
 
         self.ui_pb_remove_var_list =  QtWidgets.QPushButton("Remove Var")
         self.ui_pb_remove_var_list.clicked.connect(self.removeVarFromList) 
+        self.ui_pb_remove_var_list.setEnabled(False)
+        
+        self.ui_pb_lock_rm_var = QtWidgets.QPushButton()
+        self.ui_pb_lock_rm_var.setCheckable(True)
+        icon = QtGui.QIcon()
+        icon_lock_path = config.ICONS_DIR / "Locked.png"
+        icon_unlock_path = config.ICONS_DIR / "Unlocked.png"
+        icon.addPixmap(QtGui.QPixmap(str(icon_lock_path)), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(icon_unlock_path)), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        self.ui_pb_lock_rm_var.setIcon(icon)
+        self.ui_pb_lock_rm_var.clicked.connect(self.lockRemoveVarFromList)
         
         self.ui_pb_rename_var = QtWidgets.QPushButton("Rename")
         self.ui_pb_rename_var.clicked.connect(self.renameVar)
@@ -128,12 +140,17 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_pb_send_var_to_window.clicked.connect(self.sendDataToWindow) 
         
         self.ui_pb_remove_window =  QtWidgets.QPushButton("Remove")
-        self.ui_pb_remove_window.clicked.connect(self.removeWindow) 
+        self.ui_pb_remove_window.clicked.connect(self.removeWindow)
+        self.ui_pb_remove_window.setEnabled(False)
+        
+        self.ui_pb_lock_rm_window = QtWidgets.QPushButton()
+        self.ui_pb_lock_rm_window.setCheckable(True)
+        self.ui_pb_lock_rm_window.setIcon(icon)
+        self.ui_pb_lock_rm_window.clicked.connect(self.lockRemoveWindow)
                 
         self.ui_pb_show_window =  QtWidgets.QPushButton("Show")
         self.ui_pb_show_window.clicked.connect(self.showSelectedWindow)
-        
-        self.ui_sb_wd_pb_spacer = QtWidgets.QSpacerItem(20, 120)
+
         
         # dockWiget Pereference
         self.ui_dockWidget_settings = QtWidgets.QDockWidget()
@@ -149,31 +166,35 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_horizontalLayout1.addWidget(self.ui_pb_rename_var)
         self.ui_horizontalLayout1.addWidget(self.ui_le_rename_var)
         
+        self.ui_horizontalLayout2 = QtWidgets.QHBoxLayout()
+        self.ui_horizontalLayout2.addWidget(self.ui_pb_remove_var_list)
+        self.ui_horizontalLayout2.addWidget(self.ui_pb_lock_rm_var)
+        
         self.ui_verticalLayout2 = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout2.addWidget(self.ui_lb_varibale)
         self.ui_verticalLayout2.addWidget(self.ui_lw_uds_variable_name_list)
         self.ui_verticalLayout2.addLayout(self.ui_horizontalLayout1)
-        self.ui_verticalLayout2.addWidget(self.ui_pb_remove_var_list)
+        self.ui_verticalLayout2.addLayout(self.ui_horizontalLayout2)
         
         self.ui_verticalLayout3 = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout3.addWidget(self.ui_pb_send_var_to_window)
         
+        self.ui_horizontalLayout3 = QtWidgets.QHBoxLayout()
+        self.ui_horizontalLayout3.addWidget(self.ui_pb_remove_window)
+        self.ui_horizontalLayout3.addWidget(self.ui_pb_lock_rm_window)
         
         self.ui_verticalLayout4 = QtWidgets.QVBoxLayout()
         self.ui_verticalLayout4.addWidget(self.ui_lb_window)
         self.ui_verticalLayout4.addWidget(self.ui_lw_uds_window_list)
-        
-        self.ui_verticalLayout5 = QtWidgets.QVBoxLayout()        
-        self.ui_verticalLayout5.addWidget(self.ui_pb_show_window)
-        self.ui_verticalLayout5.addItem(self.ui_sb_wd_pb_spacer)
-        self.ui_verticalLayout5.addWidget(self.ui_pb_remove_window)
+        self.ui_verticalLayout4.addWidget(self.ui_pb_show_window)
+        self.ui_verticalLayout4.addLayout(self.ui_horizontalLayout3)
+
         
         self.ui_horizontalLayout = QtWidgets.QHBoxLayout()
         #self.ui_horizontalLayout.addLayout(self.ui_verticalLayout1)
         self.ui_horizontalLayout.addLayout(self.ui_verticalLayout2)
         self.ui_horizontalLayout.addLayout(self.ui_verticalLayout3) 
         self.ui_horizontalLayout.addLayout(self.ui_verticalLayout4)
-        self.ui_horizontalLayout.addLayout(self.ui_verticalLayout5)
                         
         self.ui_gridlayout = QtWidgets.QGridLayout()
         self.ui_gridlayout.addLayout(self.ui_horizontalLayout, 0, 0, 1, 1)
@@ -228,8 +249,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
             self.ui_pb_remove_window.setEnabled(False)
             self.ui_pb_show_window.setEnabled(False)
         else:
-            self.ui_pb_remove_window.setEnabled(True)
-            self.ui_pb_show_window.setEnabled(True)            
+            self.ui_pb_show_window.setEnabled(True)
+            self.lockRemoveWindow()         
         
     # button
     def updateVarList(self):
@@ -284,6 +305,12 @@ class GuiVarManager(QtWidgets.QMainWindow):
             del globals()[del_var_name]
             self.updateVarList()
             
+    def lockRemoveVarFromList(self):
+        if self.ui_pb_lock_rm_var.isChecked():
+            self.ui_pb_remove_var_list.setEnabled(True)
+        else:
+            self.ui_pb_remove_var_list.setEnabled(False)
+    
     def removeWindow(self):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
         
@@ -292,7 +319,13 @@ class GuiVarManager(QtWidgets.QMainWindow):
             self.alive_window_pt_list.pop(ct_w_index)
             self.alive_window_name_list.pop(ct_w_index)
             
-            self.updateAlivedWindowList()        
+            self.updateAlivedWindowList()
+            
+    def lockRemoveWindow(self):
+        if self.ui_pb_lock_rm_window.isChecked():
+            self.ui_pb_remove_window.setEnabled(True)
+        else:
+            self.ui_pb_remove_window.setEnabled(False)
         
     def showSelectedWindow(self):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
