@@ -8,7 +8,7 @@ Created on Tue May 21 16:21:44 2024
 """
 System modules
 """
-
+import re, math
 """
 Third-party Modules
 """
@@ -88,6 +88,9 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         self.plot_obj_mgr = PlotObjManager()
         
         self.cfg_key = PlotConfigKey()
+        
+        self.x_axis_prefix = ''
+        self.x_axis_scale_factor = 1
     
     def initUiLayout(self):
         
@@ -111,7 +114,77 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
     
     def get_line(self, udata_name, curve_idx):
         return self.plot_obj_mgr.get_curve(udata_name, curve_idx)
+    
+    def auto_scale_x_axis(self, x_axis_value):
+        x_axis_min = np.min(x_axis_value)
+        x_axis_max = np.max(x_axis_value)       
+        x_axis_abs_max = np.max([np.abs(x_axis_min), np.abs(x_axis_max)])
         
+        order = math.floor(math.log10(x_axis_abs_max))
+        # Create a lookup for common SI prefixes around the origin
+        # Key is the "exponent group" in multiples of 3
+        # Value is (prefix_string, exponent_of_10)
+        si_prefixes = {
+            -18: ('a', -18), # a
+            -15: ('f', -15), # femto 
+            -12: ("p", -12),  # pico
+             -9:  ("n", -9),   # nano
+             -6:  ("µ", -6),   # micro
+             -3:  ("m", -3),   # milli
+              0:  ("", 0),     # base
+              3:  ("k", 3),    # kilo
+              6:  ("M", 6),    # mega
+              9:  ("G", 9),    # giga
+             12:  ("T", 12)    # tera
+        }
+        
+        # Round the order down to a multiple of 3 for typical SI prefixes
+        multiple_of_three = int(3 * math.floor(order / 3))
+    
+        # Make sure the multiple_of_three is within your dictionary’s range
+        # or clamp to the nearest known prefix.
+        possible_exponents = sorted(si_prefixes.keys())
+        min_exp = min(possible_exponents)
+        max_exp = max(possible_exponents)
+    
+        if multiple_of_three < min_exp:
+            multiple_of_three = min_exp
+        elif multiple_of_three > max_exp:
+            multiple_of_three = max_exp
+    
+        prefix, exponent = si_prefixes[multiple_of_three]
+        scale_factor = 10 ** (-exponent)  # Because we want to multiply data by e.g. 1000 if exponent = -3
+        
+        return prefix, scale_factor
+        
+    def parse_axis_label(self, axis_label):
+        """
+        Parse a string of the form 'AxisName (Unit)' and return (AxisName, Unit).
+
+        Example:
+        input  -> "X (m)"
+        output -> ("X", "m")
+        """
+        # Regular expression explanation:
+        #   ^          : start of string
+        #   \s*        : optional whitespace
+        #   (.*?)      : capture any characters (non-greedy) as the axis name
+        #   \s*\(      : optional whitespace before literal '('
+        #   (.*?)      : capture any characters (non-greedy) as the unit
+        #   \)         : literal ')'
+        #   \s*$       : optional whitespace until end of string
+        pattern = r'^\s*(.*?)\s*\((.*?)\)\s*$'
+        match = re.match(pattern, axis_label)
+        if match:
+            axis_name = match.group(1)
+            unit = match.group(2)
+
+        else:
+            axis_name = '?'
+            unit = '?'
+        
+        return axis_name, unit
+    
     def plotLines(self, uds_data_idx):
         uds_data = self.uds_data_list[uds_data_idx]
         #
@@ -119,6 +192,9 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
             x_axis = np.array(uds_data.axis_value[-1])
         else:
             x_axis = range(uds_data.data.shape[1])
+        
+        self.x_axis_prefix, self.x_axis_scale_factor = self.auto_scale_x_axis(x_axis)
+        x_axis = x_axis * self.x_axis_scale_factor
         
         #   
         for i in range(uds_data.data.shape[0]):
@@ -137,7 +213,10 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
             
             # axis config            
             config=dict()
-            config[c_k.X_LABEL] = uds_data.axis_name[-1]
+            
+            x_axis_name, x_axis_unit = self.parse_axis_label(uds_data.axis_name[-1])
+            config[c_k.X_LABEL] = x_axis_name + ' (' + self.x_axis_prefix + x_axis_unit + ')'
+            
             if 'Data_Name_Unit' in uds_data.info:
                config[c_k.Y_LABEL] = uds_data.info['Data_Name_Unit']
                
