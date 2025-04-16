@@ -851,12 +851,20 @@ class Image2Uds3(GuiFrame):
         
     def actRAxisLineCut(self):
         uds_data = self.LineCut()
+        uds_data.name = uds_data.name.replace('uds3D', 'uds2D')
+        uds_data.data = uds_data.data[0,:,:]
         for i in range(len(uds_data.axis_name)):
             if uds_data.axis_name[i] == 'Bias (V)':
                 energy = uds_data.axis_value[i]
             if uds_data.axis_name[i] == 'Distance (m)':
                 distance = uds_data.axis_value[i]
-        pass
+                
+        uds_data.axis_value.append([])
+        uds_data.axis_value.append([])
+        # update var list
+        self.appendToLocalVarList(uds_data)
+        #
+        self.clearWidgetsContents()
     
     def actEAxisLineCut(self):
         uds_data = self.LineCut()
@@ -865,7 +873,11 @@ class Image2Uds3(GuiFrame):
                 energy = uds_data.axis_value[i]
             if uds_data.axis_name[i] == 'Distance (m)':
                 distance = uds_data.axis_value[i]
-        pass
+        
+        # update var list
+        self.appendToLocalVarList(uds_data)
+        #
+        self.clearWidgetsContents()
         
     def actEvsRLineCut(self):
         uds_data_processed = self.LineCut()
