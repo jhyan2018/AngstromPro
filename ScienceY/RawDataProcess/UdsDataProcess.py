@@ -34,6 +34,11 @@ class UdsDataStru():
         self.config = dict()
         self.proc_history = []
         self.proc_to_do = []
+        
+    def copyInfo(self, info):
+        self.info = info.copy()    
+        self.info.pop('BraggPeaks', None)
+
          
 class UdsDataProcess():
     def __init__(self, path):

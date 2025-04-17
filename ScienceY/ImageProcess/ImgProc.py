@@ -32,11 +32,6 @@ from .LineAndCircleCut import LineCut, CircleCut
 """
 function Module
 """
-def ipCopyDataInfo(data_info):
-    copied_info = data_info.copy()    
-    copied_info.pop('BraggPeaks', None)
-
-    return copied_info
 
 def ipGetLayerValue(uds_data, isSnTxt=False):
     layer_value = []
@@ -76,7 +71,7 @@ def ipBackgroundSubtract2D(uds3D_data, order=1, method='2DPlane'):
 
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_bg')
 
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -101,7 +96,7 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_cp')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -130,7 +125,7 @@ def ipFourierTransform2D(uds3D_data):
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_fft')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -150,7 +145,7 @@ def ipPerfectLattice(uds3D_data, lattice_type):
     
     if len(BraggPeaks) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     bPx1 = BraggPeaks[0][0]
@@ -170,7 +165,7 @@ def ipPerfectLattice(uds3D_data, lattice_type):
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_pl')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -216,7 +211,7 @@ def ipCalculateDisplacementField(uds3D_data, rSigma_ref_a0):
     BraggPeaks = ipGetPickedPoints(uds3D_data, 'BraggPeaks')
     if len(BraggPeaks) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_df') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     bPx1 = BraggPeaks[0][0]
@@ -234,7 +229,7 @@ def ipCalculateDisplacementField(uds3D_data, rSigma_ref_a0):
     
     uds3D_data_processed = UdsDataStru(displacementField, uds3D_data.name+'_df')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     
     uds3D_data_processed.info['LayerValue'] = '0,1'
     
@@ -251,7 +246,7 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
     
     if len(BraggPeaks) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     bPx1 = BraggPeaks[0][0]
@@ -271,7 +266,7 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_lf')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -316,7 +311,7 @@ def ipLineCuts(uds3D_data, linecut_pts, intercaltion_pts=30, lc_type='RAIDAL'):
         data_processed[0,i,:] = rpi.interpolate(MODULUS)
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_lc')
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     
     return uds3D_data_processed
  '''   
@@ -334,7 +329,7 @@ def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_fo')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -361,7 +356,7 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     FilterPoints = ipGetPickedPoints(uds3D_dataCopy, 'FilterPoints')
     if len(FilterPoints) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     for i in range(uds3D_dataCopy.data.shape[0]):
@@ -374,7 +369,7 @@ def ipFourierFilterIsolate(uds3D_data, windowType="GAUSSIAN", kSigma=1):
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_fi')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -400,7 +395,7 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True, pha
     BraggPeaks = ipGetPickedPoints(uds3D_data, 'BraggPeaks')
     if len(BraggPeaks) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     for i in range(BraggPeaks.shape[0]):
@@ -431,7 +426,7 @@ def ipLockIn2D(uds3D_data, px, py, rSigma_ref_a0, MapType, phaseUnwrap=True, pha
     elif MapType == 'Phase':
         uds3D_data_analysed = UdsDataStru(data_analysed, uds3D_data.name+'_pha')
     
-    uds3D_data_analysed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_analysed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_analysed.proc_history.append(i)
@@ -467,7 +462,7 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data_A.name+'_mat')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data_A.info)
+    uds3D_data_processed.copyInfo(uds3D_data_A.info)
     if len(uds3D_data_A.proc_history) > 0:
         for i in uds3D_data_A.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -487,7 +482,7 @@ def ipMathX(uds3D_data, Const = 1):
     data_processed = data * Const
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_mat')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -506,7 +501,7 @@ def ipMathDC(uds3D_data, Const = 1):
     data_processed = data / Const
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_mat')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -525,7 +520,7 @@ def ipMathCD(uds3D_data, Const = 1):
     data_processed = Const / data
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_mat')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -560,7 +555,7 @@ def ipRmap(uds3D_data):
                 
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_rmp')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     rMap_layers_value_text = []
     for v  in rMap_layers_value:
         v_text = NumberExpression.float_to_simplified_number(v)
@@ -585,14 +580,14 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     layer_value = ipGetLayerValue(uds3D_data)
     if len(layer_value) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
 
     data_processed = GapMap(uds3D_data.data, layer_value, order, enery_start, enery_end)  
 
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_gm')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
 
     uds3D_data_processed.info['LayerValue'] = '0'
     if len(uds3D_data.proc_history) > 0:
@@ -615,20 +610,20 @@ def ipRegister(uds3D_data):
     register_points = ipGetPickedPoints(uds3D_data, 'RegisterPoints')
     if len(register_points) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     register_points_reference =  ipGetPickedPoints(uds3D_data, 'RegisterReferencePoints')
     if len(register_points_reference) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
-        uds3D_data_err.info = ipCopyDataInfo(uds3D_data.info)
+        uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
     data_processed = Register(data3D, register_points, register_points_reference)
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_rg')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -650,7 +645,7 @@ def ipStatisticCrossCorrelation(uds3D_data1, uds3D_data2,size = 100, sigma = 3):
     
     uds3D_data_processed = UdsDataStru(data_processed[np.newaxis,:,:], uds3D_data1.name+'_sxcorr')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
+    uds3D_data_processed.copyInfo(uds3D_data1.info)
     if len(uds3D_data1.proc_history) > 0:
         for i in uds3D_data1.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -671,7 +666,7 @@ def ipCrossCorrelation(uds3D_data1, uds3D_data2):
     
     uds3D_data_processed = UdsDataStru(data_processed[np.newaxis,:,:], uds3D_data1.name+'_xcorr')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data1.info)
+    uds3D_data_processed.copyInfo(uds3D_data1.info)
     if len(uds3D_data1.proc_history) > 0:
         for i in uds3D_data1.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -688,7 +683,7 @@ def ipExtractOneLayer(uds3D_data, layer = 0):
     
     uds3D_data_processed = UdsDataStru(data2D[np.newaxis,:,:], uds3D_data.name + '_l'+ str(layer))
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.info['LayerValue'] = uds3D_data.info['LayerValue'].split(',')[layer]
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -708,7 +703,7 @@ def ipIntegral(uds3D_data, start, end):
         
     uds3D_data_processed = UdsDataStru(data_sum[np.newaxis,:,:], uds3D_data.name + '_itg')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.info['LayerValue'] = ','.join(uds3D_data.info['LayerValue'].split(',')[start:(end+1)])
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
@@ -730,7 +725,7 @@ def ipNormalization(uds3D_data):
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name + '_nmz')
     
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     if len(uds3D_data.proc_history) > 0:
         for i in uds3D_data.proc_history:
             uds3D_data_processed.proc_history.append(i)
@@ -773,7 +768,7 @@ def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
             distances = distances * (uds3D_data.axis_value[i][1]-uds3D_data.axis_value[i][0])
             
     uds3D_data_processed = UdsDataStru(linecut_values[np.newaxis,:], uds3D_data.name + '_lc') 
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.info['LayerValue'] = '0'
     
     for i in range(len(uds3D_data.axis_name)):
@@ -810,7 +805,7 @@ def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
     theta = np.linspace(0, 2, circlecut_points.shape[0])
     
     uds3D_data_processed = UdsDataStru(circlecut_values[np.newaxis,:], uds3D_data.name + '_cc') 
-    uds3D_data_processed.info = ipCopyDataInfo(uds3D_data.info)
+    uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.info['LayerValue'] = '0'
     
     for i in range(len(uds3D_data.axis_name)):
