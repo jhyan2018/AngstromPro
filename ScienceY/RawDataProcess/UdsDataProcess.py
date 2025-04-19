@@ -54,7 +54,8 @@ class UdsDataStru():
         #Layervalue for Img2U3
         ndim = self.data.ndim
         if ndim == 3:
-            layer_value = list(range(ndim))
+            layers = self.data.shape[0]
+            layer_value = list(range(layers))
             layer_value_str = ",".join(str(num) for num in layer_value)
             self.info['LayerValue'] = layer_value_str
         
