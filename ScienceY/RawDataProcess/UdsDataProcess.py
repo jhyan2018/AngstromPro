@@ -34,6 +34,40 @@ class UdsDataStru():
         self.config = dict()
         self.proc_history = []
         self.proc_to_do = []
+        
+        #
+        self.setDefaultAxisNameValue()
+        self.addDefaultInfo()
+        
+    def setDefaultAxisNameValue(self):
+        ndim = self.data.ndim
+        
+        # Axis Name
+        # assign empty lists as default according to data dimensionality
+        self.axis_name = ['? (?)' for _ in range(ndim)]        
+        
+        # Axis Value
+        # assign empty lists as default according to data dimensionality
+        self.axis_value = [[] for _ in range(ndim)]
+        
+    def addDefaultInfo(self):
+        #Layervalue for Img2U3
+        ndim = self.data.ndim
+        if ndim == 3:
+            layers = self.data.shape[0]
+            layer_value = list(range(layers))
+            layer_value_str = ",".join(str(num) for num in layer_value)
+            self.info['LayerValue'] = layer_value_str
+        
+        #
+        
+    def copyInfo(self, info):
+        self.info.update(info)   
+        self.info.pop('BraggPeaks', None)
+        
+    def copyProcHistory(self, history):
+        self.proc_history = list(history)
+
          
 class UdsDataProcess():
     def __init__(self, path):

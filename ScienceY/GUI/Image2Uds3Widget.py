@@ -737,7 +737,7 @@ class Image2Uds3Widget(QtWidgets.QWidget):
             self.static_ax.scatter(mk_x, mk_y, s=200, c=mk_color_nm, marker='x')
 
         self.static_ax.figure.canvas.draw()
-        self.static_canvas.flush_events()
+        #self.static_canvas.flush_events()
                
     def canvasSelectedPixToDataPix(self, canvas_x, canvas_y):
         canvas_w = self.static_canvas.getWidgetWidth()

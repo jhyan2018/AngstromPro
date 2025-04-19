@@ -35,11 +35,8 @@ def IPC(uds3D_data_A, uds3D_data_B, parameters):
    
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data_A.name+'_ipc')
     
-    uds3D_data_processed.info = uds3D_data_A.info.copy()
-    
-    if len(uds3D_data_A.proc_history) > 0:
-        for i in uds3D_data_A.proc_history:
-            uds3D_data_processed.proc_history.append(i)
+    uds3D_data_processed.copyInfo(uds3D_data_A.info)
+    uds3D_data_processed.copyProcHistory(uds3D_data_A.proc_history)
     
     uds3D_data_processed.proc_history.append("ImgProcCustomized.IPC:")
     
