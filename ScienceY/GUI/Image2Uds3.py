@@ -852,8 +852,6 @@ class Image2Uds3(GuiFrame):
             if uds_data.axis_name[i] == 'Distance (m)':
                 distance = uds_data.axis_value[i]
                 
-        uds_data.axis_value.append([])
-        uds_data.axis_value.append([])
         # update var list
         self.appendToLocalVarList(uds_data)
         #
