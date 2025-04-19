@@ -52,8 +52,14 @@ class UdsDataStru():
         
     def addDefaultInfo(self):
         #Layervalue for Img2U3
-        pass
-    
+        ndim = self.data.ndim
+        if ndim == 3:
+            layer_value = list(range(ndim))
+            layer_value_str = ",".join(str(num) for num in layer_value)
+            self.info['LayerValue'] = layer_value_str
+        
+        #
+        
     def copyInfo(self, info):
         self.info.update(info)   
         self.info.pop('BraggPeaks', None)
