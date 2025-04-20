@@ -49,6 +49,8 @@ class UdsDataStru():
         # Axis Value
         # assign empty lists as default according to data dimensionality
         self.axis_value = [[] for _ in range(ndim)]
+        for i in range(ndim):
+            self.axis_value[i] = list(range(self.data.shape[i]))
         
     def addDefaultInfo(self):
         #Layervalue for Img2U3

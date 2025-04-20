@@ -705,7 +705,7 @@ def ipNormalization(uds3D_data):
     
     return uds3D_data_processed
 
-def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
+def ipLineCut(uds3D_data, linecut_type, order = 1, linewidth = 0, num_points = None):
     data3D = uds3D_data.data
     LineCutPoints = ipGetPickedPoints(uds3D_data, 'LineOrCircleCutPoints')
     lCPx1 = LineCutPoints[0][0]
@@ -713,16 +713,34 @@ def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
     lCPx2 = LineCutPoints[1][0]
     lCPy2 = LineCutPoints[1][1]
     
+    #
     if order > 3:
         lineCut = LineCut(data3D, lCPx1, lCPy1, lCPx2, lCPy2)
         linecut_values, linecut_points = lineCut.bresenham_line()
     else:
         lineCut = LineCut(data3D, lCPx1, lCPy1, lCPx2, lCPy2, order = order, num_points = num_points)
-        if W == 0:
+        if linewidth == 0:
             linecut_values, linecut_points = lineCut.linecut_interpolated()
         else:
-            linecut_values, linecut_points, nearby_points = lineCut.linecut_with_width_average(W)
+            linecut_values, linecut_points, nearby_points = lineCut.linecut_with_width_average(linewidth)
     
+    #
+    if linecut_type == 'R_AXIS':
+        udp_name = uds3D_data.name.replace('uds3D','uds2D')
+        uds_data_processed = UdsDataStru(linecut_values, udp_name + '_lcr') 
+    elif linecut_type == 'E_AXIS':
+        udp_name = uds3D_data.name.replace('uds3D','uds2D')
+        uds_data_processed = UdsDataStru(np.transpose(linecut_values), udp_name + '_lce') 
+    elif linecut_type == 'E_VS_R':
+        uds_data_processed = UdsDataStru(linecut_values[np.newaxis,:], uds3D_data.name + '_lcv') 
+    else:
+        print("Wrong Line cut type!")
+        uds_data_processed = np.zeros_like(uds3D_data.data)
+    
+    #
+    uds_data_processed.copyInfo(uds3D_data.info)
+    
+    """
     distances = np.zeros(linecut_points.shape[0])
     for i in range(linecut_points.shape[0]):
         if i == 0:
@@ -733,24 +751,23 @@ def ipLineCut(uds3D_data, order = 1, W = 0, num_points = None):
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'X (m)':
             distances = distances * (uds3D_data.axis_value[i][1]-uds3D_data.axis_value[i][0])
-            
-    uds3D_data_processed = UdsDataStru(linecut_values[np.newaxis,:], uds3D_data.name + '_lc') 
-    uds3D_data_processed.copyInfo(uds3D_data.info)
-    uds3D_data_processed.info['LayerValue'] = '0'
-    
+    """
+        
+
+    """
     for i in range(len(uds3D_data.axis_name)):
         if uds3D_data.axis_name[i] == 'Bias (V)':
             uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Distance (m)']
             uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], distances]
-    
-    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+    """
+    uds_data_processed.copyProcHistory(uds3D_data.proc_history)
     #
     c_history = 'ImgProc.ipLineCut:' 
     c_history += 'LineCutPoints: ' + uds3D_data.info['LineOrCircleCutPoints']+'; '
-    c_history += 'order: ' + str(order) +'; ' + 'linewidth: ' + str(W)
-    uds3D_data_processed.proc_history.append(c_history)
+    c_history += 'order: ' + str(order) +'; ' + 'linewidth: ' + str(linewidth)
+    uds_data_processed.proc_history.append(c_history)
         
-    return uds3D_data_processed 
+    return uds_data_processed 
     
 
 def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):

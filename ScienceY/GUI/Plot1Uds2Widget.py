@@ -187,12 +187,9 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
     
     def plotLines(self, uds_data_idx):
         uds_data = self.uds_data_list[uds_data_idx]
+        
         #
-        if len(uds_data.axis_value[0]) > 0:
-            x_axis = np.array(uds_data.axis_value[-1])
-        else:
-            points = uds_data.data.shape[1]
-            x_axis = np.linspace(0, points-1, points)
+        x_axis = np.array(uds_data.axis_value[-1])
         
         self.x_axis_prefix, self.x_axis_scale_factor = self.auto_scale_x_axis(x_axis)
         x_axis = x_axis * self.x_axis_scale_factor
