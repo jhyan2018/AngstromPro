@@ -50,6 +50,9 @@ class PlotObjManager:
     def remove_curve_from_axis(self,udata_name, curve_obj, axis_name='Axis_1_1'):
         pass
     
+    def remove_all_curves_from_axis(self, axis_name='Axis_1_1'):
+        self.axes_and_data[axis_name]['curves'].clear()
+    
     def get_figure(self):
         return self.figure_obj
         
@@ -822,5 +825,37 @@ class PlotConfigWidget(QtWidgets.QWidget):
         
     def set_obj_curve(self, obj_curve):
         self.obj_line = obj_curve
+        print("Current line:",self.obj_line)
         
         # get all present curve config
+    
+    def rgba_to_hex(self, rgba):
+        r, g, b, _ = rgba  # Ignore alpha
+        return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
+    
+    def retrieve_current_figure_config(self):
+        fig_width, fig_height = self.obj_fig.get_size_inches()
+        dpi = self.obj_fig.get_dpi()
+        face_color = self.obj_fig.get_facecolor()
+        edge_color = self.obj_fig.get_edgecolor()
+        title = self.obj_fig._suptitle.get_text() if self.obj_fig._suptitle else None
+        transparent = self.obj_fig.patch.get_alpha()
+        #tight_layout_pad = self.obj_fig.get_tight_layout()  # True/False
+        bbox_inches = self.obj_fig.subplotpars  # padding info
+        
+        # update
+        self.figure_width.setValue(fig_width)
+        self.figure_height.setValue(fig_height)
+        self.dpi_spinbox.setValue(dpi)
+        if title:
+            self.fig_title_input.setText(title)
+        else:
+            self.fig_title_input.setText('')
+        self.facecolor_value.setText(self.rgba_to_hex(face_color))
+        self.edgecolor_value.setText(self.rgba_to_hex(edge_color))
+        if transparent:
+            self.figure_transparency.setValue(transparent)
+        else:
+            self.figure_transparency.setValue(1.0)       
+        padding = (bbox_inches.wspace + bbox_inches.hspace)/2
+        self.figure_padding.setValue(padding)

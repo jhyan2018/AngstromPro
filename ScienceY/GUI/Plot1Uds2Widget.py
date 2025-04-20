@@ -236,8 +236,12 @@ class Plot1Uds2Widget(QtWidgets.QWidget):
         if len(uds_data.data.shape) == 2:
             self.uds_data_list = []
             self.plot_obj_mgr.get_aixs().clear()
+            self.plot_obj_mgr.remove_all_curves_from_axis()
             
-            self.addUdsData(uds_data)                
+            self.addUdsData(uds_data)
+            
+            # emit ...
+            self.sendMsgSignal.emit(0)
         else:
             print('Unaccepted data dimension!')
             return -1

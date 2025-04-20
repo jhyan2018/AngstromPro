@@ -9,6 +9,7 @@ Created on Thu Jul 27 09:56:53 2023
 System modules
 """
 import sys, os
+from datetime import datetime
 
 """
 Third-party Modules
@@ -103,7 +104,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     """ Initializations"""
     def initUiMembers(self):
         
-        self.setWindowTitle("GUI & Var Manager")
+        self.setWindowTitle("AngstromPro")
         self.resize(600,300)
         
         #variables
@@ -420,6 +421,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         # Option Menu
         optionMenu.addAction(self.preferenceAction)
+        optionMenu.addAction(self.aboutAction)
         
         ### ###
         self.setMenuBar(menuBar)
@@ -445,6 +447,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         # Option
         self.preferenceAction = QtWidgets.QAction("Preference",self)
+        self.aboutAction = QtWidgets.QAction("About",self)
         
     def connectActions(self):
         # File Menu
@@ -459,6 +462,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         # Option Menu
         self.preferenceAction.triggered.connect(self.preference)
+        self.aboutAction.triggered.connect(self.actAbout)
         
     """   Slots for Menu Actions   """     
     #
@@ -613,7 +617,15 @@ class GuiVarManager(QtWidgets.QMainWindow):
     def preference(self):
         self.ui_dockWidget_settings.show()
 
-    
+    def actAbout(self):
+        current_year = f"{datetime.now().year}"
+        
+        QtWidgets.QMessageBox.about(self, "About",
+                          "AngstromPro v1.0\n\n"
+                          "Created by Jiahao Yan & Huiyu Zhao\n"
+                          "© 2023 -" + current_year + "\n"
+                          "This is a data management, visualization, processing & simulation software for STM.\n"
+                          "It's based on Matplotlib and PyQt5.")
         
 
 

@@ -117,6 +117,7 @@ class Plot1Uds2(GuiFrame):
     
     def initCcUiMembers(self):  
         self.ui_plot_widget = Plot1Uds2Widget()
+        self.ui_plot_widget.sendMsgSignal.connect(self.getMsgFromPlot1Uds2Widget)
         self.ui_var_plotted_widget = VarTreeWidget()
         self.ui_var_plotted_widget.chileItemSelectedSignal.connect(self.ui_plot_var_tree_item_selected)
         #self.ui_var_plotted_widget.
@@ -211,6 +212,10 @@ class Plot1Uds2(GuiFrame):
                 height = width
                 self.ui_plot_widget.setCanvasWidgetSize(width, height)
                 self.ui_var_plotted_widget.setFixedWidth(int(width*0.5))
+    
+    # Plot1Uds2Widget
+    def getMsgFromPlot1Uds2Widget(self, msg_type):
+        self.ui_dockWidget_plot_config_content.retrieve_current_figure_config()
     
     # plot var tree
     def ui_plot_var_tree_item_selected(self, udata_name, curve_idx):
