@@ -216,6 +216,7 @@ class Plot1Uds2(GuiFrame):
     # Plot1Uds2Widget
     def getMsgFromPlot1Uds2Widget(self, msg_type):
         self.ui_dockWidget_plot_config_content.retrieve_current_figure_config()
+        self.ui_dockWidget_plot_config_content.retrieve_current_axis_config()
     
     # plot var tree
     def ui_plot_var_tree_item_selected(self, udata_name, curve_idx):

@@ -859,3 +859,38 @@ class PlotConfigWidget(QtWidgets.QWidget):
             self.figure_transparency.setValue(1.0)       
         padding = (bbox_inches.wspace + bbox_inches.hspace)/2
         self.figure_padding.setValue(padding)
+        
+    def retrieve_current_axis_config(self):
+        title = self.obj_axis.get_title()
+        xlabel = self.obj_axis.get_xlabel()
+        ylabel = self.obj_axis.get_ylabel()
+        x_min, x_max = self.obj_axis.get_xlim()
+        y_min, y_max = self.obj_axis.get_ylim()
+        xscale = self.obj_axis.get_xscale()
+        yscale = self.obj_axis.get_yscale()
+        
+        # Print them
+        if title:
+            self.axes_title_input.setText(title)
+        else:
+            self.axes_title_input.setText('')
+        if xlabel:
+            self.xlabel_input.setText(xlabel)
+        else:
+            self.xlabel_input.setText('')
+        if ylabel:
+            self.ylabel_input.setText(ylabel)
+        else:
+            self.ylabel_input.setText('')
+        self.xlim_min_input.setValue(x_min)
+        self.xlim_max_input.setValue(x_max)
+        self.ylim_min_input.setValue(y_min)
+        self.ylim_max_input.setValue(y_max) 
+        if xscale == 'linear':
+            self.xlog_scale.setCurrentIndex(0)
+        else:
+            self.xlog_scale.setCurrentIndex(1)
+        if yscale == 'linear':
+            self.ylog_scale.setCurrentIndex(0)
+        else:
+            self.ylog_scale.setCurrentIndex(1)

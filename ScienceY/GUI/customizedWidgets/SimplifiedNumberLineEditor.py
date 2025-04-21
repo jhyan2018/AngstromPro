@@ -31,6 +31,10 @@ class SimplifiedNumberLineEditor(QtWidgets.QLineEdit):
     def value(self):
         sn_txt = self.valid_text
         return NumberExpression.simplified_number_to_float(sn_txt)
+    
+    def setValue(self, value):
+        sn_txt = NumberExpression.float_to_simplified_number(value)
+        self. setSNText(sn_txt)
             
     def isChangedTextValid(self):
         input_text = self.text()
