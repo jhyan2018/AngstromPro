@@ -825,7 +825,6 @@ class PlotConfigWidget(QtWidgets.QWidget):
         
     def set_obj_curve(self, obj_curve):
         self.obj_line = obj_curve
-        print("Current line:",self.obj_line)
         
         # get all present curve config
     
@@ -894,3 +893,25 @@ class PlotConfigWidget(QtWidgets.QWidget):
             self.ylog_scale.setCurrentIndex(0)
         else:
             self.ylog_scale.setCurrentIndex(1)
+            
+    def retrieve_current_line_config(self):
+        line_width = self.obj_line.get_linewidth()
+        line_style = self.obj_line.get_linestyle()
+        line_color = self.obj_line.get_color()
+        marker_style = self.obj_line.get_marker()
+        marker_size = self.obj_line.get_markersize()
+        marker_face_color = self.obj_line.get_markerfacecolor()
+        marker_edge_width = self.obj_line.get_markeredgewidth()
+        marker_edge_color = self.obj_line.get_markeredgecolor()
+        self.linewidth_spinbox.setValue(int(line_width))
+        linestyle_index = self.linestyle_combobox.findText(line_style)
+        if linestyle_index != -1:
+            self.linestyle_combobox.setCurrentIndex(linestyle_index)
+        markerstyle_index = self.marker_combobox.findText(marker_style)
+        if markerstyle_index != -1:
+            self.marker_combobox.setCurrentIndex(markerstyle_index)
+        self.marker_size_spinbox.setValue(int(marker_size))
+        self.marker_edgewidth_spinbox.setValue(int(marker_edge_width))
+        self.linecolor_value.setText(line_color)        
+        self.markerfacecolor_value.setText(marker_face_color)
+        self.markeredgecolor_value.setText(marker_edge_color)

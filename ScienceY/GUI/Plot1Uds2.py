@@ -221,12 +221,14 @@ class Plot1Uds2(GuiFrame):
     # plot var tree
     def ui_plot_var_tree_item_selected(self, udata_name, curve_idx):
         #print("ud_name:",udata_name)
-        print('curve idx:', curve_idx)
-        
-        #print('axis obj:',self.ui_plot_widget.get_axis_obj())
+        #print('curve idx:', curve_idx)
 
         obj_curve = self.ui_plot_widget.get_line(udata_name, curve_idx)
         self.ui_dockWidget_plot_config_content.set_obj_curve(obj_curve)
+        
+        #
+        self.ui_dockWidget_plot_config_content.retrieve_current_line_config()
+        
     #
     def ui_lw_uds_variable_name_list_doulbeClicked(self):
         selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
