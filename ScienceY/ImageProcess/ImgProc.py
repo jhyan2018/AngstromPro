@@ -272,40 +272,7 @@ def ipLFCorrection(uds3D_data, rSigma_ref_a0, displacementField):
     uds3D_data_processed.proc_history.append(c_history)
 
     return uds3D_data_processed
-
-'''
-def ipLineCuts(uds3D_data, linecut_pts, intercaltion_pts=30, lc_type='RAIDAL'):
-    lc_pts = linecut_pts.split(',')
-    lcPx1 = int(lc_pts[0])
-    lcPy1 = int(lc_pts[1])
-    lcPx2 = int(lc_pts[2])
-    lcPy2 = int(lc_pts[3])
-    
-    if lc_type == 'ANGULAR':
-        radius = np.sqrt(1.0 * (lcPy2 - lcPy1)**2 + (lcPx2 - lcPx1)**2)
-        print(radius)
-        theta = np.linspace(0,2*np.pi,intercaltion_pts)
-        src_X_f = radius * np.cos(theta) + lcPx1
-        src_Y_f = radius * np.sin(theta) + lcPy1
-        print(src_X_f)
-        print(src_Y_f)
-    else:
-        l_k = 1.0 * (lcPy2 - lcPy1) / (lcPx2 - lcPx1)
-        l_b = lcPy1 - l_k * lcPx1
-        src_X_f = np.linspace(lcPx1, lcPx2, intercaltion_pts)
-        src_Y_f = l_k * src_X_f + l_b
-    
-    MODULUS = 'fft' in uds3D_data.name
-    data_processed = np.zeros((1,uds3D_data.data.shape[0],len(src_X_f)))
-    for i in range(uds3D_data.data.shape[0]):
-        rpi = RasterPixelInterpolation(uds3D_data.data[i,:,:], src_X_f, src_Y_f)
-        data_processed[0,i,:] = rpi.interpolate(MODULUS)
-        
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_lc')
-    uds3D_data_processed.copyInfo(uds3D_data.info)
-    
-    return uds3D_data_processed
- '''   
+ 
 
 def ipFourierFilterOut(uds3D_data, windowType="GAUSSIAN", kSigma=1): 
     uds3D_dataCopy = UdsDataStru(uds3D_data.data, uds3D_data.name)
@@ -739,27 +706,7 @@ def ipLineCut(uds3D_data, linecut_type, order = 1, linewidth = 0, num_points = N
     
     #
     uds_data_processed.copyInfo(uds3D_data.info)
-    
-    """
-    distances = np.zeros(linecut_points.shape[0])
-    for i in range(linecut_points.shape[0]):
-        if i == 0:
-            distance = 0
-        else:
-            distance += np.hypot(linecut_points[i,0] - linecut_points[i-1,0], linecut_points[i,1] - linecut_points[i-1,1])
-        distances[i] = distance 
-    for i in range(len(uds3D_data.axis_name)):
-        if uds3D_data.axis_name[i] == 'X (m)':
-            distances = distances * (uds3D_data.axis_value[i][1]-uds3D_data.axis_value[i][0])
-    """
         
-
-    """
-    for i in range(len(uds3D_data.axis_name)):
-        if uds3D_data.axis_name[i] == 'Bias (V)':
-            uds3D_data_processed.axis_name = ['nan', uds3D_data.axis_name[i], 'Distance (m)']
-            uds3D_data_processed.axis_value = [[0], uds3D_data.axis_value[i], distances]
-    """
     uds_data_processed.copyProcHistory(uds3D_data.proc_history)
     #
     c_history = 'ImgProc.ipLineCut:' 
