@@ -50,6 +50,9 @@ class PlotObjManager:
     def remove_curve_from_axis(self,udata_name, curve_obj, axis_name='Axis_1_1'):
         pass
     
+    def remove_all_curves_from_axis(self, axis_name='Axis_1_1'):
+        self.axes_and_data[axis_name]['curves'].clear()
+    
     def get_figure(self):
         return self.figure_obj
         
@@ -824,3 +827,91 @@ class PlotConfigWidget(QtWidgets.QWidget):
         self.obj_line = obj_curve
         
         # get all present curve config
+    
+    def rgba_to_hex(self, rgba):
+        r, g, b, _ = rgba  # Ignore alpha
+        return "#{:02x}{:02x}{:02x}".format(int(r * 255), int(g * 255), int(b * 255))
+    
+    def retrieve_current_figure_config(self):
+        fig_width, fig_height = self.obj_fig.get_size_inches()
+        dpi = self.obj_fig.get_dpi()
+        face_color = self.obj_fig.get_facecolor()
+        edge_color = self.obj_fig.get_edgecolor()
+        title = self.obj_fig._suptitle.get_text() if self.obj_fig._suptitle else None
+        transparent = self.obj_fig.patch.get_alpha()
+        #tight_layout_pad = self.obj_fig.get_tight_layout()  # True/False
+        bbox_inches = self.obj_fig.subplotpars  # padding info
+        
+        # update
+        self.figure_width.setValue(fig_width)
+        self.figure_height.setValue(fig_height)
+        self.dpi_spinbox.setValue(dpi)
+        if title:
+            self.fig_title_input.setText(title)
+        else:
+            self.fig_title_input.setText('')
+        self.facecolor_value.setText(self.rgba_to_hex(face_color))
+        self.edgecolor_value.setText(self.rgba_to_hex(edge_color))
+        if transparent:
+            self.figure_transparency.setValue(transparent)
+        else:
+            self.figure_transparency.setValue(1.0)       
+        padding = (bbox_inches.wspace + bbox_inches.hspace)/2
+        self.figure_padding.setValue(padding)
+        
+    def retrieve_current_axis_config(self):
+        title = self.obj_axis.get_title()
+        xlabel = self.obj_axis.get_xlabel()
+        ylabel = self.obj_axis.get_ylabel()
+        x_min, x_max = self.obj_axis.get_xlim()
+        y_min, y_max = self.obj_axis.get_ylim()
+        xscale = self.obj_axis.get_xscale()
+        yscale = self.obj_axis.get_yscale()
+        
+        # Print them
+        if title:
+            self.axes_title_input.setText(title)
+        else:
+            self.axes_title_input.setText('')
+        if xlabel:
+            self.xlabel_input.setText(xlabel)
+        else:
+            self.xlabel_input.setText('')
+        if ylabel:
+            self.ylabel_input.setText(ylabel)
+        else:
+            self.ylabel_input.setText('')
+        self.xlim_min_input.setValue(x_min)
+        self.xlim_max_input.setValue(x_max)
+        self.ylim_min_input.setValue(y_min)
+        self.ylim_max_input.setValue(y_max) 
+        if xscale == 'linear':
+            self.xlog_scale.setCurrentIndex(0)
+        else:
+            self.xlog_scale.setCurrentIndex(1)
+        if yscale == 'linear':
+            self.ylog_scale.setCurrentIndex(0)
+        else:
+            self.ylog_scale.setCurrentIndex(1)
+            
+    def retrieve_current_line_config(self):
+        line_width = self.obj_line.get_linewidth()
+        line_style = self.obj_line.get_linestyle()
+        line_color = self.obj_line.get_color()
+        marker_style = self.obj_line.get_marker()
+        marker_size = self.obj_line.get_markersize()
+        marker_face_color = self.obj_line.get_markerfacecolor()
+        marker_edge_width = self.obj_line.get_markeredgewidth()
+        marker_edge_color = self.obj_line.get_markeredgecolor()
+        self.linewidth_spinbox.setValue(int(line_width))
+        linestyle_index = self.linestyle_combobox.findText(line_style)
+        if linestyle_index != -1:
+            self.linestyle_combobox.setCurrentIndex(linestyle_index)
+        markerstyle_index = self.marker_combobox.findText(marker_style)
+        if markerstyle_index != -1:
+            self.marker_combobox.setCurrentIndex(markerstyle_index)
+        self.marker_size_spinbox.setValue(int(marker_size))
+        self.marker_edgewidth_spinbox.setValue(int(marker_edge_width))
+        self.linecolor_value.setText(line_color)        
+        self.markerfacecolor_value.setText(marker_face_color)
+        self.markeredgecolor_value.setText(marker_edge_color)

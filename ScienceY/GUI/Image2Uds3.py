@@ -401,11 +401,8 @@ class Image2Uds3(GuiFrame):
         lockIn2DMenu.addAction(self.lockIn2DAmplitudeMap)
         lockIn2DMenu.addAction(self.lockIn2DPhaseMap)
         analysisMenu.addAction(self.rMap)
-        polynomialFitMenu = analysisMenu.addMenu("Polynomial Fit")
-        polynomialFitMenu.addAction(self.gapMap)
-        polynomialFitMenu.addAction(self.lineWidth)
-        polynomialFitMenu.addAction(self.aInverse)
-        crossCorrMenu = analysisMenu.addMenu("Cross Correlation")        
+        analysisMenu.addAction(self.gapMap)
+        crossCorrMenu = analysisMenu.addMenu("Cross-Correlation")        
         crossCorrMenu.addAction(self.crossCorrelation)
         crossCorrMenu.addAction(self.statisticCrossCorrelation)
         
@@ -487,8 +484,6 @@ class Image2Uds3(GuiFrame):
         self.lockIn2DPhaseMap = QtWidgets.QAction("Phase Map",self)
         self.rMap = QtWidgets.QAction("R-Map",self)
         self.gapMap = QtWidgets.QAction("Gap-Map",self)
-        self.lineWidth = QtWidgets.QAction("Line Width",self)
-        self.aInverse = QtWidgets.QAction("a^-1",self)
         self.crossCorrelation = QtWidgets.QAction('Cross Correlation',self)
         self.statisticCrossCorrelation = QtWidgets.QAction('Statistic Cross Correlation',self)
         
@@ -560,8 +555,6 @@ class Image2Uds3(GuiFrame):
         self.lockIn2DPhaseMap.triggered.connect(self.actLockIn2DPhaseMap)
         self.rMap.triggered.connect(self.actRMap)
         self.gapMap.triggered.connect(self.actGapMap)
-        self.lineWidth.triggered.connect(self.actLineWidth)
-        self.aInverse.triggered.connect(self.actAInverse)
         self.crossCorrelation.triggered.connect(self.actCrossCorrelation)
         self.statisticCrossCorrelation.triggered.connect(self.actStatisticCrossCorrelation)
         
@@ -819,67 +812,48 @@ class Image2Uds3(GuiFrame):
         # update var list
         self.appendToLocalVarList(uds_data_processed)
     
-    def LineCut(self):
+    def LineCut(self, linecut_type='R_AXIS'):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
         # get param list
         params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
         order = 1
-        W = 0
+        line_width = 1
         num_points = None
         
-        if len(params) != 0:
-            params = params.replace(' ','').split(',')
-            param_numbers = len(params)
-            if param_numbers == 1:
-                order = int(params[0])
-            elif param_numbers == 2:
-                order = int(params[0])
-                W = int(params[1])
-            elif param_numbers == 3:
-                order = int(params[0])
-                W = int(params[1])
-                if params[2] == 'None' or params[2] == 'none':
-                    num_points = None
-                else:
-                    num_points = int(params[2])
-                
-        # process
-        uds_data_processed = ImgProc.ipLineCut(self.uds_variable_pt_list[ct_var_index], order, W, num_points) 
+        if len(params) > 0:
+            param_numbers = len(params.split(','))
+            if param_numbers > 0:
+                order = int(params.split(',')[0])
+            if param_numbers > 1:
+                line_width = int(params.split(',')[1])
+            if param_numbers > 2:
+                num_points = int(params.split(',')[2])
         
-        return uds_data_processed # linecut_values.shape[0] = energy.shape[0], linecut_values.shape[1] = distances.shape[0]
+        # process
+        uds_data_processed = ImgProc.ipLineCut(self.uds_variable_pt_list[ct_var_index], linecut_type, order, line_width, num_points)
+        
+        return uds_data_processed
         
     def actRAxisLineCut(self):
-        uds_data = self.LineCut()
-        uds_data.name = uds_data.name.replace('uds3D', 'uds2D')
-        uds_data.data = uds_data.data[0,:,:]
-        for i in range(len(uds_data.axis_name)):
-            if uds_data.axis_name[i] == 'Bias (V)':
-                energy = uds_data.axis_value[i]
-            if uds_data.axis_name[i] == 'Distance (m)':
-                distance = uds_data.axis_value[i]
-                
+        uds_data_processed = self.LineCut('R_AXIS')
+        
         # update var list
-        self.appendToLocalVarList(uds_data)
+        self.appendToLocalVarList(uds_data_processed)
         #
         self.clearWidgetsContents()
     
     def actEAxisLineCut(self):
-        uds_data = self.LineCut()
-        for i in range(len(uds_data.axis_name)):
-            if uds_data.axis_name[i] == 'Bias (V)':
-                energy = uds_data.axis_value[i]
-            if uds_data.axis_name[i] == 'Distance (m)':
-                distance = uds_data.axis_value[i]
+        uds_data_processed = self.LineCut('E_AXIS')
         
         # update var list
-        self.appendToLocalVarList(uds_data)
+        self.appendToLocalVarList(uds_data_processed)
         #
         self.clearWidgetsContents()
         
     def actEvsRLineCut(self):
-        uds_data_processed = self.LineCut()
-    
+        uds_data_processed = self.LineCut('E_VS_R')
+        
         # update var list
         self.appendToLocalVarList(uds_data_processed)
         #
@@ -929,66 +903,6 @@ class Image2Uds3(GuiFrame):
         self.appendToLocalVarList(uds_data_processed)
         #
         self.clearWidgetsContents()   
-        
-        
-        
-    '''
-    def actLineCut(self):
-        if 'LineCutPoints' in self.ui_img_widget_main.uds_variable.info:
-            
-            # get param list
-            params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
-            energy_start = 0
-            energy_end = -1
-            p = 1
-            if len(params) != 0:
-                params = params.split(',')
-                param_numbers = len(params)
-                if param_numbers == 2:
-                    energy_start = int(params[0])
-                    energy_end = int(params[1])
-                if len(params) ==3:
-                    energy_start = int(params[0])
-                    energy_end = int(params[1])
-                    p = int(params[2])
-                    
-            self.ui_dockWidget_plot1D_Content.setLineCutStartAndEndPoints(
-                self.ui_img_widget_main.uds_variable.info['LineCutPoints'], start = energy_start, end = energy_end, pcs = p)
-        else:
-            print('No - LineCutPoints - keys exists.')
-
-
-
-    def actLineCuts(self):
-        self.status_bar.showMessage("Params()",5000)
-        
-        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
-                
-        # get param list
-        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
-        
-        intercaltion_pts = 100
-        lc_type = 'RADIAL'
-        if len(params) != 0:
-            params = params.split(',')
-            param_numbers = len(params)
-            if param_numbers == 1:
-                intercaltion_pts = int(params[0])
-            if param_numbers == 2:
-                lc_type = params[1]
-        #
-        if 'LineCutPoints' in self.ui_img_widget_main.uds_variable.info:
-            linecut_pts = self.ui_img_widget_main.uds_variable.info['LineCutPoints']
-            
-            # process
-            uds_data_processed = ImgProc.ipLineCuts(self.uds_variable_pt_list[ct_var_index], linecut_pts,intercaltion_pts,lc_type)
-            
-            # update var list
-            self.appendToLocalVarList(uds_data_processed)
-            
-            #
-            self.clearWidgetsContents()
-        '''
             
     def actFourierFilterOut(self):
         self.status_bar.showMessage("Params(kSigma=1.0)",5000)
@@ -1334,53 +1248,6 @@ class Image2Uds3(GuiFrame):
 
         #
         self.clearWidgetsContents()
-        
-    def actLineWidth(self):
-        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
-        # get param list
-        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
-        enery_start = 0
-        enery_end = -1
-        if len(params) != 0:
-            params = params.split(',')
-            param_numbers = len(params)
-            if param_numbers == 2:
-                enery_start = int(params[0])
-                enery_end = int(params[1])
-                
-        # process
-        uds_data_processed = ImgProc.ipLineWidth(
-                                self.uds_variable_pt_list[ct_var_index], enery_start, enery_end) 
-        
-        # update var list
-        self.appendToLocalVarList(uds_data_processed)
-
-        #
-        self.clearWidgetsContents()
-        
-    def actAInverse(self):
-        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
-        # get param list
-        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
-        enery_start = 0
-        enery_end = -1
-        if len(params) != 0:
-            params = params.split(',')
-            param_numbers = len(params)
-            if param_numbers == 2:
-                enery_start = int(params[0])
-                enery_end = int(params[1])
-                
-        # process
-        uds_data_processed = ImgProc.ipAInverse(
-                                self.uds_variable_pt_list[ct_var_index], enery_start, enery_end) 
-        
-        # update var list
-        self.appendToLocalVarList(uds_data_processed)
-
-        #
-        self.clearWidgetsContents()
-        
     
     def actCrossCorrelation(self):
         ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
