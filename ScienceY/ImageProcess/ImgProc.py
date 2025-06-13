@@ -750,3 +750,50 @@ def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
+
+def ipPadding(uds3D_data, px = 0, py = 0, nx = 0, ny = 0, a = 0):
+    data3D = uds3D_data.data
+    pad_width = (
+        (0,0),
+        (nx, px),
+        (ny, py)
+        )
+    data_processed = np.pad(data3D, pad_width, mode = 'constant', constant_values = a)
+    
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_pd')
+    
+    uds3D_data_processed.copyInfo(uds3D_data.info)
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+            
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    
+    uds3D_data_processed.axis_value = []
+    uds3D_data_processed.axis_value.append(uds3D_data.axis_value[0])
+    axisValue1 = np.pad(np.array(uds3D_data.axis_value[1]), (nx, px), mode = 'constant', constant_values = 0)
+    axisValue2 = np.pad(np.array(uds3D_data.axis_value[2]), (ny, py), mode = 'constant', constant_values = 0)
+    uds3D_data_processed.axis_value.append(axisValue1)
+    uds3D_data_processed.axis_value.append(axisValue2)
+    
+    c_history ='ImgProc.ipPad:'
+    c_history += 'px=' + str(px) + ';'
+    c_history += 'nx=' + str(nx) + ';'
+    c_history += 'py=' + str(py) + ';'
+    c_history += 'ny=' + str(ny) + ';'
+    c_history += 'a=' + str(a)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+
+
+
+
+
+
+
+
+
+
+
+
+

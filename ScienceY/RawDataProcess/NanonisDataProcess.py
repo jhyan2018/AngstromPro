@@ -175,6 +175,7 @@ class LoadSxm():
         f.close()
         
         data3D = raw_data1D.astype('f4').reshape((self.header['channels_num'], self.header['xPixels'], self.header['yPixels']))
+        data3D = np.nan_to_num(data3D, nan=0.0)
         for i in range(self.header['channels_num']):
             if i%2 == 1:
                 data3D[i, :, :] = data3D[i, :, :][:,::-1] # Reverse column for backward scanning
