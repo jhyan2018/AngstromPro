@@ -22,7 +22,7 @@ from .GeometricOperation import AffineTransform
 function Module
 """
 
-def Register(data3D, register_points, register_points_reference):
+def Register(data3D, register_points, register_points_reference, ratio = 1):
     '''
     Parameters
     ----------
@@ -30,7 +30,9 @@ def Register(data3D, register_points, register_points_reference):
        from the main window
     
     '''
-    rPoints = np.concatenate((register_points, register_points_reference), axis=0)
+    print(ratio)
+    rPoints = np.concatenate((register_points, register_points_reference/ratio), axis=0)
+    print(register_points_reference/ratio)
     
     affine = AffineTransform()
     affine.setAffineMatrixFrom3PairsRpoints(rPoints)
