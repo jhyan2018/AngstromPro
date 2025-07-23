@@ -1,0 +1,3 @@
+[PATH]
+data_path=E:/gdrive/AQUILON/10_rawData/2024/CuTiSe2/
+
