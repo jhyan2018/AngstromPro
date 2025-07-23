@@ -493,7 +493,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
             globals()['dataSxm'] = NanonisDataProcess.DataSxmStru(full_path, file_name)
             if dataSxm.MultipassSet == True:
                 for ch in dataSxm.channels:
-                    globals()['uds3D_'+file_name+'_'+ch+'_fwd'] = dataSxm.get_Multipass_data(ch)
+                    globals()['uds3D_'+file_name+'_'+ch.replace("[", "").replace("]", "")+'_fwd'] = dataSxm.get_Multipass_data(ch)
             else:
                 if 'Z' in dataSxm.channel_dict['Topo']:
                     globals()['uds3D_'+file_name+'_topo_fwd'] = dataSxm.get_Topo_fwd()

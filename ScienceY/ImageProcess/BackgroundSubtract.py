@@ -2,7 +2,7 @@
 """
 Created on Mon Aug  7 17:29:10 2023
 
-@author: Jiahao Yan
+@author: Jiahao Yan & Huiyu Zhao
 """
 
 """
@@ -98,6 +98,7 @@ def backgroundSubtract2DPlane(data2D, order=1):
     # Subtract background
     Z_bg_subtracted = np.zeros((rows_data,columns_data))
     Z_bg_subtracted = data2D - Z_bg
+    Z_bg_subtracted += np.mean(data2D)
     
     return Z_bg_subtracted
     
@@ -164,6 +165,7 @@ def backgroundSubtractPerLine(data2D, order=1):
         Z_bg_subtracted[row_idx,:] = Z1D - Z1D_bg
         Z_average[row_idx] = np.average(Z_bg_subtracted[row_idx,:]) # Z_average is almost zero
         Z_processed[row_idx,:] = Z_bg_subtracted[row_idx,:]-Z_average[row_idx]  
+    Z_processed += np.mean(data2D)
     
     return Z_processed
     

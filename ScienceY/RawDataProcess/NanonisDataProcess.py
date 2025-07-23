@@ -576,7 +576,7 @@ class DataSxmStru():
         extrated_data = self.data3D[channel_index*2+index_offset, :, :]
         
         #
-        uds_data=UdsDataStru(extrated_data[np.newaxis,:,:], 'uds3D_'+self.name+'_'+channel+'_'+direction)
+        uds_data=UdsDataStru(extrated_data[np.newaxis,:,:], 'uds3D_'+self.name+'_'+channel.replace("[", "").replace("]", "")+'_'+direction)
         
         # info
         self.setDataInfo(uds_data, channel)
