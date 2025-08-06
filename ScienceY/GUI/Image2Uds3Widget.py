@@ -295,7 +295,16 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         if self.ui_cb_image_data_type.currentIndex() == 0: #Abs
             self.uds_variable_dataCopy = np.abs(self.uds_variable.data)
         elif self.ui_cb_image_data_type.currentIndex() == 1: #Angle
-            self.uds_variable_dataCopy = np.angle(self.uds_variable.data)
+            data_real = np.real(self.uds_variable.data).copy()
+            data_imga = np.imag(self.uds_variable.data).copy()
+            data_real_avg = np.average(data_real)
+            data_imga_avg = np.average(data_imga)
+            threshold = (abs(data_real_avg) + abs(data_imga_avg))/1
+            print('threshold=',threshold)
+            data_real[np.abs(data_real) < threshold] = 0
+            data_imga[np.abs(data_imga) < threshold] = 0           
+            data_complex = data_real + 1j*data_imga           
+            self.uds_variable_dataCopy = np.angle(data_complex)
         elif self.ui_cb_image_data_type.currentIndex() == 2: #Real
             self.uds_variable_dataCopy = np.real(self.uds_variable.data)
         elif self.ui_cb_image_data_type.currentIndex() == 3: #Image

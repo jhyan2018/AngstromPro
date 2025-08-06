@@ -208,8 +208,8 @@ class LockIn2D():
         return res_img
     
     def getPhaseMap(self, phaseUnwrap=True, phaseReverseFactor=0.8):
-        #phaseMap = np.arctan2( np.imag(self.A_Q_r), np.real(self.A_Q_r) ) + np.pi
-        phaseMap = np.angle(self.A_Q_r) + np.pi
+        phaseMap = np.arctan2( np.imag(self.A_Q_r), np.real(self.A_Q_r) )
+        #phaseMap = np.angle(self.A_Q_r) + np.pi
         
         if phaseUnwrap == True:
             #phaseMap = self.phaseUnwrap(phaseReverseFactor)

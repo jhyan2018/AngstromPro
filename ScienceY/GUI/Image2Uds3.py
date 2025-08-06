@@ -393,6 +393,7 @@ class Image2Uds3(GuiFrame):
         mathMenu.addAction(self.normalization)
         processMenu.addAction(self.extractOneLayer)
         processMenu.addAction(self.padding)
+        processMenu.addAction(self.interpolation)
         
         processMenu.addAction(self.imageProcessCustomized)
         
@@ -477,6 +478,7 @@ class Image2Uds3(GuiFrame):
         self.normalization = QtWidgets.QAction("Normalization",self)
         self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
         self.padding = QtWidgets.QAction("padding",self)
+        self.interpolation = QtWidgets.QAction("interpolation",self)
         
         self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
         
@@ -549,6 +551,7 @@ class Image2Uds3(GuiFrame):
         self.normalization.triggered.connect(self.actNormalization)
         self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
         self.padding.triggered.connect(self.actPadding)
+        self.interpolation.triggered.connect(self.actInterpolation)
         
         self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
         
@@ -1157,7 +1160,21 @@ class Image2Uds3(GuiFrame):
 
         #
         self.clearWidgetsContents()
+    
+    def actInterpolation(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        # process
+        uds_data_processed = ImgProc.ipInterpolation(self.uds_variable_pt_list[ct_var_index])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
         
     def actImageProcessCustomized(self):
         ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
