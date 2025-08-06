@@ -394,7 +394,7 @@ class Image2Uds3(GuiFrame):
         processMenu.addAction(self.extractOneLayer)
         processMenu.addAction(self.padding)
         processMenu.addAction(self.interpolation)
-        
+        processMenu.addAction(self.GaussianFilter)
         processMenu.addAction(self.imageProcessCustomized)
         
         # Analysis Menu
@@ -479,7 +479,7 @@ class Image2Uds3(GuiFrame):
         self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
         self.padding = QtWidgets.QAction("padding",self)
         self.interpolation = QtWidgets.QAction("interpolation",self)
-        
+        self.GaussianFilter = QtWidgets.QAction("Gaussian Filter",self)
         self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
         
         # Analysis Menu
@@ -552,7 +552,7 @@ class Image2Uds3(GuiFrame):
         self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
         self.padding.triggered.connect(self.actPadding)
         self.interpolation.triggered.connect(self.actInterpolation)
-        
+        self.GaussianFilter.triggered.connect(self.actGaussianFilter)
         self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
         
         # Analysis Menu
@@ -953,9 +953,15 @@ class Image2Uds3(GuiFrame):
     def actRegister(self):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        ratio = 1.0
+        if len(params) != 0:
+            ratio = float(params.split(',')[0])
+
         # process
-        uds_data_processed = ImgProc.ipRegister(self.uds_variable_pt_list[ct_var_index])
-        
+        uds_data_processed = ImgProc.ipRegister(self.uds_variable_pt_list[ct_var_index], ratio)
+ 
         # update var list
         self.appendToLocalVarList(uds_data_processed)
     
@@ -1160,7 +1166,27 @@ class Image2Uds3(GuiFrame):
 
         #
         self.clearWidgetsContents()
-    
+        
+    def actGaussianFilter(self):    
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        sigma = 3
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                sigma = int(params[0])
+        uds_data_processed = ImgProc.ipGaussianFilter(self.uds_variable_pt_list[ct_var_index], sigma)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
     def actInterpolation(self):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
