@@ -12,7 +12,7 @@ System modules
 Third-party Modules
 """
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.signal.windows import tukey
 """
 User Modules
 """
@@ -52,22 +52,6 @@ def ipGetPickedPoints(uds_data, info_key):
         Points=[]
         for p in Points_text:
             Points.append( int(p) )
-        Points_array = np.array(Points)
-        
-        pn = int(len(Points_array)/2)
-        Points_array = Points_array.reshape(pn, 2)
-    else:
-        print('No - ', info_key,' - keys exist!')
-        Points_array = np.array([])
-    
-    return Points_array
-
-def ipGetPickedPoints_float(uds_data, info_key):
-    if info_key in uds_data.info:
-        Points_text = uds_data.info[info_key].split(',')
-        Points=[]
-        for p in Points_text:
-            Points.append( float(p) )
         Points_array = np.array(Points)
         
         pn = int(len(Points_array)/2)
@@ -564,7 +548,7 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     
     return uds3D_data_processed
         
-def ipRegister(uds3D_data, ratio):
+def ipRegister(uds3D_data):
     data3D = uds3D_data.data
     register_points = ipGetPickedPoints(uds3D_data, 'RegisterPoints')
     if len(register_points) == 0:
@@ -572,13 +556,13 @@ def ipRegister(uds3D_data, ratio):
         uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
-    register_points_reference =  ipGetPickedPoints_float(uds3D_data, 'RegisterReferencePoints')
+    register_points_reference =  ipGetPickedPoints(uds3D_data, 'RegisterReferencePoints')
     if len(register_points_reference) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
         uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
-    data_processed = Register(data3D, register_points, register_points_reference, ratio = ratio)
+    data_processed = Register(data3D, register_points, register_points_reference)
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_rg')
     
@@ -775,7 +759,19 @@ def ipPadding(uds3D_data, px = 0, py = 0, nx = 0, ny = 0, a = 0):
         (nx, px),
         (ny, py)
         )
+    
+    # add window to edge
+    alpha = 0.8
+    dx = data3D.shape[-2]
+    dy = data3D.shape[-1]
+    wx = tukey(dx, alpha)
+    wy = tukey(dy, alpha)
+    window = np.outer(wy, wx)
+    windowed_data = data3D * window
+    #
+    #data_processed = np.pad(windowed_data, pad_width, mode='constant')
     data_processed = np.pad(data3D, pad_width, mode = 'constant', constant_values = a)
+    #data_processed = np.pad(data3D, pad_width, mode = 'reflect')
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_pd')
     
@@ -801,31 +797,55 @@ def ipPadding(uds3D_data, px = 0, py = 0, nx = 0, ny = 0, a = 0):
     
     return uds3D_data_processed
 
-
-def ipGaussianFilter(uds3D_data, sigma = 3):
-    data3D = uds3D_data.data
-    data_processed = gaussian_filter(data3D, sigma)
+def ipInterpolation(uds3D_data): # structured interpolation
+    data_processed = structured_interpolate_3d(uds3D_data.data)
     
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_gf')
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_pd')
     
     uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
             
     uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
-    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
     
-    c_history ='ImgProc.ipGaussianFilter:'
-    c_history += 'sigma=' + str(sigma)
+    c_history ='ImgProc.ipInterpolation:'
+    
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
 
+def structured_interpolate_2x_2d(data2d):
+    """Interpolate a single 2D layer with structured 2x upsampling."""
+    N, M = data2d.shape
+    out = np.zeros((2 * N - 1, 2 * M - 1), dtype=data2d.dtype)
+    
+    # Original values
+    out[::2, ::2] = data2d
 
+    # Horizontal interpolation
+    out[::2, 1::2] = (data2d[:, :-1] + data2d[:, 1:]) / 2
 
+    # Vertical interpolation
+    out[1::2, ::2] = (data2d[:-1, :] + data2d[1:, :]) / 2
 
+    # Diagonal interpolation
+    out[1::2, 1::2] = (data2d[:-1, :-1] + data2d[1:, :-1] + data2d[:-1, 1:] + data2d[1:, 1:]) / 4
 
+    return out
 
+def structured_interpolate_3d(data3d):
+    """
+    Applies structured interpolation layer-by-layer for 3D STM data.
 
+    Parameters:
+    - data3d: numpy array of shape (L, N, M)
 
+    Returns:
+    - interpolated_data: numpy array of shape (L, 2N - 1, 2M - 1)
+    """
+    L, N, M = data3d.shape
+    interpolated = np.zeros((L, 2 * N - 1, 2 * M - 1), dtype=data3d.dtype)
 
+    for i in range(L):
+        interpolated[i] = structured_interpolate_2x_2d(data3d[i])
 
+    return interpolated

@@ -26,6 +26,7 @@ from .Image2Uds3Widget import Image2Uds3Widget
 from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from ..ImageSimulate.GenerateCurve2D import sinusoidal2D
 from .ConfigManager import ConfigManager
+from .customizedWidgets.SimplifiedNumberLineEditor import SimplifiedNumberLineEditor
 """
 Function Modules
 """
@@ -296,18 +297,17 @@ class WaveVectorParams(QtWidgets.QWidget):
     def initUiMembers(self):
         self.ui_lb_qx = QtWidgets.QLabel("qx")
         self.ui_lb_qx.setMaximumHeight(30)
-        self.ui_le_qx = QtWidgets.QLineEdit()
+        self.ui_le_qx = SimplifiedNumberLineEditor()
         self.ui_le_qx.setMaximumWidth(50)
         self.ui_le_qx.setText('0')
-        self.ui_le_qx.editingFinished.connect(self.act_qx_textChanged)
-
+        self.ui_le_qx.validTextChanged.connect(self.act_qx_textChanged)
         
         self.ui_lb_qy = QtWidgets.QLabel("qy")
         self.ui_lb_qy.setMaximumHeight(30)
-        self.ui_le_qy = QtWidgets.QLineEdit()
+        self.ui_le_qy = SimplifiedNumberLineEditor()
         self.ui_le_qy.setMaximumWidth(50)
         self.ui_le_qy.setText('0')
-        self.ui_le_qy.editingFinished.connect(self.act_qy_textChanged)
+        self.ui_le_qy.validTextChanged.connect(self.act_qy_textChanged)
         
         self.ui_lb_amplitude = QtWidgets.QLabel("Amplitude")
         self.ui_lb_amplitude.setMaximumHeight(30)
@@ -398,18 +398,12 @@ class WaveVectorParams(QtWidgets.QWidget):
     """ SLOTs"""    
     
     def act_qx_textChanged(self):
-        if self.ui_le_qx.text().isdecimal():
-            self.qx = int(self.ui_le_qx.text())
-        else:
-            return        
+        self.qx = self.ui_le_qx.value()    
         
         self.sendParamsUpdateSignal()
     
     def act_qy_textChanged(self):
-        if self.ui_le_qy.text().isdecimal():
-            self.qy = int(self.ui_le_qy.text())
-        else:
-            return 
+        self.qy = self.ui_le_qy.value()
         
         self.sendParamsUpdateSignal()
     
