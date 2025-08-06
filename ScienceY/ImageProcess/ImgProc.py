@@ -13,6 +13,7 @@ Third-party Modules
 """
 import numpy as np
 from scipy.signal.windows import tukey
+from scipy.ndimage import gaussian_filter
 """
 User Modules
 """
@@ -52,6 +53,22 @@ def ipGetPickedPoints(uds_data, info_key):
         Points=[]
         for p in Points_text:
             Points.append( int(p) )
+        Points_array = np.array(Points)
+        
+        pn = int(len(Points_array)/2)
+        Points_array = Points_array.reshape(pn, 2)
+    else:
+        print('No - ', info_key,' - keys exist!')
+        Points_array = np.array([])
+    
+    return Points_array
+
+def ipGetPickedPoints_float(uds_data, info_key):
+    if info_key in uds_data.info:
+        Points_text = uds_data.info[info_key].split(',')
+        Points=[]
+        for p in Points_text:
+            Points.append( float(p) )
         Points_array = np.array(Points)
         
         pn = int(len(Points_array)/2)
@@ -548,7 +565,7 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
     
     return uds3D_data_processed
         
-def ipRegister(uds3D_data):
+def ipRegister(uds3D_data, ratio):
     data3D = uds3D_data.data
     register_points = ipGetPickedPoints(uds3D_data, 'RegisterPoints')
     if len(register_points) == 0:
@@ -556,13 +573,13 @@ def ipRegister(uds3D_data):
         uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
-    register_points_reference =  ipGetPickedPoints(uds3D_data, 'RegisterReferencePoints')
+    register_points_reference =  ipGetPickedPoints_float(uds3D_data, 'RegisterReferencePoints')
     if len(register_points_reference) == 0:
         uds3D_data_err = UdsDataStru(np.zeros_like(uds3D_data.data), uds3D_data.name+'_err') 
         uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
     
-    data_processed = Register(data3D, register_points, register_points_reference)
+    data_processed = Register(data3D, register_points, register_points_reference, ratio = ratio)
     
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_rg')
     
@@ -797,6 +814,24 @@ def ipPadding(uds3D_data, px = 0, py = 0, nx = 0, ny = 0, a = 0):
     
     return uds3D_data_processed
 
+def ipGaussianFilter(uds3D_data, sigma = 3):
+    data3D = uds3D_data.data
+    data_processed = gaussian_filter(data3D, sigma)
+    
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_gf')
+    uds3D_data_processed.copyInfo(uds3D_data.info)
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+        
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
+    c_history ='ImgProc.ipGaussianFilter:'
+    c_history += 'sigma=' + str(sigma)
+    
+    uds3D_data_processed.proc_history.append(c_history)
+
+    return uds3D_data_processed
+    
 def ipInterpolation(uds3D_data): # structured interpolation
     data_processed = structured_interpolate_3d(uds3D_data.data)
     
