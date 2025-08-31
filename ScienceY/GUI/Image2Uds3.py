@@ -394,7 +394,7 @@ class Image2Uds3(GuiFrame):
         processMenu.addAction(self.extractOneLayer)
         processMenu.addAction(self.padding)
         processMenu.addAction(self.interpolation)
-        processMenu.addAction(self.GaussianFilter)
+        processMenu.addAction(self.NFoldSymmetrize)
         processMenu.addAction(self.imageProcessCustomized)
         
         # Analysis Menu
@@ -452,7 +452,7 @@ class Image2Uds3(GuiFrame):
         
         # Process Menu
         self.backgdSubtract2DPlane = QtWidgets.QAction("2D Plane",self)
-        self.backgdSubtractPerLine = QtWidgets.QAction("per line",self)
+        self.backgdSubtractPerLine = QtWidgets.QAction("Per Line",self)
         self.cropRegion = QtWidgets.QAction("Crop Region",self)
         self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
         self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
@@ -477,9 +477,9 @@ class Image2Uds3(GuiFrame):
         self.integral = QtWidgets.QAction("Integral",self)
         self.normalization = QtWidgets.QAction("Normalization",self)
         self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
-        self.padding = QtWidgets.QAction("padding",self)
-        self.interpolation = QtWidgets.QAction("interpolation",self)
-        self.GaussianFilter = QtWidgets.QAction("Gaussian Filter",self)
+        self.padding = QtWidgets.QAction("Padding",self)
+        self.interpolation = QtWidgets.QAction("Interpolation",self)
+        self.NFoldSymmetrize = QtWidgets.QAction("N-fold Symmetrize",self)
         self.imageProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
         
         # Analysis Menu
@@ -552,7 +552,7 @@ class Image2Uds3(GuiFrame):
         self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
         self.padding.triggered.connect(self.actPadding)
         self.interpolation.triggered.connect(self.actInterpolation)
-        self.GaussianFilter.triggered.connect(self.actGaussianFilter)
+        self.NFoldSymmetrize.triggered.connect(self.actNFoldSymmetrize)
         self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
         
         # Analysis Menu
@@ -1167,19 +1167,19 @@ class Image2Uds3(GuiFrame):
         #
         self.clearWidgetsContents()
         
-    def actGaussianFilter(self):    
+    def actNFoldSymmetrize(self):    
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
 
         # get param list
         params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
         
-        sigma = 3
+        n_fold = 6
         if len(params) != 0:
             params = params.split(',')
             param_numbers = len(params)
             if param_numbers == 1:
-                sigma = int(params[0])
-        uds_data_processed = ImgProc.ipGaussianFilter(self.uds_variable_pt_list[ct_var_index], sigma)
+                n_fold = int(params[0])
+        uds_data_processed = ImgProc.ipNFoldSymmetrize(self.uds_variable_pt_list[ct_var_index], n_fold)
         
         # update var list
         self.appendToLocalVarList(uds_data_processed)

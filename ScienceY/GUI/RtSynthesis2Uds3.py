@@ -162,7 +162,7 @@ class RtSynthesis2Uds3(GuiFrame):
     
     def act_pb_add_wave_vector(self):
         idx = len(self.wave_vector_list)
-        if idx < 16:
+        if idx < 50:
             wv = WaveVectorParams(idx)
             wv.ParamsUpdateSignal.connect(self.act_wavevectors_params_updated)
         
