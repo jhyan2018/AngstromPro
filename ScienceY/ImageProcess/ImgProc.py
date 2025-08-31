@@ -14,6 +14,7 @@ Third-party Modules
 import numpy as np
 from scipy.signal.windows import tukey
 from scipy.ndimage import gaussian_filter
+from scipy.ndimage import rotate
 """
 User Modules
 """
@@ -450,7 +451,14 @@ def ipMath(uds3D_data_A, uds3D_data_B, operator="+"):
 def ipMathX(uds3D_data, Const = 1):
     data = uds3D_data.data
     data_processed = data * Const
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_mat')
+    
+    name_str = str(uds3D_data.name)
+    if name_str.endswith("_fft"):
+        new_name = name_str[:-4] + "_mat_fft"
+    else:
+        new_name = name_str + "_mat"
+        
+    uds3D_data_processed = UdsDataStru(data_processed, new_name)
     
     uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
@@ -467,7 +475,14 @@ def ipMathX(uds3D_data, Const = 1):
 def ipMathDC(uds3D_data, Const = 1):
     data = uds3D_data.data
     data_processed = data / Const
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_mat')
+    
+    name_str = str(uds3D_data.name)
+    if name_str.endswith("_fft"):
+        new_name = name_str[:-4] + "_mat_fft"
+    else:
+        new_name = name_str + "_mat"
+    
+    uds3D_data_processed = UdsDataStru(data_processed, new_name)
     
     uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
@@ -484,7 +499,13 @@ def ipMathDC(uds3D_data, Const = 1):
 def ipMathCD(uds3D_data, Const = 1):
     data = uds3D_data.data
     data_processed = Const / data
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_mat')
+    
+    name_str = str(uds3D_data.name)
+    if name_str.endswith("_fft"):
+        new_name = name_str[:-4] + "_mat_fft"
+    else:
+        new_name = name_str + "_mat"
+    uds3D_data_processed = UdsDataStru(data_processed, new_name)
     
     uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
@@ -813,24 +834,6 @@ def ipPadding(uds3D_data, px = 0, py = 0, nx = 0, ny = 0, a = 0):
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed
-
-def ipGaussianFilter(uds3D_data, sigma = 3):
-    data3D = uds3D_data.data
-    data_processed = gaussian_filter(data3D, sigma)
-    
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_gf')
-    uds3D_data_processed.copyInfo(uds3D_data.info)
-    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
-        
-    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
-    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
-    
-    c_history ='ImgProc.ipGaussianFilter:'
-    c_history += 'sigma=' + str(sigma)
-    
-    uds3D_data_processed.proc_history.append(c_history)
-
-    return uds3D_data_processed
     
 def ipInterpolation(uds3D_data): # structured interpolation
     data_processed = structured_interpolate_3d(uds3D_data.data)
@@ -884,3 +887,40 @@ def structured_interpolate_3d(data3d):
         interpolated[i] = structured_interpolate_2x_2d(data3d[i])
 
     return interpolated
+
+def ipNFoldSymmetrize(uds3D_data, n_fold = 6):
+    
+    data2D = abs(uds3D_data.data.squeeze())
+    data_acc = np.zeros_like(data2D, dtype=np.complex128)
+    for i in range(n_fold):
+        angle = i * (360.0/n_fold)
+        # scipy.ndimage.rotate: 
+        data_rot = rotate(data2D, angle=angle, reshape=False, order=3, mode='constant', cval=0.0, prefilter=True)
+        data_acc += data_rot
+    data_processed = data_acc / n_fold
+    
+    name_str = str(uds3D_data.name)
+    if name_str.endswith("_fft"):
+        new_name = name_str[:-4] + f"_{n_fold}fs_fft"
+    else:
+        new_name = name_str + f"_{n_fold}fs"
+    
+    uds3D_data_processed = UdsDataStru(data_processed[np.newaxis,:,:], new_name)
+    
+    uds3D_data_processed.copyInfo(uds3D_data.info)
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+            
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
+    c_history ='ImgProc.ipNFoldSymmetrize:'
+    c_history += 'N =' + str(n_fold)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+
+
+
+
+
