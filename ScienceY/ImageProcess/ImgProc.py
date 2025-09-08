@@ -838,7 +838,7 @@ def ipPadding(uds3D_data, px = 0, py = 0, nx = 0, ny = 0, a = 0):
 def ipInterpolation(uds3D_data): # structured interpolation
     data_processed = structured_interpolate_3d(uds3D_data.data)
     
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_pd')
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_ip')
     
     uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
