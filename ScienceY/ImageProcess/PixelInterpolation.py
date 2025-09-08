@@ -60,7 +60,7 @@ class PixelInterpolation():
         self.offset_y = padding_size
         
         # pad src data
-        self.src_data_padded = np.lib.pad(self.src_data, (padding_size, padding_size), self.pad_method, constant_values = 0)
+        self.src_data_padded = np.pad(self.src_data, (padding_size, padding_size), self.pad_method, constant_values = 0)
     
     def dataMapping(self):
         tgt_data = np.zeros_like(self.src_X_f)

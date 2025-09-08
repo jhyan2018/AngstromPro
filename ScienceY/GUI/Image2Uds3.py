@@ -25,7 +25,7 @@ User Modules
 from ..ImageProcess import ImgProc
 from ..ImageSimulate import ImgSimu
 from .ProcessParameters import ProcessParameters
-from ..ImgProcCustomized import ImgProcCustomized
+from ..ImgProcessCustomized import ImgProcCustomized
 
 from .GuiFrame import GuiFrame
 from .Image2Uds3Widget import Image2Uds3Widget
@@ -68,7 +68,7 @@ class Image2Uds3(GuiFrame):
         self.ui_img_widget_main.setEnabled(False)
         
         self.ui_img_widget_slave = Image2Uds3Widget()
-        self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- SLAVE ---</b>")
+        self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- AUXILIARY ---</b>")
         self.ui_img_widget_slave.sendMsgSignal.connect(self.getMsgFromImgSlaveWidget)
         self.ui_img_widget_slave.setEnabled(False)
         

@@ -507,7 +507,7 @@ class DataSxmStru():
                 break
             ch_cnt += 1            
         if ch_cnt == len(self.channel_dict[channel]):
-            extrated_data = np.ones((1,100,100))
+            extrated_data = np.ones((100,100))
         else:        
             extrated_data = self.data3D[channel_index*2+index_offset, :, :]
         
