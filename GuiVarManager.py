@@ -23,7 +23,7 @@ User Modules
 from ScienceY import config
 from ScienceY.GUI import Image2Uds3, Plot1Uds2, RtSynthesis2Uds3, DataBrowser
 from ScienceY.GUI.ConfigManager import ConfigManager
-from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess
+from ScienceY.RawDataProcess import NanonisDataProcess, TxtDataProcess, LFDataProcess, NpyDataProcess, MatDataProcess
 from ScienceY.RawDataProcess.UdsDataProcess import UdsDataProcess, UdsDataStru
 
 """
@@ -104,7 +104,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     """ Initializations"""
     def initUiMembers(self):
         
-        self.setWindowTitle("AngstromPro")
+        self.setWindowTitle("AngstromPro - Modules & Variables Manager")
         self.resize(600,300)
         
         #variables
@@ -114,7 +114,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_lw_uds_window_list = QtWidgets.QListWidget()
         
         #other widgets       
-        self.ui_lb_varibale = QtWidgets.QLabel("USD Variables")
+        self.ui_lb_varibale = QtWidgets.QLabel("UDS Variables")
         self.ui_lb_window = QtWidgets.QLabel("Alive Modules")
 
         self.ui_pb_remove_var_list =  QtWidgets.QPushButton("Remove Var")
@@ -468,7 +468,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
     #
     def loadFromFile(self):
         data_path = self.settings['PATH']['data_path']
-        data_type ='Data Files (*.uds *.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt)'
+        data_type ='Data Files (*.uds *.3ds *.sxm *.dat *.tfr *.1fl *.2fl *.ffl *.1fr *.txt *.npy *.mat)'
 
         file = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", data_path, data_type)
         full_path = file[0]
@@ -513,6 +513,12 @@ class GuiVarManager(QtWidgets.QMainWindow):
         elif file_type == 'txt':
             dataTxt = TxtDataProcess.DataTxtStru(full_path)   
             globals()['uds3D_'+file_name] = dataTxt.get_txt_data()
+        elif file_type == 'npy':
+            dataNpy = NpyDataProcess.DataNpyStru(full_path)   
+            globals()['uds3D_'+file_name] = dataNpy.get_npy_data()
+        elif file_type == 'mat':
+            dataMat = MatDataProcess.DataMatStru(full_path)   
+            globals()['uds3D_'+file_name] = dataMat.get_mat_data()
         elif file_type == 'uds':
             udp = UdsDataProcess(full_path)
             uds_data = udp.readFromFile()

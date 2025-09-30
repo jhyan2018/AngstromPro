@@ -71,7 +71,7 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         # Side panel for options
         self.ui_optionList = QtWidgets.QListWidget()
         self.ui_optionList.insertItem(0, "ColorMap")
-        self.ui_optionList.insertItem(1, "Main&Slave")
+        self.ui_optionList.insertItem(1, "Main & Auxiliary")
         self.ui_optionList.insertItem(2, "Canvas")
         self.ui_optionList.currentItemChanged.connect(self.changePage)
         self.ui_pb_save_settings = QtWidgets.QPushButton('Save Settings')
@@ -149,7 +149,7 @@ class PreferenceI2U3(QtWidgets.QMainWindow):
         self.ui_gb_lock = QtWidgets.QGroupBox('Lock')
         self.ui_cb_fixed_data_scale_main = QtWidgets.QCheckBox("Fixed Data Scale Main")
         self.ui_cb_fixed_data_scale_main.stateChanged.connect(self.setLockFixedDataScaleMain)
-        self.ui_cb_fixed_data_scale_slave = QtWidgets.QCheckBox("Fixed Data Scale Slave")
+        self.ui_cb_fixed_data_scale_slave = QtWidgets.QCheckBox("Fixed Data Scale Auxiliary")
         self.ui_cb_fixed_data_scale_slave.stateChanged.connect(self.setLockFixedDataScaleSlave)
         
         self.ui_gb_coefficient = QtWidgets.QGroupBox('Coefficient')
