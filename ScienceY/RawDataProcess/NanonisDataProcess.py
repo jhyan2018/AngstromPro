@@ -235,7 +235,7 @@ class Data3dsStru():
         self.data3D = lData.data3D
         self.name = name
         self.channel_dict = dict()
-        self.channel_dict['dIdV'] = ['LI Demod 1 X (A)', 'Input 2 (V)']
+        self.channel_dict['dIdV'] = ['LI Demod 1 X (A)', 'Input 2 (V)', 'Input 3 (dI/dV) (V)']
         self.channel_dict['Topo'] = ['Scan:Z (m)']
         self.channel_dict['Current'] = ['Current (A)']
         self.channel_dict['Phase'] = ['LI Demod 1 Y (A)']

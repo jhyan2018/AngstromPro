@@ -399,7 +399,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         fileMenu = menuBar.addMenu("&File")
         editMenu = menuBar.addMenu("&Edit")
-        windowMenu = menuBar.addMenu("&Window")
+        windowMenu = menuBar.addMenu("&Modules")
         optionMenu = menuBar.addMenu("&Option")
 
         #### 2nd Level Menu###
@@ -472,7 +472,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
 
         file = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", data_path, data_type)
         full_path = file[0]
-        file_name = full_path.split('/')[-1].split('.')[0]
+        file_name_list = full_path.split('/')[-1].split('.')[0:-1]
+        file_name = "".join(file_name_list)
         file_type = full_path.split('/')[-1].split('.')[-1]
         if '+' in file_name:
             file_name = file_name.replace('+','p')

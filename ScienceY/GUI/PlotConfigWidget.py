@@ -387,11 +387,11 @@ class PlotConfigWidget(QtWidgets.QWidget):
         self.ui_toolbox.addItem(self.create_figure_config_group(), "Figure Configuration")
         self.ui_toolbox.addItem(self.create_axes_config_group(), "Axis Configuration")
         self.ui_toolbox.addItem(self.create_line_config_group(), "Line Configuration")
-        self.ui_toolbox.addItem(self.create_tick_config_group(),'Tick Configuration')
-        self.ui_toolbox.addItem(self.create_legend_config_group(),'Legend Configuration')
-        self.ui_toolbox.addItem(self.create_grid_config_group(),'Grid Configuration')
-        self.ui_toolbox.addItem(self.create_spine_config_group(),'Spine Configuration')
-        self.ui_toolbox.addItem(self.create_annotation_config_group(),'Annotation Configuration')
+        #self.ui_toolbox.addItem(self.create_tick_config_group(),'Tick Configuration')
+        #self.ui_toolbox.addItem(self.create_legend_config_group(),'Legend Configuration')
+        #self.ui_toolbox.addItem(self.create_grid_config_group(),'Grid Configuration')
+        #self.ui_toolbox.addItem(self.create_spine_config_group(),'Spine Configuration')
+        #self.ui_toolbox.addItem(self.create_annotation_config_group(),'Annotation Configuration')
     
     def initNonUiMembers(self):
         self.obj_fig = None
