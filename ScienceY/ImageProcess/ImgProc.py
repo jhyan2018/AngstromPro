@@ -711,7 +711,7 @@ def ipNormalization(uds3D_data):
     
     return uds3D_data_processed
 
-def ipLineCut(uds3D_data, linecut_type, order = 1, linewidth = 0, num_points = None):
+def ipLineCut(uds3D_data, linecut_type, order = 1, linewidth = 1, num_points = None):
     data3D = uds3D_data.data
     LineCutPoints = ipGetPickedPoints(uds3D_data, 'LineOrCircleCutPoints')
     lCPx1 = LineCutPoints[0][0]
@@ -725,9 +725,9 @@ def ipLineCut(uds3D_data, linecut_type, order = 1, linewidth = 0, num_points = N
         linecut_values, linecut_points = lineCut.bresenham_line()
     else:
         lineCut = LineCut(data3D, lCPx1, lCPy1, lCPx2, lCPy2, order = order, num_points = num_points)
-        if linewidth == 0:
+        if linewidth == 1:
             linecut_values, linecut_points = lineCut.linecut_interpolated()
-        else:
+        elif linewidth > 1:
             linecut_values, linecut_points, nearby_points = lineCut.linecut_with_width_average(linewidth)
     
     #
@@ -756,7 +756,7 @@ def ipLineCut(uds3D_data, linecut_type, order = 1, linewidth = 0, num_points = N
     return uds_data_processed 
     
 
-def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
+def ipCircleCut(uds3D_data, order = 1, W = 1, num_points = None):
     data3D = uds3D_data.data
     CircleCutPoints = ipGetPickedPoints(uds3D_data, 'LineOrCircleCutPoints')
     CCPx1 = CircleCutPoints[0][0]
@@ -765,9 +765,9 @@ def ipCircleCut(uds3D_data, order = 1, W = 0, num_points = None):
     CCPy2 = CircleCutPoints[1][1]
     
     circleCut = CircleCut(data3D, CCPx1, CCPy1, CCPx2, CCPy2, order = order, num_points = num_points)
-    if W == 0:
+    if W == 1:
         circlecut_values, circlecut_points = circleCut.circlecut_interpolated()
-    else:
+    elif W > 1:
         circlecut_values, circlecut_points, nearby_points = circleCut.circlecut_with_width_average_circle(W)
     
     theta = np.linspace(0, 2, circlecut_points.shape[0])

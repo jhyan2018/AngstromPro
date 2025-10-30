@@ -258,48 +258,31 @@ class Plot1Uds2(GuiFrame):
         menuBar = QtWidgets.QMenuBar(self)
         
         # Top Menu
-        FileMenu = menuBar.addMenu("&File")
-        processMenu = menuBar.addMenu("&Process")
-        analysisMenu = menuBar.addMenu("&Analysis")
-        simulateMenu = menuBar.addMenu("&Simulate")
+        #FileMenu = menuBar.addMenu("&File")
+        #processMenu = menuBar.addMenu("&Process")
+        #analysisMenu = menuBar.addMenu("&Analysis")
+        #simulateMenu = menuBar.addMenu("&Simulate")
         widgetssMenu = menuBar.addMenu("&Widgets")
-        optionMenu = menuBar.addMenu("&Options")
+        #optionMenu = menuBar.addMenu("&Options")
         
         # File Menu
-        exportMenu = FileMenu.addMenu("Export")
-        exportMenu.addAction(self.exportToImage)
-        exportMenu.addAction(self.exportToClipboard)
+        #exportMenu = FileMenu.addMenu("Export")
+        #exportMenu.addAction(self.exportToImage)
+        #exportMenu.addAction(self.exportToClipboard)
 
 
         
         # Process Menu
-        #backgdSubtractMenu = processMenu.addMenu("Background Subtract")
-        #backgdSubtractMenu.addAction(self.backgdSubtract2DPlane)
-        #backgdSubtractMenu.addAction(self.backgdSubtractPerLine)
-        #fourierFilterMenu = processMenu.addMenu("Fourier Filter")
-        #fourierFilterMenu.addAction(self.fourierFilterOut)
-        #fourierFilterMenu.addAction(self.fourierFilterIsolate)
-        mathMenu = processMenu.addMenu("Math")
-        #mathMenu.addAction(self.mathAdd)
-        #mathMenu.addAction(self.mathSubtract)
-        #mathMenu.addAction(self.mathMultiply)
-        #mathMenu.addAction(self.mathMultiplyByConst)
-        #mathMenu.addAction(self.mathDivide)
-        #mathMenu.addAction(self.mathDivideByConst)
-        #mathMenu.addAction(self.mathDivideConstBy)
-        processMenu.addAction(self.extractOneLine)
+        #mathMenu = processMenu.addMenu("Math")
+        #processMenu.addAction(self.extractOneLine)
         
-        processMenu.addAction(self.lineProcessCustomized)
+        #processMenu.addAction(self.lineProcessCustomized)
         
         # Analysis Menu
-        analysisMenu.addAction(self.fourierTransform)
+        #analysisMenu.addAction(self.fourierTransform)
      
         # Simulate Menu
-        generateCurveMenu = simulateMenu.addMenu("Generate Curve")
-        #generateCurveMenu.addAction(self.generateHeavisideCurve)
-        #generateCurveMenu.addAction(self.generateCircleCurve)
-        #generateCurveMenu.addAction(self.generateGaussianCurve)
-        #generateCurveMenu.addAction(self.generateSinusoidalCurve)
+        #generateCurveMenu = simulateMenu.addMenu("Generate Curve")
 
         
         # Widgets Menu

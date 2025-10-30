@@ -373,8 +373,6 @@ class Image2Uds3(GuiFrame):
         lineCutMenu.addAction(self.eAxisLineCut)
         lineCutMenu.addAction(self.eVSrLineCut)
         circleCutMenu = processMenu.addMenu('Circle Cut')
-        circleCutMenu.addAction(self.rAxisCircleCut)
-        circleCutMenu.addAction(self.eAxisCircleCut)
         circleCutMenu.addAction(self.eVStCircleCut)
         #processMenu.addAction(self.lineCuts)
         fourierFilterMenu = processMenu.addMenu("Fourier Filter")
@@ -444,15 +442,15 @@ class Image2Uds3(GuiFrame):
     def creat_actions(self):
         # Image Menu
         self.exportMainToImage = QtWidgets.QAction("Main to Image",self)
-        self.exportSlaveToImage = QtWidgets.QAction("Slave to Image",self)
+        self.exportSlaveToImage = QtWidgets.QAction("Auxiliary to Image",self)
         self.exportMainToClipboard = QtWidgets.QAction("Main to Clipboard",self)
-        self.exportSlaveToClipboard = QtWidgets.QAction("Slave to Clipboard",self)
+        self.exportSlaveToClipboard = QtWidgets.QAction("Auxiliary to Clipboard",self)
         self.makeMovieFromMain = QtWidgets.QAction("Main",self)
-        self.makeMovieFromSlave = QtWidgets.QAction("Slave",self)
+        self.makeMovieFromSlave = QtWidgets.QAction("Auxiliary",self)
         
         # Process Menu
         self.backgdSubtract2DPlane = QtWidgets.QAction("2D Plane",self)
-        self.backgdSubtractPerLine = QtWidgets.QAction("Per Line",self)
+        self.backgdSubtractPerLine = QtWidgets.QAction("Line-by-Line",self)
         self.cropRegion = QtWidgets.QAction("Crop Region",self)
         self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
         self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
@@ -460,8 +458,6 @@ class Image2Uds3(GuiFrame):
         self.rAxisLineCut = QtWidgets.QAction('A(r)',self)
         self.eAxisLineCut = QtWidgets.QAction('A(E)',self)
         self.eVSrLineCut = QtWidgets.QAction('E VS r',self)
-        self.rAxisCircleCut = QtWidgets.QAction('A(r)',self)
-        self.eAxisCircleCut = QtWidgets.QAction('A(E)',self)
         self.eVStCircleCut = QtWidgets.QAction('E VS theta',self)
         #self.lineCuts = QtWidgets.QAction('Line Cuts',self)
         self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
@@ -533,8 +529,6 @@ class Image2Uds3(GuiFrame):
         self.rAxisLineCut.triggered.connect(self.actRAxisLineCut)
         self.eAxisLineCut.triggered.connect(self.actEAxisLineCut)
         self.eVSrLineCut.triggered.connect(self.actEvsRLineCut)
-        self.rAxisCircleCut.triggered.connect(self.actRAxisCircleCut)
-        self.eAxisCircleCut.triggered.connect(self.actEAxisCircleCut)
         self.eVStCircleCut.triggered.connect(self.actTvsECircleCut)
         #self.lineCuts.triggered.connect(self.actLineCuts)
         self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
@@ -871,7 +865,7 @@ class Image2Uds3(GuiFrame):
         # get param list
         params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
         order = 1
-        W = 0
+        W = 1
         num_points = None
         
         if len(params) != 0:
@@ -893,14 +887,6 @@ class Image2Uds3(GuiFrame):
         # process
         uds_data_processed = ImgProc.ipCircleCut(self.uds_variable_pt_list[ct_var_index], order, W, num_points) 
         return uds_data_processed
-    
-    def actRAxisCircleCut(self):
-        uds_data = self.CircleCut()
-        pass
-    
-    def actEAxisCircleCut(self):
-        uds_data = self.CircleCut()
-        pass
     
     def actTvsECircleCut(self):
         uds_data_processed = self.CircleCut()
