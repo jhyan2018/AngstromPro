@@ -92,8 +92,8 @@ class GalleryViewManager(QtWidgets.QWidget):
                         ui_cbx.setChecked(False)
                         self.gallery_filter_bool[suffix].append(False)
                 else:                                        
-                    ui_cbx.setChecked(False)
-                    self.gallery_filter_bool[suffix].append(False)
+                    ui_cbx.setChecked(True)
+                    self.gallery_filter_bool[suffix].append(True)
                                            
         ch_filter_content.setLayout(layout)
         

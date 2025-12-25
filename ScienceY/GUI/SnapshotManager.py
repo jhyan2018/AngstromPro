@@ -22,7 +22,7 @@ User Modules
 """
 from ..GUI.Image2Uds3Widget import Image2Uds3Widget
 from ..GUI.Plot1Uds2Widget import Plot1Uds2Widget
-from ..RawDataProcess import NanonisDataProcess, LFDataProcess, UdsDataProcess
+from ..RawDataProcess import NanonisDataProcess, LFDataProcess, UdsDataProcess, TxtDataProcess, MatDataProcess, NpyDataProcess
 from ..ImageProcess import ImgProc
 from ..GUI.general.NumberExpression import NumberExpression
 """
@@ -200,6 +200,12 @@ class SnapshotManager:
             self.generate_snapshots_to_metafile_from_TFR(srcfile_path, src_file_lastmodified)
         elif suffix == '1FL':
             self.generate_snapshots_to_metafile_from_1FL(srcfile_path, src_file_lastmodified)
+        elif suffix == 'txt':
+            self.generate_snapshots_to_metafile_from_txt(srcfile_path, src_file_lastmodified)
+        elif suffix == 'mat':
+            self.generate_snapshots_to_metafile_from_mat(srcfile_path, src_file_lastmodified)
+        elif suffix == 'npy':
+            self.generate_snapshots_to_metafile_from_npy(srcfile_path, src_file_lastmodified)
         elif suffix == 'uds':
             if channel == None:
                 self.generate_snapshots_to_metafile_from_uds(srcfile_path, src_file_lastmodified)
@@ -608,9 +614,81 @@ class SnapshotManager:
         self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
         self.save_metadata_srcfile()    
         self.save_snapshots(snapshot_info)    
+
+    def generate_snapshots_to_metafile_from_txt(self, srcfile_path, src_file_lastmodified):
+        dataUdp = TxtDataProcess.DataTxtStru(srcfile_path)
+        
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        # only one channel
+        uds_data = dataUdp.get_txt_data()
+        channel = uds_data.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Channel: ?')
+            
+        snapshot_info.ch_type.append('IMAGE')
+        
+        self.set_snapshots_render_image_data(uds_data)
+        self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)
+        
+    def generate_snapshots_to_metafile_from_mat(self, srcfile_path, src_file_lastmodified):
+        dataMat = MatDataProcess.DataMatStru(srcfile_path)
+        
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        # only one channel
+        uds_data = dataMat.get_mat_data()
+        channel = uds_data.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Channel: ?')
+            
+        snapshot_info.ch_type.append('IMAGE')
+        
+        self.set_snapshots_render_image_data(uds_data)
+        self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)
+        
+    def generate_snapshots_to_metafile_from_npy(self, srcfile_path, src_file_lastmodified):
+        dataNpy = NpyDataProcess.DataNpyStru(srcfile_path)
+        
+        snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
+        
+        # only one channel
+        uds_data = dataNpy.get_npy_data()
+        channel = uds_data.info.get('Channel', None)
+        if not channel == None:
+            snapshot_info.channel.append(channel)
+        else:
+            snapshot_info.channel.append('Channel: ?')
+            
+        snapshot_info.ch_type.append('IMAGE')
+        
+        self.set_snapshots_render_image_data(uds_data)
+        self.generate_singlelayer_snapshots_Img2U3Widget(snapshot_info)
+        
+        #snapshot_info.full_info = []
+        snapshot_info.src_file_uuid = f"{uuid.uuid4()}.jason"
+        self.snapshots_srcfile[srcfile_path] = snapshot_info.src_file_uuid + '@' + src_file_lastmodified
+        self.save_metadata_srcfile()    
+        self.save_snapshots(snapshot_info)     
         
     def generate_snapshots_to_metafile_from_uds(self, srcfile_path, src_file_lastmodified):
-        dataUdp = UdsDataProcess(srcfile_path)
+        dataUdp = UdsDataProcess.UdsDataProcess(srcfile_path)
         
         snapshot_info = SnapshotInfo(srcfile_path, src_file_lastmodified)
         
@@ -684,9 +762,18 @@ class SnapshotManager:
         elif suffix == '1FL':
             data1FL = LFDataProcess.Data1FLStru(srcfile_path)
             return data1FL.get_dIdV()
+        elif suffix == 'txt':
+            dataTxt = TxtDataProcess.DataTxtStru(srcfile_path)
+            return dataTxt.get_txt_data()
+        elif suffix == 'mat':
+            dataMat = MatDataProcess.DataMatStru(srcfile_path)
+            return dataMat.get_mat_data()
+        elif suffix == 'npy':
+            dataNpy = NpyDataProcess.DataNpyStru(srcfile_path)
+            return dataNpy.get_npy_data()
         elif suffix == 'uds':
-            if channel == None:
-                pass
+            dataUds = UdsDataProcess.UdsDataProcess(srcfile_path)
+            return dataUds.readFromFile()
         else:
             return None
             print('Load channel data error: Unsupported file suffix!') 
