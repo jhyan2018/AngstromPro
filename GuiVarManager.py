@@ -629,7 +629,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         QtWidgets.QMessageBox.about(self, "About",
                           "AngstromPro v1.0\n\n"
-                          "Created by Jiahao Yan & Huiyu Zhao\n"
+                          "Created by Huiyu Zhao & Jiahao Yan\n"
                           "© 2023 -" + current_year + "\n"
                           "This is a data management, visualization, processing & simulation software for STM.\n"
                           "It's based on Matplotlib and PyQt5.")
