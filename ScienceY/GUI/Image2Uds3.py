@@ -71,6 +71,7 @@ class Image2Uds3(GuiFrame):
         self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- AUXILIARY ---</b>")
         self.ui_img_widget_slave.sendMsgSignal.connect(self.getMsgFromImgSlaveWidget)
         self.ui_img_widget_slave.setEnabled(False)
+        self.ui_img_widget_slave.setParamlistEnabled(False)
         
         # dockWiget Plot1D
         self.ui_dockWidget_plot1D = QtWidgets.QDockWidget()

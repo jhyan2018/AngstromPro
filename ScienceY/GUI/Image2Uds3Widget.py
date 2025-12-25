@@ -559,7 +559,10 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         
         self.sendMsgSignalEmit(self.msg_type.index('CANVAS_WHEALED'))
         
-    """ Regular Functions """        
+    """ Regular Functions """
+    def setParamlistEnabled(self, enabled):
+        self.ui_le_img_proc_parameter_list.setEnabled(enabled)
+        
     def setCanvasWidgetSize(self, w, h):
         self.static_canvas.setFixedWidth(w)
         self.static_canvas.setFixedHeight(h)
