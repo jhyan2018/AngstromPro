@@ -53,11 +53,11 @@ class Plot1DWidget(QtWidgets.QWidget):
         self.canvas.figure.subplots_adjust(left=0.1, bottom=0.09, right=0.95, top=0.93)
         self.canvas.figure.patch.set_visible(True)
         
-        self.ui_pb_real_time_dIdV = QtWidgets.QPushButton('Real time')
+        self.ui_pb_real_time_dIdV = QtWidgets.QPushButton('Real Time')
         self.ui_pb_real_time_dIdV.setCheckable(True)
         self.ui_pb_real_time_dIdV.clicked.connect(self.pbRealTimeClicked)
         
-        self.ui_pb_dIdV_spectra_on_off = QtWidgets.QPushButton('selected points')
+        self.ui_pb_dIdV_spectra_on_off = QtWidgets.QPushButton('Selected Points')
         self.ui_pb_dIdV_spectra_on_off.setCheckable(True)
         self.ui_pb_dIdV_spectra_on_off.clicked.connect(self.pbOnOffClicked)
         

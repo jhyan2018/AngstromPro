@@ -61,7 +61,7 @@ The menu bar has 4 menus to choose from.
 This managed the files from Windows Explorer
 - Load from file: 
 	- Loads files from windows explorer to the USD Variables for use in the program. 
-	- The file types that can be uploaded are .uds, .3ds, .sxm, .dat, .tfr, .1fl, .2fl, .ffl, .lfr, .txt. All files uploaded will be then separated into the different channels depending on the type of data uploaded
+	- The file types that can be uploaded are .uds, .3ds, .sxm, .dat, .tfr, .1fl, .txt, .npy, .mat. All files uploaded will be then separated into the different channels depending on the type of data uploaded
 - Save to file:
 	- Save the file currently selected in USD Variables. This will then launch windows explorer to allow you to save in a specific folder and change the file name.
 
@@ -70,13 +70,13 @@ To rename a file in USD Variables, double click an UDS variable in the list the 
 To delete a variable from the USD variables list, you must click the lock/unlock button beneath the USD variable list. This will then activate the “Remove Var” button. You can then select the variable you list to want to remove and select the “Remove Var” button and the variable will be removed from the list. 
 ## Edit: 
 This is currently blank. #unfinished 
-## Window: 
+## Modules: 
 This allows you to add a new module in the Alive Modules section. 
 	The list of modules includes
 		[[#Data Browser]]
-		[[#Image2or3D]]
-		Plot1U2
-		RtSynthesis2
+		[[#Image2U3]]
+		[[#Plot1U2]]
+		[[#RtSynthesis2D]]
 The first 3 modules open in the Alive Modules list as default
 
 To delete a module from Alive Modules list, you must click the lock/unlock button beneath the USD variable list. This will then activate the “Remove” button. You can then select the variable you list to want to remove and select the “Remove” button and the variable will be removed from the list.
@@ -117,7 +117,7 @@ This widget has two tabs on the bottom left, Channels and Files.
 ### Gallery:  
 Here you can see a snapshot of all files in a gallery. Additional blocks provide basic file information and interactive options, such as sending corresponding data to the Global Variable List for further processing.
  - To optimize memory usage, only snapshots currently in view are loaded, while out-of-view snapshots are dynamically discarded. With these features, the Data Browser provides powerful and intuitive tool for efficiently browsing, organizing and exploring enormous and diverse datasets.
-## Image2U3
+## Image2U3 (Multiple 2D Images Visualizer & Analyzer)
 Multiple 2D Images Visualizer & Analyzer module. When opened you are immediately shown an empty Var Dock Widget on the left, and two blank [[#Main]] and [[#Auxiliary]] images.  
 ### Var Dock Widget
 #### Local Var List
@@ -710,10 +710,15 @@ Parameters
 	- The phase of the wave in radians. 
 	- *Default: none - required*
 ### Widget Menu
+These widgets support docking, floating, closing, and restriction of allowable docking orientations.
 #### Variable Dock Widget
 Adds the [[#Var Dock Widget]] to the left hand side of the module
-#### Plot 1D Dock Widget #unfinished 
-This does not interact with anything
+#### Plot 1D Dock Widget 
+Click to open the Plot 1D DockWidget. If this widget does not appear, check the tabs at the bottom of the Variables DockWidget to see whether it is stacked together with the Variables DockWidget.
+For multi-layer datasets—for example, differential conductance spectra dI/dV measured at multiple energies—the Plot 1D Dock Widget is used to display energy-resolved spectra at selected spatial locations.
+Two push buttons correspond to two interaction modes: Real Time and Select Points. By default, neither mode is active; clicking a button activates the corresponding mode.
+- Real Time mode: The widget continuously displays the spectrum at the spatial position currently indicated by the mouse cursor in the MAIN canvas.
+- Select Points mode: The widget displays spectra at user-selected spatial points. Spatial points can be selected by left-clicking on the MAIN canvas. The coordinates of the selected points are listed in the box under “Picked Points”. Multiple spatial points can be selected simultaneously, and the corresponding spectra are displayed together for comparison.
 ### Options Menu
 #### Preference
 This allows you to change the display options for the following:
@@ -729,7 +734,7 @@ This allows you to change the display options for the following:
 - This allows you to change the size of the canvas as a fraction of the window size. Default is 0.33.
 - You can also show the bias value of the data from the meta data 
 
-## Multiple 1D Curves Visualizer & Analyzer
+## Plot1U2 (Multiple 1D Curves Visualizer & Analyzer)
 The module displays 1D curves on a 2D graph
 The window is split into 3 sections. The Docked Widget on the left, the variable display in the middle and the graph on the right.
 ### Docked Widget
@@ -767,13 +772,6 @@ This configures the following elements of the one line that is selected in the m
 - Marker edge width
 - Marker Edge color
 You can select different lines on the middle variable display and edit them individually. 
-##### Tick Configuration 
-Here you can change the positions of the ticks along the x-axis and y-axis. 
-##### Legend Configuration
-##### Grid Configuration
-- Show Grid
-##### Spine Configuration
-##### Annotation Configuration
 
 #### Var
 ##### Local Var List
@@ -792,19 +790,10 @@ You will be able to select the lines you wish to view by selecting the line, and
 At the bottom is the Params box, which will allow you in input parameters to use in the Process, analysis and simulate menus. 
 ### Graph Display
 The graph display allows you to see the plot as you change it. 
-### File Menu
-#### Export
-This exports the curve as a PNG image to be saved locally or be copied to the clipboard.  
-### Process Menu
-#### Math 
-### Analysis Menu
-#### Fourier Transform
-### Simulate
-#### Generate Curve
 ### Widgets
-#### Variable DockWidget
-### Options
-## RT Synthesis2U3
+#### Variables DockWidget
+This button reopens the Variables DockWidget if it has been closed.
+## RtSynthesis2U3 (Data Simulator)
 This module allow you to model the waveforms in real space. It is split into 3 sections. The Docked widget on the left, Synthesis in the middle and the Function on the right. The docked widget only holds the Variable widget
 ### Docked Widget
 #### Var
