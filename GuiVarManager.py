@@ -441,9 +441,9 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         # Window
         self.dataBrowserAction = QtWidgets.QAction("Data Browser",self)
-        self.image2or3DAction = QtWidgets.QAction("Image2or3D",self)
+        self.image2or3DAction = QtWidgets.QAction("Image2U3",self)
         self.plot1u2Action = QtWidgets.QAction("Plot1U2",self)
-        self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2D",self)
+        self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2U3",self)
         
         # Option
         self.preferenceAction = QtWidgets.QAction("Preference",self)

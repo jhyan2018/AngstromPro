@@ -506,8 +506,8 @@ class Image2Uds3(GuiFrame):
         self.generateLatticeWithPeriodicDistortion = QtWidgets.QAction("Lattice with Periodic Distortions",self)
         
         # Widgets Menu
-        self.showVarDockWidget = QtWidgets.QAction("Variables DockWidget",self)
-        self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D DockWidget",self)
+        self.showVarDockWidget = QtWidgets.QAction("Variables Dock Widget",self)
+        self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D Dock Widget",self)
         
         # Option Menu
         self.preferenceAction = QtWidgets.QAction("Preference",self)
