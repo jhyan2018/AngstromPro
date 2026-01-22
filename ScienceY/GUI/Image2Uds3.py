@@ -1306,11 +1306,12 @@ class Image2Uds3(GuiFrame):
                 enery_end = int(params[2])
                 
         # process
-        uds_data_processed = ImgProc.ipGapMap(
+        uds_data_processed_Gapmap, uds_data_processed_R2map = ImgProc.ipGapMap(
                                 self.uds_variable_pt_list[ct_var_index], order, enery_start, enery_end) 
         
         # update var list
-        self.appendToLocalVarList(uds_data_processed)
+        self.appendToLocalVarList(uds_data_processed_Gapmap)
+        self.appendToLocalVarList(uds_data_processed_R2map)
 
         #
         self.clearWidgetsContents()

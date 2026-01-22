@@ -566,25 +566,39 @@ def ipGapMap(uds3D_data, order=2, enery_start = 0, enery_end = -1):
         uds3D_data_err.copyInfo(uds3D_data.info)
         return uds3D_data_err
 
-    data_processed = GapMap(uds3D_data.data, layer_value, order, enery_start, enery_end)  
+    data_processed_Gapmap, data_processed_R2map = GapMap(uds3D_data.data, layer_value, order, enery_start, enery_end)  
 
-    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_gm')
+    uds3D_data_processed_Gapmap = UdsDataStru(data_processed_Gapmap, uds3D_data.name+'_gm')
+    uds3D_data_processed_R2map = UdsDataStru(data_processed_R2map, uds3D_data.name+'_R2')
     
-    uds3D_data_processed.copyInfo(uds3D_data.info)
+    uds3D_data_processed_Gapmap.copyInfo(uds3D_data.info)
+    uds3D_data_processed_R2map.copyInfo(uds3D_data.info)
 
-    uds3D_data_processed.info['LayerValue'] = '0'
-    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+    uds3D_data_processed_Gapmap.info['LayerValue'] = '0'
+    uds3D_data_processed_Gapmap.copyProcHistory(uds3D_data.proc_history)
+    
+    uds3D_data_processed_R2map.info['LayerValue'] = '0'
+    uds3D_data_processed_R2map.copyProcHistory(uds3D_data.proc_history)
             
-    uds3D_data_processed.axis_name = ['Gap (V)', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
-    uds3D_data_processed.axis_value = [[0],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
+    uds3D_data_processed_Gapmap.axis_name = ['Gap (V)', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
+    uds3D_data_processed_Gapmap.axis_value = [[0],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
+    
+    uds3D_data_processed_R2map.axis_name = ['R^2', uds3D_data.axis_name[1], uds3D_data.axis_name[2]]
+    uds3D_data_processed_R2map.axis_value = [[0],uds3D_data.axis_value[1],uds3D_data.axis_value[2]]
     
     c_history ='ImgProc.ipGapMap:'
     c_history += 'order=' + str(order) + ';'
     c_history += 'enery_start=' + str(enery_start) + ';'
     c_history += 'enery_end=' + str(enery_end)
-    uds3D_data_processed.proc_history.append(c_history)
+    uds3D_data_processed_Gapmap.proc_history.append(c_history)
     
-    return uds3D_data_processed
+    c_history ='ImgProc.ipR2Map:'
+    c_history += 'order=' + str(order) + ';'
+    c_history += 'enery_start=' + str(enery_start) + ';'
+    c_history += 'enery_end=' + str(enery_end)
+    uds3D_data_processed_R2map.proc_history.append(c_history)
+    
+    return uds3D_data_processed_Gapmap, uds3D_data_processed_R2map
         
 def ipRegister(uds3D_data, ratio):
     data3D = uds3D_data.data

@@ -53,28 +53,42 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
         energy = np.array(LayerValue)[energy_start:energy_end+1]
     else:
         energy = np.array(LayerValue)
+    
     energy_points = energy.shape[0]
     X_points = data3D.shape[-2] # real space x axis
     Y_points = data3D.shape[-1] # real space y axis
     
     A_matrix_columns = order + 1 # 1: Constant term
     A_matrix = np.zeros((energy_points, A_matrix_columns)) #Fit the relationship between energy and dIdV of each space point
+    for i in range(A_matrix_columns):
+        A_matrix[:, i] = energy ** i
     
     gapmap = np.zeros((X_points, Y_points))
+    R2map = np.zeros((X_points, Y_points))
     
     item_order = itertools.product(range(X_points), range(Y_points))
-    for k, (X,Y) in enumerate(item_order): # iterate each space point
+    for (X,Y) in item_order: # iterate each space point
         
         if energy_end != -1:
             dIdV = data3D[energy_start:energy_end+1,X,Y]
         else:
             dIdV = data3D[:,X,Y]
-        
-        # Determine the matrix A
-        for i in range(A_matrix_columns):
-            A_matrix[:,i] = energy**i
-                        
+
+        # Least squares fit               
         p,res,_,_ = np.linalg.lstsq(A_matrix, dIdV, rcond=None)
+        
+        # Predict on training x (energy) to compute R^2
+        dIdV_pred = A_matrix @ p
+        
+        # R^2 for this pixel
+        ss_res = np.sum((dIdV - dIdV_pred) ** 2)
+        ss_tot = np.sum((dIdV - np.mean(dIdV)) ** 2)
+        if ss_tot < 1e-15:
+            r2 = 1.0 if ss_res < 1e-15 else 0.0
+        else:
+            r2 = 1.0 - ss_res / ss_tot
+        R2map[X, Y] = r2
+        
         dIdV_Fitted = np.poly1d(p[::-1])
         dIdV_derivative = np.polyder(dIdV_Fitted, 1)
         dIdV_second_order_derivative = np.polyder(dIdV_Fitted, 2)
@@ -98,10 +112,12 @@ def GapMap(data3D, LayerValue, order=2, energy_start = 0, energy_end = -1):
         
                 
     gapmap = gapmap[np.newaxis,:,:]
+    R2map = R2map[np.newaxis,:,:]
         
-    return gapmap
-    
-     
+    return gapmap, R2map
+
+
+ 
     
     
     
