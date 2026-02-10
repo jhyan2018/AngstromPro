@@ -27,6 +27,7 @@ User Modules
 from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from .ScaleWidget import ScaleWidget
 from .general.NumberExpression import NumberExpression
+from .ColorMapEditorWidget import ColorMapEditorWidget
 
 """ *************************************** """
 """ DO NOT MODIFY THIS FILE"""
@@ -128,6 +129,8 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         
         self.ui_lb_img_palette = QtWidgets.QLabel("Palette: ")
         self.ui_cb_img_palette_list = QtWidgets.QComboBox()
+        self.ui_cb_img_rt_cmp = QtWidgets.QCheckBox("RT-ColorMap")
+        self.ui_cb_img_rt_cmp.clicked.connect(self.imageIsRtCmpOnChanged)
 
         self.ui_lb_img_picked_points = QtWidgets.QLabel("Picked Points: ")
         self.ui_cb_img_pk_pts_palette_list = QtWidgets.QComboBox()
@@ -146,6 +149,8 @@ class Image2Uds3Widget(QtWidgets.QWidget):
        
         self.ui_cb_img_pk_pts_palette_list.addItems(self.img_marker_cn_list)       
         self.ui_cb_img_pk_pts_palette_list.currentIndexChanged.connect(self.imageMarkerColorChanged)
+        self.ui_rt_cmp = ColorMapEditorWidget()
+        self.ui_rt_cmp.updateCdict.connect(self.imageIsRtCmpOnChanged)
         
     def initUiLayout(self):   
         # Layout Top   
@@ -156,6 +161,7 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.ui_verticalLayout_Right_Top.addLayout(self.ui_horizontalLayout_scale_2)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lb_img_palette)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_palette_list)
+        self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_rt_cmp)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lb_img_picked_points)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_pk_pts_palette_list)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lw_img_picked_points)
@@ -266,6 +272,7 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         # Color maps
         self.img_color_map_builtin_list = pyplot.colormaps()         
         self.customizedColorPalletFolder = './ScienceY/GUI/customizedColorPallets/'
+        self.img_is_rt_cmp_on = False
         
         #
         self.img_marker_cv_list = ['#ff0000','#00ff00','#0000ff','#000000','#ffffff']
@@ -354,6 +361,12 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.sendMsgSignalEmit(self.msg_type.index('SYNC_LAYER'))
         
     def imageColorMapChanged(self):
+        self.set_colormap()
+        self.updateImage()
+        
+    def imageIsRtCmpOnChanged(self):
+        self.img_is_rt_cmp_on = self.ui_cb_img_rt_cmp.isChecked()
+        
         self.set_colormap()
         self.updateImage()
         
@@ -681,12 +694,24 @@ class Image2Uds3Widget(QtWidgets.QWidget):
     def set_colormap(self):
         color_map_name = self.ui_cb_img_palette_list.currentText()
         
-        if color_map_name in self.img_color_map_builtin_list:
-            self.img_color_map =color_map_name
-        else:            
-            self.img_color_map = self.make_colormap(color_map_name)
+        if self.img_is_rt_cmp_on:
+            self.img_color_map = self.make_colormap_from_cdict(self.ui_rt_cmp.get_anchors())
+        else:
+            if color_map_name in self.img_color_map_builtin_list:
+                self.img_color_map =color_map_name
+            else:            
+                self.img_color_map = self.make_colormap_from_txt(color_map_name)
             
-    def make_colormap( self, cp ):
+    def make_colormap_from_cdict(self, anchors):
+        cdict = {'red': [], 'green': [], 'blue': []}
+        for a in anchors:
+            cdict['red'].append([a['position'], a['red'], a['red']])
+            cdict['green'].append([a['position'], a['green'], a['green']])
+            cdict['blue'].append([a['position'], a['blue'], a['blue']])
+            
+        return colors.LinearSegmentedColormap('testCmap', segmentdata=cdict, N=256)
+    
+    def make_colormap_from_txt( self, cp ):
         s = self.customizedColorPalletFolder
         path = s + cp + '.txt'
         #path = '/Users/Kazu/Documents/kpython/KFViewPyII/Color Palette/blue2.txt'

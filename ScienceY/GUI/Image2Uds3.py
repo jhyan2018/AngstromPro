@@ -432,6 +432,7 @@ class Image2Uds3(GuiFrame):
         # Widgets Menu
         widgetssMenu.addAction(self.showVarDockWidget)
         widgetssMenu.addAction(self.showPlot1DDockWidget)
+        widgetssMenu.addAction(self.showRTCmp)
         
         # Options Menu
         optionMenu.addAction(self.preferenceAction)
@@ -512,6 +513,7 @@ class Image2Uds3(GuiFrame):
         # Widgets Menu
         self.showVarDockWidget = QtWidgets.QAction("Variables Dock Widget",self)
         self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D Dock Widget",self)
+        self.showRTCmp = QtWidgets.QAction("RT Colormap Widget",self)
         
         # Option Menu
         self.preferenceAction = QtWidgets.QAction("Preference",self)
@@ -585,6 +587,7 @@ class Image2Uds3(GuiFrame):
         #window
         self.showVarDockWidget.triggered.connect(self.actShowVarDockWidget)
         self.showPlot1DDockWidget.triggered.connect(self.actShowPlot1DDockWidget)
+        self.showRTCmp.triggered.connect(self.actShowRTColormapWidget)
         
         # Options
         self.preferenceAction.triggered.connect(self.actPreference)
@@ -1637,7 +1640,10 @@ class Image2Uds3(GuiFrame):
         self.ui_dockWideget_var.show()
         
     def actShowPlot1DDockWidget(self):
-        self.ui_dockWidget_plot1D.show()        
+        self.ui_dockWidget_plot1D.show()
+        
+    def actShowRTColormapWidget(self):
+        self.ui_img_widget_main.ui_rt_cmp.show()
            
     # Option Menu
     def actPreference(self):
