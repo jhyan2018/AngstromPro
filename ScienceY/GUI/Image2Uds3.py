@@ -432,7 +432,8 @@ class Image2Uds3(GuiFrame):
         # Widgets Menu
         widgetssMenu.addAction(self.showVarDockWidget)
         widgetssMenu.addAction(self.showPlot1DDockWidget)
-        widgetssMenu.addAction(self.showRTCmp)
+        widgetssMenu.addAction(self.showRTCmpMain)
+        widgetssMenu.addAction(self.showRTCmpAux)
         
         # Options Menu
         optionMenu.addAction(self.preferenceAction)
@@ -513,7 +514,8 @@ class Image2Uds3(GuiFrame):
         # Widgets Menu
         self.showVarDockWidget = QtWidgets.QAction("Variables Dock Widget",self)
         self.showPlot1DDockWidget = QtWidgets.QAction("Plot1D Dock Widget",self)
-        self.showRTCmp = QtWidgets.QAction("RT Colormap Widget",self)
+        self.showRTCmpMain = QtWidgets.QAction("RT Colormap Main Widget",self)
+        self.showRTCmpAux = QtWidgets.QAction("RT Colormap Aux Widget",self)
         
         # Option Menu
         self.preferenceAction = QtWidgets.QAction("Preference",self)
@@ -587,7 +589,8 @@ class Image2Uds3(GuiFrame):
         #window
         self.showVarDockWidget.triggered.connect(self.actShowVarDockWidget)
         self.showPlot1DDockWidget.triggered.connect(self.actShowPlot1DDockWidget)
-        self.showRTCmp.triggered.connect(self.actShowRTColormapWidget)
+        self.showRTCmpMain.triggered.connect(self.actShowRTColormapMainWidget)
+        self.showRTCmpAux.triggered.connect(self.actShowRTColormapAuxWidget)
         
         # Options
         self.preferenceAction.triggered.connect(self.actPreference)
@@ -1642,8 +1645,17 @@ class Image2Uds3(GuiFrame):
     def actShowPlot1DDockWidget(self):
         self.ui_dockWidget_plot1D.show()
         
-    def actShowRTColormapWidget(self):
+    def actShowRTColormapMainWidget(self):
+        self.ui_img_widget_slave.ui_rt_cmp.setWidgetTitle('RT-CMP Main')
         self.ui_img_widget_main.ui_rt_cmp.show()
+        self.ui_img_widget_main.ui_rt_cmp.raise_()
+        self.ui_img_widget_main.ui_rt_cmp.activateWindow()
+        
+    def actShowRTColormapAuxWidget(self):
+        self.ui_img_widget_slave.ui_rt_cmp.setWidgetTitle('RT-CMP Aux')
+        self.ui_img_widget_slave.ui_rt_cmp.show()  
+        self.ui_img_widget_slave.ui_rt_cmp.raise_()
+        self.ui_img_widget_slave.ui_rt_cmp.activateWindow()
            
     # Option Menu
     def actPreference(self):

@@ -721,6 +721,9 @@ class ColorMapEditorWidget(QWidget):
         self.panel.updateCdict.connect(self.updateCdict)
 
         self.colorbar.setData(self.panel.data)
+        
+    def setWidgetTitle(self, title):
+        self.setWindowTitle(title)
 
     def get_anchors(self):
         return [dict(d) for d in self.panel.data]
