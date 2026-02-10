@@ -20,6 +20,7 @@ User Modules
 """
 from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from ..GUI.general.NumberExpression import NumberExpression
+from ..ImageSimulate import GenerateCurve2D
 
 from .BackgroundSubtract import backgroundSubtract2DPlane, backgroundSubtractPerLine
 from .PerfectLattice import perfectLatticeSqure, perfectLatticeHexagonal
@@ -133,18 +134,47 @@ def ipCropRegion2D(uds3D_data, r_topLeft, c_topLeft, r_bottomRight, c_bottomRigh
     
     return uds3D_data_processed
 
-def ipFourierTransform2D(uds3D_data):
-    data_processed = np.zeros_like(uds3D_data.data, dtype=complex)    
+def ipMaskRegion2D(uds3D_data, mask_pt_x=0, mask_pt_y=0, sigma=10):
+    data_processed = np.zeros_like(uds3D_data.data, dtype=complex)
+    
+    size = data_processed.shape[-1]
+    mask_pt_x -= (size - size%2)/2
+    mask_pt_y -= (size - size%2)/2
+    gassian2D = GenerateCurve2D.gaussian2D(size, sigma, mask_pt_x, mask_pt_y)
+    
     for i in range(uds3D_data.data.shape[0]):
-        data_processed[i,:,:] = np.fft.fftshift( np.fft.fft2(uds3D_data.data[i,:,:]) )
+        data_processed[i,:,:] = uds3D_data.data[i,:,:] * gassian2D
+        
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_msk')
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
+    c_history = 'ImgProc.ipMaskRegion2D:'
+    
+    uds3D_data_processed.proc_history.append(c_history)
+    c_history += 'mask_ctr_x=' + str(mask_pt_x) + ';'
+    c_history += 'mask_ctr_y=' + str(mask_pt_y) + ';'
+    c_history += 'mask_sigma=' + str(sigma)
+    return uds3D_data_processed
+
+def ipFourierTransform2D(uds3D_data, normalized=True):
+    data_processed = np.zeros_like(uds3D_data.data, dtype=complex)
+    
+    d_rows = data_processed.shape[-2]
+    d_columns = data_processed.shape[-1]
+    normalized_factor = 1
+    if normalized:
+        normalized_factor = d_rows * d_columns
+
+    for i in range(uds3D_data.data.shape[0]):
+        data_processed[i,:,:] = np.fft.fftshift( np.fft.fft2(uds3D_data.data[i,:,:]) ) / normalized_factor            
         
     uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_fft')
     
     uds3D_data_processed.copyInfo(uds3D_data.info)
     uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
-    
-    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
-    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
     
     uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
     uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
@@ -515,6 +545,25 @@ def ipMathCD(uds3D_data, Const = 1):
     
     c_history ='ImgProc.ipMath:'
     c_history += str(Const) + 'Divided by' + uds3D_data.name
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed
+
+def ipMathComplexAbs(uds3D_data):
+    data_processed = np.zeros_like(uds3D_data.data)
+    
+    data_processed = np.abs(uds3D_data.data)
+    
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_abs')
+    
+    uds3D_data_processed.copyInfo(uds3D_data.info)
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
+    c_history ='ImgProc.ipMath:'
+    c_history += 'Abs'
     uds3D_data_processed.proc_history.append(c_history)
     
     return uds3D_data_processed

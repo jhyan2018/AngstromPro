@@ -31,7 +31,7 @@ def sinusoidal2D(size, qx, qy, phase, amplitude=1): #qx and qy is in pixels rela
     
     return sinusoidalCurve
 
-def gaussian2D(size, sigma, center_x=None, center_y=None):
+def gaussian2D(size, sigma=10, center_x=None, center_y=None):
     x = np.arange(size)
     y = np.arange(size)
     X,Y = np.meshgrid(x,y)
