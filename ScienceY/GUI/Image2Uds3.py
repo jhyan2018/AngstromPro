@@ -365,6 +365,7 @@ class Image2Uds3(GuiFrame):
         backgdSubtractMenu.addAction(self.backgdSubtract2DPlane)
         backgdSubtractMenu.addAction(self.backgdSubtractPerLine)
         processMenu.addAction(self.cropRegion)
+        processMenu.addAction(self.maskRegion)
         perfectLatticeMenu = processMenu.addMenu("Perfect Lattice")
         perfectLatticeMenu.addAction(self.perfectLatticeSquare)
         perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
@@ -388,6 +389,7 @@ class Image2Uds3(GuiFrame):
         mathMenu.addAction(self.mathDivide)
         mathMenu.addAction(self.mathDivideByConst)
         mathMenu.addAction(self.mathDivideConstBy)
+        mathMenu.addAction(self.mathComplexAbs)
         mathMenu.addAction(self.integral)
         mathMenu.addAction(self.normalization)
         processMenu.addAction(self.extractOneLayer)
@@ -453,6 +455,7 @@ class Image2Uds3(GuiFrame):
         self.backgdSubtract2DPlane = QtWidgets.QAction("2D Plane",self)
         self.backgdSubtractPerLine = QtWidgets.QAction("Line-by-Line",self)
         self.cropRegion = QtWidgets.QAction("Crop Region",self)
+        self.maskRegion = QtWidgets.QAction("Mask Region",self)
         self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
         self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
         self.lfCorrection = QtWidgets.QAction("LF Correction",self)
@@ -471,6 +474,7 @@ class Image2Uds3(GuiFrame):
         self.mathDivide = QtWidgets.QAction("M / A",self)
         self.mathDivideByConst = QtWidgets.QAction("M / const.",self)
         self.mathDivideConstBy = QtWidgets.QAction("const. / M",self)
+        self.mathComplexAbs = QtWidgets.QAction("Abs(M[a+ib])",self)
         self.integral = QtWidgets.QAction("Integral",self)
         self.normalization = QtWidgets.QAction("Normalization",self)
         self.extractOneLayer = QtWidgets.QAction("Extract one layer",self)
@@ -524,6 +528,7 @@ class Image2Uds3(GuiFrame):
         self.backgdSubtract2DPlane.triggered.connect(self.actBackgdSubtract2DPlane)
         self.backgdSubtractPerLine.triggered.connect(self.actBackgdSubtractPerLine)
         self.cropRegion.triggered.connect(self.actCropRegion)
+        self.maskRegion.triggered.connect(self.actMaskRegion)
         self.perfectLatticeSquare.triggered.connect(self.actPerfectLatticeSqaure)
         self.perfectLatticeHexagonal.triggered.connect(self.actPerfectLatticeHexagonal)
         self.lfCorrection.triggered.connect(self.actLFCorrection)
@@ -542,6 +547,7 @@ class Image2Uds3(GuiFrame):
         self.mathDivide.triggered.connect(self.actMathDivide)
         self.mathDivideByConst.triggered.connect(self.actMathDivideByConst)
         self.mathDivideConstBy.triggered.connect(self.actMathDivideConstBy)
+        self.mathComplexAbs.triggered.connect(self.actMathComplexAbs)
         self.integral.triggered.connect(self.actIntegral)
         self.normalization.triggered.connect(self.actNormalization)
         self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
@@ -760,7 +766,31 @@ class Image2Uds3(GuiFrame):
             
         #
         self.clearWidgetsContents()
+
+    def actMaskRegion(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        if points > 0:
+            mask_point = self.ui_img_widget_main.img_picked_points_list[0]
+            picked_points_c = int(mask_point.split(',')[0]) #x
+            picked_points_r = int(mask_point.split(',')[1]) #y
+        else:
+            picked_points_c = 0 #x
+            picked_points_r = 0 #y
             
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        sigma = 10
+        if len(params) != 0:
+            sigma = int(params)
+            
+        # process
+        uds_data_processed = ImgProc.ipMaskRegion2D(self.uds_variable_pt_list[ct_var_index], picked_points_c, picked_points_r, sigma)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
     def actPerfectLattice(self, lattice_type):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         
@@ -1059,6 +1089,18 @@ class Image2Uds3(GuiFrame):
         
         # process
         uds_data_processed = ImgProc.ipMathCD(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathComplexAbs(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipMathComplexAbs(self.uds_variable_pt_list[ct_var_index_main])
+        
         # update var list
         self.appendToLocalVarList(uds_data_processed)
         

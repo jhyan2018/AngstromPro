@@ -420,6 +420,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
         
         # Option Menu
+        optionMenu.addAction(self.refreshAction)
         optionMenu.addAction(self.preferenceAction)
         optionMenu.addAction(self.aboutAction)
         
@@ -446,6 +447,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2U3",self)
         
         # Option
+        self.refreshAction = QtWidgets.QAction("Refresh",self)
         self.preferenceAction = QtWidgets.QAction("Preference",self)
         self.aboutAction = QtWidgets.QAction("About",self)
         
@@ -461,6 +463,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.rtSynthesis2DAction.triggered.connect(self.newRtSynthesis2D)
         
         # Option Menu
+        self.refreshAction.triggered.connect(self.refresh)
         self.preferenceAction.triggered.connect(self.preference)
         self.aboutAction.triggered.connect(self.actAbout)
         
@@ -621,6 +624,9 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.newPlot1Uds2Window()
     
     # Options
+    def refresh(self):
+        self.updateVarList()
+        
     def preference(self):
         self.ui_dockWidget_settings.show()
 
