@@ -79,15 +79,19 @@ class Load3ds():
         
         data2D = raw_data1D.astype('f4').reshape((-1, l))
         data3D = np.zeros((l, self.header['grid dim'][0], self.header['grid dim'][1]))
-        
-        line_num = data2D.shape[0]//self.header['grid dim'][0]
-        last_line_points = np.mod(data2D.shape[0],self.header['grid dim'][0])
-        
-        for i in range(l):
-            for j in range(line_num):
-                data3D[i,j,:] = data2D[j*self.header['grid dim'][0] : (j+1)*self.header['grid dim'][0],i]
-            if last_line_points != 0:
-                data3D[i,j+1,0:last_line_points] = data2D[(j+1)*self.header['grid dim'][0]:data2D.shape[0],i]
+               
+        if self.header['grid dim'][1] == 1:
+            for i in range(l):
+                data3D[i,:,:] = data2D[:,i].reshape(self.header['grid dim'][0], self.header['grid dim'][1])
+        else:
+            line_num = data2D.shape[0]//self.header['grid dim'][0]
+            last_line_points = np.mod(data2D.shape[0],self.header['grid dim'][0])
+                 
+            for i in range(l):
+                for j in range(line_num):
+                    data3D[i,j,:] = data2D[j*self.header['grid dim'][0] : (j+1)*self.header['grid dim'][0],i]
+                if last_line_points != 0:
+                    data3D[i,j+1,0:last_line_points] = data2D[(j+1)*self.header['grid dim'][0]:data2D.shape[0],i]
             
         data3D = np.flip(data3D, axis=1)
         
