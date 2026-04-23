@@ -246,6 +246,27 @@ Parameters:
 #### Crop Region
 Select 2 points by right clicking on the Main image. These points should be the top left/bottom right or top right/bottom left corners of the what you want to be the resulting image. The coordinates of these points are given in the picked points side bar. _Minimum of 2 points are required_. 
 Parameters: None
+#### Mask Region
+Select 1 point by right clicking on the Main image. This point should be the center of the gaussian mask.
+Parameters:
+- $\sigma$: int
+	- The width in pixels of gaussian mask.
+#### Extend Region
+Select 2 points by right clicking on the Main image. These points should be the top left/bottom right or top right/bottom left corners of the what you want to be the resulting image. The coordinates of these points are given in the picked points side bar. _Minimum of 2 points are required_. 
+Parameters:
+- a1_len: float
+	- first vector length in pixels of the unit cell in the region of interest to be periodically extended to reconstruct the whole image.
+- a1_angle: float
+	- first vector angle in degrees of the unit cell in the region of interest to be periodically extended to reconstruct the whole image.
+- a2_len: float
+	- second vector length in pixels of the unit cell in the region of interest to be periodically extended to reconstruct the whole image.
+- a2_angle: float
+	- second vector angle in degrees of the unit cell in the region of interest to be periodically extended to reconstruct the whole image.
+#### Rotate
+This process can help rotate the image by a certain degrees.
+Parameters:
+- $\theta$: float
+	- The angle in degrees of the iamge to be rotated.
 #### Perfect Lattice
 Select 2 Bragg peaks on the Fourier transform of the image using the picked points. The second point selected must be clockwise and adjacent to the first. Set them as Bragg peaks using the [[#Set Bragg Peaks]] function. 
 Select the either of the below functions depending on the crystal symmetry you are analyzing. 
