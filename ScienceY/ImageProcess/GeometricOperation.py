@@ -176,6 +176,24 @@ class AffineTransform():
         return data
 """
 """
+def rotate2D(data3D, theta):
+    affine  = AffineTransform()
+    
+    # to rad
+    theta_rad = (theta/180.0)*3.14
+    
+    # set Affine Parameters
+    affine.setRotateOfAffineMatrix(-theta_rad)
+    
+    #
+    affine.srcMappedPoints(data3D.shape[-2], data3D.shape[-1])
+    
+    data_processed = np.zeros((data3D.shape[0], affine.src_X_float.shape[-2], affine.src_X_float.shape[-1]))
+    
+    for i in range(data3D.shape[0]):
+        data_processed[i,:,:] = affine.affineMapping(data3D[i,:,:],'bilinear','constant')
+
+    return data_processed
 
 class ProjectiveTransfrom(): # Four Point Mapping
     

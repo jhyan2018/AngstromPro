@@ -366,6 +366,8 @@ class Image2Uds3(GuiFrame):
         backgdSubtractMenu.addAction(self.backgdSubtractPerLine)
         processMenu.addAction(self.cropRegion)
         processMenu.addAction(self.maskRegion)
+        processMenu.addAction(self.extendRegion)
+        processMenu.addAction(self.rotateImage)
         perfectLatticeMenu = processMenu.addMenu("Perfect Lattice")
         perfectLatticeMenu.addAction(self.perfectLatticeSquare)
         perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
@@ -458,6 +460,8 @@ class Image2Uds3(GuiFrame):
         self.backgdSubtractPerLine = QtWidgets.QAction("Line-by-Line",self)
         self.cropRegion = QtWidgets.QAction("Crop Region",self)
         self.maskRegion = QtWidgets.QAction("Mask Region",self)
+        self.extendRegion = QtWidgets.QAction("Extend Region",self)
+        self.rotateImage = QtWidgets.QAction("Rotate",self)
         self.perfectLatticeSquare = QtWidgets.QAction("Square",self)
         self.perfectLatticeHexagonal = QtWidgets.QAction("Hexagonal",self)
         self.lfCorrection = QtWidgets.QAction("LF Correction",self)
@@ -533,6 +537,8 @@ class Image2Uds3(GuiFrame):
         self.backgdSubtractPerLine.triggered.connect(self.actBackgdSubtractPerLine)
         self.cropRegion.triggered.connect(self.actCropRegion)
         self.maskRegion.triggered.connect(self.actMaskRegion)
+        self.extendRegion.triggered.connect(self.actExtendRegion)
+        self.rotateImage.triggered.connect(self.actRotate)
         self.perfectLatticeSquare.triggered.connect(self.actPerfectLatticeSqaure)
         self.perfectLatticeHexagonal.triggered.connect(self.actPerfectLatticeHexagonal)
         self.lfCorrection.triggered.connect(self.actLFCorrection)
@@ -797,6 +803,70 @@ class Image2Uds3(GuiFrame):
         # update var list
         self.appendToLocalVarList(uds_data_processed)
         
+    def actExtendRegion(self):
+        self.status_bar.showMessage("Params(a1_len=1,a1_angle=0,a2_len=1,a2_angle=90)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        picked_points_c = [] #x
+        picked_points_r = [] #y
+        if   points > 1:
+            for pt in self.ui_img_widget_main.img_picked_points_list:
+                picked_points_c.append(int(pt.split(',')[0]))
+                picked_points_r.append(int(pt.split(',')[1]))
+            c_topLeft = min(picked_points_c)
+            r_topLeft = min(picked_points_r)
+            c_bottomRight = max(picked_points_c)
+            r_bottomRight = max(picked_points_r)
+            
+            roi = (c_topLeft, r_topLeft, c_bottomRight, r_bottomRight)
+            
+            # get param list
+            params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+            a1_len = 10.0
+            a1_angle = 0
+            a2_len = 10.0
+            a2_angle = 90
+            
+            if len(params) > 0:
+                param_numbers = len(params.split(','))
+                if param_numbers > 0:
+                    a1_len = float(params.split(',')[0])
+                if param_numbers > 1:
+                    a1_angle = float(params.split(',')[1])
+                if param_numbers > 2:
+                    a2_len = float(params.split(',')[2])
+                if param_numbers > 3:
+                    a2_angle = float(params.split(',')[3])
+                    
+            # process
+            uds_data_processed = ImgProc.ipExtendRegion2D(self.uds_variable_pt_list[ct_var_index], a1_len, a1_angle, a2_len, a2_angle, roi)
+        
+            # update var list
+            self.appendToLocalVarList(uds_data_processed)            
+                
+        else:
+            print("Two Points at least to set the ROI!")
+            
+        #
+        self.clearWidgetsContents()
+        
+    def actRotate(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        theta = 0
+        if len(params) != 0:
+            theta = float(params)
+            
+        # process
+        uds_data_processed = ImgProc.ipRotate2D(self.uds_variable_pt_list[ct_var_index], theta)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)        
+    
     def actPerfectLattice(self, lattice_type):
         ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
         

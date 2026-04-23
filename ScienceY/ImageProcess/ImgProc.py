@@ -33,6 +33,9 @@ from . StatisticCrossCorrelation import StatisticCrossCorrelation
 from . CrossCorrelation import CrossCorrelation
 from .PixelInterpolation import RasterPixelInterpolation
 from .LineAndCircleCut import LineCut, CircleCut
+from .GeometricOperation import rotate2D
+from .ExtendSmallRegion import extendRegion2D
+
 """
 function Module
 """
@@ -152,12 +155,49 @@ def ipMaskRegion2D(uds3D_data, mask_pt_x=0, mask_pt_y=0, sigma=10):
     uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
     
     c_history = 'ImgProc.ipMaskRegion2D:'
-    
-    uds3D_data_processed.proc_history.append(c_history)
     c_history += 'mask_ctr_x=' + str(mask_pt_x) + ';'
     c_history += 'mask_ctr_y=' + str(mask_pt_y) + ';'
     c_history += 'mask_sigma=' + str(sigma)
+    uds3D_data_processed.proc_history.append(c_history)
+    
     return uds3D_data_processed
+
+def ipExtendRegion2D(uds3D_data, a1_len, a1_angle, a2_len, a2_angle, roi):
+    data_processed = np.zeros_like(uds3D_data.data, dtype=complex)
+    
+    a1 = (a1_len, a1_angle)
+    a2 = (a2_len, a2_angle)
+    
+    for i in range(uds3D_data.data.shape[0]):
+        data_processed[i,:,:] = extendRegion2D(uds3D_data.data[i,:,:], a1, a2, roi)
+        
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_ext')
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+    
+    uds3D_data_processed.axis_name = uds3D_data.axis_name.copy()
+    uds3D_data_processed.axis_value = uds3D_data.axis_value.copy()
+    
+    c_history = 'ImgProc.ipExtendRegion2D:'
+    c_history += 'a1(length,angle)=' + str(a1_len) + ',' + str(a1_angle) + ';'
+    c_history += 'a2(length,angle)=' + str(a2_len) + ',' + str(a2_angle) + ';'
+    c_history += 'region(topleft_c, topleft_r, bottomright_c, bottomright_r)=' + str(roi)
+    uds3D_data_processed.proc_history.append(c_history)
+    
+    return uds3D_data_processed    
+
+def ipRotate2D(uds3D_data, theta=0):
+    data_processed = rotate2D(uds3D_data.data, theta)            
+        
+    uds3D_data_processed = UdsDataStru(data_processed, uds3D_data.name+'_rot')
+    
+    uds3D_data_processed.copyInfo(uds3D_data.info)
+    uds3D_data_processed.copyProcHistory(uds3D_data.proc_history)
+    
+    c_history = 'ImgProc.ipRotate2D:'
+    c_history += 'theta=' + str(theta)
+    uds3D_data_processed.proc_history.append(c_history)
+
+    return uds3D_data_processed    
 
 def ipFourierTransform2D(uds3D_data, normalized=True):
     data_processed = np.zeros_like(uds3D_data.data, dtype=complex)
