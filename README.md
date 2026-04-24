@@ -1,4 +1,4 @@
-AngstromPro is a program that allows the use to perform data analysis and image processing on various forms of STM data. The paper related to this program can be found at https://arxiv.org/abs/2604.18962 This paper gives more details on the mathematics behind the each of the functions.
+AngstromPro is a program that allows the use to perform data analysis and image processing on various forms of STM data. The paper related to this program can be found at https://arxiv.org/abs/2604.18962 This paper gives more details on the mathematics behind the each of the functions. Please send any valuable feedback to huiyuzhao.tju@gmail.com or jhyan2018@gmail.com.
 # Upcoming Features
 We are actively working on improving performance and expanding the capabilities of AngstromPro. Planned updates include:
 ### Near-term improvements
