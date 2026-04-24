@@ -1,4 +1,14 @@
-AngstromPro is a program that allows the use to perform data analysis and image processing on various forms of STM data. The paper related to this program can be found at www.doi:.... This paper gives more details on the mathematics behind the each of the functions.
+AngstromPro is a program that allows the use to perform data analysis and image processing on various forms of STM data. The paper related to this program can be found at https://arxiv.org/abs/2604.18962 This paper gives more details on the mathematics behind the each of the functions.
+# Upcoming Features
+We are actively working on improving performance and expanding the capabilities of AngstromPro. Planned updates include:
+### Near-term improvements
+- Multithreading support for heavy tasks
+	Offloading time-consuming computations to background threads to ensure a smooth and responsive GUI experience.
+### Long-term objectives
+- 3D Visualization Engine (OpenGL-based)
+	An interactive 3D visualizer for exploring complex STM datasets with enhanced depth and spatial insight.
+- AI assisted Analysis Tools
+	Intelligent data analysis features to support pattern recognition, feature extraction, and automated interpretation of STM data.
 # Settings and Package Installation
 Before running the GuiVarManager.py, you need to change some settings and install packages. I recommend using Spyder 6.0.7, which can be launched through Anaconda, a popular platform for Python programming. All the settings and packages are based on Spyder, ensuring a seamless development experience.
 ### iOS 
