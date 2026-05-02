@@ -144,6 +144,7 @@ Suffixes are added as new processes are conducted on each variable. This helps y
 | mat    | [[#Math ]]                       |
 | rmp    | [[#Resistance Map]]              |
 | gm     | [[#Gap Map]]                     |
+| R2     | [[#R squared Map]]               |
 | rg     | [[#Registered ]]                 |
 | sxcorr | [[#Statistic Cross Correlation]] |
 | xcorr  | [[#Cross Correlation]]           |
@@ -455,7 +456,7 @@ This provides the amplitude maps for the 2D Lock-in
 This provides the phase maps for the 2D Lock-in
 #### Gap-map
 The gap map performs a polynomial fit to the coherence peak and calculates the bias value at the maximum. 
-Parameters may be entered before choosing a function. Enter them in the order listed below, separated by commas (","). All parameters are optional — leaving them empty uses all defaults; entering only the first few will cause the remaining ones to fall back to their default values.
+Parameters may be entered before choosing a function. Enter them in the order listed below, separated by commas (","). All parameters are optional — leaving them empty uses all defaults; entering only the first few will cause the remaining ones to fall back to their default values. The outputs include the gap map, as well as an R^2 map (coefficient of determination) quantifying the fit quality between the experimental spectrum and the fitted curve at each spatial point.
 Parameters: 
 -  order: int
 	- order of the polynomial fit

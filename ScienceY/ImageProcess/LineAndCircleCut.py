@@ -30,7 +30,10 @@ class LineCut():
         self.x2 = lCPx2
         self.y2 = lCPy2
         self.order = order
-        self.num_points = num_points if num_points else int(np.hypot(lCPx2-lCPx1, lCPy2-lCPy1))
+        #self.num_points = num_points if num_points else int(np.hypot(lCPx2-lCPx1, lCPy2-lCPy1))
+        dist = np.hypot(lCPx2 - lCPx1, lCPy2 - lCPy1)
+        value = int(np.ceil(dist / np.sqrt(2)))+1
+        self.num_points = num_points if num_points else value
         
     def bresenham_line(self):
         points = []
