@@ -651,7 +651,7 @@ if __name__ == "__main__":
     qapp = get_app()
     w = GuiVarManager()    
     w.show()
-    
+    #
     result = run_qt_app(qapp)
     if result is not None:
         sys.exit(result)
