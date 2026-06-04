@@ -12,12 +12,8 @@ System modules
 """
 Third-party Modules
 """
-import numpy as np
-from io import BytesIO
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
 
-from matplotlib.backends.backend_qtagg import FigureCanvas
-from matplotlib.figure import Figure
 """
 User Modules
 """

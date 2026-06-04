@@ -14,7 +14,7 @@ System modules
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets
 
 """
 User Modules

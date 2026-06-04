@@ -9,13 +9,13 @@ Created on Tue Apr 16 15:01:05 2024
 """
 System modules
 """
-import os
 
 """
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtWidgets, QtGui
+
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure

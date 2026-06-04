@@ -8,14 +8,12 @@ Created on Mon Jul 31 16:21:57 2023
 """
 System modules
 """
-import ctypes, os
-import math
 
 """
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from ScienceY.qt_compt import QtCore, QtWidgets
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
@@ -24,7 +22,6 @@ from matplotlib import colors,pyplot
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from .ScaleWidget import ScaleWidget
 from .general.NumberExpression import NumberExpression
 from .ColorMapEditorWidget import ColorMapEditorWidget

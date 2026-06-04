@@ -14,8 +14,8 @@ Third-party Modules
 """
 import numpy as np
 import math
-from PyQt5 import QtCore, QtWidgets, QtGui
-from PyQt5.QtCore import QFileInfo
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
+
 """
 User Modules
 """

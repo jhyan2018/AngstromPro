@@ -8,14 +8,13 @@ Created on Fri Jul 28 10:25:04 2023
 """
 System modules
 """
-import sys, os
+
 
 """
 Third-party Modules
 """
-import numpy as np
-from PyQt5 import QtCore, QtWidgets
 
+from ScienceY.qt_compt import QtCore, QtWidgets
 """
 User Modules
 """

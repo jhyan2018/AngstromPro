@@ -13,8 +13,7 @@ import math
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, pyqtSignal
+from ScienceY.qt_compt import QtCore, QtWidgets, Signal
 
 """
 User Modules
@@ -28,9 +27,9 @@ from .general.NumberExpression import NumberExpression
 """ *************************************** """
 
 class ScaleWidget(QtWidgets.QWidget):
-    scaleChanged = pyqtSignal()  # Signal for value change
+    scaleChanged = Signal()  # Signal for value change
     
-    def __init__(self, orientation=Qt.Horizontal, parent=None):
+    def __init__(self, orientation=QtCore.Qt.Horizontal, parent=None):
         super(ScaleWidget, self).__init__(parent)
         
         self.initNonUiMembers(orientation)        
@@ -95,7 +94,7 @@ class ScaleWidget(QtWidgets.QWidget):
         self.ui_pb_scale_zoom_out.setMaximumSize(40,40)
     
     def initUiLayout(self):
-        if self.orientation == Qt.Horizontal:
+        if self.orientation == QtCore.Qt.Horizontal:
             ui_h_horiztontalLayout1 = QtWidgets.QHBoxLayout()
             ui_h_horiztontalLayout1.addWidget(self.ui_pb_scale_full__sigma)
             ui_h_horiztontalLayout1.addWidget(self.ui_pb_scale_zoom_out)
@@ -103,7 +102,7 @@ class ScaleWidget(QtWidgets.QWidget):
             ui_h_verticalLayout1 = QtWidgets.QVBoxLayout()            
             ui_h_verticalLayout1.addWidget(self.ui_le_data_sigma_factor)
             ui_h_verticalLayout1.addWidget(self.ui_pb_sigma)
-            self.ui_pb_sigma.setAlignment(Qt.AlignCenter)
+            self.ui_pb_sigma.setAlignment(QtCore.Qt.AlignCenter)
             ui_h_horiztontalLayout2 = QtWidgets.QHBoxLayout()
             ui_h_horiztontalLayout2.addWidget(self.ui_le_data_lower_value)
             ui_h_horiztontalLayout2.addLayout(ui_h_verticalLayout1)

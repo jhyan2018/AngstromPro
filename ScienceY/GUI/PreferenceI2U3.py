@@ -13,8 +13,7 @@ import os
 """
 Third-party Modules
 """
-from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import Qt, pyqtSignal
+from ScienceY.qt_compt import QtWidgets, Signal
 import matplotlib.pyplot as plt
 
 """
@@ -27,8 +26,8 @@ Modules Definition
 """
 
 class PreferenceI2U3(QtWidgets.QMainWindow):
-    save_settings = pyqtSignal()
-    settings_changed = pyqtSignal(int)
+    save_settings = Signal()
+    settings_changed = Signal(int)
     
     def __init__(self,title='', *args, **kwargs):
         super(PreferenceI2U3, self).__init__(*args, **kwargs)        

@@ -8,13 +8,12 @@ Created on Thu Jul 27 09:56:53 2023
 """
 System modules
 """
-import sys, os
+import sys
 from datetime import datetime
 
 """
 Third-party Modules
 """
-import numpy as np
 from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, get_app, run_qt_app, print_qt_info
 
 """
@@ -638,7 +637,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
                           "Created by Huiyu Zhao & Jiahao Yan\n"
                           "© 2023 -" + current_year + "\n"
                           "This is a data management, visualization, processing & simulation software for STM.\n"
-                          "It's based on Matplotlib and PyQt5.")
+                          "It's based on Matplotlib and Qt.")
         
 
 

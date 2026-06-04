@@ -12,7 +12,7 @@ import os, gc
 """
 Third-party Modules
 """
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
 
 """
 User Modules
