@@ -15,7 +15,7 @@ from datetime import datetime
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, get_app, run_qt_app, print_qt_info
 
 """
 User Modules
@@ -648,9 +648,12 @@ class GuiVarManager(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":   
 
-    qapp = QtWidgets.QApplication.instance()
-    if not qapp:
-        qapp = QtWidgets.QApplication(sys.argv)
+    print_qt_info()    
+    qapp = get_app()
     w = GuiVarManager()    
     w.show()
-    #sys.exit(qapp.exec_())
+    
+    result = run_qt_app(qapp)
+    if result is not None:
+        sys.exit(result)
+    
