@@ -8,13 +8,13 @@ Created on Sat May  4 11:41:36 2024
 """
 System modules
 """
-import os
+
 """
 Third-party Modules
 """
-import numpy as np
 import math
 from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import Vertical
 
 """
 User Modules
@@ -165,7 +165,7 @@ class DataBrowser(GuiFrame):
         self.ui_snap_gallery_container = GalleryWidget()
         self.ui_snap_gallery_container.wheelEventSignal.connect(self.galleryWheelMoved)
         self.ui_snap_gallery_container.resizeSignal.connect(self.resizeGallery)
-        self.ui_snap_gallery_scrollbar = QtWidgets.QScrollBar(QtCore.Qt.Vertical)
+        self.ui_snap_gallery_scrollbar = QtWidgets.QScrollBar(Vertical)
         self.ui_snap_gallery_scrollbar.setMinimum(0)
         self.ui_snap_gallery_scrollbar.setMaximum(100)
         self.ui_snap_gallery_scrollbar.setValue(50)

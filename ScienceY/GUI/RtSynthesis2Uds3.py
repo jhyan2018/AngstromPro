@@ -14,7 +14,7 @@ System modules
 Third-party Modules
 """
 import numpy as np
-from ScienceY.qt_compt import QtCore, QtWidgets
+from ScienceY.qt_compt import QtCore, QtWidgets, Action
 
 """
 User Modules
@@ -263,7 +263,7 @@ class RtSynthesis2Uds3(GuiFrame):
     def creat_actions(self):
         
         # Widgets Menu
-        self.showVarDockWidget = QtWidgets.QAction("Varibals DockWidget",self)
+        self.showVarDockWidget = Action("Varibals DockWidget",self)
         
     def connect_actions(self):
         #window

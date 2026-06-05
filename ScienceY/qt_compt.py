@@ -81,6 +81,8 @@ if QT_API == "PyQt6":
     Signal = QtCore.pyqtSignal
     Slot = QtCore.pyqtSlot
     Property = QtCore.pyqtProperty
+    
+    Action = QtGui.QAction
 
     QT_VERSION_STR = QtCore.QT_VERSION_STR
     BINDING_VERSION_STR = QtCore.PYQT_VERSION_STR
@@ -95,7 +97,9 @@ elif QT_API == "PyQt5":
     Signal = QtCore.pyqtSignal
     Slot = QtCore.pyqtSlot
     Property = QtCore.pyqtProperty
-
+    
+    Action = QtWidgets.QAction
+    
     QT_VERSION_STR = QtCore.QT_VERSION_STR
     BINDING_VERSION_STR = QtCore.PYQT_VERSION_STR
 
@@ -109,6 +113,8 @@ elif QT_API == "PySide6":
     Signal = QtCore.Signal
     Slot = QtCore.Slot
     Property = QtCore.Property
+    
+    Action = QtGui.QAction
 
     QT_VERSION_STR = QtCore.qVersion()
     BINDING_VERSION_STR = QtCore.__version__
@@ -123,6 +129,8 @@ elif QT_API == "PySide2":
     Signal = QtCore.Signal
     Slot = QtCore.Slot
     Property = QtCore.Property
+    
+    Action = QtWidgets.QAction
 
     QT_VERSION_STR = QtCore.qVersion()
     BINDING_VERSION_STR = QtCore.__version__
@@ -169,6 +177,14 @@ if IS_QT6:
     ControlModifier = QtCore.Qt.KeyboardModifier.ControlModifier
     ShiftModifier = QtCore.Qt.KeyboardModifier.ShiftModifier
     AltModifier = QtCore.Qt.KeyboardModifier.AltModifier
+    
+    QIconNormal = QtGui.QIcon.Mode.Normal
+    QIconDisabled = QtGui.QIcon.Mode.Disabled
+    QIconActive = QtGui.QIcon.Mode.Active
+    QIconSelected = QtGui.QIcon.Mode.Selected
+
+    QIconOff = QtGui.QIcon.State.Off
+    QIconOn = QtGui.QIcon.State.On
 
 else:
     AlignmentFlag = QtCore.Qt
@@ -194,7 +210,30 @@ else:
     ControlModifier = QtCore.Qt.ControlModifier
     ShiftModifier = QtCore.Qt.ShiftModifier
     AltModifier = QtCore.Qt.AltModifier
+    
+    QIconNormal = QtGui.QIcon.Normal
+    QIconDisabled = QtGui.QIcon.Disabled
+    QIconActive = QtGui.QIcon.Active
+    QIconSelected = QtGui.QIcon.Selected
 
+    QIconOff = QtGui.QIcon.Off
+    QIconOn = QtGui.QIcon.On
+
+# DockWidgetArea compatibility
+if IS_QT6:
+    LeftDockWidgetArea = QtCore.Qt.DockWidgetArea.LeftDockWidgetArea
+    RightDockWidgetArea = QtCore.Qt.DockWidgetArea.RightDockWidgetArea
+    TopDockWidgetArea = QtCore.Qt.DockWidgetArea.TopDockWidgetArea
+    BottomDockWidgetArea = QtCore.Qt.DockWidgetArea.BottomDockWidgetArea
+    AllDockWidgetAreas = QtCore.Qt.DockWidgetArea.AllDockWidgetAreas
+    NoDockWidgetArea = QtCore.Qt.DockWidgetArea.NoDockWidgetArea
+else:
+    LeftDockWidgetArea = QtCore.Qt.LeftDockWidgetArea
+    RightDockWidgetArea = QtCore.Qt.RightDockWidgetArea
+    TopDockWidgetArea = QtCore.Qt.TopDockWidgetArea
+    BottomDockWidgetArea = QtCore.Qt.BottomDockWidgetArea
+    AllDockWidgetAreas = QtCore.Qt.AllDockWidgetAreas
+    NoDockWidgetArea = QtCore.Qt.NoDockWidgetArea
 
 # ------------------------------------------------------------
 # QFileDialog compatibility

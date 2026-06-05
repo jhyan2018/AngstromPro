@@ -15,6 +15,7 @@ Third-party Modules
 """
 
 from ScienceY.qt_compt import QtCore, QtWidgets
+from ScienceY.qt_compt import LeftDockWidgetArea
 """
 User Modules
 """
@@ -67,7 +68,7 @@ class GuiFrame(QtWidgets.QMainWindow):
         self.ui_gridLayout_dock_var.addLayout(self.ui_verticalLayout_varList, 0, 0, 1, 1)
         self.ui_dockWidget_var_Content.setLayout(self.ui_gridLayout_dock_var)
         self.ui_dockWideget_var.setWidget(self.ui_dockWidget_var_Content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.ui_dockWideget_var)
+        self.addDockWidget(LeftDockWidgetArea, self.ui_dockWideget_var)
         
         #
         self.ui_horizontalLayout = QtWidgets.QHBoxLayout()

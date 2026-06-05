@@ -12,7 +12,7 @@ System modules
 """
 Third-party Modules
 """
-from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action
 
 """
 User Modules
@@ -295,37 +295,37 @@ class Plot1Uds2(GuiFrame):
         
     def creat_actions(self):
         # Image Menu
-        self.exportToImage = QtWidgets.QAction("to Image",self)
-        self.exportToClipboard = QtWidgets.QAction("to Clipboard",self)
+        self.exportToImage = Action("to Image",self)
+        self.exportToClipboard = Action("to Clipboard",self)
         
         # Process Menu
-        #self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
-        #self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
-        #self.mathAdd = QtWidgets.QAction("m+s",self)
-        #self.mathSubtract = QtWidgets.QAction("m-s",self)
-        #self.mathMultiply = QtWidgets.QAction("m*s",self)
-        #self.mathMultiplyByConst = QtWidgets.QAction("m*const.",self)
-        #self.mathDivide = QtWidgets.QAction("m/s",self)
-        #self.mathDivideByConst = QtWidgets.QAction("m/const.",self)
-        #self.mathDivideConstBy = QtWidgets.QAction("const./m",self)
-        self.extractOneLine = QtWidgets.QAction("Extract one line",self)
+        #self.fourierFilterOut = Action("Filter Out",self)
+        #self.fourierFilterIsolate = Action("Isolate",self)
+        #self.mathAdd = Action("m+s",self)
+        #self.mathSubtract = Action("m-s",self)
+        #self.mathMultiply = Action("m*s",self)
+        #self.mathMultiplyByConst = Action("m*const.",self)
+        #self.mathDivide = Action("m/s",self)
+        #self.mathDivideByConst = Action("m/const.",self)
+        #self.mathDivideConstBy = Action("const./m",self)
+        self.extractOneLine = Action("Extract one line",self)
         
-        self.lineProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
+        self.lineProcessCustomized = Action("Customized Algorithm",self)
         
         # Analysis Menu
-        self.fourierTransform = QtWidgets.QAction("Fourier Transform",self)
+        self.fourierTransform = Action("Fourier Transform",self)
      
         # Simulate Menu
-        #self.generateHeavisideCurve = QtWidgets.QAction("Heaviside2D")
-        #self.generateCircleCurve = QtWidgets.QAction("Circle2D",self)
-        #self.generateGaussianCurve = QtWidgets.QAction("Gaussian2D",self)
-        #self.generateSinusoidalCurve = QtWidgets.QAction("Sinusoidal2D",self)
+        #self.generateHeavisideCurve = Action("Heaviside2D")
+        #self.generateCircleCurve = Action("Circle2D",self)
+        #self.generateGaussianCurve = Action("Gaussian2D",self)
+        #self.generateSinusoidalCurve = Action("Sinusoidal2D",self)
   
         # Widgets Menu
-        self.showVarDockWidget = QtWidgets.QAction("Variables DockWidget",self)
+        self.showVarDockWidget = Action("Variables DockWidget",self)
  
         # Option Menu
-        #self.preferenceAction = QtWidgets.QAction("Preference",self)
+        #self.preferenceAction = Action("Preference",self)
         
     def connect_actions(self):
         # File Menu

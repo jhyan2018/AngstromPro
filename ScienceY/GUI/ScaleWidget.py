@@ -13,7 +13,7 @@ import math
 Third-party Modules
 """
 import numpy as np
-from ScienceY.qt_compt import QtCore, QtWidgets, Signal
+from ScienceY.qt_compt import QtCore, QtWidgets, Signal, Horizontal
 
 """
 User Modules
@@ -29,7 +29,7 @@ from .general.NumberExpression import NumberExpression
 class ScaleWidget(QtWidgets.QWidget):
     scaleChanged = Signal()  # Signal for value change
     
-    def __init__(self, orientation=QtCore.Qt.Horizontal, parent=None):
+    def __init__(self, orientation=Horizontal, parent=None):
         super(ScaleWidget, self).__init__(parent)
         
         self.initNonUiMembers(orientation)        
