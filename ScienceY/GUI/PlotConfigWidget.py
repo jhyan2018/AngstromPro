@@ -14,9 +14,7 @@ from collections import defaultdict
 """
 Third-party Modules
 """
-import numpy as np
-import matplotlib.pyplot as plt
-from PyQt5 import QtWidgets
+from ScienceY.qt_compt import QtWidgets
 """
 User Modules
 """

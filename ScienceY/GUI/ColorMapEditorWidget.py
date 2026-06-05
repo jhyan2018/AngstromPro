@@ -8,16 +8,9 @@ Created on Tue Feb 10 13:11:14 2026
 import os
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Signal
 
-from PyQt5.QtCore import Qt, pyqtSignal, QRectF, QSignalBlocker
-from PyQt5.QtGui import QPainter, QColor, QPen, QBrush, QImage
-from PyQt5.QtWidgets import (
-    QWidget, QApplication, QVBoxLayout, QGridLayout, QLabel, QLineEdit,
-    QPushButton, QHBoxLayout, QColorDialog, QFileDialog, QMessageBox
-)
-
-
-class ColorBarPreview(QWidget):
+class ColorBarPreview(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(34)
@@ -48,8 +41,8 @@ class ColorBarPreview(QWidget):
         return cdict
 
     def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, True)
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing, True)
 
         w = max(2, self.width())
         rect = self.rect().adjusted(1, 1, -1, -1)
@@ -62,7 +55,7 @@ class ColorBarPreview(QWidget):
             rgba = cmap(xs)
             rgb = (rgba[:, :3] * 255).astype(np.uint8)
 
-            img = QImage(w, 1, QImage.Format_RGB888)
+            img = QtGui.QImage(w, 1, QtGui.QImage.Format_RGB888)
             ptr = img.bits()
             ptr.setsize(w * 3)
             arr = np.frombuffer(ptr, np.uint8).reshape((1, w, 3))
@@ -70,16 +63,16 @@ class ColorBarPreview(QWidget):
 
             p.drawImage(rect, img)
         except Exception:
-            p.fillRect(rect, QColor(200, 200, 200))
+            p.fillRect(rect, QtGui.QColor(200, 200, 200))
 
-        p.setPen(QPen(QColor(120, 120, 120), 1))
-        p.setBrush(Qt.NoBrush)
-        p.drawRoundedRect(QRectF(rect), 4, 4)
+        p.setPen(QtGui.QPen(QtGui.QColor(120, 120, 120), 1))
+        p.setBrush(QtCore.Qt.NoBrush)
+        p.drawRoundedRect(QtCore.QRectF(rect), 4, 4)
 
 
-class MultiHandleSlider(QWidget):
-    valuesChanged = pyqtSignal(list)
-    selectionChanged = pyqtSignal(int)
+class MultiHandleSlider(QtWidgets.QWidget):
+    valuesChanged = Signal(list)
+    selectionChanged = Signal(int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -223,7 +216,7 @@ class MultiHandleSlider(QWidget):
     def mousePressEvent(self, event):
         idx = self._nearest_handle_index(event.pos())
 
-        if event.button() == Qt.RightButton:
+        if event.button() == QtCore.Qt.RightButton:
             v = self._x_to_value(event.x())
             eps = 1e-6
             for hv in self.handles:
@@ -235,7 +228,7 @@ class MultiHandleSlider(QWidget):
             self.update()
             return
 
-        if event.button() == Qt.LeftButton:
+        if event.button() == QtCore.Qt.LeftButton:
             if idx >= 0:
                 self.setSelectedIndex(idx, emit_signal=True)
                 if idx != 0 and idx != len(self.handles) - 1:
@@ -248,7 +241,7 @@ class MultiHandleSlider(QWidget):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        if self.dragging_index >= 0 and (event.buttons() & Qt.LeftButton):
+        if self.dragging_index >= 0 and (event.buttons() & QtCore.Qt.LeftButton):
             i = self.dragging_index
             v = self._x_to_value(event.x())
 
@@ -265,42 +258,42 @@ class MultiHandleSlider(QWidget):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == QtCore.Qt.LeftButton:
             self.dragging_index = -1
             self.update()
             return
         super().mouseReleaseEvent(event)
 
     def paintEvent(self, event):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing, True)
+        p = QtGui.QPainter(self)
+        p.setRenderHint(QtGui.QPainter.Antialiasing, True)
 
         cy = self.height() / 2.0
         left, right = self._track_left(), self._track_right()
 
-        groove = QRectF(left, cy - self.track_h / 2, right - left, self.track_h)
-        p.setPen(Qt.NoPen)
-        p.setBrush(QColor(210, 210, 210))
+        groove = QtCore.QRectF(left, cy - self.track_h / 2, right - left, self.track_h)
+        p.setPen(QtCore.Qt.NoPen)
+        p.setBrush(QtGui.QColor(210, 210, 210))
         p.drawRoundedRect(groove, 3, 3)
 
         for i, v in enumerate(self.handles):
             x = self._value_to_x(v)
             if i == self.selected_index:
-                fill = QColor(255, 230, 170)
+                fill = QtGui.QColor(255, 230, 170)
             elif i == 0 or i == len(self.handles) - 1:
-                fill = QColor(235, 235, 235)
+                fill = QtGui.QColor(235, 235, 235)
             else:
-                fill = QColor(255, 255, 255)
+                fill = QtGui.QColor(255, 255, 255)
 
-            p.setPen(QPen(QColor(80, 80, 80), 1))
-            p.setBrush(QBrush(fill))
-            p.drawEllipse(QRectF(x - self.handle_r, cy - self.handle_r,
+            p.setPen(QtGui.QPen(QtGui.QColor(80, 80, 80), 1))
+            p.setBrush(QtGui.QBrush(fill))
+            p.drawEllipse(QtCore.QRectF(x - self.handle_r, cy - self.handle_r,
                                  2 * self.handle_r, 2 * self.handle_r))
 
 
-class HandlerInfoPanel(QWidget):
-    dataChanged = pyqtSignal(list)
-    updateCdict = pyqtSignal(list)
+class HandlerInfoPanel(QtWidgets.QWidget):
+    dataChanged = Signal(list)
+    updateCdict = Signal(list)
 
     def __init__(self, slider: MultiHandleSlider, colorbar: ColorBarPreview, parent=None):
         super().__init__(parent)
@@ -312,32 +305,32 @@ class HandlerInfoPanel(QWidget):
             {"position": 1.0, "red": 1.0, "green": 1.0, "blue": 1.0},
         ]
 
-        self.lbl_idx_val = QLabel("-")
-        self.edit_pos = QLineEdit()
-        self.edit_r = QLineEdit()
-        self.edit_g = QLineEdit()
-        self.edit_b = QLineEdit()
+        self.lbl_idx_val = QtWidgets.QLabel("-")
+        self.edit_pos = QtWidgets.QLineEdit()
+        self.edit_r = QtWidgets.QLineEdit()
+        self.edit_g = QtWidgets.QLineEdit()
+        self.edit_b = QtWidgets.QLineEdit()
 
-        self.btn_delete = QPushButton("Delete Anchor")
-        self.btn_color = QPushButton("")
+        self.btn_delete = QtWidgets.QPushButton("Delete Anchor")
+        self.btn_color = QtWidgets.QPushButton("")
         self.btn_color.setFixedSize(90, 36)
-        self.btn_clipboard = QPushButton("Clipboard")
-        self.btn_export = QPushButton("Export")
-        self.btn_update = QPushButton("Update")
+        self.btn_clipboard = QtWidgets.QPushButton("Clipboard")
+        self.btn_export = QtWidgets.QPushButton("Export")
+        self.btn_update = QtWidgets.QPushButton("Update")
 
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Current index:"), 0, 0)
+        grid = QtWidgets.QGridLayout()
+        grid.addWidget(QtWidgets.QLabel("Current index:"), 0, 0)
         grid.addWidget(self.lbl_idx_val,         0, 1)
-        grid.addWidget(QLabel("Position:"),      1, 0)
+        grid.addWidget(QtWidgets.QLabel("Position:"),      1, 0)
         grid.addWidget(self.edit_pos,            1, 1)
-        grid.addWidget(QLabel("Red:"),           2, 0)
+        grid.addWidget(QtWidgets.QLabel("Red:"),           2, 0)
         grid.addWidget(self.edit_r,              2, 1)
-        grid.addWidget(QLabel("Green:"),         3, 0)
+        grid.addWidget(QtWidgets.QLabel("Green:"),         3, 0)
         grid.addWidget(self.edit_g,              3, 1)
-        grid.addWidget(QLabel("Blue:"),          4, 0)
+        grid.addWidget(QtWidgets.QLabel("Blue:"),          4, 0)
         grid.addWidget(self.edit_b,              4, 1)
 
-        btn_col = QVBoxLayout()
+        btn_col = QtWidgets.QVBoxLayout()
         btn_col.addWidget(self.btn_delete)
         btn_col.addWidget(self.btn_color)
         btn_col.addWidget(self.btn_clipboard)
@@ -345,7 +338,7 @@ class HandlerInfoPanel(QWidget):
         btn_col.addWidget(self.btn_update)
         btn_col.addStretch(1)
 
-        main = QHBoxLayout(self)
+        main = QtWidgets.QHBoxLayout(self)
         main.addLayout(grid, 1)
         main.addLayout(btn_col, 0)
 
@@ -398,11 +391,11 @@ class HandlerInfoPanel(QWidget):
         self.data[idx]["blue"] = b
 
         if update_lineedits:
-            with QSignalBlocker(self.edit_r):
+            with QtCore.QSignalBlocker(self.edit_r):
                 self.edit_r.setText(f"{r:.6f}")
-            with QSignalBlocker(self.edit_g):
+            with QtCore.QSignalBlocker(self.edit_g):
                 self.edit_g.setText(f"{g:.6f}")
-            with QSignalBlocker(self.edit_b):
+            with QtCore.QSignalBlocker(self.edit_b):
                 self.edit_b.setText(f"{b:.6f}")
 
         self._apply_color_button_style(r, g, b)
@@ -423,7 +416,7 @@ class HandlerInfoPanel(QWidget):
         return cdict
 
     def on_export_colormap(self):
-        filepath, _ = QFileDialog.getSaveFileName(
+        filepath, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
             "Export Colormap",
             "",
@@ -450,10 +443,10 @@ class HandlerInfoPanel(QWidget):
                     r, g, b = rgb[i]
                     f.write(f"{r}\t{g}\t{b}\n")
 
-            QMessageBox.information(self, "Export", f"Colormap exported:\n{filepath}")
+            QtWidgets.QMessageBox.information(self, "Export", f"Colormap exported:\n{filepath}")
 
         except Exception as e:
-            QMessageBox.critical(self, "Export Error", str(e))
+            QtWidgets.QMessageBox.critical(self, "Export Error", str(e))
     
     def on_update_colormap(self):
         self.updateCdict.emit([dict(d) for d in self.data])
@@ -568,7 +561,7 @@ class HandlerInfoPanel(QWidget):
         if not valid:
             self.lbl_idx_val.setText("-")
             for e in (self.edit_pos, self.edit_r, self.edit_g, self.edit_b):
-                with QSignalBlocker(e):
+                with QtCore.QSignalBlocker(e):
                     e.setText("")
                 e.setEnabled(False)
             self.btn_delete.setEnabled(False)
@@ -581,13 +574,13 @@ class HandlerInfoPanel(QWidget):
         item = self.data[idx]
         self.lbl_idx_val.setText(str(idx))
 
-        with QSignalBlocker(self.edit_pos):
+        with QtCore.QSignalBlocker(self.edit_pos):
             self.edit_pos.setText(f"{item['position']:.6f}")
-        with QSignalBlocker(self.edit_r):
+        with QtCore.QSignalBlocker(self.edit_r):
             self.edit_r.setText(f"{item['red']:.6f}")
-        with QSignalBlocker(self.edit_g):
+        with QtCore.QSignalBlocker(self.edit_g):
             self.edit_g.setText(f"{item['green']:.6f}")
-        with QSignalBlocker(self.edit_b):
+        with QtCore.QSignalBlocker(self.edit_b):
             self.edit_b.setText(f"{item['blue']:.6f}")
 
         last = len(self.data) - 1
@@ -675,13 +668,13 @@ class HandlerInfoPanel(QWidget):
             return
 
         cur = self.data[idx]
-        initial = QColor(
+        initial = QtGui.QColor(
             int(round(self._clamp01(cur["red"]) * 255)),
             int(round(self._clamp01(cur["green"]) * 255)),
             int(round(self._clamp01(cur["blue"]) * 255)),
         )
 
-        color = QColorDialog.getColor(initial=initial, parent=self, title="Pick Anchor Color")
+        color = QtWidgets.QColorDialog.getColor(initial=initial, parent=self, title="Pick Anchor Color")
         if not color.isValid():
             return
 
@@ -690,7 +683,7 @@ class HandlerInfoPanel(QWidget):
 
     def on_copy_colorbar_to_clipboard(self):
         pixmap = self.colorbar.grab()
-        QApplication.clipboard().setImage(pixmap.toImage())
+        QtWidgets.QApplication.clipboard().setImage(pixmap.toImage())
 
     def on_slider_values_changed(self, _vals):
         self.sync_data_with_slider()
@@ -702,8 +695,8 @@ class HandlerInfoPanel(QWidget):
         self.refresh_widgets()
 
 
-class ColorMapEditorWidget(QWidget):
-    updateCdict = pyqtSignal(list)
+class ColorMapEditorWidget(QtWidgets.QWidget):
+    updateCdict = Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -712,7 +705,7 @@ class ColorMapEditorWidget(QWidget):
         self.slider = MultiHandleSlider()
         self.panel = HandlerInfoPanel(self.slider, self.colorbar)
 
-        lay = QVBoxLayout(self)
+        lay = QtWidgets.QVBoxLayout(self)
         lay.addWidget(self.colorbar)
         lay.addWidget(self.slider)
         lay.addWidget(self.panel)
@@ -770,10 +763,10 @@ class ColorMapEditorWidget(QWidget):
 if __name__ == "__main__":
     import sys
 
-    app = QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
-    root = QWidget()
-    layout = QVBoxLayout(root)
+    root = QtWidgets.QWidget()
+    layout = QtWidgets.QVBoxLayout(root)
 
     cmap_editor = ColorMapEditorWidget()
     layout.addWidget(cmap_editor)

@@ -13,17 +13,14 @@ import re, math
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from ScienceY.qt_compt import QtCore, QtWidgets
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib import colors,pyplot
 
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataProcess import UdsDataStru
-from .general.NumberExpression import NumberExpression
 from .PlotConfigWidget import PlotConfigKey, PlotConfig, PlotObjManager, PlotConfigHandler
 
 """ *************************************** """

@@ -8,14 +8,14 @@ Created on Sat May  4 11:41:36 2024
 """
 System modules
 """
-import os
+
 """
 Third-party Modules
 """
-import numpy as np
 import math
-from PyQt5 import QtCore, QtWidgets, QtGui
-from PyQt5.QtCore import QFileInfo
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import Vertical, LeftDockWidgetArea, available_screen_geometry
+
 """
 User Modules
 """
@@ -165,7 +165,7 @@ class DataBrowser(GuiFrame):
         self.ui_snap_gallery_container = GalleryWidget()
         self.ui_snap_gallery_container.wheelEventSignal.connect(self.galleryWheelMoved)
         self.ui_snap_gallery_container.resizeSignal.connect(self.resizeGallery)
-        self.ui_snap_gallery_scrollbar = QtWidgets.QScrollBar(QtCore.Qt.Vertical)
+        self.ui_snap_gallery_scrollbar = QtWidgets.QScrollBar(Vertical)
         self.ui_snap_gallery_scrollbar.setMinimum(0)
         self.ui_snap_gallery_scrollbar.setMaximum(100)
         self.ui_snap_gallery_scrollbar.setValue(50)
@@ -219,11 +219,11 @@ class DataBrowser(GuiFrame):
         ui_dock_fs_widgte.setLayout(ui_verticalLayout1)
  
         self.ui_dockWidget_fs_tree.setWidget(ui_dock_fs_widgte)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_fs_tree)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_fs_tree)
         
         # dockWiget GalleryViewManager
         self.ui_dockWidget_gvm.setWidget(self.ui_dockWidget_gvm_content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_gvm)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_gvm)
         
         #
         self.removeDockWidget(self.ui_dockWideget_var)
@@ -241,7 +241,7 @@ class DataBrowser(GuiFrame):
         self.ui_snap_gallery_container.setLayout(gallery_layout)
         
         # Set minimum size to current screen size
-        screen_geometry = QtWidgets.QApplication.desktop().availableGeometry()
+        screen_geometry = available_screen_geometry()
         self.setMinimumSize(screen_geometry.width(), screen_geometry.height()-100)
         #self.setMaximumSize(screen_geometry.width(), screen_geometry.height())
         

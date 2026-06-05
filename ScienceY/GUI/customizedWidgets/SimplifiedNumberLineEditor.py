@@ -4,15 +4,13 @@ Created on Sun Apr 14 12:37:37 2024
 
 @author: jiahaoYan
 """
-
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import pyqtSignal
+from ScienceY.qt_compt import QtWidgets, Signal
 
 from ..general.RegExpSimplifedNumber import RegExpSimplifiedNumber
 from ..general.NumberExpression import NumberExpression
 
 class SimplifiedNumberLineEditor(QtWidgets.QLineEdit):
-    validTextChanged = pyqtSignal()  # Signal for value change
+    validTextChanged = Signal()  # Signal for value change
     
     def __init__(self, parent=None):
         super(SimplifiedNumberLineEditor, self).__init__(parent)

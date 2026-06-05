@@ -8,14 +8,13 @@ Created on Mon Jul 31 16:21:57 2023
 """
 System modules
 """
-import ctypes, os
-import math
 
 """
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from ScienceY.qt_compt import QtCore, QtWidgets, QueuedConnection, Vertical
+from ScienceY.qt_compt import event_X, event_Y, LeftButton, RightButton
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure
@@ -24,7 +23,6 @@ from matplotlib import colors,pyplot
 """
 User Modules
 """
-from ..RawDataProcess.UdsDataProcess import UdsDataStru
 from .ScaleWidget import ScaleWidget
 from .general.NumberExpression import NumberExpression
 from .ColorMapEditorWidget import ColorMapEditorWidget
@@ -118,13 +116,13 @@ class Image2Uds3Widget(QtWidgets.QWidget):
         self.ui_cb_image_data_type.setEnabled(False)
         self.ui_lb_image_layer = QtWidgets.QLabel("Layer: ")
         self.ui_sb_image_layers = QtWidgets.QSpinBox()
-        self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged, QtCore.Qt.QueuedConnection)
+        self.ui_sb_image_layers.valueChanged.connect(self.imageLayerChanged, QueuedConnection)
         self.ui_sb_image_layers.setEnabled(False)
         self.ui_lb_image_layer = QtWidgets.QLabel("Layer: ")
         self.ui_le_layer_value = QtWidgets.QLineEdit()
         self.ui_le_layer_value.setEnabled(False)
              
-        self.ui_scale_widget = ScaleWidget(QtCore.Qt.Vertical)
+        self.ui_scale_widget = ScaleWidget(Vertical)
         self.ui_scale_widget.scaleChanged.connect(self.imgeScaleChanged)
         
         self.ui_lb_img_palette = QtWidgets.QLabel("Palette: ")
@@ -392,34 +390,34 @@ class Image2Uds3Widget(QtWidgets.QWidget):
     """ @SLOTS of Mouse Event"""
     def canvasMouseMoveEvent(self, event):        
         self.ui_le_img_to_data_coordinate.clear()
-        event_x = event.x()
-        event_y = event.y()
+        event_x = event_X(event)
+        event_y = event_Y(event)
         
         self.canvasMouseMoved(event_x, event_y)
             
     def canvasMousePressEvent(self, event):
-        event_x = event.x()
-        event_y = event.y()
-        if event.button() == QtCore.Qt.RightButton:
+        event_x = event_X(event)
+        event_y = event_Y(event)
+        if event.button() == RightButton:
             event_button = 'RIGHT_BUTTON'
-        elif event.button() == QtCore.Qt.LeftButton:
+        elif event.button() == LeftButton:
             event_button = 'LEFT_BUTTON'
         else:
             event_button = 'UNKNOWN_BUTTON'
         self.canvasMousePressed(event_x, event_y, event_button)  
     
     def canvasMouseReleaseEvent(self, event):
-        if event.button() == QtCore.Qt.RightButton:
+        if event.button() == RightButton:
             event_button = 'RIGHT_BUTTON'
-        elif event.button() == QtCore.Qt.LeftButton:
+        elif event.button() == LeftButton:
             event_button = 'LEFT_BUTTON'
         else:
             event_button = 'UNKNOWN_BUTTON'
         self.canvasMouseReleased(event_button)
         
     def canvasWheelEvent(self, event):        
-        event_x = event.x()
-        event_y = event.y()
+        event_x = event_X(event)
+        event_y = event_Y(event)
         event_angleDelta_y = event.angleDelta().y()
         
         self.canvasWheeled(event_x, event_y, event_angleDelta_y)

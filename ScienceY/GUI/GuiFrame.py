@@ -8,14 +8,14 @@ Created on Fri Jul 28 10:25:04 2023
 """
 System modules
 """
-import sys, os
+
 
 """
 Third-party Modules
 """
-import numpy as np
-from PyQt5 import QtCore, QtWidgets
 
+from ScienceY.qt_compt import QtCore, QtWidgets
+from ScienceY.qt_compt import LeftDockWidgetArea
 """
 User Modules
 """
@@ -68,7 +68,7 @@ class GuiFrame(QtWidgets.QMainWindow):
         self.ui_gridLayout_dock_var.addLayout(self.ui_verticalLayout_varList, 0, 0, 1, 1)
         self.ui_dockWidget_var_Content.setLayout(self.ui_gridLayout_dock_var)
         self.ui_dockWideget_var.setWidget(self.ui_dockWidget_var_Content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.ui_dockWideget_var)
+        self.addDockWidget(LeftDockWidgetArea, self.ui_dockWideget_var)
         
         #
         self.ui_horizontalLayout = QtWidgets.QHBoxLayout()

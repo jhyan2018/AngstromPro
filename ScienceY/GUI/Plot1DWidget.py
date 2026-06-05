@@ -13,7 +13,7 @@ System modules
 Third-party Modules
 """
 import numpy as np
-from PyQt5 import QtWidgets
+from ScienceY.qt_compt import QtWidgets
 
 from matplotlib.backends.backend_qtagg import FigureCanvas
 from matplotlib.figure import Figure

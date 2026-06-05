@@ -8,14 +8,14 @@ Created on Thu Jul 27 09:56:53 2023
 """
 System modules
 """
-import sys, os
+import sys
 from datetime import datetime
 
 """
 Third-party Modules
 """
-import numpy as np
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, get_app, run_qt_app, print_qt_info
+from ScienceY.qt_compt import QIconNormal, QIconOff, QIconOn, LeftDockWidgetArea, Action, WindowMinimized
 
 """
 User Modules
@@ -89,7 +89,7 @@ class GVMSettings(QtWidgets.QWidget):
 class GuiVarManager(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super(GuiVarManager, self).__init__(*args, **kwargs)
-        
+
         self.initUiMembers()
         self.initUiLayout()        
         self.initNonUiMembers()      
@@ -126,8 +126,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
         icon = QtGui.QIcon()
         icon_lock_path = config.ICONS_DIR / "Locked.png"
         icon_unlock_path = config.ICONS_DIR / "Unlocked.png"
-        icon.addPixmap(QtGui.QPixmap(str(icon_lock_path)), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        icon.addPixmap(QtGui.QPixmap(str(icon_unlock_path)), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        icon.addPixmap(QtGui.QPixmap(str(icon_lock_path)), QIconNormal, QIconOff)
+        icon.addPixmap(QtGui.QPixmap(str(icon_unlock_path)), QIconNormal, QIconOn)
         self.ui_pb_lock_rm_var.setIcon(icon)
         self.ui_pb_lock_rm_var.clicked.connect(self.lockRemoveVarFromList)
         
@@ -159,7 +159,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
         self.ui_dockWidget_settings_content.save_settings.connect(self.saveSettings)
 
         self.ui_dockWidget_settings.setWidget(self.ui_dockWidget_settings_content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_settings)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_settings)
         self.ui_dockWidget_settings.close()
         
     def initUiLayout(self):
@@ -332,8 +332,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
         
         window_state = self.alive_window_pt_list[ct_w_index].windowState()
-        if window_state & QtCore.Qt.WindowMinimized:
-            self.alive_window_pt_list[ct_w_index].setWindowState(window_state & ~QtCore.Qt.WindowMinimized)
+        if window_state & WindowMinimized:
+            self.alive_window_pt_list[ct_w_index].setWindowState(window_state & ~WindowMinimized)
             
         self.alive_window_pt_list[ct_w_index].show()
         self.alive_window_pt_list[ct_w_index].raise_()
@@ -434,22 +434,22 @@ class GuiVarManager(QtWidgets.QMainWindow):
         
     def creatActions(self):
         # File Menu
-        self.loadFromFileAction = QtWidgets.QAction("&Load From File",self)
-        self.saveToFileAction = QtWidgets.QAction("&Save To File",self)
+        self.loadFromFileAction = Action("&Load From File",self)
+        self.saveToFileAction = Action("&Save To File",self)
         
-        self.findAction = QtWidgets.QAction("&Find",self)
-        self.replaceAction = QtWidgets.QAction("&Replace",self)
+        self.findAction = Action("&Find",self)
+        self.replaceAction = Action("&Replace",self)
         
         # Window
-        self.dataBrowserAction = QtWidgets.QAction("Data Browser",self)
-        self.image2or3DAction = QtWidgets.QAction("Image2U3",self)
-        self.plot1u2Action = QtWidgets.QAction("Plot1U2",self)
-        self.rtSynthesis2DAction = QtWidgets.QAction("RtSynthesis2U3",self)
+        self.dataBrowserAction = Action("Data Browser",self)
+        self.image2or3DAction = Action("Image2U3",self)
+        self.plot1u2Action = Action("Plot1U2",self)
+        self.rtSynthesis2DAction = Action("RtSynthesis2U3",self)
         
         # Option
-        self.refreshAction = QtWidgets.QAction("Refresh",self)
-        self.preferenceAction = QtWidgets.QAction("Preference",self)
-        self.aboutAction = QtWidgets.QAction("About",self)
+        self.refreshAction = Action("Refresh",self)
+        self.preferenceAction = Action("Preference",self)
+        self.aboutAction = Action("About",self)
         
     def connectActions(self):
         # File Menu
@@ -638,7 +638,7 @@ class GuiVarManager(QtWidgets.QMainWindow):
                           "Created by Huiyu Zhao & Jiahao Yan\n"
                           "© 2023 -" + current_year + "\n"
                           "This is a data management, visualization, processing & simulation software for STM.\n"
-                          "It's based on Matplotlib and PyQt5.")
+                          "It's based on Matplotlib and Qt.")
         
 
 
@@ -648,9 +648,13 @@ class GuiVarManager(QtWidgets.QMainWindow):
 
 if __name__ == "__main__":   
 
-    qapp = QtWidgets.QApplication.instance()
-    if not qapp:
-        qapp = QtWidgets.QApplication(sys.argv)
-    w = GuiVarManager()    
+    print_qt_info()    
+    qapp = get_app()
+    w = GuiVarManager()
     w.show()
-    #sys.exit(qapp.exec_())
+    #
+    result = run_qt_app(qapp)
+    if result is not None:
+        
+        sys.exit(result)
+    

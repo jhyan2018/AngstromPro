@@ -12,12 +12,8 @@ System modules
 """
 Third-party Modules
 """
-import numpy as np
-from io import BytesIO
-from PyQt5 import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action, LeftDockWidgetArea, Checked, Unchecked
 
-from matplotlib.backends.backend_qtagg import FigureCanvas
-from matplotlib.figure import Figure
 """
 User Modules
 """
@@ -81,7 +77,7 @@ class VarTreeWidget(QtWidgets.QWidget):
             # Add each row of the array as a child item with a checkbox
             for i in range(uds_data.data.shape[0]):
                 row_item = QtWidgets.QTreeWidgetItem([f"Line {i}"])
-                row_item.setCheckState(0, 0)  # 0 = Unchecked, 2 = Checked
+                row_item.setCheckState(0, Unchecked)  # 0 = Unchecked, 2 = Checked
                 var_item.addChild(row_item)
                 
     def on_item_changed(self, item, column):
@@ -164,7 +160,7 @@ class Plot1Uds2(GuiFrame):
         
         #dock widget
         self.ui_dockWidget_plot_config.setWidget(self.ui_dockWidget_plot_config_content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_plot_config)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_plot_config)
         
         self.tabifyDockWidget(self.ui_dockWidget_plot_config, self.ui_dockWideget_var)
         
@@ -299,37 +295,37 @@ class Plot1Uds2(GuiFrame):
         
     def creat_actions(self):
         # Image Menu
-        self.exportToImage = QtWidgets.QAction("to Image",self)
-        self.exportToClipboard = QtWidgets.QAction("to Clipboard",self)
+        self.exportToImage = Action("to Image",self)
+        self.exportToClipboard = Action("to Clipboard",self)
         
         # Process Menu
-        #self.fourierFilterOut = QtWidgets.QAction("Filter Out",self)
-        #self.fourierFilterIsolate = QtWidgets.QAction("Isolate",self)
-        #self.mathAdd = QtWidgets.QAction("m+s",self)
-        #self.mathSubtract = QtWidgets.QAction("m-s",self)
-        #self.mathMultiply = QtWidgets.QAction("m*s",self)
-        #self.mathMultiplyByConst = QtWidgets.QAction("m*const.",self)
-        #self.mathDivide = QtWidgets.QAction("m/s",self)
-        #self.mathDivideByConst = QtWidgets.QAction("m/const.",self)
-        #self.mathDivideConstBy = QtWidgets.QAction("const./m",self)
-        self.extractOneLine = QtWidgets.QAction("Extract one line",self)
+        #self.fourierFilterOut = Action("Filter Out",self)
+        #self.fourierFilterIsolate = Action("Isolate",self)
+        #self.mathAdd = Action("m+s",self)
+        #self.mathSubtract = Action("m-s",self)
+        #self.mathMultiply = Action("m*s",self)
+        #self.mathMultiplyByConst = Action("m*const.",self)
+        #self.mathDivide = Action("m/s",self)
+        #self.mathDivideByConst = Action("m/const.",self)
+        #self.mathDivideConstBy = Action("const./m",self)
+        self.extractOneLine = Action("Extract one line",self)
         
-        self.lineProcessCustomized = QtWidgets.QAction("Customized Algorithm",self)
+        self.lineProcessCustomized = Action("Customized Algorithm",self)
         
         # Analysis Menu
-        self.fourierTransform = QtWidgets.QAction("Fourier Transform",self)
+        self.fourierTransform = Action("Fourier Transform",self)
      
         # Simulate Menu
-        #self.generateHeavisideCurve = QtWidgets.QAction("Heaviside2D")
-        #self.generateCircleCurve = QtWidgets.QAction("Circle2D",self)
-        #self.generateGaussianCurve = QtWidgets.QAction("Gaussian2D",self)
-        #self.generateSinusoidalCurve = QtWidgets.QAction("Sinusoidal2D",self)
+        #self.generateHeavisideCurve = Action("Heaviside2D")
+        #self.generateCircleCurve = Action("Circle2D",self)
+        #self.generateGaussianCurve = Action("Gaussian2D",self)
+        #self.generateSinusoidalCurve = Action("Sinusoidal2D",self)
   
         # Widgets Menu
-        self.showVarDockWidget = QtWidgets.QAction("Variables DockWidget",self)
+        self.showVarDockWidget = Action("Variables DockWidget",self)
  
         # Option Menu
-        #self.preferenceAction = QtWidgets.QAction("Preference",self)
+        #self.preferenceAction = Action("Preference",self)
         
     def connect_actions(self):
         # File Menu

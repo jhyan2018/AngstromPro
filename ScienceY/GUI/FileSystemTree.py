@@ -4,12 +4,10 @@ Created on Sat May  4 16:45:18 2024
 
 @author: jiahaoYan
 """
+from ScienceY.qt_compt import QtCore, QtWidgets, Signal, FileSystemModel, QDirAllEntries, QDirNoDotAndDotDot, ISODate
 
-from PyQt5.QtWidgets import QTreeView, QFileSystemModel, QVBoxLayout, QWidget
-from PyQt5.QtCore import Qt, QDir, QFileInfo, pyqtSignal
-
-class FileSystemTree(QWidget):
-    selectionChangedSignal = pyqtSignal()
+class FileSystemTree(QtWidgets.QWidget):
+    selectionChangedSignal = Signal()
     def __init__(self):
         super().__init__() 
         
@@ -19,17 +17,17 @@ class FileSystemTree(QWidget):
 
     def initUiMembers(self):
         # Create the file system model
-        self.model = QFileSystemModel()
+        self.model = FileSystemModel()
         
         # Create the tree view
-        self.tree = QTreeView()
+        self.tree = QtWidgets.QTreeView()
         self.tree.setModel(self.model)
         
         # Connect selection change signal
         self.tree.selectionModel().selectionChanged.connect(self.fileTreeSelectionChanged)
         
     def initLayout(self):        
-        layout = QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         
         layout.addWidget(self.tree)
         self.setLayout(layout)
@@ -48,8 +46,8 @@ class FileSystemTree(QWidget):
         all_files_lastmodified = []
     
         # Initialize a QDir object with the provided parent folder
-        directory = QDir(parent_folder)
-        directory.setFilter(QDir.AllEntries | QDir.NoDotAndDotDot)  # Ignore `.` and `..`
+        directory = QtCore.QDir(parent_folder)
+        directory.setFilter(QDirAllEntries | QDirNoDotAndDotDot)  # Ignore `.` and `..`
     
         # Retrieve all entries in the current directory
         entry_info_list = directory.entryInfoList()
@@ -57,7 +55,7 @@ class FileSystemTree(QWidget):
         # Iterate through each entry to collect its path
         for entry_info in entry_info_list:
             path = entry_info.absoluteFilePath()  
-            lastmodified = entry_info.lastModified().toString(Qt.ISODate)
+            lastmodified = entry_info.lastModified().toString(ISODate)
             
             # If it's a directory, recurse into it
             if entry_info.isDir():
@@ -75,7 +73,7 @@ class FileSystemTree(QWidget):
         path = self.model.filePath(index)
         
         # check if it's file, then return parent folder path
-        file_info = QFileInfo(path)        
+        file_info = QtCore.QFileInfo(path)        
         if not file_info.isDir():
             path = file_info.absolutePath()
 

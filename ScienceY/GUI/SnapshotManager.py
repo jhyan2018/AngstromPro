@@ -11,12 +11,11 @@ System modules
 import os
 import json
 import uuid
-from io import BytesIO
 
 """
 Third-party Modules
 """
-from PyQt5 import QtGui, QtWidgets
+from ScienceY.qt_compt import QtGui
 """
 User Modules
 """
