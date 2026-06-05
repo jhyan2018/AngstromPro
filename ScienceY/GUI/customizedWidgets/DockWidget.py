@@ -12,7 +12,7 @@ System modules
 """
 Third-party Modules
 """
-from PyQt5 import QtCore, QtWidgets
+from ScienceY.qt_compt import QtWidgets, Signal
 
 """
 User Modules
@@ -23,7 +23,7 @@ Module Definition
 """
 
 class DockWidget(QtWidgets.QDockWidget):
-    resizeSignal = QtCore.pyqtSignal()
+    resizeSignal = Signal()
     
     def __init__(self, *args, **kwargs):
         super(DockWidget, self).__init__( *args, **kwargs)

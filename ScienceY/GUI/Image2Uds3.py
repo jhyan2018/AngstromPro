@@ -14,7 +14,7 @@ Third-party Modules
 """
 import numpy as np
 from io import BytesIO
-from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action, LeftDockWidgetArea, WindowMinimized
 
 import imageio
 """
@@ -76,7 +76,7 @@ class Image2Uds3(GuiFrame):
         self.ui_dockWidget_plot1D_Content = Plot1DWidget()
 
         self.ui_dockWidget_plot1D.setWidget(self.ui_dockWidget_plot1D_Content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_plot1D)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_plot1D)
         self.ui_dockWidget_plot1D.close()
         
         self.tabifyDockWidget(self.ui_dockWideget_var ,self.ui_dockWidget_plot1D)
@@ -1728,8 +1728,8 @@ class Image2Uds3(GuiFrame):
     # Option Menu
     def actPreference(self):
         window_state = self.ui_preference.windowState()
-        if window_state & QtCore.Qt.WindowMinimized:
-            self.ui_preference.setWindowState(window_state & ~QtCore.Qt.WindowMinimized)
+        if window_state & WindowMinimized:
+            self.ui_preference.setWindowState(window_state & WindowMinimized)
         
         self.ui_preference.show()
         self.ui_preference.raise_()

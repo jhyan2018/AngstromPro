@@ -12,7 +12,7 @@ System modules
 """
 Third-party Modules
 """
-from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action, LeftDockWidgetArea, Checked, Unchecked
 
 """
 User Modules
@@ -77,7 +77,7 @@ class VarTreeWidget(QtWidgets.QWidget):
             # Add each row of the array as a child item with a checkbox
             for i in range(uds_data.data.shape[0]):
                 row_item = QtWidgets.QTreeWidgetItem([f"Line {i}"])
-                row_item.setCheckState(0, 0)  # 0 = Unchecked, 2 = Checked
+                row_item.setCheckState(0, Unchecked)  # 0 = Unchecked, 2 = Checked
                 var_item.addChild(row_item)
                 
     def on_item_changed(self, item, column):
@@ -160,7 +160,7 @@ class Plot1Uds2(GuiFrame):
         
         #dock widget
         self.ui_dockWidget_plot_config.setWidget(self.ui_dockWidget_plot_config_content)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea , self.ui_dockWidget_plot_config)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_plot_config)
         
         self.tabifyDockWidget(self.ui_dockWidget_plot_config, self.ui_dockWideget_var)
         

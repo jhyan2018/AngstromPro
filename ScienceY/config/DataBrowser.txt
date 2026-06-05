@@ -1,5 +1,5 @@
 [PATH]
-data_path=E:/gdrive/stm_data/2024/CsV3Sb5
+data_path=/home/ubuntu/Documents/data
 
 [FILTER]
 data_format_filter=*.3ds,*.sxm,*.uds,*.dat,*.1FL,*.TFR

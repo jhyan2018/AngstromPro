@@ -83,6 +83,7 @@ if QT_API == "PyQt6":
     Property = QtCore.pyqtProperty
     
     Action = QtGui.QAction
+    FileSystemModel = QtGui.QFileSystemModel
 
     QT_VERSION_STR = QtCore.QT_VERSION_STR
     BINDING_VERSION_STR = QtCore.PYQT_VERSION_STR
@@ -99,6 +100,7 @@ elif QT_API == "PyQt5":
     Property = QtCore.pyqtProperty
     
     Action = QtWidgets.QAction
+    FileSystemModel = QtWidgets.QFileSystemModel
     
     QT_VERSION_STR = QtCore.QT_VERSION_STR
     BINDING_VERSION_STR = QtCore.PYQT_VERSION_STR
@@ -115,6 +117,7 @@ elif QT_API == "PySide6":
     Property = QtCore.Property
     
     Action = QtGui.QAction
+    FileSystemModel = QtGui.QFileSystemModel
 
     QT_VERSION_STR = QtCore.qVersion()
     BINDING_VERSION_STR = QtCore.__version__
@@ -131,6 +134,7 @@ elif QT_API == "PySide2":
     Property = QtCore.Property
     
     Action = QtWidgets.QAction
+    FileSystemModel = QtWidgets.QFileSystemModel
 
     QT_VERSION_STR = QtCore.qVersion()
     BINDING_VERSION_STR = QtCore.__version__
@@ -234,6 +238,199 @@ else:
     BottomDockWidgetArea = QtCore.Qt.BottomDockWidgetArea
     AllDockWidgetAreas = QtCore.Qt.AllDockWidgetAreas
     NoDockWidgetArea = QtCore.Qt.NoDockWidgetArea
+    
+# FocusPolicy and PenStyle compatibility
+if IS_QT6:
+    StrongFocus = QtCore.Qt.FocusPolicy.StrongFocus
+    NoFocus = QtCore.Qt.FocusPolicy.NoFocus
+    ClickFocus = QtCore.Qt.FocusPolicy.ClickFocus
+    TabFocus = QtCore.Qt.FocusPolicy.TabFocus
+
+    NoPen = QtCore.Qt.PenStyle.NoPen
+    SolidLine = QtCore.Qt.PenStyle.SolidLine
+    DashLine = QtCore.Qt.PenStyle.DashLine
+    DotLine = QtCore.Qt.PenStyle.DotLine
+else:
+    StrongFocus = QtCore.Qt.StrongFocus
+    NoFocus = QtCore.Qt.NoFocus
+    ClickFocus = QtCore.Qt.ClickFocus
+    TabFocus = QtCore.Qt.TabFocus
+
+    NoPen = QtCore.Qt.NoPen
+    SolidLine = QtCore.Qt.SolidLine
+    DashLine = QtCore.Qt.DashLine
+    DotLine = QtCore.Qt.DotLine
+    
+# ConnectionType compatibility
+if IS_QT6:
+    AutoConnection = QtCore.Qt.ConnectionType.AutoConnection
+    DirectConnection = QtCore.Qt.ConnectionType.DirectConnection
+    QueuedConnection = QtCore.Qt.ConnectionType.QueuedConnection
+    BlockingQueuedConnection = QtCore.Qt.ConnectionType.BlockingQueuedConnection
+    UniqueConnection = QtCore.Qt.ConnectionType.UniqueConnection
+else:
+    AutoConnection = QtCore.Qt.AutoConnection
+    DirectConnection = QtCore.Qt.DirectConnection
+    QueuedConnection = QtCore.Qt.QueuedConnection
+    BlockingQueuedConnection = QtCore.Qt.BlockingQueuedConnection
+    UniqueConnection = QtCore.Qt.UniqueConnection
+    
+# ScrollBarPolicy compatibility
+if IS_QT6:
+    ScrollBarAlwaysOn = QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn
+    ScrollBarAlwaysOff = QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+    ScrollBarAsNeeded = QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded
+else:
+    ScrollBarAlwaysOn = QtCore.Qt.ScrollBarAlwaysOn
+    ScrollBarAlwaysOff = QtCore.Qt.ScrollBarAlwaysOff
+    ScrollBarAsNeeded = QtCore.Qt.ScrollBarAsNeeded
+    
+# WindowState compatibility
+if IS_QT6:
+    WindowState = QtCore.Qt.WindowState
+
+    WindowNoState = QtCore.Qt.WindowState.WindowNoState
+    WindowMinimized = QtCore.Qt.WindowState.WindowMinimized
+    WindowMaximized = QtCore.Qt.WindowState.WindowMaximized
+    WindowFullScreen = QtCore.Qt.WindowState.WindowFullScreen
+    WindowActive = QtCore.Qt.WindowState.WindowActive
+
+else:
+    WindowState = QtCore.Qt
+
+    WindowNoState = QtCore.Qt.WindowNoState
+    WindowMinimized = QtCore.Qt.WindowMinimized
+    WindowMaximized = QtCore.Qt.WindowMaximized
+    WindowFullScreen = QtCore.Qt.WindowFullScreen
+    WindowActive = QtCore.Qt.WindowActive
+
+# QPainter RenderHint compatibility
+if IS_QT6:
+    RenderHint = QtGui.QPainter.RenderHint
+
+    Antialiasing = QtGui.QPainter.RenderHint.Antialiasing
+    TextAntialiasing = QtGui.QPainter.RenderHint.TextAntialiasing
+    SmoothPixmapTransform = QtGui.QPainter.RenderHint.SmoothPixmapTransform
+
+else:
+    RenderHint = QtGui.QPainter
+
+    Antialiasing = QtGui.QPainter.Antialiasing
+    TextAntialiasing = QtGui.QPainter.TextAntialiasing
+    SmoothPixmapTransform = QtGui.QPainter.SmoothPixmapTransform
+    
+# QDir Filter compatibility
+if IS_QT6:
+    QDirFilter = QtCore.QDir.Filter
+
+    QDirAllEntries = QtCore.QDir.Filter.AllEntries
+    QDirNoDotAndDotDot = QtCore.QDir.Filter.NoDotAndDotDot
+    QDirFiles = QtCore.QDir.Filter.Files
+    QDirDirs = QtCore.QDir.Filter.Dirs
+    QDirNoFilter = QtCore.QDir.Filter.NoFilter
+
+else:
+    QDirFilter = QtCore.QDir
+
+    QDirAllEntries = QtCore.QDir.AllEntries
+    QDirNoDotAndDotDot = QtCore.QDir.NoDotAndDotDot
+    QDirFiles = QtCore.QDir.Files
+    QDirDirs = QtCore.QDir.Dirs
+    QDirNoFilter = QtCore.QDir.NoFilter
+    
+# DateFormat compatibility
+if IS_QT6:
+    DateFormat = QtCore.Qt.DateFormat
+
+    ISODate = QtCore.Qt.DateFormat.ISODate
+    ISODateWithMs = QtCore.Qt.DateFormat.ISODateWithMs
+    TextDate = QtCore.Qt.DateFormat.TextDate
+
+else:
+    DateFormat = QtCore.Qt
+
+    ISODate = QtCore.Qt.ISODate
+    ISODateWithMs = QtCore.Qt.ISODateWithMs
+    TextDate = QtCore.Qt.TextDate
+    
+# AspectRatioMode compatibility
+if IS_QT6:
+    AspectRatioMode = QtCore.Qt.AspectRatioMode
+
+    KeepAspectRatio = QtCore.Qt.AspectRatioMode.KeepAspectRatio
+    KeepAspectRatioByExpanding = QtCore.Qt.AspectRatioMode.KeepAspectRatioByExpanding
+    IgnoreAspectRatio = QtCore.Qt.AspectRatioMode.IgnoreAspectRatio
+
+else:
+    AspectRatioMode = QtCore.Qt
+
+    KeepAspectRatio = QtCore.Qt.KeepAspectRatio
+    KeepAspectRatioByExpanding = QtCore.Qt.KeepAspectRatioByExpanding
+    IgnoreAspectRatio = QtCore.Qt.IgnoreAspectRatio
+    
+# CheckState compatibility
+if IS_QT6:
+    CheckState = QtCore.Qt.CheckState
+
+    Unchecked = QtCore.Qt.CheckState.Unchecked
+    PartiallyChecked = QtCore.Qt.CheckState.PartiallyChecked
+    Checked = QtCore.Qt.CheckState.Checked
+
+else:
+    CheckState = QtCore.Qt
+
+    Unchecked = QtCore.Qt.Unchecked
+    PartiallyChecked = QtCore.Qt.PartiallyChecked
+    Checked = QtCore.Qt.Checked
+    
+    
+# QMouseEvent position compatibility
+def event_X(event):
+    """
+    Return mouse event x position.
+
+    Qt5:
+        event.x()
+
+    Qt6:
+        event.position().x()
+    """
+    if IS_QT6:
+        return event.position().x()
+    else:
+        return event.x()
+
+
+def event_Y(event):
+    """
+    Return mouse event y position.
+
+    Qt5:
+        event.y()
+
+    Qt6:
+        event.position().y()
+    """
+    if IS_QT6:
+        return event.position().y()
+    else:
+        return event.y()
+
+
+def event_POS(event):
+    """
+    Return mouse event position.
+
+    Qt5:
+        event.pos()
+
+    Qt6:
+        event.position()
+    """
+    if IS_QT6:
+        return event.position()
+    else:
+        return event.pos()
 
 # ------------------------------------------------------------
 # QFileDialog compatibility
@@ -278,6 +475,20 @@ def get_app():
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
     return app
+
+def available_screen_geometry():
+    """
+    Return available geometry of the primary screen.
+    Works for PyQt5/PyQt6/PySide2/PySide6.
+    """
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication(sys.argv)
+
+    if hasattr(QtWidgets.QApplication, "desktop"):
+        return QtWidgets.QApplication.desktop().availableGeometry()
+    else:
+        return app.primaryScreen().availableGeometry()
 
 def ipython_qt_event_loop_is_active():
     """

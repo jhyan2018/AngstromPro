@@ -14,7 +14,7 @@ System modules
 Third-party Modules
 """
 import numpy as np
-from ScienceY.qt_compt import QtCore, QtWidgets, Action
+from ScienceY.qt_compt import QtCore, QtWidgets, Action, ScrollBarAlwaysOn, Horizontal
 
 """
 User Modules
@@ -75,8 +75,8 @@ class RtSynthesis2Uds3(GuiFrame):
         
         #
         self.ui_sa_wave_vectors = QtWidgets.QScrollArea()
-        self.ui_sa_wave_vectors.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
-        self.ui_sa_wave_vectors.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
+        self.ui_sa_wave_vectors.setVerticalScrollBarPolicy(ScrollBarAlwaysOn)
+        self.ui_sa_wave_vectors.setHorizontalScrollBarPolicy(ScrollBarAlwaysOn)
         self.ui_sa_wave_vectors.setWidgetResizable(True)
         
         self.ui_qw_wavev_scroll_content = QtWidgets.QWidget()
@@ -312,7 +312,7 @@ class WaveVectorParams(QtWidgets.QWidget):
         self.ui_lb_amplitude = QtWidgets.QLabel("Amplitude")
         self.ui_lb_amplitude.setMaximumHeight(30)
         self.ui_hs_amplitude = QtWidgets.QSlider()
-        self.ui_hs_amplitude.setOrientation(QtCore.Qt.Horizontal)
+        self.ui_hs_amplitude.setOrientation(Horizontal)
         self.ui_hs_amplitude.setRange(0,100)     
         self.ui_hs_amplitude.setSingleStep(1)
         self.ui_hs_amplitude.setValue(0)
@@ -329,7 +329,7 @@ class WaveVectorParams(QtWidgets.QWidget):
         self.ui_lb_phase = QtWidgets.QLabel("Phase")
         self.ui_lb_phase.setMaximumHeight(30)
         self.ui_hs_phase = QtWidgets.QSlider()
-        self.ui_hs_phase.setOrientation(QtCore.Qt.Horizontal)
+        self.ui_hs_phase.setOrientation(Horizontal)
         self.ui_hs_phase.setRange(0,100)     
         self.ui_hs_phase.setSingleStep(1)
         self.ui_hs_phase.setValue(0)

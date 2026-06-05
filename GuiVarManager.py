@@ -15,7 +15,7 @@ from datetime import datetime
 Third-party Modules
 """
 from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, get_app, run_qt_app, print_qt_info
-from ScienceY.qt_compt import QIconNormal, QIconOff, QIconOn, LeftDockWidgetArea, Action
+from ScienceY.qt_compt import QIconNormal, QIconOff, QIconOn, LeftDockWidgetArea, Action, WindowMinimized
 
 """
 User Modules
@@ -332,8 +332,8 @@ class GuiVarManager(QtWidgets.QMainWindow):
         ct_w_index = self.ui_lw_uds_window_list.currentRow()
         
         window_state = self.alive_window_pt_list[ct_w_index].windowState()
-        if window_state & QtCore.Qt.WindowMinimized:
-            self.alive_window_pt_list[ct_w_index].setWindowState(window_state & ~QtCore.Qt.WindowMinimized)
+        if window_state & WindowMinimized:
+            self.alive_window_pt_list[ct_w_index].setWindowState(window_state & ~WindowMinimized)
             
         self.alive_window_pt_list[ct_w_index].show()
         self.alive_window_pt_list[ct_w_index].raise_()

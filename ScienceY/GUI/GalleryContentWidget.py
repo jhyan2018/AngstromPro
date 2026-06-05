@@ -12,7 +12,7 @@ import os, gc
 """
 Third-party Modules
 """
-from ScienceY.qt_compt import QtCore, QtWidgets, QtGui
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, AlignCenter, KeepAspectRatio
 
 """
 User Modules
@@ -59,7 +59,7 @@ class ImageDisplayWidget(QtWidgets.QWidget):
         # Only draw the image if it exists
         if self.image:
             # Optionally, you can scale the image to fit the widget size
-            scaled_image = self.image.scaled(self.size(), QtCore.Qt.KeepAspectRatio)
+            scaled_image = self.image.scaled(self.size(), KeepAspectRatio)
             painter.drawImage(0, 0, scaled_image)
 
         painter.end()
@@ -150,9 +150,9 @@ class GalleryContentWidget(QtWidgets.QWidget):
         
         ui_verticalLayout2 = QtWidgets.QVBoxLayout()
         if self.snapshots_info.ch_type[self.ch_idx] == 'IMAGE':
-            ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=QtCore.Qt.AlignCenter)
-            ui_verticalLayout2.addWidget(self.ui_png_colorbar, alignment=QtCore.Qt.AlignCenter)
-            ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=QtCore.Qt.AlignCenter)
+            ui_verticalLayout2.addWidget(self.ui_lb_data_scale_u, alignment=AlignCenter)
+            ui_verticalLayout2.addWidget(self.ui_png_colorbar, alignment=AlignCenter)
+            ui_verticalLayout2.addWidget(self.ui_lb_data_scale_l, alignment=AlignCenter)
         
         ui_verticalLayout3 = QtWidgets.QVBoxLayout()
         ui_horizontalLayout1 = QtWidgets.QHBoxLayout()

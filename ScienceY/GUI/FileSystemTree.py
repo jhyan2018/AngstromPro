@@ -4,7 +4,7 @@ Created on Sat May  4 16:45:18 2024
 
 @author: jiahaoYan
 """
-from ScienceY.qt_compt import QtCore, QtWidgets, Signal
+from ScienceY.qt_compt import QtCore, QtWidgets, Signal, FileSystemModel, QDirAllEntries, QDirNoDotAndDotDot, ISODate
 
 class FileSystemTree(QtWidgets.QWidget):
     selectionChangedSignal = Signal()
@@ -17,7 +17,7 @@ class FileSystemTree(QtWidgets.QWidget):
 
     def initUiMembers(self):
         # Create the file system model
-        self.model = QtWidgets.QFileSystemModel()
+        self.model = FileSystemModel()
         
         # Create the tree view
         self.tree = QtWidgets.QTreeView()
@@ -47,7 +47,7 @@ class FileSystemTree(QtWidgets.QWidget):
     
         # Initialize a QDir object with the provided parent folder
         directory = QtCore.QDir(parent_folder)
-        directory.setFilter(QtCore.QDir.AllEntries | QtCore.QDir.NoDotAndDotDot)  # Ignore `.` and `..`
+        directory.setFilter(QDirAllEntries | QDirNoDotAndDotDot)  # Ignore `.` and `..`
     
         # Retrieve all entries in the current directory
         entry_info_list = directory.entryInfoList()
@@ -55,7 +55,7 @@ class FileSystemTree(QtWidgets.QWidget):
         # Iterate through each entry to collect its path
         for entry_info in entry_info_list:
             path = entry_info.absoluteFilePath()  
-            lastmodified = entry_info.lastModified().toString(QtCore.Qt.ISODate)
+            lastmodified = entry_info.lastModified().toString(ISODate)
             
             # If it's a directory, recurse into it
             if entry_info.isDir():

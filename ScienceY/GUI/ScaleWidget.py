@@ -94,7 +94,7 @@ class ScaleWidget(QtWidgets.QWidget):
         self.ui_pb_scale_zoom_out.setMaximumSize(40,40)
     
     def initUiLayout(self):
-        if self.orientation == QtCore.Qt.Horizontal:
+        if self.orientation == Horizontal:
             ui_h_horiztontalLayout1 = QtWidgets.QHBoxLayout()
             ui_h_horiztontalLayout1.addWidget(self.ui_pb_scale_full__sigma)
             ui_h_horiztontalLayout1.addWidget(self.ui_pb_scale_zoom_out)

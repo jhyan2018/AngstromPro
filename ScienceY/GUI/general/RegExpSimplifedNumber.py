@@ -4,13 +4,12 @@ Created on Sun Apr 14 00:13:18 2024
 
 @author: jiahaoYan
 """
-
-from PyQt5.QtCore import QRegularExpression
+from ScienceY.qt_compt import QtCore
 
 class RegExpSimplifiedNumber:
     # Regular expressions for integer and decimal numbers
-    rxInteger = QRegularExpression(r'^-?\d{1,4}\.?[TGMKkmunpfa]?$')
-    rxDecimals = QRegularExpression(r'^-?\d{1,4}\.\d{1,3}[TGMKkmunpfa]?$')
+    rxInteger = QtCore.QRegularExpression(r'^-?\d{1,4}\.?[TGMKkmunpfa]?$')
+    rxDecimals = QtCore.QRegularExpression(r'^-?\d{1,4}\.\d{1,3}[TGMKkmunpfa]?$')
 
     @staticmethod
     def isSimplifiedNumber(s):
