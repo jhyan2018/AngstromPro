@@ -1,0 +1,109 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jun 16 22:40:57 2026
+
+@author: jiahaoYan
+"""
+
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+
+from angstrompro.core.data.base import WorkspaceData
+from .workspace_item import WorkspaceItem
+
+
+class Workspace:
+    """Named container owned by one module instance. Plain Python — no Qt."""
+
+    def __init__(
+        self,
+        owner_id: str,
+        label:    str | None = None,
+    ) -> None:
+        self.workspace_id = f"ws_{uuid.uuid4().hex[:12]}"
+        self.owner_id     = owner_id
+        self.label        = label or self.workspace_id
+        self._items:      dict[str, WorkspaceItem] = {}
+        self._item_order: list[str]                = []
+
+    # ------------------------------------------------------------------
+    # Write
+    # ------------------------------------------------------------------
+
+    def add_item(
+        self,
+        name:        str,
+        payload:     WorkspaceData,
+        source_path: Path | None = None,
+    ) -> WorkspaceItem:
+        item = WorkspaceItem(
+            name=name,
+            payload=payload,
+            source_path=source_path,
+        )
+        if name not in self._items:
+            self._item_order.append(name)
+        self._items[name] = item
+        return item
+
+    def remove_item(self, name: str) -> None:
+        if name in self._items:
+            del self._items[name]
+            self._item_order.remove(name)
+
+    def rename_item(self, old_name: str, new_name: str) -> None:
+        if old_name not in self._items:
+            raise KeyError(f"No item named {old_name!r}")
+        if new_name in self._items:
+            raise ValueError(f"Name {new_name!r} is already taken")
+        item = self._items.pop(old_name)
+        item.name = new_name
+        self._items[new_name] = item
+        idx = self._item_order.index(old_name)
+        self._item_order[idx] = new_name
+
+    def reorder(self, new_order: list[str]) -> None:
+        if set(new_order) != set(self._items):
+            raise ValueError("new_order must contain exactly the same names")
+        self._item_order = list(new_order)
+
+    def clear(self) -> None:
+        for name in list(self._item_order):
+            self.remove_item(name)
+
+    # ------------------------------------------------------------------
+    # Read
+    # ------------------------------------------------------------------
+
+    def get_item(self, name: str) -> WorkspaceItem:
+        return self._items[name]
+
+    def get_payload(self, name: str) -> WorkspaceData:
+        return self._items[name].payload
+
+    def has_item(self, name: str) -> bool:
+        return name in self._items
+
+    def list_names(self) -> list[str]:
+        return list(self._item_order)
+
+    def list_items(self) -> list[WorkspaceItem]:
+        return [self._items[n] for n in self._item_order]
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def suggest_name(self, base: str) -> str:
+        """Return base if unused, otherwise base_2, base_3, ..."""
+        if base not in self._items:
+            return base
+        i = 2
+        while f"{base}_{i}" in self._items:
+            i += 1
+        return f"{base}_{i}"
+
+    def by_type(self, type_id: str) -> list[WorkspaceItem]:
+        return [i for i in self._items.values() if i.type_id == type_id]
+

@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "angstrompro"
+version = "1.2.0"
+
+[project.scripts]
+angstrompro = "angstrompro.app.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
