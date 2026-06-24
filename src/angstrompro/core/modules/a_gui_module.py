@@ -7,7 +7,7 @@ Created on Tue Jun 23 22:54:12 2026
 AGuiModule — Qt base class for all AngstromPro GUI modules.
 
 Each GUI module is an independent QMainWindow with:
-  - its own AModule instance (workspace, identity)
+  - workspace and identity via ModuleMixin
   - a workspace panel dock (item list + type badge)
   - a Process menu auto-connected to ProcessBrowserDialog
   - status bar wired to context.signals.status_message
@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, IS_QT6
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
-from .a_module import AModule
+from .module_mixin import ModuleMixin
 
 if TYPE_CHECKING:
     from angstrompro.app.app_context import AppContext
@@ -51,32 +51,16 @@ _DockArea = QtCore.Qt.DockWidgetArea.LeftDockWidgetArea if IS_QT6 \
             else QtCore.Qt.LeftDockWidgetArea
 
 
-class AGuiModule(QtWidgets.QMainWindow):
+class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     """Base class for every AngstromPro GUI module window."""
-
-    module_id:      str      = ""
-    display_name:   str      = ""
-    description:    str      = ""
-    accepted_types: set[str] = set()
 
     def __init__(
         self,
         context: "AppContext",
         parent:  QtWidgets.QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
-        self._context = context
-
-        # create workspace via manager so signals are wired
-        workspace = context.workspace_manager.create_workspace(
-            owner_id = self.module_id,
-            label    = self.display_name or self.module_id,
-        )
-        self.module = AModule(
-            module_id    = self.module_id,
-            display_name = self.display_name,
-            workspace    = workspace,
-        )
+        QtWidgets.QMainWindow.__init__(self, parent)
+        self._init_module(context)   # sets self.workspace, self._context
 
         self.setWindowTitle(self.display_name or self.module_id)
         self.resize(900, 640)
@@ -87,14 +71,6 @@ class AGuiModule(QtWidgets.QMainWindow):
 
         # subclass builds its central widget
         self.build_ui()
-
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
-
-    @property
-    def workspace(self):
-        return self.module.workspace
 
     # ------------------------------------------------------------------
     # Workspace dock
@@ -125,7 +101,7 @@ class AGuiModule(QtWidgets.QMainWindow):
 
     def _refresh_workspace_panel(self) -> None:
         self._ws_list.clear()
-        for item in self.module.workspace.list_items():
+        for item in self.workspace.list_items():
             label = f"{item.display_name}  [{item.type_id}]"
             list_item = QtWidgets.QListWidgetItem(label)
             list_item.setData(QtCore.Qt.ItemDataRole.UserRole if IS_QT6
@@ -135,7 +111,7 @@ class AGuiModule(QtWidgets.QMainWindow):
     def _on_ws_item_double_clicked(self, list_item: QtWidgets.QListWidgetItem) -> None:
         name = list_item.data(QtCore.Qt.ItemDataRole.UserRole if IS_QT6
                               else QtCore.Qt.UserRole)
-        item = self.module.workspace.get_item(name)
+        item = self.workspace.get_item(name)
         try:
             self.load_item(item)
         except TypeError as exc:
@@ -161,7 +137,7 @@ class AGuiModule(QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
 
     def _connect_signals(self) -> None:
-        wid = self.module.workspace.workspace_id
+        wid = self.workspace.workspace_id
         wm  = self._context.workspace_manager
 
         def _guard(ws_id, *_args):

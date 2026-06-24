@@ -10,18 +10,25 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+from angstrompro.utils.qt_compat import QtCore, Signal
 from angstrompro.core.data.base import WorkspaceData
 from .workspace_item import WorkspaceItem
 
 
-class Workspace:
-    """Named container owned by one module instance. Plain Python — no Qt."""
+class Workspace(QtCore.QObject):
+    """Named container owned by one module instance."""
+
+    item_added   = Signal(str)         # item_name
+    item_removed = Signal(str)         # item_name
+    item_renamed = Signal(str, str)    # old_name, new_name
 
     def __init__(
         self,
         owner_id: str,
         label:    str | None = None,
+        parent:   QtCore.QObject | None = None,
     ) -> None:
+        super().__init__(parent)
         self.workspace_id = f"ws_{uuid.uuid4().hex[:12]}"
         self.owner_id     = owner_id
         self.label        = label or self.workspace_id
@@ -46,12 +53,14 @@ class Workspace:
         if name not in self._items:
             self._item_order.append(name)
         self._items[name] = item
+        self.item_added.emit(name)
         return item
 
     def remove_item(self, name: str) -> None:
         if name in self._items:
             del self._items[name]
             self._item_order.remove(name)
+            self.item_removed.emit(name)
 
     def rename_item(self, old_name: str, new_name: str) -> None:
         if old_name not in self._items:
@@ -63,6 +72,7 @@ class Workspace:
         self._items[new_name] = item
         idx = self._item_order.index(old_name)
         self._item_order[idx] = new_name
+        self.item_renamed.emit(old_name, new_name)
 
     def reorder(self, new_order: list[str]) -> None:
         if set(new_order) != set(self._items):

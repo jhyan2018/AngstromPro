@@ -12,7 +12,6 @@ import sys
 from angstrompro.utils.qt_compat import QtWidgets
 from angstrompro.core.configs.config_manager import ConfigManager
 from angstrompro.app.context import AppContext
-from angstrompro.gui.workbench.main_workbench import MainWorkbench
 from angstrompro.gui.appearance import ThemeManager, IconManager
 from angstrompro.utils.platform_utils import set_windows_app_id
 
@@ -49,8 +48,9 @@ def main(external_namespace=None, start_event_loop=True):
     # 6
     context = AppContext(config, theme, icons)
     
-    # 7
-    window = MainWorkbench(context)    
+    # 7 — import triggers @register_module on MainWorkbench and other built-ins
+    import angstrompro.gui.workbench.main_workbench  # noqa: F401
+    window = context.module_manager.create("main_workbench", context)
     window.show()
 
     # keep references alive

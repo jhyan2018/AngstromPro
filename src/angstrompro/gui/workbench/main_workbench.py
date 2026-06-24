@@ -12,7 +12,6 @@ from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
-from angstrompro.gui.child_test_bench import ChildTestBench
 from angstrompro.gui.transfer_target_editor import TransferTargetEditor
 from angstrompro.gui.config_editor_widget import ConfigEditorWidget
 from angstrompro.gui.task_demo import DemoWindow
@@ -24,11 +23,9 @@ class MainWorkbench(AGuiModule):
     module_id    = "main_workbench"
     display_name = "AngstromPro Main Workbench"
 
-    def __init__(self, context: AppContext) -> None:
-        super().__init__(context)
+    def __init__(self, context: AppContext, parent=None) -> None:
+        super().__init__(context, parent)
         self._counter = 0
-        self._child_counter = 0
-        self._children: dict[str, ChildTestBench] = {}
         self.resize(1000, 600)
         self._set_app_icon()
 
@@ -119,8 +116,8 @@ class MainWorkbench(AGuiModule):
 
     def _refresh_child_list(self) -> None:
         self._child_list.clear()
-        for module_id in self._children:
-            self._child_list.addItem(module_id)
+        for inst in self._context.module_manager.list_instances("child_bench"):
+            self._child_list.addItem(inst.instance_id)
 
     def _selected_item_name(self) -> str | None:
         item = self._item_list.currentItem()
@@ -129,6 +126,12 @@ class MainWorkbench(AGuiModule):
     def _selected_child_id(self) -> str | None:
         item = self._child_list.currentItem()
         return item.text() if item else None
+
+    def _child_by_id(self, instance_id: str):
+        for inst in self._context.module_manager.list_instances("child_bench"):
+            if inst.instance_id == instance_id:
+                return inst
+        return None
 
     def _add_item(self) -> None:
         self._counter += 1
@@ -146,7 +149,9 @@ class MainWorkbench(AGuiModule):
         child_id = self._selected_child_id()
         if not name or not child_id:
             return
-        child = self._children[child_id]
+        child = self._child_by_id(child_id)
+        if not child:
+            return
         self._context.workspace_manager.transfer_item(
             src_workspace_id=self.workspace.workspace_id,
             dst_workspace_id=child.workspace.workspace_id,
@@ -155,28 +160,23 @@ class MainWorkbench(AGuiModule):
         print(f"[Main] sent '{name}' to '{child_id}'")
 
     def _new_child(self) -> None:
-        self._child_counter += 1
-        module_id = f"child_bench_{self._child_counter}"
-        child = ChildTestBench(
-            self._context,
-            module_id=module_id,
-            main_workspace_id=self.workspace.workspace_id,
-        )
-        self._children[module_id] = child
+        import angstrompro.gui.child_test_bench  # noqa: F401 — triggers @register_module
+        child = self._context.module_manager.create("child_bench", self._context)
         self._refresh_child_list()
         child.show()
 
     def _show_child(self) -> None:
         child_id = self._selected_child_id()
-        if child_id:
-            self._children[child_id].show()
-            self._children[child_id].raise_()
+        child = self._child_by_id(child_id) if child_id else None
+        if child:
+            child.show()
+            child.raise_()
 
     def _close_child(self) -> None:
         child_id = self._selected_child_id()
-        if child_id:
-            self._children[child_id].close()
-            self._children.pop(child_id)
+        child = self._child_by_id(child_id) if child_id else None
+        if child:
+            self._context.module_manager.close(child)
             self._refresh_child_list()
 
     def _open_target_editor(self) -> None:

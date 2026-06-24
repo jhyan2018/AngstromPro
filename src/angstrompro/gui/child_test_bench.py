@@ -11,26 +11,20 @@ from angstrompro.utils.qt_compat import QtWidgets
 from angstrompro.app.context import AppContext
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.modules.a_gui_module import AGuiModule
+from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 
 
+@register_module
 class ChildTestBench(AGuiModule):
-    module_id    = ""   # set dynamically per instance — see __init__
+    module_id    = "child_bench"
     display_name = "Child Bench"
 
-    def __init__(self, context: AppContext, module_id: str,
-                 main_workspace_id: str) -> None:
-        # set module_id before super().__init__ creates the workspace
-        self.__class__ = type(
-            f"ChildTestBench_{module_id}",
-            (ChildTestBench,),
-            {"module_id": module_id, "display_name": f"Child Bench — {module_id}"},
-        )
-        self._main_workspace_id = main_workspace_id
-        super().__init__(context)
-        self.context = self._context
+    def __init__(self, context: AppContext, parent=None) -> None:
+        super().__init__(context, parent)
         self._counter = 0
         self.resize(600, 400)
+        self.setWindowTitle(f"Child Bench — {self.instance_id}")
 
     # ------------------------------------------------------------------
     # AGuiModule contract
@@ -77,7 +71,7 @@ class ChildTestBench(AGuiModule):
 
     def _add_item(self) -> None:
         self._counter += 1
-        name = f"{self.module.module_id}_item_{self._counter}"
+        name = f"{self.instance_id}_item_{self._counter}"
         payload = UdsDataStru.from_array(np.zeros(10), name)
         self.workspace.add_item(name=name, payload=payload)
 
@@ -90,9 +84,12 @@ class ChildTestBench(AGuiModule):
         name = self._selected_name()
         if not name:
             return
-        self.context.workspace_manager.transfer_item(
+        targets = self._context.module_manager.list_instances("main_workbench")
+        if not targets:
+            return
+        self._context.workspace_manager.transfer_item(
             src_workspace_id=self.workspace.workspace_id,
-            dst_workspace_id=self._main_workspace_id,
+            dst_workspace_id=targets[0].workspace.workspace_id,
             item_name=name,
         )
-        print(f"[{self.module.module_id}] sent '{name}' to main")
+        print(f"[{self.instance_id}] sent '{name}' to main")

@@ -49,30 +49,12 @@ class WorkspaceManager(QtCore.QObject):
         owner_id: str,
         label:    str | None = None,
     ) -> Workspace:
-        ws = Workspace(owner_id=owner_id, label=label)
+        ws = Workspace(owner_id=owner_id, label=label, parent=self)
         wid = ws.workspace_id
 
-        # Wrap mutating methods to emit manager-level signals
-        _orig_add    = ws.add_item
-        _orig_remove = ws.remove_item
-        _orig_rename = ws.rename_item
-
-        def _add(name, payload, source_path=None):
-            item = _orig_add(name, payload, source_path)
-            self.item_added.emit(wid, name)
-            return item
-
-        def _remove(name):
-            _orig_remove(name)
-            self.item_removed.emit(wid, name)
-
-        def _rename(old_name, new_name):
-            _orig_rename(old_name, new_name)
-            self.item_renamed.emit(wid, old_name, new_name)
-
-        ws.add_item    = _add
-        ws.remove_item = _remove
-        ws.rename_item = _rename
+        ws.item_added.connect(  lambda name:     self.item_added.emit(wid, name))
+        ws.item_removed.connect(lambda name:     self.item_removed.emit(wid, name))
+        ws.item_renamed.connect(lambda old, new: self.item_renamed.emit(wid, old, new))
 
         self._workspaces[wid] = ws
         log.debug("Workspace created: %s (owner=%s)", wid, owner_id)
