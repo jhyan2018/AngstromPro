@@ -95,6 +95,21 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._ws_list.itemDoubleClicked.connect(self._on_ws_item_double_clicked)
         vbox.addWidget(self._ws_list)
 
+        btn_row = QtWidgets.QHBoxLayout()
+        btn_add    = QtWidgets.QPushButton("Add")
+        btn_remove = QtWidgets.QPushButton("Remove")
+        btn_send   = QtWidgets.QPushButton("Send…")
+        self._send_default_cb = QtWidgets.QCheckBox("Default")
+        btn_add.clicked.connect(self._on_add_item)
+        btn_remove.clicked.connect(self._on_remove_item)
+        btn_send.clicked.connect(self._on_send_item)
+        self._send_default_cb.toggled.connect(self._on_default_toggled)
+        btn_row.addWidget(btn_add)
+        btn_row.addWidget(btn_remove)
+        btn_row.addWidget(btn_send)
+        btn_row.addWidget(self._send_default_cb)
+        vbox.addLayout(btn_row)
+
         dock.setWidget(container)
         self.addDockWidget(_DockArea, dock)
         self._workspace_dock = dock
@@ -108,6 +123,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                               else QtCore.Qt.UserRole, item.name)
             self._ws_list.addItem(list_item)
 
+    def _selected_item_name(self) -> str | None:
+        item = self._ws_list.currentItem()
+        if item is None:
+            return None
+        return item.data(QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole)
+
     def _on_ws_item_double_clicked(self, list_item: QtWidgets.QListWidgetItem) -> None:
         name = list_item.data(QtCore.Qt.ItemDataRole.UserRole if IS_QT6
                               else QtCore.Qt.UserRole)
@@ -116,6 +137,66 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self.load_item(item)
         except TypeError as exc:
             QtWidgets.QMessageBox.warning(self, "Type mismatch", str(exc))
+
+    def _on_add_item(self) -> None:
+        self.on_add_item()
+
+    def _on_remove_item(self) -> None:
+        name = self._selected_item_name()
+        if name:
+            self.workspace.remove_item(name)
+
+    def _on_default_toggled(self, checked: bool) -> None:
+        if not checked:
+            return
+        mm = self._context.module_manager
+        current_ids = mm.get_default_target_ids(self.instance_id)
+        from angstrompro.gui.dialogs.set_default_targets_dialog import SetDefaultTargetsDialog
+        dlg = SetDefaultTargetsDialog(
+            self._context,
+            exclude_instance_id=self.instance_id,
+            current_target_ids=current_ids,
+            parent=self,
+        )
+        if dlg.exec() and dlg.selected_modules:
+            mm.set_default_targets(
+                self.instance_id,
+                [inst.instance_id for inst in dlg.selected_modules],
+            )
+        else:
+            self._send_default_cb.blockSignals(True)
+            self._send_default_cb.setChecked(False)
+            self._send_default_cb.blockSignals(False)
+
+    def _on_send_item(self) -> None:
+        name = self._selected_item_name()
+        if not name:
+            QtWidgets.QMessageBox.warning(self, "No item selected", "Select an item to send.")
+            return
+        if self._send_default_cb.isChecked():
+            targets = self._context.module_manager.get_default_targets(self.instance_id)
+            if not targets:
+                QtWidgets.QMessageBox.warning(
+                    self, "No default targets",
+                    "Default targets are gone. Uncheck Default to pick manually."
+                )
+                return
+            for target in targets:
+                self._context.workspace_manager.transfer_item(
+                    src_workspace_id=self.workspace.workspace_id,
+                    dst_workspace_id=target.workspace.workspace_id,
+                    item_name=name,
+                )
+        else:
+            from angstrompro.gui.dialogs.send_item_dialog import SendItemDialog
+            dlg = SendItemDialog(self._context, exclude_instance_id=self.instance_id, parent=self)
+            if dlg.exec() and dlg.selected_module:
+                target = dlg.selected_module
+                self._context.workspace_manager.transfer_item(
+                    src_workspace_id=self.workspace.workspace_id,
+                    dst_workspace_id=target.workspace.workspace_id,
+                    item_name=name,
+                )
 
     # ------------------------------------------------------------------
     # Process menu
@@ -181,5 +262,13 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         """Called when a workspace item is double-clicked / activated."""
 
+    def on_add_item(self) -> None:
+        """Called when the Add button is clicked. Override to add module-specific items."""
+
     def on_workspace_changed(self) -> None:
         """Called after any workspace mutation. Override for extra refresh logic."""
+
+    def closeEvent(self, event) -> None:
+        """Hide the window instead of destroying it. Use module_manager.remove() to fully remove."""
+        self.hide()
+        event.ignore()

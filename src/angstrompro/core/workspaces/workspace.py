@@ -7,7 +7,6 @@ Created on Tue Jun 16 22:40:57 2026
 
 from __future__ import annotations
 
-import uuid
 from pathlib import Path
 
 from angstrompro.utils.qt_compat import QtCore, Signal
@@ -29,9 +28,9 @@ class Workspace(QtCore.QObject):
         parent:   QtCore.QObject | None = None,
     ) -> None:
         super().__init__(parent)
-        self.workspace_id = f"ws_{uuid.uuid4().hex[:12]}"
         self.owner_id     = owner_id
-        self.label        = label or self.workspace_id
+        self.workspace_id = f"ws_{owner_id}"
+        self.label        = label or owner_id
         self._items:      dict[str, WorkspaceItem] = {}
         self._item_order: list[str]                = []
 

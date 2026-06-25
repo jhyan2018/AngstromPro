@@ -58,13 +58,14 @@ def register_module(cls):
 
 class AModuleManager(QtCore.QObject):
 
-    module_opened = Signal(str)   # module_id — emitted when an instance is created
-    module_closed = Signal(str)   # module_id — emitted when an instance is destroyed
+    module_added   = Signal(str)   # module_id — emitted when an instance is created
+    module_removed = Signal(str)   # module_id — emitted when an instance is removed
 
     def __init__(self, parent: QtCore.QObject | None = None) -> None:
         super().__init__(parent)
-        self._modules:   dict[str, Type[ModuleMixin]] = {}
-        self._instances: dict[str, list[ModuleMixin]] = {}  # module_id → live instances
+        self._modules:         dict[str, Type[ModuleMixin]] = {}
+        self._instances:       dict[str, list[ModuleMixin]] = {}  # module_id → live instances
+        self._default_targets: dict[str, list[str]]         = {}  # src_instance_id → [target_instance_ids]
 
     def load_builtin(self) -> None:
         """Import all built-in module packages to trigger @register_module."""
@@ -131,6 +132,26 @@ class AModuleManager(QtCore.QObject):
         return len(self.list_instances(module_id))
 
     # ------------------------------------------------------------------
+    # Default send targets
+    # ------------------------------------------------------------------
+
+    def set_default_targets(self, src_instance_id: str,
+                            target_instance_ids: list[str]) -> None:
+        self._default_targets[src_instance_id] = list(target_instance_ids)
+
+    def get_default_targets(self, src_instance_id: str) -> list[ModuleMixin]:
+        """Return live default targets, silently dropping stale entries."""
+        live = {inst.instance_id: inst for inst in self.list_instances()}
+        return [
+            live[tid]
+            for tid in self._default_targets.get(src_instance_id, [])
+            if tid in live
+        ]
+
+    def get_default_target_ids(self, src_instance_id: str) -> list[str]:
+        return list(self._default_targets.get(src_instance_id, []))
+
+    # ------------------------------------------------------------------
     # Instantiate
     # ------------------------------------------------------------------
 
@@ -141,16 +162,16 @@ class AModuleManager(QtCore.QObject):
         cls = self.get(module_id)
         instance = cls(context, parent=parent)
         self._instances.setdefault(module_id, []).append(instance)
-        self.module_opened.emit(module_id)
-        log.debug("Module opened: %s (instance_id=%s)", module_id, instance.instance_id)
+        self.module_added.emit(module_id)
+        log.debug("Module added: %s (instance_id=%s)", module_id, instance.instance_id)
         return instance
 
-    def close(self, instance: ModuleMixin) -> None:
+    def remove(self, instance: ModuleMixin) -> None:
         """Untrack and destroy a live module instance."""
         module_id = instance.module_id
         instances = self._instances.get(module_id, [])
         if instance in instances:
             instances.remove(instance)
         instance.deleteLater()
-        self.module_closed.emit(module_id)
-        log.debug("Module closed: %s (instance_id=%s)", module_id, instance.instance_id)
+        self.module_removed.emit(module_id)
+        log.debug("Module removed: %s (instance_id=%s)", module_id, instance.instance_id)
