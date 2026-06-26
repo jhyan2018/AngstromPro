@@ -19,6 +19,7 @@ from angstrompro.utils.qt_compat import QtWidgets
 class ChildTestBench(AGuiModule):
     module_id    = "test_bench"
     display_name = "Test Bench"
+    category     = "Test"
 
     def __init__(self, context: AppContext, parent=None) -> None:
         super().__init__(context, parent)

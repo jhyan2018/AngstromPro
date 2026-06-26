@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 """
-Created on Tue Jun 24 2026
-
-@author: jiahaoYan
-
 ModuleMixin — shared identity and resource base for all AngstromPro modules.
 
 Mixed into both AModule (headless) and AGuiModule (Qt window). Any new
 per-module resource (e.g. settings scope, plugin bus) should be added here
 so both GUI and non-GUI modules gain it automatically.
+
+Usage
+-----
+    class AHeadlessModule(ModuleMixin): ...
+    class AGuiModule(ModuleMixin, QtWidgets.QMainWindow): ...
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ class ModuleMixin:
     module_id:      str      = ""
     display_name:   str      = ""
     description:    str      = ""
+    category:       str      = ""      # e.g. "imaging", "analysis" — empty = uncategorized
     accepted_types: set[str] = set()   # empty = accept all types
 
     _instance_counters: dict[str, int] = {}   # module_id → running count

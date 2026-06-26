@@ -2,17 +2,14 @@ import traceback
 
 from angstrompro.utils.qt_compat import QtCore, Signal
 
-from .cancel_token import CancelToken
-from .task_context import TaskContext
 from .task_handle import TaskHandle
 from .task_request import TaskRequest
 
 
 class _PoolRunnableSignals(QtCore.QObject):
-    progress = Signal(int, str)
-    result   = Signal(object)
-    error    = Signal(str)
-    finished = Signal()
+    started = Signal()
+    result  = Signal(object)
+    error   = Signal(str)
 
 
 class _PoolRunnable(QtCore.QRunnable):
@@ -22,25 +19,14 @@ class _PoolRunnable(QtCore.QRunnable):
         self.task_kwargs = task_kwargs or {}
         self.metadata = metadata or {}
         self.signals = _PoolRunnableSignals()
-        self.cancel_token = CancelToken()
-
-    def cancel(self) -> None:
-        self.cancel_token.cancel()
 
     def run(self) -> None:
+        self.signals.started.emit()
         try:
-            ctx = TaskContext(
-                task_id="",
-                progress_callback=lambda p, m: self.signals.progress.emit(p, m),
-                cancel_token=self.cancel_token,
-                metadata=self.metadata,
-            )
-            result = self.task_func(ctx, **self.task_kwargs)
+            result = self.task_func(**self.task_kwargs)
             self.signals.result.emit(result)
         except Exception:
             self.signals.error.emit(traceback.format_exc())
-        finally:
-            self.signals.finished.emit()
 
 
 class ThreadPoolExecutor(QtCore.QObject):
@@ -59,14 +45,14 @@ class ThreadPoolExecutor(QtCore.QObject):
             task_kwargs=request.kwargs,
             metadata=request.metadata,
         )
-        handle = TaskHandle(task_id=request.task_id, cancel_func=runnable.cancel, parent=self)
+        handle = TaskHandle(task_id=request.task_id, parent=self)
 
         tid = request.task_id
-        runnable.signals.progress.connect(lambda p, m, t=tid: handle.progress.emit(t, p, m))
-        runnable.signals.result.connect(  lambda r,    t=tid: handle.result.emit(t, r))
-        runnable.signals.error.connect(   lambda e,    t=tid: handle.error.emit(t, e))
-        runnable.signals.finished.connect(lambda       t=tid: handle.finished.emit(t))
-        runnable.signals.finished.connect(lambda       t=tid: self._cleanup(t))
+        runnable.signals.started.connect(lambda    t=tid: handle.started.emit(t))
+        runnable.signals.result.connect( lambda r, t=tid: handle.result.emit(t, r))
+        runnable.signals.error.connect(  lambda e, t=tid: handle.error.emit(t, e))
+        runnable.signals.result.connect( lambda r, t=tid: self._cleanup(t))
+        runnable.signals.error.connect(  lambda e, t=tid: self._cleanup(t))
 
         self._tasks[request.task_id] = runnable
         self._pool.start(runnable)

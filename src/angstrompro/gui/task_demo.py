@@ -11,25 +11,19 @@ from angstrompro.core.tasks import (
 # =========================================================
 # Demo task functions
 # =========================================================
-def demo_pool_task(ctx, n=10, sleep_s=0.15):
+def demo_pool_task(n=10, sleep_s=0.15):
     result = []
     for i in range(n):
-        if ctx.is_cancelled():
-            return "pool task cancelled"
         time.sleep(sleep_s)
         result.append(i * i)
-        ctx.set_progress((i + 1) / n * 100, f"Pool step {i + 1}/{n}")
     return f"Pool result: {result}"
 
 
-def demo_worker_task(ctx, n=8, sleep_s=0.25):
+def demo_worker_task(n=8, sleep_s=0.25):
     total = 0
     for i in range(n):
-        if ctx.is_cancelled():
-            return "worker task cancelled"
         time.sleep(sleep_s)
         total += (i + 1) * 10
-        ctx.set_progress((i + 1) / n * 100, f"Worker step {i + 1}/{n}")
     return f"Worker result: total={total}"
 
 
@@ -58,11 +52,10 @@ class DemoWindow(QtWidgets.QWidget):
         self.status_label        = QtWidgets.QLabel("Idle")
         self.btn_add_pool        = QtWidgets.QPushButton("Add Pool Task")
         self.btn_add_worker      = QtWidgets.QPushButton("Add Worker Task")
-        self.btn_cancel_selected = QtWidgets.QPushButton("Cancel Selected Task")
 
         self.task_tree = QtWidgets.QTreeWidget()
-        self.task_tree.setColumnCount(5)
-        self.task_tree.setHeaderLabels(["Task ID", "Backend", "Progress", "State", "Message"])
+        self.task_tree.setColumnCount(3)
+        self.task_tree.setHeaderLabels(["Task ID", "Backend", "State"])
 
         self.log_box = QtWidgets.QTextEdit()
         self.log_box.setReadOnly(True)
@@ -70,7 +63,6 @@ class DemoWindow(QtWidgets.QWidget):
         row = QtWidgets.QHBoxLayout()
         row.addWidget(self.btn_add_pool)
         row.addWidget(self.btn_add_worker)
-        row.addWidget(self.btn_cancel_selected)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(self.status_label)
@@ -83,35 +75,29 @@ class DemoWindow(QtWidgets.QWidget):
 
         self.btn_add_pool.clicked.connect(self.add_pool_task)
         self.btn_add_worker.clicked.connect(self.add_worker_task)
-        self.btn_cancel_selected.clicked.connect(self.cancel_selected_task)
 
     def log(self, text: str) -> None:
         self.log_box.append(text)
 
     def add_task_item(self, task_id: str, backend: str) -> QtWidgets.QTreeWidgetItem:
-        item = QtWidgets.QTreeWidgetItem([task_id, backend, "0%", "Submitted", ""])
+        item = QtWidgets.QTreeWidgetItem([task_id, backend, "Submitted"])
         self.task_tree.addTopLevelItem(item)
         self.task_items[task_id] = item
         return item
 
-    def update_task_item(self, task_id, progress=None, state=None, message=None) -> None:
+    def update_task_item(self, task_id, state=None) -> None:
         item = self.task_items.get(task_id)
         if item is None:
             return
-        if progress is not None:
-            item.setText(2, f"{int(progress)}%")
         if state is not None:
-            item.setText(3, state)
-        if message is not None:
-            item.setText(4, message)
+            item.setText(2, state)
 
     def connect_handle(self, handle, backend: str) -> None:
         self.handles[handle.task_id] = handle
         self.add_task_item(handle.task_id, backend)
-        handle.progress.connect(self.on_task_progress)
+        handle.started.connect(self.on_task_started)
         handle.result.connect(self.on_task_result)
         handle.error.connect(self.on_task_error)
-        handle.finished.connect(self.on_task_finished)
 
     def add_pool_task(self) -> None:
         self.pool_counter += 1
@@ -140,40 +126,21 @@ class DemoWindow(QtWidgets.QWidget):
         self.connect_handle(handle, "worker")
         self.log(f"[{task_id}] submitted to WorkerThreadExecutor")
 
-    def cancel_selected_task(self) -> None:
-        item = self.task_tree.currentItem()
-        if item is None:
-            self.log("[GUI] no task selected")
-            return
-        task_id = item.text(0)
-        handle = self.handles.get(task_id)
-        if handle is not None:
-            handle.cancel()
-            self.update_task_item(task_id, state="Cancelling")
-            self.log(f"[{task_id}] cancel requested")
-
-    def on_task_progress(self, task_id, percent, message) -> None:
-        self.status_label.setText(f"{task_id}: {percent}% - {message}")
-        self.update_task_item(task_id, progress=percent, state="Running", message=message)
-        self.log(f"[{task_id}] {percent}% - {message}")
+    def on_task_started(self, task_id) -> None:
+        self.update_task_item(task_id, state="Running")
+        self.status_label.setText(f"{task_id}: running")
+        self.log(f"[{task_id}] started")
 
     def on_task_result(self, task_id, result_obj) -> None:
-        self.update_task_item(task_id, state="Result", message=str(result_obj))
-        self.log(f"[{task_id}] result received: {result_obj}")
+        self.update_task_item(task_id, state="Done")
+        self.status_label.setText(f"{task_id}: done")
+        self.log(f"[{task_id}] result: {result_obj}")
+        self.handles.pop(task_id, None)
 
     def on_task_error(self, task_id, error_text) -> None:
-        self.update_task_item(task_id, state="Error", message="See log")
+        self.update_task_item(task_id, state="Error")
+        self.status_label.setText(f"{task_id}: error")
         self.log(f"[{task_id}] ERROR:\n{error_text}")
-
-    def on_task_finished(self, task_id) -> None:
-        item = self.task_items.get(task_id)
-        current_state = item.text(3) if item is not None else ""
-        if current_state == "Cancelling":
-            self.update_task_item(task_id, state="Finished", message="Cancelled or exited")
-        elif current_state not in ("Error", "Result"):
-            self.update_task_item(task_id, state="Finished")
-        self.status_label.setText(f"{task_id} finished")
-        self.log(f"[{task_id}] finished")
         self.handles.pop(task_id, None)
 
 

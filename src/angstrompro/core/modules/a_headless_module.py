@@ -1,14 +1,17 @@
-# -*- coding: utf-8 -*-
 """
-Created on Tue Jun 16 22:46:45 2026
+AHeadlessModule — headless base for all AngstromPro modules.
 
-@author: jiahaoYan
+No Qt dependency — usable in batch/scripting contexts.
 
-AHeadlessModule — pure Python base for all AngstromPro modules.
+Subclass contract
+-----------------
+    class Image2U3Module(AHeadlessModule):
+        module_id      = "image2u3"
+        display_name   = "Image 2U3"
+        description    = "STM image analysis."
+        accepted_types = {"uds"}
 
-Holds the workspace and module identity. No Qt dependency — usable in
-headless/batch contexts and independently testable.
-
+        def run(self, ...): ...
 """
 
 from __future__ import annotations
@@ -25,4 +28,5 @@ class AHeadlessModule(ModuleMixin):
     """Headless module — workspace and identity via ModuleMixin."""
 
     def __init__(self, context: "AppContext") -> None:
+        super().__init__()
         self._init_module(context)

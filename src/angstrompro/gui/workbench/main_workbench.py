@@ -19,6 +19,7 @@ from angstrompro.gui.task_demo import DemoWindow
 class MainWorkbench(AGuiModule):
     module_id    = "main_workbench"
     display_name = "AngstromPro Main Workbench"
+    category     = "Main Workbench"
 
     def __init__(self, context: AppContext, parent=None) -> None:
         super().__init__(context, parent)
