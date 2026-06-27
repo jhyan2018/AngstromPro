@@ -2,61 +2,60 @@ import traceback
 
 from angstrompro.utils.qt_compat import QtCore, Signal
 
-from .task_handle import TaskHandle
 from .task_request import TaskRequest
 
-
-class _PoolRunnableSignals(QtCore.QObject):
-    started = Signal()
-    result  = Signal(object)
-    error   = Signal(str)
+_PRIORITY_MAP = {"high": 10, "normal": 0, "low": -10}
 
 
-class _PoolRunnable(QtCore.QRunnable):
-    def __init__(self, task_func, task_kwargs, metadata=None) -> None:
+class _RunSignals(QtCore.QObject):
+    started   = Signal()
+    progress  = Signal(int, int)  # current, total
+    result    = Signal(object)
+    error     = Signal(str)
+    cancelled = Signal()
+
+
+class _Runnable(QtCore.QRunnable):
+    def __init__(self, task_func, task_kwargs, cancel_token=None) -> None:
         super().__init__()
-        self.task_func = task_func
-        self.task_kwargs = task_kwargs or {}
-        self.metadata = metadata or {}
-        self.signals = _PoolRunnableSignals()
+        self.task_func    = task_func
+        self.task_kwargs  = task_kwargs
+        self.cancel_token = cancel_token
+        self.signals      = _RunSignals()
 
     def run(self) -> None:
         self.signals.started.emit()
         try:
             result = self.task_func(**self.task_kwargs)
-            self.signals.result.emit(result)
+            if self.cancel_token is not None and self.cancel_token.is_cancelled():
+                self.signals.cancelled.emit()
+            else:
+                self.signals.result.emit(result)
         except Exception:
             self.signals.error.emit(traceback.format_exc())
 
 
-class ThreadPoolExecutor(QtCore.QObject):
+class PoolExecutor(QtCore.QObject):
     def __init__(self, max_thread_count: int = 4, parent: QtCore.QObject | None = None) -> None:
         super().__init__(parent)
-        self._pool = QtCore.QThreadPool.globalInstance()
+        self._pool = QtCore.QThreadPool(self)
         self._pool.setMaxThreadCount(max_thread_count)
-        self._tasks: dict[str, _PoolRunnable] = {}
+        self._runnables: dict[str, _Runnable] = {}
 
-    def submit(self, request: TaskRequest) -> TaskHandle:
-        if request.task_id in self._tasks:
-            raise ValueError(f"Task already exists: {request.task_id}")
+    def submit(self, request: TaskRequest, kwargs: dict, cancel_token=None) -> _RunSignals:
+        """Submit task with pre-built kwargs (cancel_token/progress_callback already injected)."""
+        if request.task_id in self._runnables:
+            raise ValueError(f"Task already running: {request.task_id}")
 
-        runnable = _PoolRunnable(
-            task_func=request.task_func,
-            task_kwargs=request.kwargs,
-            metadata=request.metadata,
-        )
-        handle = TaskHandle(task_id=request.task_id, parent=self)
-
+        runnable = _Runnable(request.task_func, kwargs, cancel_token=cancel_token)
         tid = request.task_id
-        runnable.signals.started.connect(lambda    t=tid: handle.started.emit(t))
-        runnable.signals.result.connect( lambda r, t=tid: handle.result.emit(t, r))
-        runnable.signals.error.connect(  lambda e, t=tid: handle.error.emit(t, e))
-        runnable.signals.result.connect( lambda r, t=tid: self._cleanup(t))
-        runnable.signals.error.connect(  lambda e, t=tid: self._cleanup(t))
+        runnable.signals.result.connect(   lambda r, t=tid: self._cleanup(t))
+        runnable.signals.error.connect(    lambda e, t=tid: self._cleanup(t))
+        runnable.signals.cancelled.connect(lambda    t=tid: self._cleanup(t))
 
-        self._tasks[request.task_id] = runnable
-        self._pool.start(runnable)
-        return handle
+        self._runnables[tid] = runnable
+        self._pool.start(runnable, _PRIORITY_MAP.get(request.priority, 0))
+        return runnable.signals
 
     def _cleanup(self, task_id: str) -> None:
-        self._tasks.pop(task_id, None)
+        self._runnables.pop(task_id, None)

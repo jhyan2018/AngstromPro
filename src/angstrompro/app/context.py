@@ -24,7 +24,7 @@ class AppContext:
         self._config = config
         self._theme = theme
         self._icons = icons
-        self._tasks  = TaskManager(max_pool_threads=config.get("tasks", "max_concurrent_tasks", 4))
+        self._tasks  = TaskManager(compute_threads=config.get("tasks", "max_concurrent_tasks", 4))
         self._workspace_manager = WorkspaceManager()
         self._module_manager = AModuleManager(self._workspace_manager)
         self._signals = AppSignals()

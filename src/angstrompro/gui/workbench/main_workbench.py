@@ -57,7 +57,7 @@ class MainWorkbench(AGuiModule):
         btn_remove.clicked.connect(self._remove_module)
         modules_layout.addWidget(btn_remove)
 
-        task_demo = DemoWindow()
+        task_demo = DemoWindow(self._context)
 
         root_layout.addWidget(modules_panel)
         root_layout.addWidget(task_demo)
