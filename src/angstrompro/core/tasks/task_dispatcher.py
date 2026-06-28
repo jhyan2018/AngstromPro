@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jun 27 16:36:58 2026
+
+@author: jiahaoYan
+"""
 import os
 
 from angstrompro.utils.qt_compat import QtCore

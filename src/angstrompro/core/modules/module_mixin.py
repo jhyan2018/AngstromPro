@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
-ModuleMixin — shared identity and resource base for all AngstromPro modules.
+Created on Tue Jun 16 2026
+
+@author: jiahaoYan
+
+ModuleMixin shared identity and resource base for all AngstromPro modules.
 
 Mixed into both AModule (headless) and AGuiModule (Qt window). Any new
 per-module resource (e.g. settings scope, plugin bus) should be added here
@@ -14,6 +19,8 @@ Usage
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
+from angstrompro.core.processes.process_runner import ProcessRunner
 
 if TYPE_CHECKING:
     from angstrompro.app.app_context import AppContext
@@ -44,4 +51,5 @@ class ModuleMixin:
             owner_id = self.instance_id,
             label    = self.display_name or self.module_id,
         )
+        self.process_runner: ProcessRunner = ProcessRunner(context.tasks, context.processes)
         # Future resources (e.g. plugin bus, settings scope) go here.

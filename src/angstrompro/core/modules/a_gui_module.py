@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
 """
-AGuiModule — Qt base class for all AngstromPro GUI modules.
+Created on Tue Jun 16 2026
+
+@author: jiahaoYan
+
+AGuiModule Qt base class for all AngstromPro GUI modules.
 
 Combines ModuleMixin (workspace, identity, future resources) with
 QMainWindow (menu bar, dock widgets, status bar).
@@ -31,11 +36,15 @@ Subclass contract
 
 from __future__ import annotations
 
+import logging
 from abc import abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, IS_QT6
+
+log = logging.getLogger(__name__)
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+from angstrompro.core.tasks.task_handle import TaskHandle
 from .module_mixin import ModuleMixin
 
 if TYPE_CHECKING:
@@ -47,6 +56,13 @@ _DockArea = (QtCore.Qt.DockWidgetArea.LeftDockWidgetArea if IS_QT6
 
 class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     """Base class for every AngstromPro GUI module window."""
+
+    # Subclasses override these to declare what data they work with
+    accepted_ndim: int | None = None   # None = any; 2 = 2D only; 3 = 3D only
+
+    # Developer-curated list of process names shown in this module's Process menu.
+    # Merged with config "process_menus" (developer) and "user_process_menus" (user).
+    default_process_menu: list[str] = []
 
     def __init__(
         self,
@@ -60,6 +76,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self.resize(900, 640)
 
         self._build_file_menu()
+        self._build_process_menu()
         self._build_view_menu()
         self._build_workspace_dock()
         self._build_inspector_dock()
@@ -136,6 +153,102 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
     # View menu
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Process menu
+    # ------------------------------------------------------------------
+
+    def _build_process_menu(self) -> None:
+        self._process_menu = self.menuBar().addMenu("Process")
+        act_browser = self._process_menu.addAction("Process Browser…")
+        act_browser.setShortcut("Ctrl+B")
+        act_browser.triggered.connect(self._on_open_process_browser)
+        self._process_menu.addSeparator()
+        self._rebuild_process_submenu()
+
+    def _rebuild_process_submenu(self) -> None:
+        """Rebuild the dynamic category submenus from the 3-layer merged process list."""
+        # Remove everything after the fixed header (Browser action + separator = 2 items)
+        for act in self._process_menu.actions()[2:]:
+            self._process_menu.removeAction(act)
+
+        registry = self._context.processes
+        strict   = self._context.config.get("app", "strict_process_menu", True)
+
+        dev_names  = self._context.config.get(
+            "algorithms", "process_menus",      {}).get(self.module_id, [])
+        user_names = self._context.config.get(
+            "algorithms", "user_process_menus", {}).get(self.module_id, [])
+
+        # Merge: class list → developer config → user config; deduplicate, preserve order
+        seen: set[str] = set()
+        merged: list[str] = []
+        for name in list(self.default_process_menu) + list(dev_names) + list(user_names):
+            if name not in seen:
+                seen.add(name)
+                merged.append(name)
+
+        if not merged:
+            return
+
+        # Resolve, check compatibility, group by category
+        by_category: dict[str, list] = {}
+        for name in merged:
+            if not registry.has(name):
+                log.warning(
+                    "Process menu [%s]: %r is not registered — skipped",
+                    self.module_id, name,
+                )
+                continue
+            entry = registry.get(name)
+            ok, reason = self._check_process_compatibility(entry)
+            if not ok:
+                log.warning(
+                    "Process menu [%s]: %r is incompatible (%s)%s",
+                    self.module_id, name, reason,
+                    "" if strict else " — added anyway (strict_process_menu=false)",
+                )
+                if strict:
+                    continue
+            by_category.setdefault(entry.category, []).append(entry)
+
+        # Build one submenu per category (sorted alphabetically)
+        for category in sorted(by_category.keys()):
+            submenu = self._process_menu.addMenu(category)
+            for entry in by_category[category]:
+                act = submenu.addAction(entry.label)
+                act.setToolTip(entry.description or entry.name)
+                act.triggered.connect(
+                    lambda checked=False, n=entry.name: self._on_process_menu_triggered(n)
+                )
+
+    def _check_process_compatibility(self, entry) -> tuple[bool, str]:
+        """Return (True, "") if the entry is compatible with this module, else (False, reason)."""
+        for spec in entry.schema.inputs:
+            if self.accepted_types and spec.type_id and spec.type_id not in self.accepted_types:
+                return (
+                    False,
+                    f"input '{spec.name}' type_id={spec.type_id!r} "
+                    f"not in accepted_types={self.accepted_types}",
+                )
+            if (self.accepted_ndim is not None and
+                    spec.ndim is not None and
+                    spec.ndim != self.accepted_ndim):
+                return (
+                    False,
+                    f"input '{spec.name}' ndim={spec.ndim} "
+                    f"!= module accepted_ndim={self.accepted_ndim}",
+                )
+        return True, ""
+
+    def _on_process_menu_triggered(self, process_name: str) -> None:
+        """Called when the user clicks a process in the Process menu. Override to add param dialog."""
+        log.debug("Process triggered: %s on %s", process_name, self.instance_id)
+
+    def _on_open_process_browser(self) -> None:
+        from angstrompro.gui.dialogs.process_browser_dialog import ProcessBrowserDialog
+        dlg = ProcessBrowserDialog(self._context, parent=self)
+        dlg.exec()
 
     def _build_view_menu(self) -> None:
         self._view_menu = self.menuBar().addMenu("View")
@@ -331,6 +444,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._ws_list.currentItemChanged.connect(self._on_ws_selection_changed)
 
         self._context.signals.status_message.connect(self.statusBar().showMessage)
+        self._context.signals.processes_updated.connect(self._rebuild_process_submenu)
 
     def _on_ws_selection_changed(self, current, _previous) -> None:
         if current is None:
@@ -356,6 +470,58 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
     def accepts(self, item: WorkspaceItem) -> bool:
         return not self.accepted_types or item.type_id in self.accepted_types
+
+    # ------------------------------------------------------------------
+    # Process submission convenience
+    # ------------------------------------------------------------------
+
+    def submit_process(
+        self,
+        process_name: str,
+        input_items:  list[WorkspaceItem],
+        params:       dict[str, Any] | None = None,
+        *,
+        on_result:    Callable | None = None,
+        on_error:     Callable | None = None,
+        group_id:     str = "",
+    ) -> TaskHandle:
+        """
+        Submit a registered process as a background task.
+
+        Automatically wires a default error dialog so subclasses only
+        need to connect on_result for the happy path.
+
+        Parameters
+        ----------
+        process_name:
+            Dotted process id, e.g. "spatial.crop".
+        input_items:
+            WorkspaceItems matched to schema.inputs by order.
+        params:
+            Override values for scalar parameters. Missing keys fall
+            back to ProcessSchema defaults.
+        on_result:
+            Optional callback: on_result(task_id, result).
+        on_error:
+            Optional extra callback: on_error(task_id, error_text).
+            The default error dialog always fires regardless.
+        """
+        handle = self.process_runner.run(
+            process_name = process_name,
+            input_items  = input_items,
+            params       = params,
+            source_id    = self.instance_id,
+            group_id     = group_id,
+        )
+        handle.error.connect(self._on_process_error)
+        if on_result is not None:
+            handle.result.connect(on_result)
+        if on_error is not None:
+            handle.error.connect(on_error)
+        return handle
+
+    def _on_process_error(self, task_id: str, error_text: str) -> None:
+        QtWidgets.QMessageBox.critical(self, "Process Error", error_text)
 
     # ------------------------------------------------------------------
     # Subclass hooks

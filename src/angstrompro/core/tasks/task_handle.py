@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jun 27 16:36:28 2026
+
+@author: jiahaoYan
+"""
 from typing import Callable
 
 from angstrompro.utils.qt_compat import QtCore, Signal

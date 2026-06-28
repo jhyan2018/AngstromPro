@@ -34,34 +34,53 @@ class MainWorkbench(AGuiModule):
     # ------------------------------------------------------------------
 
     def build_ui(self) -> None:
-        central = QtWidgets.QWidget()
-        root_layout = QtWidgets.QHBoxLayout(central)
+        from angstrompro.utils.qt_compat import QtCore
+        from angstrompro.gui.config_editor_widget import ConfigEditorWidget
 
-        # --- live modules panel ---
+        DockArea = QtCore.Qt.DockWidgetArea
+
+        # Central placeholder (docks fill the window)
+        placeholder = QtWidgets.QWidget()
+        self.setCentralWidget(placeholder)
+
+        # --- Live Modules dock (left) ---
         modules_panel = QtWidgets.QWidget()
         modules_layout = QtWidgets.QVBoxLayout(modules_panel)
-
+        modules_layout.setContentsMargins(4, 4, 4, 4)
         modules_layout.addWidget(QtWidgets.QLabel("Live Modules:"))
         self._module_list = QtWidgets.QListWidget()
         modules_layout.addWidget(self._module_list)
-
         btn_create = QtWidgets.QPushButton("Add Test Bench")
         btn_create.clicked.connect(self._create_module)
         modules_layout.addWidget(btn_create)
-
         btn_show = QtWidgets.QPushButton("Show Selected")
         btn_show.clicked.connect(self._show_module)
         modules_layout.addWidget(btn_show)
-
         btn_remove = QtWidgets.QPushButton("Remove Selected")
         btn_remove.clicked.connect(self._remove_module)
         modules_layout.addWidget(btn_remove)
 
-        task_demo = DemoWindow(self._context)
+        dock_modules = QtWidgets.QDockWidget("Live Modules", self)
+        dock_modules.setWidget(modules_panel)
+        dock_modules.setAllowedAreas(DockArea.LeftDockWidgetArea | DockArea.RightDockWidgetArea)
+        self.addDockWidget(DockArea.LeftDockWidgetArea, dock_modules)
 
-        root_layout.addWidget(modules_panel)
-        root_layout.addWidget(task_demo)
-        self.setCentralWidget(central)
+        # --- Tasks dock (top-right) ---
+        task_demo = DemoWindow(self._context)
+        dock_tasks = QtWidgets.QDockWidget("Tasks", self)
+        dock_tasks.setWidget(task_demo)
+        dock_tasks.setAllowedAreas(DockArea.LeftDockWidgetArea  | DockArea.RightDockWidgetArea |
+                                   DockArea.TopDockWidgetArea   | DockArea.BottomDockWidgetArea)
+        self.addDockWidget(DockArea.RightDockWidgetArea, dock_tasks)
+
+        # --- Config dock (bottom-right, tabbed under Tasks) ---
+        config_editor = ConfigEditorWidget(self._context)
+        dock_config = QtWidgets.QDockWidget("Config", self)
+        dock_config.setWidget(config_editor)
+        dock_config.setAllowedAreas(DockArea.LeftDockWidgetArea  | DockArea.RightDockWidgetArea |
+                                    DockArea.TopDockWidgetArea   | DockArea.BottomDockWidgetArea)
+        self.addDockWidget(DockArea.RightDockWidgetArea, dock_config)
+        self.splitDockWidget(dock_tasks, dock_config, QtCore.Qt.Orientation.Vertical)
 
         self._refresh_module_list()
 

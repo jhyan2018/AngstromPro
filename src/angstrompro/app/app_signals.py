@@ -31,6 +31,9 @@ class AppSignals(QtCore.QObject):
     # -- Config -------------------------------------------------------------
     config_changed  = Signal(str, str)   # (group, key) → modules that depend on config
 
+    # -- Process registry ---------------------------------------------------
+    processes_updated = Signal()         # emitted after load_user_processes()
+
     # -- Module lifecycle ---------------------------------------------------
     module_opened   = Signal(str)        # module_id → e.g. add tab to workbench
     module_closed   = Signal(str)        # module_id

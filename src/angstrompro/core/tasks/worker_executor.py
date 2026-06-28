@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jun 27 16:35:50 2026
+
+@author: jiahaoYan
+"""
 import traceback
 
 from angstrompro.utils.qt_compat import QtCore, Signal, Slot

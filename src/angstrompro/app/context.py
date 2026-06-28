@@ -11,6 +11,7 @@ from angstrompro.core.configs import ConfigManager
 from angstrompro.core.workspaces import WorkspaceManager
 from angstrompro.core.modules import AModuleManager
 from angstrompro.core.tasks import TaskManager
+from angstrompro.core.processes import ProcessRegistry, ParamHistoryManager
 from angstrompro.gui.appearance import ThemeManager, IconManager
 from angstrompro.app.app_signals import AppSignals
 
@@ -20,14 +21,16 @@ class AppContext:
     Shared application context — owns all managers.
     """
 
-    def __init__(self, config: ConfigManager, theme : ThemeManager, icons : IconManager) -> None:
-        self._config = config
-        self._theme = theme
-        self._icons = icons
-        self._tasks  = TaskManager(compute_threads=config.get("tasks", "max_concurrent_tasks", 4))
+    def __init__(self, config: ConfigManager, theme: ThemeManager, icons: IconManager) -> None:
+        self._config          = config
+        self._theme           = theme
+        self._icons           = icons
+        self._signals         = AppSignals()
+        self._tasks           = TaskManager(compute_threads=config.get("tasks", "max_concurrent_tasks", 4))
         self._workspace_manager = WorkspaceManager()
-        self._module_manager = AModuleManager(self._workspace_manager)
-        self._signals = AppSignals()
+        self._module_manager  = AModuleManager(self._workspace_manager)
+        self._processes       = ProcessRegistry()
+        self._param_history   = ParamHistoryManager()
 
     @property
     def config(self) -> ConfigManager:
@@ -42,6 +45,10 @@ class AppContext:
         return self._icons
 
     @property
+    def signals(self) -> AppSignals:
+        return self._signals
+
+    @property
     def tasks(self) -> TaskManager:
         return self._tasks
 
@@ -54,5 +61,9 @@ class AppContext:
         return self._module_manager
 
     @property
-    def signals(self) -> AppSignals:
-        return self._signals
+    def processes(self) -> ProcessRegistry:
+        return self._processes
+
+    @property
+    def param_history(self) -> ParamHistoryManager:
+        return self._param_history
