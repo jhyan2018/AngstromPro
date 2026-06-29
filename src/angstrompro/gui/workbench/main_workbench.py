@@ -12,15 +12,16 @@ from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
-from angstrompro.gui.task_demo import DemoWindow
+from angstrompro.gui.widgets.task_dashboard import TaskDashboard
 from angstrompro.gui.widgets.live_modules_panel import LiveModulesPanel
 
 
 @register_module
 class MainWorkbench(AGuiModule):
-    module_id    = "main_workbench"
-    display_name = "AngstromPro Main Workbench"
-    category     = "Main Workbench"
+    module_id       = "main_workbench"
+    display_name    = "AngstromPro Main Workbench"
+    category        = "Main Workbench"
+    config_sections = None   # show full config tree
 
     def __init__(self, context: AppContext, parent=None) -> None:
         super().__init__(context, parent)
@@ -37,7 +38,12 @@ class MainWorkbench(AGuiModule):
 
     def build_ui(self) -> None:
         from angstrompro.utils.qt_compat import QtCore
-        from angstrompro.gui.config_editor_widget import ConfigEditorWidget
+        from angstrompro.gui.widgets.config_editor_widget import ConfigEditorWidget
+        from angstrompro.gui.dialogs.about_dialog import show_about
+
+        help_menu = self.menuBar().addMenu("Help")
+        act_about = help_menu.addAction("About AngstromPro…")
+        act_about.triggered.connect(lambda: show_about(self))
 
         DockArea = QtCore.Qt.DockWidgetArea
 
@@ -45,7 +51,7 @@ class MainWorkbench(AGuiModule):
         self.setCentralWidget(LiveModulesPanel(self._context))
 
         # --- Tasks dock (right) ---
-        task_demo = DemoWindow(self._context)
+        task_demo = TaskDashboard(self._context)
         self._dock_tasks = QtWidgets.QDockWidget("Tasks", self)
         self._dock_tasks.setObjectName("wb_dock_tasks")
         self._dock_tasks.setWidget(task_demo)

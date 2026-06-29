@@ -16,8 +16,8 @@ from angstrompro.utils.qt_compat import QtCore, QtWidgets, QT_API
 from angstrompro.app.context import AppContext
 
 
-class DemoWindow(QtWidgets.QWidget):
-    """Task Dashboard — passive observer of all TaskManager activity."""
+class TaskDashboard(QtWidgets.QWidget):
+    """Passive observer of all TaskManager activity."""
 
     def __init__(self, context: AppContext) -> None:
         super().__init__()

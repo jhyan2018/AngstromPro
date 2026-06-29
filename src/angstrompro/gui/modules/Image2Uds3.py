@@ -1,0 +1,1738 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Jul 30 22:16:35 2023
+
+@author: Jiahao Yan & Huiyu Zhao
+"""
+
+"""
+System modules
+"""
+
+"""
+Third-party Modules
+"""
+import numpy as np
+from io import BytesIO
+from ScienceY.qt_compt import QtCore, QtWidgets, QtGui, Action, LeftDockWidgetArea, WindowMinimized
+
+import imageio
+"""
+User Modules
+"""
+from ..ImageProcess import ImgProc
+from ..ImageSimulate import ImgSimu
+from .ProcessParameters import ProcessParameters
+from ..ImgProcessCustomized import ImgProcCustomized
+
+from .GuiFrame import GuiFrame
+from .Image2Uds3Widget import Image2Uds3Widget
+from .Plot1DWidget import Plot1DWidget
+from .ConfigManager import ConfigManager
+from .PreferenceI2U3 import PreferenceI2U3
+
+
+""" *************************************** """
+""" DO NOT MODIFY THE REGION UNTIL INDICATED"""
+""" *************************************** """
+
+class Image2Uds3(GuiFrame):
+    
+    def __init__(self, wtype, index, *args, **kwargs):
+        super(Image2Uds3, self).__init__(wtype, index, *args, **kwargs)        
+        
+        self.initCcUiMembers()
+        self.initCcUiLayout()        
+        self.initCcNonUiMembers()        
+        self.initCcMenuBar()
+        
+        self.initPreference()
+        
+    """ Initializations"""
+    def initPreference(self):
+        self.ui_preference.setSettings(self.settings)
+        self.ui_img_widget_main.setSettings(self.settings)
+        self.ui_img_widget_slave.setSettings(self.settings)
+        
+        # only the snTxt
+        setting_cnt = 3
+        for i in range(setting_cnt):
+            self.preferenceSettingsChanged(i+7)
+      
+    def initCcUiMembers(self):        
+        self.ui_img_widget_main = Image2Uds3Widget()
+        self.ui_img_widget_main.ui_lb_widget_name.setText("<b>--- MAIN ---</b>")
+        self.ui_img_widget_main.sendMsgSignal.connect(self.getMsgFromImgMainWidget)
+        self.ui_img_widget_main.setEnabled(False)
+        
+        self.ui_img_widget_slave = Image2Uds3Widget()
+        self.ui_img_widget_slave.ui_lb_widget_name.setText("<b>--- AUXILIARY ---</b>")
+        self.ui_img_widget_slave.sendMsgSignal.connect(self.getMsgFromImgSlaveWidget)
+        self.ui_img_widget_slave.setEnabled(False)
+        self.ui_img_widget_slave.setParamlistEnabled(False)
+        
+        # dockWiget Plot1D
+        self.ui_dockWidget_plot1D = QtWidgets.QDockWidget()
+        self.ui_dockWidget_plot1D_Content = Plot1DWidget()
+
+        self.ui_dockWidget_plot1D.setWidget(self.ui_dockWidget_plot1D_Content)
+        self.addDockWidget(LeftDockWidgetArea , self.ui_dockWidget_plot1D)
+        self.ui_dockWidget_plot1D.close()
+        
+        self.tabifyDockWidget(self.ui_dockWideget_var ,self.ui_dockWidget_plot1D)
+        
+        #
+        self.ui_lw_uds_variable_name_list.doubleClicked.connect(self.ui_lw_uds_variable_name_list_doulbeClicked)
+        
+        # Pereference Widget
+        self.ui_preference = PreferenceI2U3("Preference")
+        self.ui_preference.save_settings.connect(self.saveSettings)
+        self.ui_preference.settings_changed.connect(self.preferenceSettingsChanged)
+        
+    def initCcUiLayout(self):
+        self.ui_horizontalLayout.addWidget(self.ui_img_widget_main)
+        self.ui_horizontalLayout.addWidget(self.ui_img_widget_slave)
+        
+    def initCcNonUiMembers(self):
+        # Settings
+        self.settings = self.loadSettings()
+        
+        #
+        self.sync_pick_points = False
+        self.sync_rt_points = False
+        self.sync_canvas_zoom = False
+        
+        #
+        self.canvas_size_factor = 0.33
+        
+    def initCcMenuBar(self):
+        # Actions
+        self.creat_actions()
+        
+        # connect actions
+        self.connect_actions()
+        
+        # MenuBar
+        self.creat_menuBar()
+        
+        # ToolBar
+        #self._creat_toolBar()
+        
+        # StatusBar
+        self.creat_statusBar()
+        
+    """ @SLOTS of UI Widgets"""
+    
+    def resizeEvent(self, event):                      
+        screens = QtWidgets.QApplication.screens()                
+        for s in screens:
+            if s == QtWidgets.QApplication.screenAt(self.pos()):                
+                width = int(self.canvas_size_factor * (s.size().width() + s.size().height())/2/16)*16
+                height = width
+                self.ui_img_widget_main.setCanvasWidgetSize(width, height)
+                self.ui_img_widget_slave.setCanvasWidgetSize(width, height)
+                
+    # from child windows
+    @QtCore.pyqtSlot(int)
+    def getMsgFromImgMainWidget(self, msgTypeIdx):
+        # msg Type SELECT_USD_VARIABLE
+        if self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SELECT_USD_VARIABLE' :
+            selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
+            selected_var = self.uds_variable_pt_list[selected_var_index]
+            self.ui_img_widget_main.setUdsData(selected_var)
+            
+            #give uds data to Plot1D dock
+            if 'dIdV' in selected_var.name and 'fwd' not in selected_var.name:
+                self.ui_dockWidget_plot1D_Content.setDataFromImage2or3D(self.ui_img_widget_main.uds_variable)           
+            
+            # Check the data is not FFT
+            if not selected_var.name.split('_')[-1] == 'fft':
+                # Calculate FFT of the data and shown in slave 2or3D image widget
+                if not selected_var.name+'_fft' in self.uds_variable_name_list:
+                    self.actFourierTransform()
+                else:
+                    data_fft_index = self.uds_variable_name_list.index(selected_var.name+'_fft')
+                    self.ui_lw_uds_variable_name_list.setCurrentRow(data_fft_index)
+                    
+                self.getMsgFromImgSlaveWidget(self.ui_img_widget_slave.msg_type.index('SELECT_USD_VARIABLE'))
+                
+                self.ui_lw_uds_variable_name_list.setCurrentRow(selected_var_index)
+                
+            #
+            main_var_name = self.ui_img_widget_main.ui_le_selected_var.text()
+            slave_var_name = self.ui_img_widget_slave.ui_le_selected_var.text()            
+            for i in range(len(self.uds_variable_name_list)):
+                self.uds_variable_name_prefix_list[i] = '  '
+                if self.uds_variable_name_list[i] == main_var_name:
+                    self.uds_variable_name_prefix_list[i] = 'm'
+                if self.uds_variable_name_list[i] == slave_var_name:
+                    if self.uds_variable_name_prefix_list[i] == 'm':
+                        self.uds_variable_name_prefix_list[i] += 's'
+                    else:
+                        self.uds_variable_name_prefix_list[i] = 's'
+                    
+            self.updateVarList() 
+        
+        # msg Type - CANVAS_MOUSE_MOVED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_MOVED':
+            if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+                x = self.ui_img_widget_main.selected_data_pt_x
+                y = self.ui_img_widget_main.selected_data_pt_y
+                self.ui_dockWidget_plot1D_Content.setXYFromImage2or3D(x,y)
+            if self.sync_rt_points or self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                self.ui_img_widget_slave.canvasMouseMoved(e_x, e_y)
+      
+        # msg Type - CANVAS_MOUSE_PRESSED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_PRESSED':
+            if 'dIdV' in self.ui_img_widget_main.selected_var_name and 'fwd' not in self.ui_img_widget_main.selected_var_name:
+                picked_points_list = self.ui_img_widget_main.img_picked_points_list
+                self.ui_dockWidget_plot1D_Content.setPickedPointsListFromImage2or3D(picked_points_list)
+            if self.sync_pick_points:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_b = self.ui_img_widget_main.mouse_event_button
+                if e_b == 'RIGHT_BUTTON':
+                    self.ui_img_widget_slave.canvasMousePressedRightButton(e_x, e_y)
+            if self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_b = self.ui_img_widget_main.mouse_event_button
+                if e_b == 'LEFT_BUTTON':
+                    self.ui_img_widget_slave.canvasMousePressedLeftButton(e_x, e_y)
+                    
+        # msg Type - CANVAS_MOUSE_RELEASED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_MOUSE_RELEASED':
+            if self.sync_rt_points or self.sync_canvas_zoom:
+                e_b = self.ui_img_widget_main.mouse_event_button 
+                self.ui_img_widget_slave.canvasMouseReleased(e_b)
+        
+        # msg Type - CANVAS_WHEALED
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'CANVAS_WHEALED':
+            if self.sync_canvas_zoom:
+                e_x = self.ui_img_widget_main.mouse_event_x
+                e_y = self.ui_img_widget_main.mouse_event_y
+                e_a = self.ui_img_widget_main.mouse_event_angleDelta_y
+                self.ui_img_widget_slave.canvasWheeled(e_x, e_y, e_a)
+                
+        
+        # msg Type - REMOVE_SYNC_PICKED_POINTS  
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'REMOVE_SYNC_PICKED_POINTS':
+            if self.sync_pick_points:
+                self.ui_img_widget_slave.setImagePickedPoints(self.ui_img_widget_main.img_picked_points_list.copy())
+        
+        # msg Type - Sync layer
+        elif self.ui_img_widget_main.msg_type[msgTypeIdx] == 'SYNC_LAYER':
+            layer = self.ui_img_widget_main.img_current_layer
+            self.ui_img_widget_slave.setImageLayer(layer)
+        #
+        else:
+            print("Unknow msg type from main!", self.ui_img_widget_main.msg_type[msgTypeIdx])
+               
+    @QtCore.pyqtSlot(int)
+    def getMsgFromImgSlaveWidget(self, msgTypeIdx):
+        
+        if self.ui_img_widget_slave.msg_type[msgTypeIdx] == 'SELECT_USD_VARIABLE' :
+            selected_var_index = self.ui_lw_uds_variable_name_list.currentRow()
+            selected_var = self.uds_variable_pt_list[selected_var_index]
+            self.ui_img_widget_slave.setUdsData(selected_var)
+            
+            #
+            main_var_name = self.ui_img_widget_main.ui_le_selected_var.text()
+            slave_var_name = self.ui_img_widget_slave.ui_le_selected_var.text()            
+            for i in range(len(self.uds_variable_name_list)):
+                self.uds_variable_name_prefix_list[i] = '  '
+                if self.uds_variable_name_list[i] == main_var_name:
+                    self.uds_variable_name_prefix_list[i] = 'm'
+                if self.uds_variable_name_list[i] == slave_var_name:
+                    if self.uds_variable_name_prefix_list[i] == 'm':
+                        self.uds_variable_name_prefix_list[i] += 's'
+                    else:
+                        self.uds_variable_name_prefix_list[i] = 's'
+                    
+            self.updateVarList() 
+        
+        #
+        else:
+            pass
+            
+    #
+    def ui_lw_uds_variable_name_list_doulbeClicked(self):
+        self.getMsgFromImgMainWidget(self.ui_img_widget_main.msg_type.index('SELECT_USD_VARIABLE'))
+        if not self.ui_img_widget_main.isEnabled():
+            self.ui_img_widget_main.setEnabled(True)
+            self.ui_img_widget_slave.setEnabled(True)
+        
+            
+    """ Regular Functions """
+    def clearWidgetsContents(self):
+        self.ui_img_widget_main.ui_le_img_proc_parameter_list.clear()
+        #self.ui_img_widget_main.ui_lw_img_picked_points_list_widgets.clear()
+        
+        self.ui_img_widget_slave.ui_le_img_proc_parameter_list.clear()
+        #self.ui_img_widget_slave.ui_lw_img_picked_points_list_widgets.clear()
+    
+    """ Settings """
+    def loadSettings(self):
+        return ConfigManager.load_settings_from_file('./ScienceY/config/ImageUdsData2or3D.txt')
+    
+    def saveSettings(self):
+        ConfigManager.save_settings_to_file('./ScienceY/config/ImageUdsData2or3D.txt', self.settings)
+        
+    def preferenceSettingsChanged(self, st_type):
+        if st_type == 1: # Settings Type = 1, 'PALETTE_LIST'
+            self.ui_img_widget_main.set_palette_list()
+            self.ui_img_widget_slave.set_palette_list()
+        elif st_type == 2: # Settings Type = 2, 'SYNC_PICKED_POINTS'
+            sync_picked_points = self.settings['SYNC']['picked_points'] in ['True']
+            self.sync_pick_points = sync_picked_points
+        elif st_type == 3: # Settings Type = 3, 'SYNC_RT_POINTS'
+            sync_rt_point = self.settings['SYNC']['real_time_cursor'] in ['True']
+            self.sync_rt_points = sync_rt_point
+            self.ui_img_widget_main.setSyncRtPoint(sync_rt_point)
+            self.ui_img_widget_slave.setSyncRtPoint(sync_rt_point)
+            if not sync_rt_point:
+                self.ui_img_widget_main.updateImage()
+                self.ui_img_widget_slave.updateImage()
+        elif st_type == 4: # Settings Type = 4, 'SYNC_LAYER'
+            sync_layer = self.settings['SYNC']['layer'] in ['True']
+            self.ui_img_widget_slave.setImageSyncLayer(sync_layer)
+        elif st_type == 5: # Settings Type = 5, 'SYNC_CANVAS_ZOOM'
+            sync_canvas_zoom = self.settings['SYNC']['canvas_view_zoom'] in ['True']
+            self.sync_canvas_zoom = sync_canvas_zoom
+        elif st_type == 6: # Settings Type = 6, 'LOCK_FIXED_DATA_SCALE_MAIN'
+            data_scale_fixed = self.settings['LOCK']['data_scale_fixed_main'] in ['True']
+            self.ui_img_widget_main.setScaleWidgetDataScaleFixed(data_scale_fixed)
+        elif st_type == 7: # Settings Type = 7, 'LOCK_FIXED_DATA_SCALE_SLAVE'
+            data_scale_fixed = self.settings['LOCK']['data_scale_fixed_slave'] in ['True']
+            self.ui_img_widget_slave.setScaleWidgetDataScaleFixed(data_scale_fixed)        
+        elif st_type == 8: # Settings Type = 7, 'FACOTR_SIGMA'
+            sigma_default = float(self.settings['FACTOR']['sigma'])
+            self.ui_img_widget_main.setScaleWidgetSigmaDefault(sigma_default)
+            self.ui_img_widget_slave.setScaleWidgetSigmaDefault(sigma_default)
+        elif st_type == 9: # Settings Type = 8, 'FACOTR_FFT_AUTO_SCALE'
+            fft_auto_scale_factor = float(self.settings['FACTOR']['fft_auto_scale_factor'])
+            self.ui_img_widget_main.setScaleWidgetFFTAutoScaleFactor(fft_auto_scale_factor)
+            self.ui_img_widget_slave.setScaleWidgetFFTAutoScaleFactor(fft_auto_scale_factor)
+        elif st_type == 10: # Settings Type = 9, 'FACOTR_SLIDER_ZOOM'
+            zoom_factor = float(self.settings['FACTOR']['slider_scale_zoom_factor'])
+            self.ui_img_widget_main.setScaleWidgetZoomFactor(zoom_factor)
+            self.ui_img_widget_slave.setScaleWidgetZoomFactor(zoom_factor)
+        elif st_type == 11: # Settings Type = 11, 'FACTOR_CANVAS_SIZE'
+            canvas_size_factor = float(self.settings['CANVAS']['canvas_size_factor'])
+            self.canvas_size_factor = canvas_size_factor
+        elif st_type == 12: # Settings Type = 12, 'BIAS_TEXT'
+            bias_text_shown = self.settings['CANVAS']['bias_text'] in ['True']
+            self.ui_img_widget_main.setBiasTextShown(bias_text_shown)
+            self.ui_img_widget_slave.setBiasTextShown(bias_text_shown)
+        else:
+            print("Unknow Settings Type!")
+       
+       
+            
+    """ *************************************************************** """
+    """ INDICATION: MODIFY THE FOLLOWING CODE UNTIL INDICATED IF NEEDED """
+    """ *************************************************************** """
+    
+    """    Menu and Actions    """       
+    def creat_menuBar(self):
+        menuBar = QtWidgets.QMenuBar(self)
+        
+        # Top Menu
+        FileMenu = menuBar.addMenu("&File")
+        processMenu = menuBar.addMenu("&Process")
+        analysisMenu = menuBar.addMenu("&Analysis")
+        pointsMenu = menuBar.addMenu("Points")
+        simulateMenu = menuBar.addMenu("&Simulate")
+        widgetssMenu = menuBar.addMenu("&Widgets")
+        optionMenu = menuBar.addMenu("&Options")
+        
+        # Image Menu
+        exportMenu = FileMenu.addMenu("Export")
+        exportMenu.addAction(self.exportMainToImage)
+        exportMenu.addAction(self.exportSlaveToImage)
+        exportMenu.addAction(self.exportMainToClipboard)
+        exportMenu.addAction(self.exportSlaveToClipboard)
+        makeMovieMenu = FileMenu.addMenu("Make Movie from")
+        makeMovieMenu.addAction(self.makeMovieFromMain)
+        makeMovieMenu.addAction(self.makeMovieFromSlave)
+        
+        # Process Menu
+        backgdSubtractMenu = processMenu.addMenu("Background Subtract")
+        backgdSubtractMenu.addAction(self.backgdSubtract2DPlane)
+        backgdSubtractMenu.addAction(self.backgdSubtractPerLine)
+        processMenu.addAction(self.cropRegion)
+        processMenu.addAction(self.maskRegion)
+        processMenu.addAction(self.extendRegion)
+        processMenu.addAction(self.rotateImage)
+        perfectLatticeMenu = processMenu.addMenu("Perfect Lattice")
+        perfectLatticeMenu.addAction(self.perfectLatticeSquare)
+        perfectLatticeMenu.addAction(self.perfectLatticeHexagonal)
+        processMenu.addAction(self.lfCorrection)
+        lineCutMenu = processMenu.addMenu('Line Cut')
+        lineCutMenu.addAction(self.rAxisLineCut)
+        lineCutMenu.addAction(self.eAxisLineCut)
+        lineCutMenu.addAction(self.eVSrLineCut)
+        circleCutMenu = processMenu.addMenu('Circle Cut')
+        circleCutMenu.addAction(self.eVStCircleCut)
+        #processMenu.addAction(self.lineCuts)
+        fourierFilterMenu = processMenu.addMenu("Fourier Filter")
+        fourierFilterMenu.addAction(self.fourierFilterOut)
+        fourierFilterMenu.addAction(self.fourierFilterIsolate)
+        processMenu.addAction(self.register)
+        mathMenu = processMenu.addMenu("Math")
+        mathMenu.addAction(self.mathAdd)
+        mathMenu.addAction(self.mathSubtract)
+        mathMenu.addAction(self.mathMultiply)
+        mathMenu.addAction(self.mathMultiplyByConst)
+        mathMenu.addAction(self.mathDivide)
+        mathMenu.addAction(self.mathDivideByConst)
+        mathMenu.addAction(self.mathDivideConstBy)
+        mathMenu.addAction(self.mathComplexAbs)
+        mathMenu.addAction(self.integral)
+        mathMenu.addAction(self.normalization)
+        processMenu.addAction(self.extractOneLayer)
+        processMenu.addAction(self.padding)
+        processMenu.addAction(self.interpolation)
+        processMenu.addAction(self.NFoldSymmetrize)
+        processMenu.addAction(self.imageProcessCustomized)
+        
+        # Analysis Menu
+        analysisMenu.addAction(self.fourierTransform)
+        lockIn2DMenu = analysisMenu.addMenu("2D Lock-in")        
+        lockIn2DMenu.addAction(self.lockIn2DAmplitudeMap)
+        lockIn2DMenu.addAction(self.lockIn2DPhaseMap)
+        analysisMenu.addAction(self.rMap)
+        analysisMenu.addAction(self.gapMap)
+        crossCorrMenu = analysisMenu.addMenu("Cross-Correlation")        
+        crossCorrMenu.addAction(self.crossCorrelation)
+        crossCorrMenu.addAction(self.statisticCrossCorrelation)
+        
+        # Points Menu
+        pointsMenu.addAction(self.setBraggPeaks)
+        pointsMenu.addAction(self.setFilterPoints)
+        pointsMenu.addAction(self.setLockInPoints)
+        pointsMenu.addAction(self.setLineOrCircleCutPoints)
+        registerMenu = pointsMenu.addMenu('set Register Points')
+        registerMenu.addAction(self.setRegisterPointsFromMain)
+        registerMenu.addAction(self.setRegisterPointsFromSlave)
+        
+        # Simulate Menu
+        generateCurveMenu = simulateMenu.addMenu("Generate Curve")
+        generateCurveMenu.addAction(self.generateHeavisideCurve)
+        generateCurveMenu.addAction(self.generateCircleCurve)
+        generateCurveMenu.addAction(self.generateGaussianCurve)
+        generateCurveMenu.addAction(self.generateSinusoidalCurve)
+        generateLatticeMenu = simulateMenu.addMenu("Generate Lattice")
+        generateLatticeMenu.addAction(self.generatePerfectLattice)
+        generateLatticeMenu.addAction(self.generateLatticeWithLineDomainWall)
+        generateLatticeMenu.addAction(self.generateLatticeWithPeriodicDistortion)
+        
+        # Widgets Menu
+        widgetssMenu.addAction(self.showVarDockWidget)
+        widgetssMenu.addAction(self.showPlot1DDockWidget)
+        widgetssMenu.addAction(self.showRTCmpMain)
+        widgetssMenu.addAction(self.showRTCmpAux)
+        
+        # Options Menu
+        optionMenu.addAction(self.preferenceAction)
+        
+        #
+        self.setMenuBar(menuBar)
+    
+    def creat_statusBar(self):
+        self.status_bar = self.statusBar()
+        
+    def creat_actions(self):
+        # Image Menu
+        self.exportMainToImage = Action("Main to Image",self)
+        self.exportSlaveToImage = Action("Auxiliary to Image",self)
+        self.exportMainToClipboard = Action("Main to Clipboard",self)
+        self.exportSlaveToClipboard = Action("Auxiliary to Clipboard",self)
+        self.makeMovieFromMain = Action("Main",self)
+        self.makeMovieFromSlave = Action("Auxiliary",self)
+        
+        # Process Menu
+        self.backgdSubtract2DPlane = Action("2D Plane",self)
+        self.backgdSubtractPerLine = Action("Line-by-Line",self)
+        self.cropRegion = Action("Crop Region",self)
+        self.maskRegion = Action("Mask Region",self)
+        self.extendRegion = Action("Extend Region",self)
+        self.rotateImage = Action("Rotate",self)
+        self.perfectLatticeSquare = Action("Square",self)
+        self.perfectLatticeHexagonal = Action("Hexagonal",self)
+        self.lfCorrection = Action("LF Correction",self)
+        self.rAxisLineCut = Action('A(r)',self)
+        self.eAxisLineCut = Action('A(E)',self)
+        self.eVSrLineCut = Action('E VS r',self)
+        self.eVStCircleCut = Action('E VS theta',self)
+        #self.lineCuts = Action('Line Cuts',self)
+        self.fourierFilterOut = Action("Filter Out",self)
+        self.fourierFilterIsolate = Action("Isolate",self)
+        self.register = Action("Register",self)
+        self.mathAdd = Action("M + A",self)
+        self.mathSubtract = Action("M - A",self)
+        self.mathMultiply = Action("M * A",self)
+        self.mathMultiplyByConst = Action("M * const.",self)
+        self.mathDivide = Action("M / A",self)
+        self.mathDivideByConst = Action("M / const.",self)
+        self.mathDivideConstBy = Action("const. / M",self)
+        self.mathComplexAbs = Action("Abs(M[a+ib])",self)
+        self.integral = Action("Integral",self)
+        self.normalization = Action("Normalization",self)
+        self.extractOneLayer = Action("Extract one layer",self)
+        self.padding = Action("Padding",self)
+        self.interpolation = Action("Interpolation",self)
+        self.NFoldSymmetrize = Action("N-fold Symmetrize",self)
+        self.imageProcessCustomized = Action("Customized Algorithm",self)
+        
+        # Analysis Menu
+        self.fourierTransform = Action("Fourier Transform",self)
+        self.lockIn2DAmplitudeMap = Action("Amplitude Map",self)
+        self.lockIn2DPhaseMap = Action("Phase Map",self)
+        self.rMap = Action("R-Map",self)
+        self.gapMap = Action("Gap-Map",self)
+        self.crossCorrelation = Action('Cross Correlation',self)
+        self.statisticCrossCorrelation = Action('Statistic Cross Correlation',self)
+        
+        # Points Menu
+        self.setBraggPeaks = Action("Set Bragg Peaks",self)
+        self.setFilterPoints = Action("Set Filter Points",self)
+        self.setLockInPoints = Action("Set 2D Lock-in Points",self)
+        self.setLineOrCircleCutPoints = Action("Set Line/Circle Cut Points",self)
+        self.setRegisterPointsFromMain = Action("Set Register Points from Main",self)
+        self.setRegisterPointsFromSlave = Action("Set Register Reference Points from Slave",self)
+        
+        # Simulate Menu
+        self.generateHeavisideCurve = Action("Heaviside2D")
+        self.generateCircleCurve = Action("Circle2D",self)
+        self.generateGaussianCurve = Action("Gaussian2D",self)
+        self.generateSinusoidalCurve = Action("Sinusoidal2D",self)
+        self.generatePerfectLattice = Action("Perfect Lattice",self)
+        self.generateLatticeWithLineDomainWall = Action("Lattice with Line Domain Wall",self)
+        self.generateLatticeWithPeriodicDistortion = Action("Lattice with Periodic Distortions",self)
+        
+        # Widgets Menu
+        self.showVarDockWidget = Action("Variables Dock Widget",self)
+        self.showPlot1DDockWidget = Action("Plot1D Dock Widget",self)
+        self.showRTCmpMain = Action("RT Colormap Main Widget",self)
+        self.showRTCmpAux = Action("RT Colormap Aux Widget",self)
+        
+        # Option Menu
+        self.preferenceAction = Action("Preference",self)
+        
+    def connect_actions(self):
+        # Image Menu
+        self.exportMainToImage.triggered.connect(self.actExportMainToImage)
+        self.exportSlaveToImage.triggered.connect(self.actExportSlaveToImage)
+        self.exportMainToClipboard.triggered.connect(self.actExportMainToClipboard)
+        self.exportSlaveToClipboard.triggered.connect(self.actExportSlaveToClipboard)
+        self.makeMovieFromMain.triggered.connect(self.actMakeMovieFromMain)
+        self.makeMovieFromSlave.triggered.connect(self.actMakeMovieFromSlave)
+        # Process Menu
+        self.backgdSubtract2DPlane.triggered.connect(self.actBackgdSubtract2DPlane)
+        self.backgdSubtractPerLine.triggered.connect(self.actBackgdSubtractPerLine)
+        self.cropRegion.triggered.connect(self.actCropRegion)
+        self.maskRegion.triggered.connect(self.actMaskRegion)
+        self.extendRegion.triggered.connect(self.actExtendRegion)
+        self.rotateImage.triggered.connect(self.actRotate)
+        self.perfectLatticeSquare.triggered.connect(self.actPerfectLatticeSqaure)
+        self.perfectLatticeHexagonal.triggered.connect(self.actPerfectLatticeHexagonal)
+        self.lfCorrection.triggered.connect(self.actLFCorrection)
+        self.rAxisLineCut.triggered.connect(self.actRAxisLineCut)
+        self.eAxisLineCut.triggered.connect(self.actEAxisLineCut)
+        self.eVSrLineCut.triggered.connect(self.actEvsRLineCut)
+        self.eVStCircleCut.triggered.connect(self.actTvsECircleCut)
+        #self.lineCuts.triggered.connect(self.actLineCuts)
+        self.fourierFilterOut.triggered.connect(self.actFourierFilterOut)
+        self.fourierFilterIsolate.triggered.connect(self.actFourierFilterIsolate)
+        self.register.triggered.connect(self.actRegister)
+        self.mathAdd.triggered.connect(self.actMathAdd)
+        self.mathSubtract.triggered.connect(self.actMathSubtract)
+        self.mathMultiply.triggered.connect(self.actMathMultiply)
+        self.mathMultiplyByConst.triggered.connect(self.actMathMultiplyByConst)
+        self.mathDivide.triggered.connect(self.actMathDivide)
+        self.mathDivideByConst.triggered.connect(self.actMathDivideByConst)
+        self.mathDivideConstBy.triggered.connect(self.actMathDivideConstBy)
+        self.mathComplexAbs.triggered.connect(self.actMathComplexAbs)
+        self.integral.triggered.connect(self.actIntegral)
+        self.normalization.triggered.connect(self.actNormalization)
+        self.extractOneLayer.triggered.connect(self.actExtractOneLayer)
+        self.padding.triggered.connect(self.actPadding)
+        self.interpolation.triggered.connect(self.actInterpolation)
+        self.NFoldSymmetrize.triggered.connect(self.actNFoldSymmetrize)
+        self.imageProcessCustomized.triggered.connect(self.actImageProcessCustomized)
+        
+        # Analysis Menu
+        self.fourierTransform.triggered.connect(self.actFourierTransform)
+        self.lockIn2DAmplitudeMap.triggered.connect(self.actLockIn2DAmplitudeMap)
+        self.lockIn2DPhaseMap.triggered.connect(self.actLockIn2DPhaseMap)
+        self.rMap.triggered.connect(self.actRMap)
+        self.gapMap.triggered.connect(self.actGapMap)
+        self.crossCorrelation.triggered.connect(self.actCrossCorrelation)
+        self.statisticCrossCorrelation.triggered.connect(self.actStatisticCrossCorrelation)
+        
+        # Points Menu
+        self.setBraggPeaks.triggered.connect(self.actSetBraggPeaks)
+        self.setFilterPoints.triggered.connect(self.actSetFilterPoints)
+        self.setLockInPoints.triggered.connect(self.actSetLockInPoints)
+        self.setLineOrCircleCutPoints.triggered.connect(self.actSetLineOrCircleCutPoints)
+        self.setRegisterPointsFromMain.triggered.connect(self.actSetRegisterPointsFromMain)
+        self.setRegisterPointsFromSlave.triggered.connect(self.actSetRegisterPointsFromSlave)
+        
+        # Simulate Menu
+        self.generateHeavisideCurve.triggered.connect(self.actGenerateHeavisideCurve)
+        self.generateCircleCurve.triggered.connect(self.actGenerateCircleCurve)
+        self.generateGaussianCurve.triggered.connect(self.actGenerateGaussianCurve)
+        self.generateSinusoidalCurve.triggered.connect(self.actGenerateSinusoidalCurve)
+        self.generatePerfectLattice.triggered.connect(self.actGeneratePerfectLattice)
+        self.generateLatticeWithLineDomainWall.triggered.connect(self.actGenerateLatticeWithLineDomainWall)
+        self.generateLatticeWithPeriodicDistortion.triggered.connect(self.actGenerateLatticeWithPeriodicDistortions)
+        
+        #window
+        self.showVarDockWidget.triggered.connect(self.actShowVarDockWidget)
+        self.showPlot1DDockWidget.triggered.connect(self.actShowPlot1DDockWidget)
+        self.showRTCmpMain.triggered.connect(self.actShowRTColormapMainWidget)
+        self.showRTCmpAux.triggered.connect(self.actShowRTColormapAuxWidget)
+        
+        # Options
+        self.preferenceAction.triggered.connect(self.actPreference)
+    
+    """   Slots for Menu Actions   """ 
+    # Image Menu
+    def actExportMainToImage(self):
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Image', "", "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;All Files (*)")
+        if file_path:
+            self.ui_img_widget_main.static_canvas.figure.savefig(file_path)
+            
+    def actExportSlaveToImage(self):
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Image', "", "PNG Image (*.png);;JPEG Image (*.jpg *.jpeg);;All Files (*)")
+        if file_path:
+            self.ui_img_widget_slave.static_canvas.figure.savefig(file_path)
+    
+    def actExportMainToClipboard(self):
+        pixmap = QtGui.QPixmap(self.ui_img_widget_main.static_canvas.size())
+        self.ui_img_widget_main.static_canvas.render(pixmap)
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        
+    def actExportSlaveToClipboard(self):
+        pixmap = QtGui.QPixmap(self.ui_img_widget_slave.static_canvas.size())
+        self.ui_img_widget_slave.static_canvas.render(pixmap)
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        
+    def actMakeMovieFromMain(self):
+        self.ui_img_widget_main.imageLayerChangedSlotDisconnect()
+        
+        #
+        frames = []
+        layers = self.ui_img_widget_main.ui_sb_image_layers.maximum()
+        for frame_num in range(layers+1):
+            self.ui_img_widget_main.ui_sb_image_layers.setValue(frame_num)
+            self.ui_img_widget_main.imageLayerChanged()
+            
+            # This force matplot to update within the loop 
+            self.ui_img_widget_main.static_canvas.flush_events()
+            
+            # Save the plot to a BytesIO object in memory
+            buf = BytesIO()
+            self.ui_img_widget_main.static_canvas.figure.savefig(buf, format='png')
+            buf.seek(0)
+            
+            # Read the image from the in-memory buffer and append to the list of frames
+            frame = imageio.imread(buf)
+            for frame_repeat in range(10):
+                frames.append(frame)
+            
+            buf.close()
+
+
+        # Write the frames to a video file
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
+        if file_path:
+            imageio.mimsave(file_path, frames, fps=60)
+
+        #
+        self.ui_img_widget_main.imageLayerChangedSlotConnect()
+        
+    def actMakeMovieFromSlave(self):
+        self.ui_img_widget_slave.imageLayerChangedSlotDisconnect()
+        
+        #
+        frames = []
+        layers = self.ui_img_widget_slave.ui_sb_image_layers.maximum()
+        for frame_num in range(layers+1):
+            self.ui_img_widget_slave.ui_sb_image_layers.setValue(frame_num)
+            self.ui_img_widget_slave.imageLayerChanged()
+            
+            # This force matplot to update within the loop 
+            self.ui_img_widget_slave.static_canvas.flush_events()
+            
+            # Save the plot to a BytesIO object in memory
+            buf = BytesIO()
+            self.ui_img_widget_slave.static_canvas.figure.savefig(buf, format='png')
+            buf.seek(0)
+            
+            # Read the image from the in-memory buffer and append to the list of frames
+            frame = imageio.imread(buf)
+            for frame_repeat in range(10):
+                frames.append(frame)
+            
+            buf.close()
+                  
+        # Write the frames to a video file
+        file_path, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save Video', "", "MP4 Video (*.mp4);;All Files (*)")
+        if file_path:
+            imageio.mimsave(file_path, frames, fps=60)
+        
+        #
+        self.ui_img_widget_slave.imageLayerChangedSlotConnect()
+    
+    # Process Menu
+    def actBackgdSubtract2DPlane(self):
+        self.status_bar.showMessage("Params(Order=1)",5000)
+
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 1
+        if len(params) != 0:
+            order = int(params)
+        
+        # process
+        uds_data_processed = ImgProc.ipBackgroundSubtract2D(
+                                self.uds_variable_pt_list[ct_var_index], order, '2DPlane') 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actBackgdSubtractPerLine(self):
+        self.status_bar.showMessage("Params(Order=1)",5000)
+
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 1
+        if len(params) != 0:
+            order = int(params)
+        
+        # process
+        uds_data_processed = ImgProc.ipBackgroundSubtract2D(
+                                self.uds_variable_pt_list[ct_var_index], order, 'PerLine') 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actCropRegion(self):
+        self.status_bar.showMessage("Params(Crop_cycles=1)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        picked_points_c = [] #x
+        picked_points_r = [] #y
+        if   points > 1:
+            for pt in self.ui_img_widget_main.img_picked_points_list:
+                picked_points_c.append(int(pt.split(',')[0]))
+                picked_points_r.append(int(pt.split(',')[1]))
+            c_topLeft = min(picked_points_c)
+            r_topLeft = min(picked_points_r)
+            c_bottomRight = max(picked_points_c)
+            r_bottomRight = max(picked_points_r)
+            
+            #make points of region to be a square and even
+            sideLen = min(c_bottomRight - c_topLeft, r_bottomRight - r_topLeft)
+            if not (sideLen + 1) % 2 == 0:
+                sideLen -= 1
+            c_bottomRight = c_topLeft + sideLen
+            r_bottomRight = r_topLeft + sideLen
+            
+            # get param list
+            params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+            crop_cycles = 1
+            if len(params) != 0:
+                crop_cycles = int(params)
+            
+            # process
+            for i in range(crop_cycles):
+                uds_data_processed = ImgProc.ipCropRegion2D(self.uds_variable_pt_list[ct_var_index],
+                                                        r_topLeft, c_topLeft, r_bottomRight-2*i, c_bottomRight-2*i)
+                # update var list
+                self.appendToLocalVarList(uds_data_processed)
+                
+                # select cropped data and do fourier transform
+                self.ui_lw_uds_variable_name_list_doulbeClicked()
+            
+        else:
+            print("Two Points at least")
+            
+        #
+        self.clearWidgetsContents()
+
+    def actMaskRegion(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        if points > 0:
+            mask_point = self.ui_img_widget_main.img_picked_points_list[0]
+            picked_points_c = int(mask_point.split(',')[0]) #x
+            picked_points_r = int(mask_point.split(',')[1]) #y
+        else:
+            picked_points_c = 0 #x
+            picked_points_r = 0 #y
+            
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        sigma = 10
+        if len(params) != 0:
+            sigma = int(params)
+            
+        # process
+        uds_data_processed = ImgProc.ipMaskRegion2D(self.uds_variable_pt_list[ct_var_index], picked_points_c, picked_points_r, sigma)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+    def actExtendRegion(self):
+        self.status_bar.showMessage("Params(a1_len=1,a1_angle=0,a2_len=1,a2_angle=90)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        picked_points_c = [] #x
+        picked_points_r = [] #y
+        if   points > 1:
+            for pt in self.ui_img_widget_main.img_picked_points_list:
+                picked_points_c.append(int(pt.split(',')[0]))
+                picked_points_r.append(int(pt.split(',')[1]))
+            c_topLeft = min(picked_points_c)
+            r_topLeft = min(picked_points_r)
+            c_bottomRight = max(picked_points_c)
+            r_bottomRight = max(picked_points_r)
+            
+            roi = (c_topLeft, r_topLeft, c_bottomRight, r_bottomRight)
+            
+            # get param list
+            params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+            a1_len = 10.0
+            a1_angle = 0
+            a2_len = 10.0
+            a2_angle = 90
+            
+            if len(params) > 0:
+                param_numbers = len(params.split(','))
+                if param_numbers > 0:
+                    a1_len = float(params.split(',')[0])
+                if param_numbers > 1:
+                    a1_angle = float(params.split(',')[1])
+                if param_numbers > 2:
+                    a2_len = float(params.split(',')[2])
+                if param_numbers > 3:
+                    a2_angle = float(params.split(',')[3])
+                    
+            # process
+            uds_data_processed = ImgProc.ipExtendRegion2D(self.uds_variable_pt_list[ct_var_index], a1_len, a1_angle, a2_len, a2_angle, roi)
+        
+            # update var list
+            self.appendToLocalVarList(uds_data_processed)            
+                
+        else:
+            print("Two Points at least to set the ROI!")
+            
+        #
+        self.clearWidgetsContents()
+        
+    def actRotate(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        theta = 0
+        if len(params) != 0:
+            theta = float(params)
+            
+        # process
+        uds_data_processed = ImgProc.ipRotate2D(self.uds_variable_pt_list[ct_var_index], theta)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)        
+    
+    def actPerfectLattice(self, lattice_type):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipPerfectLattice(self.uds_variable_pt_list[ct_var_index], lattice_type)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+    
+    def actPerfectLatticeSqaure(self):
+        self.actPerfectLattice('SquareLattice')
+        
+    def actPerfectLatticeHexagonal(self):
+        self.actPerfectLattice('HexagonalLattice')        
+        
+    def actLFCorrection(self):
+        self.status_bar.showMessage("Params(rSigma_ref_a0=10.0, uds3D_displacementField)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        rSigma_ref_a0 = 10.0
+        uds3D_displacementField_name = None
+        
+        if len(params) > 0:
+            param_numbers = len(params.split(','))
+            if param_numbers > 0:
+                rSigma_ref_a0 = float(params.split(',')[0])
+            if param_numbers > 1:
+                uds3D_displacementField_name = params.split(',')[1]
+                
+        # Displacement     
+        if uds3D_displacementField_name == None:
+            uds_data_displacmentField = ImgProc.ipCalculateDisplacementField(self.uds_variable_pt_list[ct_var_index], rSigma_ref_a0)
+            
+            # update var list
+            self.appendToLocalVarList(uds_data_displacmentField)
+            
+            # process
+            df_var_index = self.uds_variable_name_list.index( self.uds_variable_pt_list[ct_var_index].name+'_df' )
+            displacementField = self.uds_variable_pt_list[df_var_index]
+            uds_data_processed = ImgProc.ipLFCorrection(self.uds_variable_pt_list[ct_var_index], rSigma_ref_a0, displacementField)        
+        else:
+            # process
+            df_var_index = self.uds_variable_name_list.index(uds3D_displacementField_name)
+            displacementField = self.uds_variable_pt_list[df_var_index].data
+            uds_data_processed = ImgProc.ipLFCorrection(self.uds_variable_pt_list[ct_var_index], rSigma_ref_a0, displacementField)
+            
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+    
+    def LineCut(self, linecut_type='R_AXIS'):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 1
+        line_width = 1
+        num_points = None
+        
+        if len(params) > 0:
+            param_numbers = len(params.split(','))
+            if param_numbers > 0:
+                order = int(params.split(',')[0])
+            if param_numbers > 1:
+                line_width = int(params.split(',')[1])
+            if param_numbers > 2:
+                num_points = int(params.split(',')[2])
+        
+        # process
+        uds_data_processed = ImgProc.ipLineCut(self.uds_variable_pt_list[ct_var_index], linecut_type, order, line_width, num_points)
+        
+        return uds_data_processed
+        
+    def actRAxisLineCut(self):
+        uds_data_processed = self.LineCut('R_AXIS')
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        #
+        self.clearWidgetsContents()
+    
+    def actEAxisLineCut(self):
+        uds_data_processed = self.LineCut('E_AXIS')
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        #
+        self.clearWidgetsContents()
+        
+    def actEvsRLineCut(self):
+        uds_data_processed = self.LineCut('E_VS_R')
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        #
+        self.clearWidgetsContents()
+    
+    def CircleCut(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 1
+        W = 1
+        num_points = None
+        
+        if len(params) != 0:
+            params = params.replace(' ','').split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                order = int(params[0])
+            elif param_numbers == 2:
+                order = int(params[0])
+                W = int(params[1])
+            elif param_numbers == 3:
+                order = int(params[0])
+                W = int(params[1])
+                if params[2] == 'None':
+                    num_points = None
+                else:
+                    num_points = int(params[2])
+                
+        # process
+        uds_data_processed = ImgProc.ipCircleCut(self.uds_variable_pt_list[ct_var_index], order, W, num_points) 
+        return uds_data_processed
+    
+    def actTvsECircleCut(self):
+        uds_data_processed = self.CircleCut()
+    
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        #
+        self.clearWidgetsContents()   
+            
+    def actFourierFilterOut(self):
+        self.status_bar.showMessage("Params(kSigma=1.0)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        kSigma = 1.0
+        if len(params) != 0:
+            kSigma = float(params.split(',')[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipFourierFilterOut(self.uds_variable_pt_list[ct_var_index], "GAUSSIAN", kSigma)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+    
+    def actFourierFilterIsolate(self):
+        self.status_bar.showMessage("Params(kSigma=1.0)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        kSigma = 1.0
+        if len(params) != 0:
+            kSigma = float(params.split(',')[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipFourierFilterIsolate(self.uds_variable_pt_list[ct_var_index], "GAUSSIAN", kSigma)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actRegister(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        ratio = 1.0
+        if len(params) != 0:
+            ratio = float(params.split(',')[0])
+
+        # process
+        uds_data_processed = ImgProc.ipRegister(self.uds_variable_pt_list[ct_var_index], ratio)
+ 
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+    
+    def actMathAdd(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipMath(self.uds_variable_pt_list[ct_var_index_main], 
+                                            self.uds_variable_pt_list[ct_var_index_slave],"+")
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+    
+    def actMathSubtract(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipMath(self.uds_variable_pt_list[ct_var_index_main], 
+                                            self.uds_variable_pt_list[ct_var_index_slave],"-")
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathMultiply(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipMath(self.uds_variable_pt_list[ct_var_index_main], 
+                                            self.uds_variable_pt_list[ct_var_index_slave],"*")
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathMultiplyByConst(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        Const = 1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                Const = float(params[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipMathX(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+        
+    def actMathDivide(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipMath(self.uds_variable_pt_list[ct_var_index_main], 
+                                            self.uds_variable_pt_list[ct_var_index_slave],"/")
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathDivideByConst(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        Const = 1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                Const = float(params[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipMathDC(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathDivideConstBy(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        Const = 1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                Const = float(params[0])
+        
+        # process
+        uds_data_processed = ImgProc.ipMathCD(self.uds_variable_pt_list[ct_var_index_main], Const)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actMathComplexAbs(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipMathComplexAbs(self.uds_variable_pt_list[ct_var_index_main])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+    
+    def actIntegral(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        start = 0
+        end = self.uds_variable_pt_list[ct_var_index].data.shape[0]
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 2:
+                start = int(params[0])
+                end = int(params[1])
+            
+        # process
+        uds_data_processed = ImgProc.ipIntegral(self.uds_variable_pt_list[ct_var_index], start, end) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+    
+    def actNormalization(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+            
+        # process
+        uds_data_processed = ImgProc.ipNormalization(self.uds_variable_pt_list[ct_var_index]) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+    
+    def actExtractOneLayer(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        layer = 0
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                layer = int(params[0])
+            
+        # process
+        uds_data_processed = ImgProc.ipExtractOneLayer(self.uds_variable_pt_list[ct_var_index], layer) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actPadding(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        px, py, nx, ny, a = (0,0,0,0,0)
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 2:
+                px = int(params[0])
+                py = int(params[1])
+            if param_numbers == 4:
+                px = int(params[0])
+                py = int(params[1])
+                nx = int(params[2])
+                ny = int(params[3])
+            if param_numbers == 5:
+                px = int(params[0])
+                py = int(params[1])
+                nx = int(params[2])
+                ny = int(params[3])
+                a = float(params[4])
+        # process
+        uds_data_processed = ImgProc.ipPadding(self.uds_variable_pt_list[ct_var_index], px = px, py = py, nx = nx, ny = ny, a = a)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actNFoldSymmetrize(self):    
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        n_fold = 6
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                n_fold = int(params[0])
+        uds_data_processed = ImgProc.ipNFoldSymmetrize(self.uds_variable_pt_list[ct_var_index], n_fold)
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actInterpolation(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        # process
+        uds_data_processed = ImgProc.ipInterpolation(self.uds_variable_pt_list[ct_var_index])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actImageProcessCustomized(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        # process
+        uds_data_processed = ImgProcCustomized.IPC(self.uds_variable_pt_list[ct_var_index_main], 
+                                                   self.uds_variable_pt_list[ct_var_index_slave],
+                                                   params)
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+        
+        #
+        self.clearWidgetsContents()
+    
+    # Analysis Menu
+    def actFourierTransform(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # analyse
+        uds_data_analysed = ImgProc.ipFourierTransform2D(self.uds_variable_pt_list[ct_var_index])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_analysed) 
+        
+        #
+        self.clearWidgetsContents()
+    
+    def actGetPickedPoints(self, uds_data, info_key):
+        if info_key in uds_data.info:
+            Points_text = uds_data.info[info_key].split(',')
+            Points=[]
+            for p in Points_text:
+                Points.append( int(p) )
+            Points_array = np.array(Points)
+            
+            pn = int(len(Points_array)/2)
+            Points_array = Points_array.reshape(pn, 2)
+        else:
+            print('No - ', info_key,' - keys exist!')
+            Points_array = np.array([])
+            
+        return Points_array
+    
+    def actLockIn2D(self, MapType, phaseUnwrap=True):
+        self.status_bar.showMessage("Params(rSigma_ref_a0=1.0)",5000)
+        
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        rSigma_ref_a0 = 1.0
+        if len(params) != 0:
+            rSigma_ref_a0 = float(params.split(',')[0])
+        
+        LockinPoints = self.actGetPickedPoints(self.uds_variable_pt_list[ct_var_index], 'LockInPoints')
+        if not len(LockinPoints) == 0:
+            # get pixles of Q vector for 2D Lock-in
+            for i in range(LockinPoints.shape[0]):
+                lPx = LockinPoints[i][0]
+                lPy = LockinPoints[i][1]
+            
+                # analyse
+                uds_data_analysed = ImgProc.ipLockIn2D(self.uds_variable_pt_list[ct_var_index], lPx, lPy, rSigma_ref_a0, MapType, phaseUnwrap)
+                
+                # save corresponding Q vector
+                Q_lockin = []
+                Q_lockin.append((lPx,lPy))
+                uds_data_analysed.info['LockInPoints'] = str(lPx) + ',' + str(lPy)
+                
+                # update var list
+                self.appendToLocalVarList(uds_data_analysed)
+        
+    def actLockIn2DAmplitudeMap(self):
+        self.actLockIn2D("Amplitude")
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actLockIn2DPhaseMap(self):
+        self.actLockIn2D("Phase")
+        self.actLockIn2D("Phase", False)
+                
+        #
+        self.clearWidgetsContents()
+
+    def actRMap(self):
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        
+        # analyse
+        uds_data_analysed = ImgProc.ipRmap(self.uds_variable_pt_list[ct_var_index])
+         
+        # update var list
+        self.appendToLocalVarList(uds_data_analysed) 
+         
+        #
+        self.clearWidgetsContents()    
+        
+    def actGapMap(self):
+        self.status_bar.showMessage("Params(Order=2)",5000)
+        ct_var_index = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        order = 2
+        enery_start = 0
+        enery_end = -1
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                order = int(params[0])
+            elif param_numbers == 3:
+                order = int(params[0])
+                enery_start = int(params[1])
+                enery_end = int(params[2])
+                
+        # process
+        uds_data_processed_Gapmap, uds_data_processed_R2map = ImgProc.ipGapMap(
+                                self.uds_variable_pt_list[ct_var_index], order, enery_start, enery_end) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed_Gapmap)
+        self.appendToLocalVarList(uds_data_processed_R2map)
+
+        #
+        self.clearWidgetsContents()
+    
+    def actCrossCorrelation(self):
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        
+        # process
+        uds_data_processed = ImgProc.ipCrossCorrelation(self.uds_variable_pt_list[ct_var_index_main], 
+                                                        self.uds_variable_pt_list[ct_var_index_slave]) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+        
+    def actStatisticCrossCorrelation(self):
+        self.status_bar.showMessage("Params(size = 100, sigma = 3)",5000)
+        ct_var_index_main = self.uds_variable_name_list.index(self.ui_img_widget_main.ui_le_selected_var.text())
+        ct_var_index_slave = self.uds_variable_name_list.index(self.ui_img_widget_slave.ui_le_selected_var.text())
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        size = 100
+        sigma = 3
+        if len(params) != 0:
+            params = params.split(',')
+            param_numbers = len(params)
+            if param_numbers == 1:
+                size = int(params[0])
+            elif param_numbers == 2:
+                size = int(params[0])
+                sigma = int(params[1])
+        # process
+        uds_data_processed = ImgProc.ipStatisticCrossCorrelation(self.uds_variable_pt_list[ct_var_index_main], 
+                                                                 self.uds_variable_pt_list[ct_var_index_slave],size, sigma) 
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_processed)
+
+        #
+        self.clearWidgetsContents()
+
+    
+    # Points Menu
+    def actSetBraggPeaks(self):     
+        var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
+        bp_var_index = self.uds_variable_name_list.index(var_name)
+        
+        points = len (self.ui_img_widget_slave.img_picked_points_list)
+        if   points > 1:
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
+                
+            self.uds_variable_pt_list[bp_var_index].info['BraggPeaks'] = picked_points
+            
+            #
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['BraggPeaks'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+                
+        #
+        self.clearWidgetsContents()
+        
+    def actSetLineOrCircleCutPoints(self):
+        var_name = self.ui_img_widget_main.uds_variable.name
+        bp_var_index = self.uds_variable_name_list.index(var_name)
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        if   points == 2:
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_main.img_picked_points_list)
+
+            self.uds_variable_pt_list[bp_var_index].info['LineOrCircleCutPoints'] = picked_points
+            
+            #
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['LineOrCircleCutPoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+        else:
+            print('incorrect points number')
+        #
+        self.clearWidgetsContents()
+                
+    def actSetRegisterPointsFromMain(self):
+        var_name = self.ui_img_widget_main.uds_variable.name
+        bp_var_index = self.uds_variable_name_list.index(var_name)
+        
+        points = len (self.ui_img_widget_main.img_picked_points_list)
+        if   points > 1:
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_main.img_picked_points_list)
+
+            self.uds_variable_pt_list[bp_var_index].info['RegisterPoints'] = picked_points
+            
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['RegisterPoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+                
+                
+    def actSetRegisterPointsFromSlave(self):
+        var_name_main = self.ui_img_widget_main.uds_variable.name
+        bp_var_index_main = self.uds_variable_name_list.index(var_name_main)
+        
+        points = len (self.ui_img_widget_slave.img_picked_points_list)
+        if   points > 1:
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
+
+            self.uds_variable_pt_list[bp_var_index_main].info['RegisterReferencePoints'] = picked_points
+            
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[bp_var_index_main].name:
+                self.ui_img_widget_main.uds_variable.info['RegisterReferencePoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()    
+    
+    def actSetFilterPoints(self):
+        var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
+        ft_var_index = self.uds_variable_name_list.index(var_name)
+        
+        points = len (self.ui_img_widget_slave.img_picked_points_list)
+        if   points > 0:
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
+              
+            self.uds_variable_pt_list[ft_var_index].info['FilterPoints'] = picked_points
+            
+            #
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[ft_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['FilterPoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+                
+    def actSetLockInPoints(self):
+        var_name = self.ui_img_widget_slave.uds_variable.name[0:-4]
+        ft_var_index = self.uds_variable_name_list.index(var_name)
+        
+        points = len (self.ui_img_widget_slave.img_picked_points_list)
+        if   points > 0:
+            separator = ','
+            picked_points = separator.join(self.ui_img_widget_slave.img_picked_points_list)
+             
+            self.uds_variable_pt_list[ft_var_index].info['LockInPoints'] = picked_points
+            
+            #
+            if self.ui_img_widget_main.uds_variable.name == self.uds_variable_pt_list[ft_var_index].name:
+                self.ui_img_widget_main.uds_variable.info['LockInPoints'] = picked_points
+                self.ui_img_widget_main.updateDataInfo()
+                
+        #
+        self.clearWidgetsContents()
+    
+    # Simulate Menu
+    def actGenerateHeavisideCurve(self):
+        self.status_bar.showMessage("Params(size=512, edge_x=0, edge_y=0 )",5000)
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        p = ProcessParameters('actGenerateHeavisideCurve')
+        p.setParameters(params)
+        
+        #
+        uds_data_simulated = ImgSimu.ismGenerateHeaviside2D(p.p[0], p.p[1], p.p[2])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_simulated)
+
+        #
+        self.clearWidgetsContents()
+    
+    def actGenerateCircleCurve(self):
+        self.status_bar.showMessage("Params(size=512, radius=10, center_x=0, center_y=0)",5000)
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        p = ProcessParameters('actGenerateCircleCurve')
+        p.setParameters(params)
+           
+        #
+        uds_data_simulated = ImgSimu.ismGenerateCircle2D(p.p[0], p.p[1], p.p[2], p.p[3])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_simulated)
+
+        #
+        self.clearWidgetsContents()             
+        
+    def actGenerateGaussianCurve(self):
+        self.status_bar.showMessage("Params(size=512, sigma=10, center_x=0, center_y=0)",5000)
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        p = ProcessParameters('actGenerateGaussianCurve')
+        p.setParameters(params)
+            
+        #
+        uds_data_simulated = ImgSimu.ismGenerateGaussian2D(p.p[0], p.p[1], p.p[2], p.p[3])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_simulated)
+        
+        #
+        self.clearWidgetsContents()
+        
+    def actGenerateSinusoidalCurve(self):
+        self.status_bar.showMessage("Params(size, qx1, qy1, phase1, qx2 ...)",5000)
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        
+        if len(params) > 0:
+            param_numbers = len(params.split(','))
+            
+            size = int(params.split(',')[0])
+            qx = []
+            qy = []
+            phase = []
+            
+            for i in range( int((param_numbers-1)/3)):
+                qx.append( float(params.split(',')[3*i+1]) )
+                qy.append( float(params.split(',')[3*i+2]) )
+                phase.append( float(params.split(',')[3*i+3]) )
+                
+            uds_data_simulated = ImgSimu.ismGenerateSinusoidal2D(size, qx, qy, phase)
+             
+            # update var list
+            self.appendToLocalVarList(uds_data_simulated)
+        
+        #
+        self.clearWidgetsContents()
+    
+    def actGeneratePerfectLattice(self):            
+        self.status_bar.showMessage("Params(m=20, n=20, a1x=10, a1y=0, a2x=0, a2y=10, atomSize=None, atomCurve=Gaussian,  Ox=0, Oy=0, p1=1, p2=1)")
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        p = ProcessParameters('actGeneratePerfectLattice')
+        p.setParameters(params)
+         
+        #
+        uds_data_simulated = ImgSimu.ismGeneratePerfectLattice2D(p.p[0], p.p[1], p.p[2], p.p[3], p.p[4], p.p[5], 
+                                                                 p.p[6], p.p[7], p.p[8], p.p[9], p.p[10], p.p[11])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_simulated)
+        
+    def actGenerateLatticeWithLineDomainWall(self):
+        self.status_bar.showMessage("Params(m=20, n=20, a1x=10, a1y=0, a2x=0, a2y=10, atomSize=None, shiftDistance=0.25, atomCurve=Gaussian,  Ox=0, Oy=0)")
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        p = ProcessParameters('actGenerateLatticeWithLineDomainWall')
+        p.setParameters(params)
+        
+        #
+        uds_data_simulated = ImgSimu.ismGenerateLattice2DWithLineDomainWall(p.p[0], p.p[1], p.p[2], p.p[3], p.p[4], p.p[5], 
+                                                                            p.p[6], p.p[7], p.p[8], p.p[9], p.p[10])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_simulated)
+        
+    def actGenerateLatticeWithPeriodicDistortions(self):
+        msg = "Params(m=20, n=20, a1x=10, a1y=0, a2x=0, a2y=10, d1x=40, d1y=0, d2x=0, d2y=0, dpA1=0.25, dpA2=0,"
+        msg += "atomSize=None, atomCurve=Gaussian,  Ox=0, Oy=0, dPhi1=0.79, dPhi2=0.79)"
+        self.status_bar.showMessage(msg)
+        
+        # get param list
+        params = self.ui_img_widget_main.ui_le_img_proc_parameter_list.text()
+        p = ProcessParameters('actGenerateLatticeWithPeriodicDistortions')
+        p.setParameters(params)         
+                
+        #
+        uds_data_simulated = ImgSimu.ismGeneratelattice2DWithPeriodicDistortion(p.p[0], p.p[1], p.p[2], p.p[3], p.p[4], p.p[5], 
+                                                                                p.p[6], p.p[7], p.p[8], p.p[9], p.p[10], p.p[11],
+                                                                                p.p[12], p.p[13], p.p[14], p.p[15], p.p[16], p.p[17])
+        
+        # update var list
+        self.appendToLocalVarList(uds_data_simulated)
+        
+    # Widgets Menus
+    def actShowVarDockWidget(self):
+        self.ui_dockWideget_var.show()
+        
+    def actShowPlot1DDockWidget(self):
+        self.ui_dockWidget_plot1D.show()
+        
+    def actShowRTColormapMainWidget(self):
+        self.ui_img_widget_slave.ui_rt_cmp.setWidgetTitle('RT-CMP Main')
+        self.ui_img_widget_main.ui_rt_cmp.show()
+        self.ui_img_widget_main.ui_rt_cmp.raise_()
+        self.ui_img_widget_main.ui_rt_cmp.activateWindow()
+        
+    def actShowRTColormapAuxWidget(self):
+        self.ui_img_widget_slave.ui_rt_cmp.setWidgetTitle('RT-CMP Aux')
+        self.ui_img_widget_slave.ui_rt_cmp.show()  
+        self.ui_img_widget_slave.ui_rt_cmp.raise_()
+        self.ui_img_widget_slave.ui_rt_cmp.activateWindow()
+           
+    # Option Menu
+    def actPreference(self):
+        window_state = self.ui_preference.windowState()
+        if window_state & WindowMinimized:
+            self.ui_preference.setWindowState(window_state & WindowMinimized)
+        
+        self.ui_preference.show()
+        self.ui_preference.raise_()
+        self.ui_preference.activateWindow()
+        
+        

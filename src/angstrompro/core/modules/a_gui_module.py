@@ -64,6 +64,10 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # Merged with config "process_menus" (developer) and "user_process_menus" (user).
     default_process_menu: list[str] = []
 
+    # Config sections shown in Edit → Preferences for this module.
+    # None = show all (intended for MainWorkbench only).
+    config_sections: list[str] | None = ["gui", "algorithms"]
+
     def __init__(
         self,
         context: "AppContext",
@@ -76,6 +80,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self.resize(900, 640)
 
         self._build_file_menu()
+        self._build_edit_menu()
         self._build_view_menu()
         self._build_process_menu()
         self._build_workspace_dock()
@@ -436,6 +441,28 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         act_close = menu.addAction("Close Window")
         act_close.setShortcut("Ctrl+W")
         act_close.triggered.connect(self.hide)
+
+    # ------------------------------------------------------------------
+    # Edit menu
+    # ------------------------------------------------------------------
+
+    def _build_edit_menu(self) -> None:
+        menu = self.menuBar().addMenu("Edit")
+        act_prefs = menu.addAction("Preferences…")
+        act_prefs.setShortcut("Ctrl+,")
+        act_prefs.triggered.connect(self._on_preferences)
+
+    def _on_preferences(self) -> None:
+        from angstrompro.gui.widgets.config_editor_widget import ConfigEditorWidget
+        from angstrompro.utils.qt_compat import QtWidgets
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Preferences")
+        dlg.resize(700, 500)
+        layout = QtWidgets.QVBoxLayout(dlg)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(ConfigEditorWidget(self._context, dlg,
+                                            sections=self.config_sections))
+        dlg.exec()
 
     def _on_file_open(self) -> None:
         from angstrompro.io.angstrom_io import registered_formats

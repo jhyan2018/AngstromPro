@@ -33,7 +33,7 @@ def _fake_long_task(cancel_token=None, progress_callback=None):
 class ChildTestBench(AGuiModule):
     module_id            = "test_bench"
     display_name         = "Test Bench"
-    category             = "Test"
+    category             = "Basic"
     default_process_menu = ["spatial.crop2d"]
 
     def __init__(self, context: AppContext, parent=None) -> None:

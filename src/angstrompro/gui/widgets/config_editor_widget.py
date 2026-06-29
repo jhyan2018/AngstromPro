@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Created on Tue Jun 16 16:21:05 2026
 
@@ -39,9 +39,10 @@ _ROLE_DEFAULT   = _UserRole1      # stores the built-in default value (for highl
 
 
 class ConfigEditorWidget(QtWidgets.QWidget):
-    def __init__(self, context, parent=None):
+    def __init__(self, context, parent=None, sections=None):
         super().__init__(parent)
-        self._context = context
+        self._context  = context
+        self._sections = sections
         self._local_config: dict = {}   # working copy  not applied until Save
         self._build_ui()
         self._populate()
@@ -89,14 +90,18 @@ class ConfigEditorWidget(QtWidgets.QWidget):
     def _populate(self) -> None:
         self._tree.blockSignals(True)
         self._tree.clear()
-        self._local_config = self._context.config.get_all()
+        full_config = self._context.config.get_all()
 
         from angstrompro.core.configs.defaults import DEFAULTS
-        self._build_subtree(
-            self._tree.invisibleRootItem(),
-            self._local_config,
-            DEFAULTS,
-        )
+        if self._sections is not None:
+            config   = {k: v for k, v in full_config.items() if k in self._sections}
+            defaults = {k: v for k, v in DEFAULTS.items()     if k in self._sections}
+        else:
+            config   = full_config
+            defaults = DEFAULTS
+
+        self._local_config = config
+        self._build_subtree(self._tree.invisibleRootItem(), config, defaults)
         self._tree.expandAll()
         self._tree.blockSignals(False)
         self._update_status()
