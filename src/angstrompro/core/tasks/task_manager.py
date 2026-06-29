@@ -8,6 +8,7 @@ import logging
 
 from angstrompro.utils.qt_compat import QtCore
 
+from angstrompro.utils.qt_compat import Signal
 from .task_dispatcher import TaskDispatcher
 from .task_handle import TaskHandle
 from .task_request import TaskRequest
@@ -16,6 +17,10 @@ log = logging.getLogger(__name__)
 
 
 class TaskManager(QtCore.QObject):
+
+    # Emitted whenever a new task is submitted so observers (e.g. TaskDashboard)
+    # can register themselves without being tightly coupled to the submitter.
+    task_submitted = Signal(object, object)   # (TaskRequest, TaskHandle)
     def __init__(
         self,
         compute_threads: int = 0,   # 0 = cpu_count
@@ -40,6 +45,7 @@ class TaskManager(QtCore.QObject):
         if request.group_id:
             self._groups.setdefault(request.group_id, set()).add(request.task_id)
         self._run_attempt(request, handle, retries_left=request.retries, first=True)
+        self.task_submitted.emit(request, handle)
         log.debug("Submitted: %s  type=%s  source=%s  backend=%s",
                   request.task_id[:8], request.task_type, request.source_id, request.backend)
         return handle

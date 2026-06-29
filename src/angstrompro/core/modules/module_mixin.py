@@ -25,6 +25,7 @@ from angstrompro.core.processes.process_runner import ProcessRunner
 if TYPE_CHECKING:
     from angstrompro.app.app_context import AppContext
     from angstrompro.core.workspaces.workspace import Workspace
+    from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 
 
 class ModuleMixin:
@@ -52,4 +53,7 @@ class ModuleMixin:
             label    = self.display_name or self.module_id,
         )
         self.process_runner: ProcessRunner = ProcessRunner(context.tasks, context.processes)
+        # Staged inputs for the next process run. Each module maintains this list
+        # by its own strategy. Processes consume the first N items in schema order.
+        self.process_inputs: list["WorkspaceItem"] = []
         # Future resources (e.g. plugin bus, settings scope) go here.

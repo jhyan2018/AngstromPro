@@ -7,4 +7,6 @@ DEFAULTS = {
     "window_y": 100,
     "toolbar_visible": True,
     "statusbar_visible": True,
+    "workbench_layout":   "",  # base64 QMainWindow dock state; empty = use coded default
+    "workbench_geometry": "",  # base64 QMainWindow geometry; empty = use coded default
 }

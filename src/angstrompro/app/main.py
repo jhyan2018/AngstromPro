@@ -48,7 +48,8 @@ def main(external_namespace=None, start_event_loop=True):
     # 6
     context = AppContext(config, theme, icons)
     
-    # 7 — import triggers @register_module on MainWorkbench and other built-ins
+    # 7 — register all built-in modules (triggers @register_module decorators)
+    context.module_manager.load_builtin()
     import angstrompro.gui.workbench.main_workbench  # noqa: F401
     window = context.module_manager.create("main_workbench", context)
     window.show()

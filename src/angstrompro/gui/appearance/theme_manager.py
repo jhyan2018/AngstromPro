@@ -83,3 +83,40 @@ class ThemeManager:
         if size:
             font.setPointSize(int(size))
         app.setFont(font)
+
+        # Append custom component rules on top of the active theme stylesheet
+        extra_qss = """
+QMenuBar::item {
+    padding: 4px 14px;
+    spacing: 6px;
+}
+QMenuBar {
+    padding: 2px 4px;
+}
+
+QPushButton#card_action_btn {
+    font-size: 13pt;
+    min-height: 38px;
+    padding: 0 12px;
+}
+QLabel#card_instance_label {
+    font-size: 14pt;
+    font-weight: bold;
+}
+QLabel#card_info_label {
+    font-size: 11pt;
+}
+QLabel#card_status_label {
+    font-size: 11pt;
+    font-weight: bold;
+}
+QLabel#card_category_header {
+    font-size: 10pt;
+    font-weight: bold;
+}
+QLabel#panel_summary_label {
+    font-size: 10pt;
+    color: grey;
+}
+"""
+        app.setStyleSheet(app.styleSheet() + extra_qss)

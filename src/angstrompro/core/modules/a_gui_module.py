@@ -76,8 +76,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self.resize(900, 640)
 
         self._build_file_menu()
-        self._build_process_menu()
         self._build_view_menu()
+        self._build_process_menu()
         self._build_workspace_dock()
         self._build_inspector_dock()
         self._finalise_view_menu()
@@ -163,6 +163,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         act_browser = self._process_menu.addAction("Process Browser…")
         act_browser.setShortcut("Ctrl+B")
         act_browser.triggered.connect(self._on_open_process_browser)
+        act_config = self._process_menu.addAction("Configure Process Menu…")
+        act_config.triggered.connect(self._on_configure_process_menu)
         self._process_menu.addSeparator()
         self._rebuild_process_submenu()
 
@@ -242,13 +244,74 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         return True, ""
 
     def _on_process_menu_triggered(self, process_name: str) -> None:
-        """Called when the user clicks a process in the Process menu. Override to add param dialog."""
-        log.debug("Process triggered: %s on %s", process_name, self.instance_id)
+        from angstrompro.gui.dialogs.process_param_dialog import ProcessParamDialog
+        entry = self._context.processes.get(process_name)
+
+        # Validate process_inputs before opening the param dialog
+        ok, msg = self._validate_process_inputs(entry)
+        if not ok:
+            QtWidgets.QMessageBox.warning(self, "Input data not ready", msg)
+            return
+
+        dlg = ProcessParamDialog(entry, self._context, parent=self)
+        if dlg.exec():
+            params      = dlg.params()
+            n           = len(entry.schema.inputs)
+            input_items = self.process_inputs[:n]   # take only what the process needs
+            self.submit_process(process_name, input_items, params)
+
+    def _validate_process_inputs(self, entry) -> tuple[bool, str]:
+        """
+        Check that process_inputs satisfies entry.schema.inputs.
+
+        Rules:
+          - len(process_inputs) >= len(schema.inputs)
+          - For each (spec, item) pair: type_id and ndim must match (None/empty = wildcard)
+        """
+        required = entry.schema.inputs
+        if not required:
+            return True, ""   # 0-input process — always valid
+
+        staged = self.process_inputs
+        if len(staged) < len(required):
+            return (
+                False,
+                f"'{entry.label}' needs {len(required)} input(s), "
+                f"but only {len(staged)} item(s) are staged.\n\n"
+                f"Load or select the required data first.",
+            )
+
+        for i, (spec, item) in enumerate(zip(required, staged)):
+            # type_id check
+            if spec.type_id and item.type_id != spec.type_id:
+                return (
+                    False,
+                    f"Input slot {i+1} ('{spec.name}') expects type '{spec.type_id}', "
+                    f"but staged item '{item.name}' has type '{item.type_id}'.",
+                )
+            # ndim check (only for UDS payloads with a .data attribute)
+            if spec.ndim is not None:
+                payload = item.payload
+                actual_ndim = getattr(getattr(payload, "data", None), "ndim", None)
+                if actual_ndim is not None and actual_ndim != spec.ndim:
+                    return (
+                        False,
+                        f"Input slot {i+1} ('{spec.name}') expects {spec.ndim}D data, "
+                        f"but staged item '{item.name}' has {actual_ndim}D data.",
+                    )
+
+        return True, ""
 
     def _on_open_process_browser(self) -> None:
         from angstrompro.gui.dialogs.process_browser_dialog import ProcessBrowserDialog
         dlg = ProcessBrowserDialog(self._context, parent=self)
         dlg.exec()
+
+    def _on_configure_process_menu(self) -> None:
+        from angstrompro.gui.dialogs.process_menu_config_dialog import ProcessMenuConfigDialog
+        dlg = ProcessMenuConfigDialog(self._context, initial_module_id=self.module_id, parent=self)
+        if dlg.exec():
+            self._context.signals.processes_updated.emit()
 
     def _build_view_menu(self) -> None:
         self._view_menu = self.menuBar().addMenu("View")
@@ -506,6 +569,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             Optional extra callback: on_error(task_id, error_text).
             The default error dialog always fires regardless.
         """
+        entry  = self._context.processes.get(process_name)
+        label  = entry.label
+
         handle = self.process_runner.run(
             process_name = process_name,
             input_items  = input_items,
@@ -514,11 +580,45 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             group_id     = group_id,
         )
         handle.error.connect(self._on_process_error)
-        if on_result is not None:
-            handle.result.connect(on_result)
+        handle.result.connect(on_result if on_result is not None
+                              else self._on_process_result_default)
         if on_error is not None:
             handle.error.connect(on_error)
+
+        # Status bar feedback wired to this handle's lifecycle
+        sb = self.statusBar()
+        sb.showMessage(f"{label}: submitted…")
+        handle.started.connect(
+            lambda _tid, l=label: sb.showMessage(f"{l}: running…"))
+        handle.progress.connect(
+            lambda _tid, cur, tot, l=label:
+                sb.showMessage(f"{l}: {cur}/{tot}"))
+        handle.result.connect(
+            lambda _tid, _res, l=label: sb.showMessage(f"{l}: done.", 5000))
+        handle.error.connect(
+            lambda _tid, _err, l=label: sb.showMessage(f"{l}: failed.", 8000))
+        handle.cancelled.connect(
+            lambda _tid, l=label: sb.showMessage(f"{l}: cancelled.", 5000))
+
         return handle
+
+    def _on_process_result_default(self, _task_id: str, result: Any) -> None:
+        """
+        Default result handler: add the returned WorkspaceData to this module's workspace.
+
+        Subclasses that need custom behaviour (e.g. display the result immediately)
+        should pass on_result= to submit_process() instead of overriding this.
+        """
+        from angstrompro.core.data.base import WorkspaceData
+        if not isinstance(result, WorkspaceData):
+            log.warning(
+                "Process returned %s which is not WorkspaceData — not added to workspace",
+                type(result).__name__,
+            )
+            return
+        raw_name = getattr(result, "name", None) or "result"
+        name     = self.workspace.suggest_name(raw_name)
+        self.workspace.add_item(name=name, payload=result)
 
     def _on_process_error(self, task_id: str, error_text: str) -> None:
         QtWidgets.QMessageBox.critical(self, "Process Error", error_text)

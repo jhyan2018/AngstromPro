@@ -18,6 +18,7 @@ Registered processes
 from __future__ import annotations
 
 import copy
+import time
 
 import numpy as np
 
@@ -134,6 +135,10 @@ def crop2d(inputs: dict, params: dict) -> UdsDataStru:
         appended automatically by ProcessRegistry after this function returns.
     """
     src: UdsDataStru = inputs["data"]
+
+    # Artificial delay so the Task Dashboard can be observed during development.
+    # Remove once real STM data processing provides natural runtime.
+    time.sleep(30)
 
     if src.data.ndim != 2:
         raise ValueError(
