@@ -14,7 +14,7 @@ Third-party Modules
 """
 import numpy as np
 from angstrompro.utils.qt_compat import (
-    QtCore, QtWidgets, QueuedConnection, Vertical,
+    QtGui, QtCore, QtWidgets, QueuedConnection, Vertical,
     event_X, event_Y, LeftButton, RightButton, Signal,
 )
 
@@ -37,10 +37,23 @@ class QtMatplotCanvas(FigureCanvas):
     wheelEventSignal        = Signal(QtCore.QEvent)
     
     def __init__(self, *args, **kwargs):
-        super(QtMatplotCanvas, self).__init__( *args, **kwargs)
-        
+        super(QtMatplotCanvas, self).__init__(*args, **kwargs)
         self.setMouseTracking(True)
-        
+        self.setMinimumWidth(500)
+
+    def resizeEvent(self, event):
+        w = event.size().width()
+        # Force the figure to square dimensions before matplotlib draws
+        dpi = self.figure.dpi
+        self.figure.set_size_inches(w / dpi, w / dpi, forward=False)
+        # Feed a square QResizeEvent to matplotlib's own handler
+        from angstrompro.utils.qt_compat import QtCore
+        square_event = QtGui.QResizeEvent(
+            QtCore.QSize(w, w), event.oldSize()
+        )
+        super().resizeEvent(square_event)
+        self.setFixedHeight(w)
+
     def getWidgetWidth(self):
         return self.frameGeometry().width()
     
@@ -88,16 +101,17 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         #device_dpi = ctypes.windll.gdi32.GetDeviceCaps(hdc, 88)
         #self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = device_dpi))
         self.static_canvas = QtMatplotCanvas(Figure(figsize=(10, 10), dpi = 100))
-        self.static_canvas.figure.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
-        self.static_canvas.figure.patch.set_visible( False )
+        self.static_canvas.figure.patch.set_visible(False)
 
         self.static_canvas.mouseMoveEventSignal.connect(self.canvasMouseMoveEvent)
         self.static_canvas.mousePressEventSignal.connect(self.canvasMousePressEvent)
         self.static_canvas.mouseReleaseEventSignal.connect(self.canvasMouseReleaseEvent)
-        
+
         self.static_canvas.wheelEventSignal.connect(self.canvasWheelEvent)
         self.static_ax = self.static_canvas.figure.add_subplot(1,1,1)
         self.static_image = self.static_ax.imshow(np.ones((200,200)),interpolation = 'nearest',aspect = 'auto')
+        self.static_canvas.figure.subplots_adjust(left=0, bottom=0, right=1, top=1)
+        self.static_ax.set_position([0, 0, 1, 1])
         
         self.static_canvas.setEnabled(False)  
         
@@ -130,12 +144,14 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
         self.ui_lb_img_picked_points = QtWidgets.QLabel("Picked Points: ")
         self.ui_cb_img_pk_pts_palette_list = QtWidgets.QComboBox()
-        
+
+        self.ui_cb_img_pk_pts_mode = QtWidgets.QComboBox()
+        self.ui_cb_img_pk_pts_mode.addItems(["Points", "Lines", "Region"])
+        self.ui_cb_img_pk_pts_mode.currentIndexChanged.connect(self.updateImage)
+
         self.ui_lw_img_picked_points = QtWidgets.QListWidget()
         self.ui_pb_img_picked_points_remove = QtWidgets.QPushButton("Remove Point")
         self.ui_pb_img_picked_points_remove.clicked.connect(self.removePickedPoint)
-        self.ui_lb_img_proc_parameter = QtWidgets.QLabel("Params (p1,p2,...): ")
-        self.ui_le_img_proc_parameter_list = QtWidgets.QLineEdit()
         self.ui_lb_img_to_data_coord = QtWidgets.QLabel("Data coords（column, row）: ")
         self.ui_le_img_to_data_coordinate = QtWidgets.QLineEdit()
         self.ui_lb_uds_data_info =  QtWidgets.QLabel("Info: ")
@@ -163,7 +179,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_palette_list)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_rt_cmp)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lb_img_picked_points)
-        self.ui_verticalLayout_Right_Top.addWidget(self.ui_cb_img_pk_pts_palette_list)
+        pk_mode_row = QtWidgets.QHBoxLayout()
+        pk_mode_row.addWidget(self.ui_cb_img_pk_pts_palette_list)
+        pk_mode_row.addWidget(self.ui_cb_img_pk_pts_mode)
+        self.ui_verticalLayout_Right_Top.addLayout(pk_mode_row)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_lw_img_picked_points)
         self.ui_verticalLayout_Right_Top.addWidget(self.ui_pb_img_picked_points_remove)
         
@@ -204,8 +223,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_verticalLayout.setContentsMargins(0,0,0,0) # left, top, right, bottom
         self.ui_verticalLayout.addWidget(self.ui_lb_widget_name)
         self.ui_verticalLayout.addLayout(self.ui_horizontalLayout_Top)
-        self.ui_verticalLayout.addWidget(self.ui_lb_img_proc_parameter)
-        self.ui_verticalLayout.addWidget(self.ui_le_img_proc_parameter_list)
         self.ui_verticalLayout.addLayout(self.ui_horizontalLayout_Bottom)
         
         self.ui_gridlayout = QtWidgets.QGridLayout()
@@ -573,10 +590,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         
         self.sendMsgSignalEmit(self.msg_type.index('CANVAS_WHEALED'))
         
-    """ Regular Functions """
-    def setParamlistEnabled(self, enabled):
-        self.ui_le_img_proc_parameter_list.setEnabled(enabled)
-        
+    """ Regular Functions """        
     def setCanvasWidgetSize(self, w, h):
         self.static_canvas.setFixedWidth(w)
         self.static_canvas.setFixedHeight(h)
@@ -611,9 +625,9 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.sync_rt_points = sync_rt_point
             
     def getLayerValue(self):
-        if 'LayerValue' in self.uds_variable.info.keys():
-            layer_value_txt = self.uds_variable.info['LayerValue']
-            self.uds_var_layer_value = layer_value_txt.split(',')
+        if 'LayerValue' in self.uds_variable.info:
+            v = self.uds_variable.info['LayerValue']
+            self.uds_var_layer_value = v if isinstance(v, list) else str(v).split(',')
 
     def setUdsData(self, usd_variable):
         self.selected_var_name = usd_variable.name
@@ -677,9 +691,8 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
     def updateDataInfo(self):
         self.ui_lw_uds_data_info.clear()
         info_list = []
-        for i in self.uds_variable.info:
-            v = self.uds_variable.info[i]
-            info_list.append(i + '=' + v)
+        for k, v in self.uds_variable.info.items():
+            info_list.append(f"{k} = {v}")
         self.ui_lw_uds_data_info.addItems(info_list)
     
     def set_palette_list(self):
@@ -730,6 +743,8 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.bias_text_shown = bias_text_shown
     
     def updateImage(self):
+        if not isinstance(self.uds_variable_dataCopy, np.ndarray):
+            return
         scale_min = self.ui_scale_widget.lowerValue()
         scale_max = self.ui_scale_widget.upperValue()
         
@@ -739,6 +754,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         mk_color_nm = self.img_marker_cv_list[mk_color_idx]
         
         self.static_ax.clear()
+        self.static_ax.set_position([0, 0, 1, 1])
         
         # plot data
         self.static_ax.imshow(self.uds_variable_dataCopy[self.img_current_layer, :, :], vmin = scale_min, vmax = scale_max, 
@@ -765,15 +781,39 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             mk_y = self.selected_data_pt_y
             self.static_ax.scatter(mk_x, mk_y, s=100, linewidths=3, facecolors='none', edgecolors='r')
         
-        # plot markers        
+        # plot markers
         pt_len = len(self.img_picked_points_list)
         if pt_len > 0:
-            mk_x = []
-            mk_y = []
-            for i in range(pt_len):
-                mk_x.append(int(self.img_picked_points_list[i].split(',')[0]))
-                mk_y.append(int(self.img_picked_points_list[i].split(',')[1]))
-            self.static_ax.scatter(mk_x, mk_y, s=200, c=mk_color_nm, marker='x')
+            mk_x = [int(p.split(',')[0]) for p in self.img_picked_points_list]
+            mk_y = [int(p.split(',')[1]) for p in self.img_picked_points_list]
+            pk_mode = self.ui_cb_img_pk_pts_mode.currentText()
+
+            if pk_mode == "Points":
+                self.static_ax.scatter(mk_x, mk_y, s=200, c=mk_color_nm, marker='x')
+
+            elif pk_mode == "Lines":
+                # connect points with lines; scatter dots at each vertex
+                self.static_ax.plot(mk_x, mk_y, '-', color=mk_color_nm, linewidth=1.5)
+                self.static_ax.scatter(mk_x, mk_y, s=80, c=mk_color_nm, marker='o', zorder=3)
+
+            elif pk_mode == "Region":
+                # rectangle from first two points; ignore the rest
+                if pt_len >= 2:
+                    import matplotlib.patches as mpatches
+                    x0, y0 = mk_x[0], mk_y[0]
+                    x1, y1 = mk_x[1], mk_y[1]
+                    rect = mpatches.Rectangle(
+                        (min(x0, x1), min(y0, y1)),
+                        abs(x1 - x0), abs(y1 - y0),
+                        linewidth=1.5, edgecolor=mk_color_nm,
+                        facecolor='none', linestyle='--',
+                    )
+                    self.static_ax.add_patch(rect)
+                    self.static_ax.scatter([x0, x1], [y0, y1],
+                                           s=80, c=mk_color_nm, marker='o', zorder=3)
+                else:
+                    # only one point picked yet — show it as a cross placeholder
+                    self.static_ax.scatter(mk_x, mk_y, s=200, c=mk_color_nm, marker='x')
 
         self.static_ax.figure.canvas.draw()
         #self.static_canvas.flush_events()

@@ -118,5 +118,35 @@ QLabel#panel_summary_label {
     font-size: 10pt;
     color: grey;
 }
+
+/* ── Preferences panel ─────────────────────────────────────── */
+QLabel#pref_module_label {
+    font-size: 9pt;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+}
+QPushButton#pref_nav_btn {
+    font-size: 11pt;
+    text-align: left;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 1px 6px;
+}
+QLabel#pref_section_title {
+    font-size: 13pt;
+    font-weight: 500;
+}
+QLabel#pref_section_header_label {
+    font-size: 9pt;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+}
+QLabel#pref_row_label {
+    font-size: 11pt;
+}
+QLabel#pref_row_desc {
+    font-size: 9pt;
+}
 """
         app.setStyleSheet(app.styleSheet() + extra_qss)

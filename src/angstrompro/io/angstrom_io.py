@@ -138,9 +138,29 @@ def load(path: Path) -> WorkspaceData:
         from angstrompro.io import uds_io
         return uds_io.load_legacy(path)
 
+    ext = path.suffix.lower()
+    _EXT_DISPATCH = {
+        ".npy": "npy",
+        ".txt": "txt",
+        ".mat": "mat",
+        ".sxm": "nanonis_sxm",
+        ".3ds": "nanonis_3ds",
+        ".dat": "nanonis_dat",
+        ".1fl": "lf_1fl",
+        ".tfr": "lf_tfr",
+    }
+    if ext in _EXT_DISPATCH:
+        from angstrompro.io import formats  # noqa: F401  — registers readers
+        type_id = _EXT_DISPATCH[ext]
+        if type_id not in _READERS:
+            raise ValueError(
+                f"Reader for {ext!r} (type_id={type_id!r}) not registered."
+            )
+        return _READERS[type_id](path)
+
     raise ValueError(
-        f"Cannot load {path.name}: not an HDF5 file and not a recognised "
-        f"legacy format (expected .uds)."
+        f"Cannot load {path.name}: not an HDF5 file and extension {ext!r} "
+        f"is not a recognised format."
     )
 
 

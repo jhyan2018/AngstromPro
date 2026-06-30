@@ -20,6 +20,7 @@ class Workspace(QtCore.QObject):
     item_added   = Signal(str)         # item_name
     item_removed = Signal(str)         # item_name
     item_renamed = Signal(str, str)    # old_name, new_name
+    item_changed = Signal(str)         # item_name — emitted when item data/annotations mutate
 
     def __init__(
         self,
@@ -115,4 +116,9 @@ class Workspace(QtCore.QObject):
 
     def by_type(self, type_id: str) -> list[WorkspaceItem]:
         return [i for i in self._items.values() if i.type_id == type_id]
+
+    def notify_changed(self, name: str) -> None:
+        """Emit item_changed signal for the given item name (e.g. after annotation mutation)."""
+        if name in self._items:
+            self.item_changed.emit(name)
 

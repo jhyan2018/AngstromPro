@@ -1,0 +1,176 @@
+# -*- coding: utf-8 -*-
+"""
+Reader for Nanonis .3ds grid spectroscopy files.
+
+Header is ASCII key=value pairs terminated by ':HEADER_END:\n'.
+Data is big-endian float32.
+
+The loaded data has shape (n_points, y_pixels, x_pixels) using only the first
+spectroscopy channel (dI/dV or whichever appears first in 'channels').
+All channels concatenated are available via info['channels'].
+"""
+from pathlib import Path
+
+import numpy as np
+
+from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.io.angstrom_io import register_io
+
+
+def parse_header(path: Path) -> tuple[dict, int]:
+    """Parse the ASCII header of a .3ds file.  Returns (header_dict, data_offset)."""
+    header: dict = {}
+    with open(path, "rb") as f:
+        while True:
+            raw = f.readline()
+            line = raw.decode("latin-1").strip().replace('"', "")
+            if line == ":HEADER_END:":
+                data_offset = f.tell()
+                break
+            if "=" in line:
+                k, v = line.split("=", 1)
+                header[k.lower().strip()] = v.strip()
+    return header, data_offset
+
+
+# Keep the private alias for any internal callers
+_parse_header = parse_header
+
+
+def load(path: Path, channel_index: int = 0,
+         channel_indices: list[int] | None = None) -> UdsDataStru | list[UdsDataStru]:
+    path = Path(path)
+    try:
+        header, data_offset = parse_header(path)
+    except Exception as exc:
+        raise ValueError(f"Cannot parse header of {path.name}: {exc}") from exc
+
+    try:
+        grid_dim = list(map(int, header["grid dim"].split("x")))
+        x_pixels, y_pixels = grid_dim[0], grid_dim[1]
+
+        par_num = int(header["# parameters (4 byte)"])
+        n_points = int(header["points"])
+        channels = [c.strip() for c in header["channels"].split(";")]
+        n_channels = len(channels)
+
+        grid_settings = dict(zip(
+            ("cx", "cy", "w", "h", "angle_deg"),
+            map(float, header["grid settings"].split(";")),
+        ))
+        x_range = grid_settings["w"]
+        y_range = grid_settings["h"]
+
+        # Sweep axis from fixed parameters stored in the data block
+        fixed_params = [p.strip() for p in header.get("fixed parameters", "").split(";")]
+        sweep_signal = header.get("sweep signal", "Bias (V)").strip()
+
+        # Load raw data
+        stride = par_num + n_channels * n_points
+        with open(path, "rb") as f:
+            f.seek(data_offset)
+            raw = np.fromfile(f, dtype=">f4")
+
+        total_pixels = x_pixels * y_pixels
+        # Pad or truncate to exact expected size
+        expected = total_pixels * stride
+        if raw.size < expected:
+            raw = np.pad(raw, (0, expected - raw.size))
+        else:
+            raw = raw[:expected]
+
+        data2D = raw.astype(np.float32).reshape(-1, stride)
+
+        # Build 3D volume: (stride, y_pixels, x_pixels)
+        if y_pixels == 1:
+            data3D = data2D.T[:, :, np.newaxis]
+            data3D = np.broadcast_to(
+                data3D, (stride, x_pixels, y_pixels)
+            ).copy()
+        else:
+            rows_per_line = data2D.shape[0] // x_pixels
+            last = data2D.shape[0] % x_pixels
+            data3D = np.zeros((stride, x_pixels, y_pixels), dtype=np.float32)
+            for i in range(stride):
+                for j in range(rows_per_line):
+                    data3D[i, j, :] = data2D[j * x_pixels:(j + 1) * x_pixels, i]
+                if last:
+                    data3D[i, j + 1, :last] = data2D[(j + 1) * x_pixels:, i]
+
+        data3D = np.flip(data3D, axis=1)
+
+        # Extract sweep-start and sweep-end from fixed parameter layers
+        sweep_start = 0.0
+        sweep_end = 1.0
+        if "sweep start" in fixed_params:
+            idx = fixed_params.index("sweep start")
+            sweep_start = float(data3D[idx, -1, -1])
+        if "sweep end" in fixed_params:
+            idx = fixed_params.index("sweep end")
+            sweep_end = float(data3D[idx, -1, -1])
+
+        bias_vals = np.linspace(sweep_start, sweep_end, n_points)
+        ax_bias = Axis(values=bias_vals, label="Bias (V)", units="V")
+        ax_y = Axis(values=np.linspace(0.0, y_range, y_pixels), label="Y (m)", units="m")
+        ax_x = Axis(values=np.linspace(0.0, x_range, x_pixels), label="X (m)", units="m")
+
+        base_info: dict = {
+            "source_format":  "nanonis_3ds",
+            "channels":       channels,
+            "n_points":       n_points,
+            "x_pixels":       x_pixels,
+            "y_pixels":       y_pixels,
+            "sweep_signal":   sweep_signal,
+            "sweep_start_v":  sweep_start,
+            "sweep_end_v":    sweep_end,
+            "grid_settings":  grid_settings,
+        }
+        if "bias>bias (v)" in header:
+            try:
+                base_info["bias_v"] = float(header["bias>bias (v)"])
+            except ValueError:
+                pass
+        if "current>current (a)" in header:
+            try:
+                base_info["current_a"] = float(header["current>current (a)"])
+            except ValueError:
+                pass
+
+        def _extract(ch_idx: int) -> UdsDataStru:
+            ci = max(0, min(ch_idx, n_channels - 1))
+            start = par_num + ci * n_points
+            ch_data = data3D[start:start + n_points, :, :]
+            info = {**base_info, "channel_loaded": channels[ci], "channel_index": ci}
+            return UdsDataStru(
+                name=f"{path.stem}_{channels[ci]}",
+                data=ch_data.astype(np.float64),
+                axes=[ax_bias, ax_x, ax_y],
+                info=info,
+                proc_history=[],
+                landmarks={},
+            )
+
+    except Exception as exc:
+        raise ValueError(f"Error reading {path.name}: {exc}") from exc
+
+    # Multi-channel load
+    if channel_indices is not None:
+        results = [_extract(i) for i in channel_indices]
+        # Single item: unwrap for convenience; caller can also check isinstance
+        return results[0] if len(results) == 1 else results
+
+    return _extract(channel_index)
+
+
+def _no_write(path, data):
+    raise NotImplementedError("Writing .3ds is not supported")
+
+
+register_io(
+    type_id="nanonis_3ds",
+    reader=load,
+    writer=_no_write,
+    extension=".3ds",
+    display_name="Nanonis Grid Spectroscopy (.3ds)",
+    description="Nanonis 3D spectroscopy grid; loads first channel as (n_points, y, x).",
+)

@@ -115,7 +115,7 @@ def _axis_slice(axis: Axis, lo: float, hi: float, inclusive: bool) -> slice:
     schema      = _SCHEMA,
     description = "Crop a 2D map to an (x_min, x_max) × (y_min, y_max) window.",
 )
-def crop2d(inputs: dict, params: dict) -> UdsDataStru:
+def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     """
     Crop a 2D UdsDataStru to a rectangular region in physical coordinates.
 

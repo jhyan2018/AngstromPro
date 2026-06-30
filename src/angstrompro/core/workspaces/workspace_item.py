@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from angstrompro.core.data.base import WorkspaceData
+from angstrompro.core.data.annotation_data import AnnotationData
 
 
 @dataclass
@@ -24,12 +25,14 @@ class WorkspaceItem:
     payload     — the runtime data object (UdsDataStru, DataScene, or any future type)
     source_path — file this item was loaded from, if any
     item_id     — stable UUID, survives rename
+    annotations — dict mapping role name to annotation data (e.g. "bragg_peaks", "crop_region")
     """
     name:        str
     payload:     WorkspaceData
     item_id:     str         = field(default_factory=lambda: f"item_{uuid.uuid4().hex[:12]}")
     source_path: Path | None = None
     alias:       str | None  = None
+    annotations: dict[str, AnnotationData] = field(default_factory=dict)
 
     @property
     def display_name(self) -> str:

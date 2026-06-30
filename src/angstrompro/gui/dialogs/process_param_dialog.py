@@ -38,13 +38,15 @@ class ProcessParamDialog(QtWidgets.QDialog):
 
     def __init__(
         self,
-        entry:   "ProcessEntry",
-        context: "AppContext",
-        parent:  QtWidgets.QWidget | None = None,
+        entry:        "ProcessEntry",
+        context:      "AppContext",
+        parent:       QtWidgets.QWidget | None = None,
+        input_items:  list | None = None,
     ) -> None:
         super().__init__(parent)
-        self._entry   = entry
-        self._context = context
+        self._entry        = entry
+        self._context      = context
+        self._input_items  = input_items or []
         self._widgets: dict[str, QtWidgets.QWidget] = {}
 
         self.setWindowTitle(entry.label)
@@ -67,6 +69,58 @@ class ProcessParamDialog(QtWidgets.QDialog):
             lbl.setWordWrap(True)
             lbl.setStyleSheet("color: grey; font-size: 10px;")
             root.addWidget(lbl)
+            root.addWidget(_hline())
+
+        # annotations section
+        ann_specs = getattr(self._entry.schema, 'annotations', [])
+        if ann_specs:
+            root.addWidget(QtWidgets.QLabel("<b>Annotations</b>"))
+            ann_form_widget = QtWidgets.QWidget()
+            ann_form = QtWidgets.QFormLayout(ann_form_widget)
+            ann_form.setContentsMargins(0, 0, 0, 0)
+            ann_form.setHorizontalSpacing(16)
+            ann_form.setVerticalSpacing(4)
+
+            self._ann_all_ok = True
+            primary_item = self._input_items[0] if self._input_items else None
+            for spec in ann_specs:
+                ann = (primary_item.annotations.get(spec.role)
+                       if primary_item is not None else None)
+                if ann is not None:
+                    dot = QtWidgets.QLabel("●")
+                    dot.setStyleSheet("color: green; font-size: 14px;")
+                    from angstrompro.core.data.annotation_data import (
+                        PointSetData, RegionData, LineData)
+                    if isinstance(ann, PointSetData):
+                        summary = f"{len(ann.coords)} points"
+                    elif isinstance(ann, RegionData):
+                        summary = (f"r[{ann.row_min}:{ann.row_max}] "
+                                   f"c[{ann.col_min}:{ann.col_max}]")
+                    elif isinstance(ann, LineData):
+                        summary = f"{ann.p1} → {ann.p2}"
+                    else:
+                        summary = "present"
+                    row_widget = QtWidgets.QWidget()
+                    row_lay = QtWidgets.QHBoxLayout(row_widget)
+                    row_lay.setContentsMargins(0, 0, 0, 0)
+                    row_lay.addWidget(dot)
+                    row_lay.addWidget(QtWidgets.QLabel(summary))
+                    row_lay.addStretch()
+                    ann_form.addRow(spec.role + ":", row_widget)
+                else:
+                    dot = QtWidgets.QLabel("●")
+                    dot.setStyleSheet("color: red; font-size: 14px;")
+                    row_widget = QtWidgets.QWidget()
+                    row_lay = QtWidgets.QHBoxLayout(row_widget)
+                    row_lay.setContentsMargins(0, 0, 0, 0)
+                    row_lay.addWidget(dot)
+                    row_lay.addWidget(QtWidgets.QLabel("missing"))
+                    row_lay.addStretch()
+                    ann_form.addRow(spec.role + ":", row_widget)
+                    if spec.required:
+                        self._ann_all_ok = False
+
+            root.addWidget(ann_form_widget)
             root.addWidget(_hline())
 
         # parameter form
@@ -116,6 +170,15 @@ class ProcessParamDialog(QtWidgets.QDialog):
         btn_box.rejected.connect(self.reject)
         btn_row.addWidget(btn_box)
         root.addLayout(btn_row)
+
+        # Disable Run if any required annotation is missing
+        ann_specs = getattr(self._entry.schema, 'annotations', [])
+        if ann_specs and not getattr(self, '_ann_all_ok', True):
+            self._btn_run.setEnabled(False)
+            self._btn_run.setToolTip(
+                "One or more required annotations are missing. "
+                "Set them in the Image Stack Viewer Annotate menu first."
+            )
 
     # ------------------------------------------------------------------
     # Value loading

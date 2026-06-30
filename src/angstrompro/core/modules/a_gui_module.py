@@ -64,9 +64,32 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # Merged with config "process_menus" (developer) and "user_process_menus" (user).
     default_process_menu: list[str] = []
 
+    # Simulation names shown in the Simulate menu (kind="simulation" entries only).
+    default_simulate_menu: list[str] = []
+
     # Config sections shown in Edit → Preferences for this module.
     # None = show all (intended for MainWorkbench only).
     config_sections: list[str] | None = ["gui", "algorithms"]
+
+    # Short badge labels shown next to staged items in the workspace panel.
+    # Index matches process_inputs order.  e.g. ["M", "A"] for ImageStackViewer.
+    staged_labels: list[str] = []
+
+    # ── process_inputs property ──────────────────────────────────────────
+    # Wraps the plain list from ModuleMixin so the workspace panel refreshes
+    # automatically whenever staged items change.
+
+    @property
+    def process_inputs(self) -> list:
+        return self._process_inputs
+
+    @process_inputs.setter
+    def process_inputs(self, value: list) -> None:
+        self._process_inputs = list(value)
+        if hasattr(self, "_ws_list"):
+            self._refresh_workspace_panel()
+
+    # ── init ─────────────────────────────────────────────────────────────
 
     def __init__(
         self,
@@ -74,7 +97,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         parent:  QtWidgets.QWidget | None = None,
     ) -> None:
         QtWidgets.QMainWindow.__init__(self, parent)
+        self._process_inputs: list = []          # backing store for the property
         self._init_module(context)   # sets self.workspace, self._context
+
+        # Per-instance runtime copy of this module's config slice (modules → module_id)
+        self._config: dict = context.config.get_group("modules").get(self.module_id, {})
 
         self.setWindowTitle(self.display_name or self.module_id)
         self.resize(900, 640)
@@ -83,6 +110,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._build_edit_menu()
         self._build_view_menu()
         self._build_process_menu()
+        self._build_simulate_menu()
         self._build_workspace_dock()
         self._build_inspector_dock()
         self._finalise_view_menu()
@@ -109,8 +137,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         vbox.setContentsMargins(4, 4, 4, 4)
         vbox.setSpacing(4)
 
-        self._ws_list = QtWidgets.QListWidget()
+        self._ws_list = QtWidgets.QTreeWidget()
+        self._ws_list.setColumnCount(2)
+        self._ws_list.setHeaderLabels(["Name", "Info"])
+        self._ws_list.header().setStretchLastSection(True)
+        self._ws_list.setContextMenuPolicy(
+            QtCore.Qt.ContextMenuPolicy.CustomContextMenu if IS_QT6
+            else QtCore.Qt.CustomContextMenu
+        )
         self._ws_list.itemDoubleClicked.connect(self._on_ws_item_double_clicked)
+        self._ws_list.customContextMenuRequested.connect(self._on_ws_context_menu)
         vbox.addWidget(self._ws_list)
 
         # item action buttons
@@ -229,6 +265,40 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     lambda checked=False, n=entry.name: self._on_process_menu_triggered(n)
                 )
 
+    def _build_simulate_menu(self) -> None:
+        """Build the Simulate top-level menu from default_simulate_menu + config."""
+        if not self.default_simulate_menu:
+            return  # module declares no simulations — skip menu entirely
+
+        self._simulate_menu = self.menuBar().addMenu("Simulate")
+        registry = self._context.processes
+
+        by_category: dict[str, list] = {}
+        for name in self.default_simulate_menu:
+            if not registry.has(name):
+                log.warning("Simulate menu [%s]: %r not registered — skipped",
+                            self.module_id, name)
+                continue
+            entry = registry.get(name)
+            if entry.kind != "simulation":
+                log.warning("Simulate menu [%s]: %r has kind=%r, expected 'simulation' — skipped",
+                            self.module_id, name, entry.kind)
+                continue
+            by_category.setdefault(entry.category, []).append(entry)
+
+        for category in sorted(by_category.keys()):
+            if len(by_category) > 1:
+                submenu = self._simulate_menu.addMenu(category)
+                target_menu = submenu
+            else:
+                target_menu = self._simulate_menu
+            for entry in by_category[category]:
+                act = target_menu.addAction(entry.label)
+                act.setToolTip(entry.description or entry.name)
+                act.triggered.connect(
+                    lambda checked=False, n=entry.name: self._on_process_menu_triggered(n)
+                )
+
     def _check_process_compatibility(self, entry) -> tuple[bool, str]:
         """Return (True, "") if the entry is compatible with this module, else (False, reason)."""
         for spec in entry.schema.inputs:
@@ -258,11 +328,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Input data not ready", msg)
             return
 
-        dlg = ProcessParamDialog(entry, self._context, parent=self)
+        n           = len(entry.schema.inputs)
+        input_items = self.process_inputs[:n]
+        dlg = ProcessParamDialog(entry, self._context, parent=self, input_items=input_items)
         if dlg.exec():
             params      = dlg.params()
-            n           = len(entry.schema.inputs)
-            input_items = self.process_inputs[:n]   # take only what the process needs
             self.submit_process(process_name, input_items, params)
 
     def _validate_process_inputs(self, entry) -> tuple[bool, str]:
@@ -333,32 +403,108 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         act_insp.setShortcut("Ctrl+2")
         self._view_menu.addAction(act_insp)
 
+    def _ann_summary(self, ann) -> str:
+        """One-line summary string for an annotation object."""
+        from angstrompro.core.data.annotation_data import PointSetData, RegionData, LineData
+        if isinstance(ann, PointSetData):
+            return f"[{len(ann.coords)} pts]"
+        if isinstance(ann, RegionData):
+            return (f"r[{ann.row_min}:{ann.row_max}] "
+                    f"c[{ann.col_min}:{ann.col_max}]")
+        if isinstance(ann, LineData):
+            return f"{ann.p1} → {ann.p2}"
+        return str(ann)
+
+    # Badge colours for staged_labels — cycles if more labels than colours
+    _BADGE_COLORS = ["#2196F3", "#FF9800", "#4CAF50", "#9C27B0", "#F44336"]
+
     def _refresh_workspace_panel(self) -> None:
+        from angstrompro.utils.qt_compat import QtGui
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+
+        # Build a map: item.name → (label_text, color) for staged items
+        staged_map: dict[str, tuple[str, str]] = {}
+        for idx, ws_item in enumerate(self._process_inputs):
+            if ws_item is None:
+                continue
+            if idx < len(self.staged_labels):
+                label = self.staged_labels[idx]
+                color = self._BADGE_COLORS[idx % len(self._BADGE_COLORS)]
+                staged_map[ws_item.name] = (label, color)
+
         self._ws_list.clear()
         for item in self.workspace.list_items():
-            label = f"{item.display_name}  [{item.type_id}]"
-            list_item = QtWidgets.QListWidgetItem(label)
-            list_item.setData(
-                QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole,
-                item.name,
-            )
-            self._ws_list.addItem(list_item)
+            top = QtWidgets.QTreeWidgetItem(self._ws_list)
+
+            # Badge prefix in name column
+            badge_info = staged_map.get(item.name)
+            if badge_info:
+                label, color = badge_info
+                top.setText(0, f"[{label}]  {item.display_name}")
+                top.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))
+                font = top.font(0)
+                font.setBold(True)
+                top.setFont(0, font)
+            else:
+                top.setText(0, item.display_name)
+
+            top.setData(0, _UserRole, item.name)
+
+            # Shape / type info
+            shape = getattr(getattr(item.payload, 'data', None), 'shape', None)
+            info_text = f"[{item.type_id}]"
+            if shape:
+                info_text += f"  {shape}"
+            top.setText(1, info_text)
+
+            # Annotation children
+            for role, ann in item.annotations.items():
+                child = QtWidgets.QTreeWidgetItem(top)
+                child.setText(0, role)
+                child.setText(1, self._ann_summary(ann))
+                child.setData(0, _UserRole, (item.name, role))
+            top.setExpanded(True)
 
     def _selected_item_name(self) -> str | None:
-        item = self._ws_list.currentItem()
-        if item is None:
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+        tree_item = self._ws_list.currentItem()
+        if tree_item is None:
             return None
-        return item.data(QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole)
+        data = tree_item.data(0, _UserRole)
+        # Top-level items store str; child items store (name, role) tuple
+        if isinstance(data, tuple):
+            return data[0]
+        return data
 
-    def _on_ws_item_double_clicked(self, list_item: QtWidgets.QListWidgetItem) -> None:
-        name = list_item.data(
-            QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
-        )
+    def _on_ws_item_double_clicked(self, tree_item: QtWidgets.QTreeWidgetItem, column: int) -> None:
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+        data = tree_item.data(0, _UserRole)
+        # Only activate on top-level items (str name), not annotation children
+        if not isinstance(data, str):
+            return
+        name = data
         item = self.workspace.get_item(name)
         try:
             self.load_item(item)
         except TypeError as exc:
             QtWidgets.QMessageBox.warning(self, "Type mismatch", str(exc))
+
+    def _on_ws_context_menu(self, pos) -> None:
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+        tree_item = self._ws_list.itemAt(pos)
+        if tree_item is None:
+            return
+        data = tree_item.data(0, _UserRole)
+        if isinstance(data, tuple):
+            # Annotation child — show Clear action
+            item_name, role = data
+            menu = QtWidgets.QMenu(self)
+            act_clear = menu.addAction(f"Clear '{role}'")
+            act = menu.exec(self._ws_list.viewport().mapToGlobal(pos))
+            if act == act_clear:
+                ws_item = self.workspace.get_item(item_name)
+                ws_item.annotations.pop(role, None)
+                self.workspace.notify_changed(item_name)
 
     def _on_add_item(self) -> None:
         self.on_add_item()
@@ -452,37 +598,265 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         act_prefs.setShortcut("Ctrl+,")
         act_prefs.triggered.connect(self._on_preferences)
 
+    def build_preferences_widget(self, parent: QtWidgets.QWidget,
+                                    on_apply, on_save_as_default
+                                    ) -> QtWidgets.QWidget | None:
+        """
+        Return a custom preferences widget, or None to fall through to the
+        schema-based panel (when preferences_schema is defined) or the generic
+        tree editor.  Override only when neither option suits the module.
+        """
+        return None
+
     def _on_preferences(self) -> None:
+        import copy
         from angstrompro.gui.widgets.config_editor_widget import ConfigEditorWidget
+        from angstrompro.core.configs.defaults import DEFAULTS
         from angstrompro.utils.qt_compat import QtWidgets
+
         dlg = QtWidgets.QDialog(self)
-        dlg.setWindowTitle("Preferences")
-        dlg.resize(700, 500)
+        dlg.setWindowTitle(f"Preferences — {self.display_name}")
+        dlg.resize(900, 600)
         layout = QtWidgets.QVBoxLayout(dlg)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(ConfigEditorWidget(self._context, dlg,
-                                            sections=self.config_sections))
+
+        def _apply(cfg: dict) -> None:
+            self._config = copy.deepcopy(cfg)
+
+        def _save_as_default(cfg: dict) -> None:
+            self._config = copy.deepcopy(cfg)
+            self._context.config.set_module_config(self.module_id, cfg)
+            self._context.config.save_defaults()
+
+        def _reset() -> None:
+            from angstrompro.core.configs.defaults import DEFAULTS
+            defaults = DEFAULTS.get("modules", {}).get(self.module_id, {})
+            _apply(copy.deepcopy(defaults))
+
+        # 1. Subclass custom widget (full override)
+        widget = self.build_preferences_widget(dlg, _apply, _save_as_default)
+
+        if widget is None:
+            schema = getattr(self, "preferences_schema", None)
+            if schema:
+                # 2. Declarative schema → PreferencesPanel
+                from angstrompro.gui.widgets.preferences import PreferencesPanel
+                widget = PreferencesPanel(
+                    module_name=self.display_name,
+                    schema=schema,
+                    config=copy.deepcopy(self._config),
+                    on_apply=_apply,
+                    on_save_as_default=_save_as_default,
+                    on_reset=_reset,
+                    parent=dlg,
+                )
+                # Let the module react to config changes (e.g. repaint panels)
+                if hasattr(self, "_apply_config_to_panels"):
+                    orig_apply = _apply
+                    def _apply(cfg: dict, _orig=orig_apply) -> None:  # noqa: E731
+                        _orig(cfg)
+                        self._apply_config_to_panels(cfg)
+                    widget._on_apply_cb  = _apply
+                    orig_save = _save_as_default
+                    def _save_as_default(cfg: dict, _orig=orig_save) -> None:  # noqa: E731
+                        _orig(cfg)
+                        self._apply_config_to_panels(cfg)
+                    widget._on_save_cb = _save_as_default
+            elif self._config:
+                # 3. Instance config but no schema → generic tree editor (instance mode)
+                module_defaults = DEFAULTS.get("modules", {}).get(self.module_id, {})
+                widget = ConfigEditorWidget(
+                    self._context, dlg,
+                    instance_config=copy.deepcopy(self._config),
+                    instance_defaults=module_defaults,
+                    on_apply=_apply,
+                    on_save_as_default=_save_as_default,
+                )
+            else:
+                # 4. Global config tree (MainWorkbench with config_sections=None)
+                widget = ConfigEditorWidget(self._context, dlg,
+                                            sections=self.config_sections)
+
+        layout.addWidget(widget)
         dlg.exec()
 
     def _on_file_open(self) -> None:
         from angstrompro.io.angstrom_io import registered_formats
         formats = registered_formats()
-        filters = ";;".join(
+        format_filters = ";;".join(
             f"{f.display_name} (*{f.extension})" for f in formats if f.readable
         )
-        filters += ";;All Files (*)"
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", "", filters)
+        filters = "All Files (*);;" + format_filters
+        start_dir = self._context.config.get("data", "default_open_dir") or ""
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", start_dir, filters)
         if not path:
             return
         from pathlib import Path
         from angstrompro.io import load
+        p = Path(path)
         try:
-            payload = load(Path(path))
+            result = self._load_with_channel_picker(p)
+            if result is None:
+                return  # user cancelled
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Open failed", str(exc))
             return
-        name = self.workspace.suggest_name(Path(path).stem)
-        self.workspace.add_item(name=name, payload=payload)
+        payloads = result if isinstance(result, list) else [result]
+        for payload in payloads:
+            name = self.workspace.suggest_name(
+                getattr(payload, "name", None) or p.stem
+            )
+            self.workspace.add_item(name=name, payload=payload)
+
+    def _load_with_channel_picker(self, p):
+        """Load a file, showing a channel picker for multi-channel formats."""
+        from angstrompro.io import load
+
+        _CHANNEL_PICKER_EXTS = {".3ds", ".sxm"}
+        ext = p.suffix.lower()
+
+        if ext not in _CHANNEL_PICKER_EXTS:
+            return load(p)
+
+        # --- .3ds --- (display names applied after loading)
+
+        if ext == ".3ds":
+            from angstrompro.io.formats.nanonis_3ds import parse_header, load as load_3ds
+            from angstrompro.gui.dialogs.channel_picker_dialog import ChannelPickerDialog
+            header, _ = parse_header(p)
+            channels = [c.strip() for c in header.get("channels", "").split(";") if c.strip()]
+            if not channels:
+                return load(p)
+            fmt_cfg = self._context.channel_manager.get("nanonis_3ds")
+            resolved = fmt_cfg.resolve(channels) if fmt_cfg else []
+            if fmt_cfg and fmt_cfg.auto_load:
+                pairs = self._resolve_auto_load(fmt_cfg, resolved, channels)
+                if pairs is None:
+                    return None   # user cancelled unmatched dialog
+                indices = [idx for _, idx in pairs]
+                result = load_3ds(p, channel_indices=indices or [0])
+                return self._apply_display_names(result, pairs, p.stem)
+            grid_dim = header.get("grid dim", "1x1").split("x")
+            file_info = {
+                "x_pixels": int(grid_dim[0]) if len(grid_dim) > 0 else "?",
+                "y_pixels": int(grid_dim[1]) if len(grid_dim) > 1 else "?",
+                "n_points": header.get("points", ""),
+            }
+            dlg = ChannelPickerDialog(self, p, channels, file_info, fmt_cfg)
+            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return None
+            indices = dlg.selected_indices()
+            if not indices:
+                return None
+            idx_to_display = {idx: cc.display_name for cc, idx in resolved if idx is not None}
+            result = load_3ds(p, channel_indices=indices)
+            pairs = [(None, idx) for idx in indices]
+            return self._apply_display_names(result, pairs, p.stem, idx_to_display)
+
+        # --- .sxm ---
+        if ext == ".sxm":
+            from angstrompro.io.formats.nanonis_sxm import _parse_header, load as load_sxm
+            from angstrompro.gui.dialogs.channel_picker_dialog import ChannelPickerDialog
+            header, _ = _parse_header(p)
+            data_info = header.get("DATA_INFO", "")
+            lines = [ln for ln in data_info.strip().split("\n") if ln.strip()]
+            channels = []
+            for line in lines[1:]:
+                parts = line.split("\t")
+                if len(parts) > 1:
+                    channels.append(parts[1].strip())
+            if not channels:
+                return load(p)
+            fmt_cfg = self._context.channel_manager.get("nanonis_sxm")
+            resolved = fmt_cfg.resolve(channels) if fmt_cfg else []
+            if fmt_cfg and fmt_cfg.auto_load:
+                pairs = self._resolve_auto_load(fmt_cfg, resolved, channels)
+                if pairs is None:
+                    return None
+                indices = [idx for _, idx in pairs]
+                result = load_sxm(p, channel_indices=indices or [0])
+                return self._apply_display_names(result, pairs, p.stem)
+            pixels = header.get("SCAN_PIXELS", "? ?").split()
+            file_info = {
+                "x_pixels": pixels[0] if len(pixels) > 0 else "?",
+                "y_pixels": pixels[1] if len(pixels) > 1 else "?",
+            }
+            dlg = ChannelPickerDialog(self, p, channels, file_info, fmt_cfg)
+            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return None
+            indices = dlg.selected_indices()
+            if not indices:
+                return None
+            idx_to_display = {idx: cc.display_name for cc, idx in resolved if idx is not None}
+            result = load_sxm(p, channel_indices=indices)
+            pairs = [(None, idx) for idx in indices]
+            return self._apply_display_names(result, pairs, p.stem, idx_to_display)
+
+        return load(p)
+
+    def _resolve_auto_load(self, fmt_cfg, resolved, file_channels):
+        """
+        For auto-load: collect matched default pairs; if any default channel is
+        unmatched show UnmatchedChannelsDialog.  Returns list of (cc, idx) pairs
+        ready for loading, or None if user cancelled.
+
+        Also saves new aliases back to ChannelManager when user requests it.
+        """
+        from angstrompro.gui.dialogs.unmatched_channels_dialog import UnmatchedChannelsDialog
+
+        matched   = [(cc, idx) for cc, idx in resolved
+                     if cc.load_by_default and idx is not None]
+        unmatched = [cc for cc, idx in resolved
+                     if cc.load_by_default and idx is None]
+
+        if unmatched:
+            dlg = UnmatchedChannelsDialog(self, unmatched, file_channels)
+            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return None
+
+            # Collect user's choices and save aliases if requested
+            new_aliases: dict[str, str] = {}   # display_name → file channel to prepend
+            for res in dlg.resolutions():
+                if res.file_index is not None:
+                    matched.append((res.channel_config, res.file_index))
+                if res.save_alias and res.file_channel:
+                    new_aliases[res.channel_config.display_name] = res.file_channel
+
+            if new_aliases:
+                self._save_new_aliases(fmt_cfg, new_aliases)
+
+        return matched if matched else None
+
+    def _save_new_aliases(self, fmt_cfg, new_aliases: dict[str, str]) -> None:
+        """Prepend newly discovered file channel names to the matching ChannelConfig alias lists."""
+        from angstrompro.io.channel_manager import ChannelConfig
+        updated = []
+        for cc in fmt_cfg.channels:
+            if cc.display_name in new_aliases:
+                new_alias = new_aliases[cc.display_name]
+                aliases = [new_alias] + [a for a in cc.aliases if a != new_alias]
+                updated.append(ChannelConfig(cc.display_name, aliases, cc.load_by_default))
+            else:
+                updated.append(cc)
+        self._context.channel_manager.save_format(
+            fmt_cfg.format_id, updated, auto_load=fmt_cfg.auto_load)
+
+    @staticmethod
+    def _apply_display_names(result, pairs, stem: str,
+                             idx_to_display: dict | None = None):
+        """Rename each UdsDataStru to  stem_DisplayName."""
+        items = result if isinstance(result, list) else [result]
+        for payload, (cc, idx) in zip(items, pairs):
+            if cc is not None:
+                display = cc.display_name
+            elif idx_to_display and idx in idx_to_display:
+                display = idx_to_display[idx]
+            else:
+                display = getattr(payload, "name", stem)
+            payload.name = f"{stem}_{display}"
+            if hasattr(payload, "info") and isinstance(payload.info, dict):
+                payload.info["channel_display_name"] = display
+        return result
 
     def _on_file_save(self) -> None:
         name = self._selected_item_name()
@@ -530,19 +904,21 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         wm.item_added.connect(_guard)
         wm.item_removed.connect(_guard)
         wm.item_renamed.connect(_guard)
+        wm.item_changed.connect(_guard)
 
-        self._ws_list.currentItemChanged.connect(self._on_ws_selection_changed)
+        self._ws_list.currentItemChanged.connect(self._on_ws_selection_changed)  # type: ignore[attr-defined]
 
         self._context.signals.status_message.connect(self.statusBar().showMessage)
         self._context.signals.processes_updated.connect(self._rebuild_process_submenu)
 
     def _on_ws_selection_changed(self, current, _previous) -> None:
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
         if current is None:
             self._inspector.set_item(None)
             return
-        name = current.data(
-            QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
-        )
+        data = current.data(0, _UserRole)
+        # Resolve name from both top-level (str) and child (tuple) items
+        name = data[0] if isinstance(data, tuple) else data
         item = self.workspace.get_item(name) if self.workspace.has_item(name) else None
         self._inspector.set_item(item)
 

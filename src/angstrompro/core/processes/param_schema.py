@@ -12,6 +12,22 @@ from typing import Any
 
 
 @dataclass
+class AnnotationSpec:
+    """Describes one annotation input required by a process.
+
+    name    — key used in the annotations dict passed to the process function
+    role    — annotation role: "bragg_peaks" | "crop_region" | "line_profile"
+    type_id — data type: "point_set" | "region" | "line"
+    required — if True, raises ValueError when annotation is missing at run time
+    Always resolves from process_inputs[0].annotations[role].
+    """
+    name:     str
+    role:     str       # "bragg_peaks" | "crop_region" | "line_profile"
+    type_id:  str       # "point_set" | "region" | "line"
+    required: bool = True
+
+
+@dataclass
 class InputSpec:
     """Describes one named data input of a process function."""
     name:        str
@@ -54,11 +70,13 @@ class ProcessSchema:
 
     def __init__(
         self,
-        inputs: list[InputSpec]     | None = None,
-        params: list[ParameterSpec] | None = None,
+        inputs:      list[InputSpec]      | None = None,
+        params:      list[ParameterSpec]  | None = None,
+        annotations: list[AnnotationSpec] | None = None,
     ) -> None:
-        self._inputs: list[InputSpec]     = inputs or []
-        self._params: list[ParameterSpec] = params or []
+        self._inputs:      list[InputSpec]      = inputs or []
+        self._params:      list[ParameterSpec]  = params or []
+        self._annotations: list[AnnotationSpec] = annotations or []
         self._params_by_name = {p.name: p for p in self._params}
 
     @property
@@ -75,6 +93,10 @@ class ProcessSchema:
     def defaults(self) -> dict[str, Any]:
         """Return {name: default} for all parameters."""
         return {p.name: p.default for p in self._params}
+
+    @property
+    def annotations(self) -> list[AnnotationSpec]:
+        return self._annotations
 
     def input_type_ids(self) -> list[str]:
         """Return the type_id of every input port."""

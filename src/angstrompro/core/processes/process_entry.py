@@ -37,6 +37,7 @@ class ProcessEntry:
     func:        Callable          # func(inputs: dict, params: dict) -> WorkspaceData
     schema:      ProcessSchema
     description: str = ""
+    kind:        str = "process"   # "process" | "simulation"
 
     def run(self, inputs: dict, params: dict) -> Any:
         """Synchronous direct call — no threading, no progress."""

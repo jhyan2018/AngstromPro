@@ -5,6 +5,7 @@ Created on Tue Jun 16 15:30:33 2026
 @author: jiahaoYan
 """
 
+import copy
 import numpy as np
 from angstrompro.utils.qt_compat import QtWidgets
 from angstrompro.app.context import AppContext
@@ -14,6 +15,8 @@ from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 from angstrompro.gui.widgets.task_dashboard import TaskDashboard
 from angstrompro.gui.widgets.live_modules_panel import LiveModulesPanel
+from angstrompro.gui.widgets.preferences import PrefSection, PrefItem, PreferencesPanel
+import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
 
 
 @register_module
@@ -21,7 +24,31 @@ class MainWorkbench(AGuiModule):
     module_id       = "main_workbench"
     display_name    = "AngstromPro Main Workbench"
     category        = "Main Workbench"
-    config_sections = None   # show full config tree
+    config_sections = None
+
+    _global_preferences_schema = [
+        PrefSection("Appearance", "palette", [
+            PrefItem("appearance.theme",     "Theme",     "dropdown",
+                     "Colour theme for the application",
+                     kwargs={"choices": ["dark", "light", "auto"]}),
+            PrefItem("appearance.font_size", "Font size", "number",
+                     "Application-wide font size in points"),
+            PrefItem("appearance.icon_size", "Icon size", "number",
+                     "Toolbar / button icon size in px"),
+            PrefItem("appearance.font_family", "Font family", "text",
+                     "Font family name; leave blank for system default"),
+            PrefItem("appearance.accent_color", "Accent color", "text",
+                     "Hex accent colour e.g. #4fc3f7; leave blank for theme default"),
+        ]),
+        PrefSection("Data", "folder-open", [
+            PrefItem("data.default_open_dir", "Default open folder", "text",
+                     "Starting directory for file-open dialogs"),
+            PrefItem("data.default_save_dir", "Default save folder", "text",
+                     "Starting directory for file-save dialogs"),
+            PrefItem("data.max_recent_files", "Recent files limit",  "number",
+                     "How many recent files to remember"),
+        ]),
+    ]
 
     def __init__(self, context: AppContext, parent=None) -> None:
         super().__init__(context, parent)
@@ -35,6 +62,50 @@ class MainWorkbench(AGuiModule):
     # ------------------------------------------------------------------
     # AGuiModule contract
     # ------------------------------------------------------------------
+
+    def _on_preferences(self) -> None:
+        cfg = self._context.config
+
+        # Assemble a flat snapshot of the global sections we expose
+        snapshot = {
+            "appearance": copy.deepcopy(cfg.get_group("appearance")),
+            "data":       copy.deepcopy(cfg.get_group("data")),
+        }
+
+        def _apply(new_cfg: dict) -> None:
+            for section, values in new_cfg.items():
+                for key, val in values.items():
+                    cfg.set(section, key, val)
+            # Re-apply appearance live
+            from angstrompro.gui.appearance.theme_manager import ThemeManager
+            ThemeManager(cfg.get_group("appearance")).apply()
+
+        def _save(new_cfg: dict) -> None:
+            _apply(new_cfg)
+            cfg.save_defaults()
+
+        def _reset() -> None:
+            from angstrompro.core.configs.defaults import DEFAULTS
+            _apply({
+                "appearance": copy.deepcopy(DEFAULTS.get("appearance", {})),
+                "data":       copy.deepcopy(DEFAULTS.get("data", {})),
+            })
+
+        dlg = QtWidgets.QDialog(self)
+        dlg.setWindowTitle("Preferences — AngstromPro")
+        dlg.resize(820, 500)
+        layout = QtWidgets.QVBoxLayout(dlg)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(PreferencesPanel(
+            module_name="AngstromPro",
+            schema=self._global_preferences_schema,
+            config=snapshot,
+            on_apply=_apply,
+            on_save_as_default=_save,
+            on_reset=_reset,
+            parent=dlg,
+        ))
+        dlg.exec()
 
     def build_ui(self) -> None:
         from angstrompro.utils.qt_compat import QtCore
@@ -68,6 +139,21 @@ class MainWorkbench(AGuiModule):
                                           DockArea.TopDockWidgetArea   | DockArea.BottomDockWidgetArea)
         self.addDockWidget(DockArea.RightDockWidgetArea, self._dock_config)
         self.splitDockWidget(self._dock_tasks, self._dock_config, QtCore.Qt.Orientation.Vertical)
+
+    def _build_edit_menu(self) -> None:
+        super()._build_edit_menu()
+        # Find the Edit menu that super() just added
+        for action in self.menuBar().actions():
+            if action.text() == "Edit" and action.menu():
+                action.menu().addSeparator()
+                act = action.menu().addAction("Channel Manager…")
+                act.triggered.connect(self._on_channel_manager)
+                break
+
+    def _on_channel_manager(self) -> None:
+        from angstrompro.gui.dialogs.channel_manager_dialog import ChannelManagerDialog
+        dlg = ChannelManagerDialog(self._context, parent=self)
+        dlg.exec()
 
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         pass

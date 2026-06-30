@@ -14,6 +14,7 @@ from angstrompro.core.tasks import TaskManager
 from angstrompro.core.processes import ProcessRegistry, ParamHistoryManager
 from angstrompro.gui.appearance import ThemeManager, IconManager
 from angstrompro.app.app_signals import AppSignals
+from angstrompro.io.channel_manager import ChannelManager
 
 
 class AppContext:
@@ -31,6 +32,7 @@ class AppContext:
         self._module_manager  = AModuleManager(self._workspace_manager)
         self._processes       = ProcessRegistry()
         self._param_history   = ParamHistoryManager()
+        self._channel_manager = ChannelManager(config)
 
     @property
     def config(self) -> ConfigManager:
@@ -67,3 +69,7 @@ class AppContext:
     @property
     def param_history(self) -> ParamHistoryManager:
         return self._param_history
+
+    @property
+    def channel_manager(self) -> ChannelManager:
+        return self._channel_manager

@@ -34,6 +34,7 @@ class WorkspaceManager(QtCore.QObject):
     item_added          = Signal(str, str)         # workspace_id, item_name
     item_removed        = Signal(str, str)         # workspace_id, item_name
     item_renamed        = Signal(str, str, str)    # workspace_id, old_name, new_name
+    item_changed        = Signal(str, str)         # workspace_id, item_name
     item_transferred    = Signal(str, str, str)    # src_id, dst_id, item_name
 
     def __init__(self, parent: QtCore.QObject | None = None) -> None:
@@ -55,6 +56,7 @@ class WorkspaceManager(QtCore.QObject):
         ws.item_added.connect(  lambda name:     self.item_added.emit(wid, name))
         ws.item_removed.connect(lambda name:     self.item_removed.emit(wid, name))
         ws.item_renamed.connect(lambda old, new: self.item_renamed.emit(wid, old, new))
+        ws.item_changed.connect(lambda name:     self.item_changed.emit(wid, name))
 
         self._workspaces[wid] = ws
         log.debug("Workspace created: %s (owner=%s)", wid, owner_id)

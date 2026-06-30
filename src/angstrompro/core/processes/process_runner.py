@@ -65,6 +65,9 @@ class ProcessRunner:
         inputs = self._build_inputs(entry, input_items)
         merged = {**entry.schema.defaults(), **(params or {})}
 
+        # Resolve annotations from the primary input item
+        resolved_annotations = self._build_annotations(entry, input_items)
+
         log.debug(
             "ProcessRunner.run: %s  inputs=[%s]  params=%s",
             process_name,
@@ -79,6 +82,7 @@ class ProcessRunner:
             task_manager = self._task_manager,
             source_id    = source_id,
             group_id     = group_id,
+            annotations  = resolved_annotations,
         )
 
     # ------------------------------------------------------------------
@@ -131,3 +135,21 @@ class ProcessRunner:
                 f"({[s.name for s in input_specs]}), got {len(items)}."
             )
         return {spec.name: item.payload for spec, item in zip(input_specs, items)}
+
+    @staticmethod
+    def _build_annotations(entry, items: list[WorkspaceItem]) -> dict:
+        """Resolve annotation inputs from the primary WorkspaceItem."""
+        ann_specs = getattr(entry.schema, 'annotations', [])
+        if not ann_specs or not items:
+            return {}
+        primary_item = items[0]
+        resolved: dict = {}
+        for spec in ann_specs:
+            ann = primary_item.annotations.get(spec.role)
+            if ann is None and spec.required:
+                raise ValueError(
+                    f"Process '{entry.name}' requires annotation '{spec.role}' "
+                    f"on item '{primary_item.name}' but none is set."
+                )
+            resolved[spec.name] = ann
+        return resolved

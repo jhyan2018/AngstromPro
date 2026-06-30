@@ -243,6 +243,71 @@ def load_legacy(path: Path) -> UdsDataStru:
 
 
 # ------------------------------------------------------------------
+# Annotation save / load (standalone — do not modify save/load above)
+# ------------------------------------------------------------------
+
+def save_annotations(path: Path, annotations: dict) -> None:
+    """Append/replace annotations group in an existing HDF5 UDS file."""
+    import h5py
+    from angstrompro.core.data.annotation_data import PointSetData, RegionData, LineData
+    with h5py.File(path, "a") as f:
+        if "annotations" in f:
+            del f["annotations"]
+        if not annotations:
+            return
+        ag = f.create_group("annotations")
+        for role, ann in annotations.items():
+            rg = ag.create_group(role)
+            if isinstance(ann, PointSetData):
+                rg.create_dataset("coords", data=ann.coords)
+                rg.attrs["type"] = "point_set"
+            elif isinstance(ann, RegionData):
+                rg.attrs["type"] = "region"
+                rg.attrs["row_min"] = ann.row_min
+                rg.attrs["col_min"] = ann.col_min
+                rg.attrs["row_max"] = ann.row_max
+                rg.attrs["col_max"] = ann.col_max
+            elif isinstance(ann, LineData):
+                rg.attrs["type"] = "line"
+                rg.attrs["p1_row"] = ann.p1[0]
+                rg.attrs["p1_col"] = ann.p1[1]
+                rg.attrs["p2_row"] = ann.p2[0]
+                rg.attrs["p2_col"] = ann.p2[1]
+                rg.attrs["n_points"] = ann.n_points
+
+
+def load_annotations(path: Path) -> dict:
+    """Load annotations from an HDF5 UDS file. Returns {} if none present."""
+    import h5py
+    from angstrompro.core.data.annotation_data import PointSetData, RegionData, LineData
+    annotations = {}
+    try:
+        with h5py.File(path, "r") as f:
+            if "annotations" not in f:
+                return {}
+            for role, rg in f["annotations"].items():
+                t = rg.attrs.get("type", "")
+                if t == "point_set":
+                    annotations[role] = PointSetData(coords=rg["coords"][:])
+                elif t == "region":
+                    annotations[role] = RegionData(
+                        row_min=int(rg.attrs["row_min"]),
+                        col_min=int(rg.attrs["col_min"]),
+                        row_max=int(rg.attrs["row_max"]),
+                        col_max=int(rg.attrs["col_max"]),
+                    )
+                elif t == "line":
+                    annotations[role] = LineData(
+                        p1=(float(rg.attrs["p1_row"]), float(rg.attrs["p1_col"])),
+                        p2=(float(rg.attrs["p2_row"]), float(rg.attrs["p2_col"])),
+                        n_points=int(rg.attrs["n_points"]),
+                    )
+    except Exception:
+        pass
+    return annotations
+
+
+# ------------------------------------------------------------------
 register_io(
     "uds", load, save,
     extension    = ".uds",

@@ -55,5 +55,8 @@ class ModuleMixin:
         self.process_runner: ProcessRunner = ProcessRunner(context.tasks, context.processes)
         # Staged inputs for the next process run. Each module maintains this list
         # by its own strategy. Processes consume the first N items in schema order.
-        self.process_inputs: list["WorkspaceItem"] = []
+        # AGuiModule overrides process_inputs as a property; set the backing attr
+        # directly here so the property setter doesn't fire before _ws_list exists.
+        if not hasattr(self, '_process_inputs'):
+            self._process_inputs: list["WorkspaceItem"] = []
         # Future resources (e.g. plugin bus, settings scope) go here.

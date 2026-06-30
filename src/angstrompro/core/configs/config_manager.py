@@ -88,6 +88,10 @@ class ConfigManager:
             raise KeyError(f"Unknown config group: {group!r}")
         self._config[group][key] = copy.deepcopy(value)
 
+    def set_module_config(self, module_key: str, config: dict) -> None:
+        """Replace a single module's config slice in the live config (does not persist)."""
+        self._config.setdefault("modules", {})[module_key] = copy.deepcopy(config)
+
     def save_defaults(self) -> None:
         """Persist only values that differ from built-in defaults to the config file."""
         path = get_config_file()

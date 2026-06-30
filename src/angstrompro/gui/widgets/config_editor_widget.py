@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on Tue Jun 16 16:21:05 2026
 
@@ -6,7 +6,7 @@ Created on Tue Jun 16 16:21:05 2026
 """
 
 """
-ConfigEditorWidget  tree view for viewing and editing all app config.
+ConfigEditorWidget  tree view for viewing and editing all app config.
 
 Columns:  Key | Value (editable) | Default
 Bottom bar: status label | Reset to Defaults | Reload Saved | Save
@@ -15,7 +15,13 @@ Save behaviour:
   Only values that differ from built-in defaults are written to the config
   file (via ConfigManager.save_defaults). On next startup those values are
   merged back onto the defaults, so everything else keeps its built-in value.
+
+Per-instance mode (instance_config kwarg supplied):
+  Shows only that module's config slice.  "Apply" updates the calling module's
+  runtime _config immediately.  "Save as Default" also persists to disk so
+  future instances and next-run start from those values.
 """
+import copy
 import json
 
 from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets, IS_QT6
@@ -34,16 +40,28 @@ else:
     _ResizeToContents = QtWidgets.QHeaderView.ResizeToContents
     _Stretch          = QtWidgets.QHeaderView.Stretch
 
-_ROLE_ORIG_TYPE = _UserRole       # stores the Python type of the original value
-_ROLE_DEFAULT   = _UserRole1      # stores the built-in default value (for highlight)
+_ROLE_ORIG_TYPE = _UserRole
+_ROLE_DEFAULT   = _UserRole1
 
 
 class ConfigEditorWidget(QtWidgets.QWidget):
-    def __init__(self, context, parent=None, sections=None):
+    def __init__(self, context, parent=None, sections=None,
+                 instance_config: dict | None = None,
+                 instance_defaults: dict | None = None,
+                 on_apply=None,
+                 on_save_as_default=None):
         super().__init__(parent)
         self._context  = context
         self._sections = sections
-        self._local_config: dict = {}   # working copy  not applied until Save
+        self._local_config: dict = {}
+
+        # Per-instance module config mode
+        self._instance_mode          = instance_config is not None
+        self._instance_config        = copy.deepcopy(instance_config or {})
+        self._instance_defaults      = copy.deepcopy(instance_defaults or {})
+        self._on_apply_cb            = on_apply
+        self._on_save_as_default_cb  = on_save_as_default
+
         self._build_ui()
         self._populate()
 
@@ -69,18 +87,33 @@ class ConfigEditorWidget(QtWidgets.QWidget):
         bar.addWidget(self._status_label)
         bar.addStretch()
 
-        btn_reset  = QtWidgets.QPushButton("Reset to Defaults")
-        btn_reload = QtWidgets.QPushButton("Reload Saved")
-        btn_save   = QtWidgets.QPushButton("Save")
-        btn_save.setDefault(True)
+        if self._instance_mode:
+            btn_reset           = QtWidgets.QPushButton("Reset to Default")
+            btn_apply           = QtWidgets.QPushButton("Apply")
+            btn_save_as_default = QtWidgets.QPushButton("Save as Default")
+            btn_save_as_default.setDefault(True)
 
-        btn_reset.clicked.connect(self._on_reset)
-        btn_reload.clicked.connect(self._on_reload)
-        btn_save.clicked.connect(self._on_save)
+            btn_reset.clicked.connect(self._on_reset)
+            btn_apply.clicked.connect(self._on_apply)
+            btn_save_as_default.clicked.connect(self._on_save_as_default)
 
-        bar.addWidget(btn_reset)
-        bar.addWidget(btn_reload)
-        bar.addWidget(btn_save)
+            bar.addWidget(btn_reset)
+            bar.addWidget(btn_apply)
+            bar.addWidget(btn_save_as_default)
+        else:
+            btn_reset  = QtWidgets.QPushButton("Reset to Defaults")
+            btn_reload = QtWidgets.QPushButton("Reload Saved")
+            btn_save   = QtWidgets.QPushButton("Save")
+            btn_save.setDefault(True)
+
+            btn_reset.clicked.connect(self._on_reset)
+            btn_reload.clicked.connect(self._on_reload)
+            btn_save.clicked.connect(self._on_save)
+
+            bar.addWidget(btn_reset)
+            bar.addWidget(btn_reload)
+            bar.addWidget(btn_save)
+
         layout.addLayout(bar)
 
     # ------------------------------------------------------------------
@@ -90,15 +123,19 @@ class ConfigEditorWidget(QtWidgets.QWidget):
     def _populate(self) -> None:
         self._tree.blockSignals(True)
         self._tree.clear()
-        full_config = self._context.config.get_all()
 
-        from angstrompro.core.configs.defaults import DEFAULTS
-        if self._sections is not None:
-            config   = {k: v for k, v in full_config.items() if k in self._sections}
-            defaults = {k: v for k, v in DEFAULTS.items()     if k in self._sections}
+        if self._instance_mode:
+            config   = copy.deepcopy(self._instance_config)
+            defaults = self._instance_defaults
         else:
-            config   = full_config
-            defaults = DEFAULTS
+            full_config = self._context.config.get_all()
+            from angstrompro.core.configs.defaults import DEFAULTS
+            if self._sections is not None:
+                config   = {k: v for k, v in full_config.items() if k in self._sections}
+                defaults = {k: v for k, v in DEFAULTS.items()     if k in self._sections}
+            else:
+                config   = full_config
+                defaults = DEFAULTS
 
         self._local_config = config
         self._build_subtree(self._tree.invisibleRootItem(), config, defaults)
@@ -132,7 +169,7 @@ class ConfigEditorWidget(QtWidgets.QWidget):
                 )
             else:
                 display_val = self._to_display(value)
-                display_def = self._to_display(default_val) if default_val is not None else ""
+                display_def = self._to_display(default_val) if default_val is not None else ""
                 item = QtWidgets.QTreeWidgetItem(parent, [key, display_val, display_def])
                 item.setFlags(item.flags() | _ItemIsEditable)
                 item.setData(0, _ROLE_ORIG_TYPE, type(value))
@@ -140,7 +177,7 @@ class ConfigEditorWidget(QtWidgets.QWidget):
                 self._highlight_item(item, value, default_val)
 
     # ------------------------------------------------------------------
-    # Save
+    # Global-config mode actions
     # ------------------------------------------------------------------
 
     def _on_save(self) -> None:
@@ -148,6 +185,37 @@ class ConfigEditorWidget(QtWidgets.QWidget):
         self._context.config.apply_all(self._local_config)
         self._context.config.save_defaults()
         self._update_status()
+
+    def _on_reset(self) -> None:
+        if self._instance_mode:
+            self._instance_config = copy.deepcopy(self._instance_defaults)
+        else:
+            self._context.config.reset_to_defaults()
+        self._populate()
+
+    def _on_reload(self) -> None:
+        self._context.config.reload_saved()
+        self._populate()
+
+    # ------------------------------------------------------------------
+    # Per-instance mode actions
+    # ------------------------------------------------------------------
+
+    def _on_apply(self) -> None:
+        self._read_tree_into(self._tree.invisibleRootItem(), self._local_config)
+        self._instance_config = copy.deepcopy(self._local_config)
+        if self._on_apply_cb:
+            self._on_apply_cb(copy.deepcopy(self._instance_config))
+        self._update_status()
+
+    def _on_save_as_default(self) -> None:
+        self._on_apply()
+        if self._on_save_as_default_cb:
+            self._on_save_as_default_cb(copy.deepcopy(self._instance_config))
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
 
     def _read_tree_into(self, parent: QtWidgets.QTreeWidgetItem, config: dict) -> None:
         for i in range(parent.childCount()):
@@ -158,24 +226,8 @@ class ConfigEditorWidget(QtWidgets.QWidget):
             if isinstance(config[key], dict):
                 self._read_tree_into(item, config[key])
             else:
-                orig_type  = item.data(0, _ROLE_ORIG_TYPE)
+                orig_type   = item.data(0, _ROLE_ORIG_TYPE)
                 config[key] = self._from_display(item.text(1), orig_type)
-
-    # ------------------------------------------------------------------
-    # Reset / Reload
-    # ------------------------------------------------------------------
-
-    def _on_reset(self) -> None:
-        self._context.config.reset_to_defaults()
-        self._populate()
-
-    def _on_reload(self) -> None:
-        self._context.config.reload_saved()
-        self._populate()
-
-    # ------------------------------------------------------------------
-    # Live highlight when user edits a cell
-    # ------------------------------------------------------------------
 
     def _on_item_changed(self, item: QtWidgets.QTreeWidgetItem, column: int) -> None:
         if column != 1:
@@ -194,20 +246,15 @@ class ConfigEditorWidget(QtWidgets.QWidget):
         for col in range(3):
             item.setForeground(col, color)
 
-    # ------------------------------------------------------------------
-    # Status bar
-    # ------------------------------------------------------------------
-
     def _update_status(self) -> None:
-        n = self._context.config.diff_count()
-        if n == 0:
-            self._status_label.setText("All values match defaults.")
+        if self._instance_mode:
+            self._status_label.setText("")
         else:
-            self._status_label.setText(f"{n} value(s) differ from defaults.")
-
-    # ------------------------------------------------------------------
-    # Type coercion helpers
-    # ------------------------------------------------------------------
+            n = self._context.config.diff_count()
+            if n == 0:
+                self._status_label.setText("All values match defaults.")
+            else:
+                self._status_label.setText(f"{n} value(s) differ from defaults.")
 
     @staticmethod
     def _to_display(value) -> str:

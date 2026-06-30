@@ -78,6 +78,7 @@ def register_process(
     category:    str,
     schema:      ProcessSchema,
     description: str = "",
+    kind:        str = "process",
 ):
     """
     Decorator that registers a process function into the registry.
@@ -110,9 +111,32 @@ def register_process(
             func        = func,
             schema      = schema,
             description = description,
+            kind        = kind,
         ))
         return func
     return decorator
+
+
+def register_simulation(
+    name:        str,
+    label:       str,
+    category:    str,
+    schema:      ProcessSchema,
+    description: str = "",
+):
+    """Convenience alias for register_process with kind='simulation'.
+
+    Simulations may have zero or more inputs — they generate synthetic data.
+    They appear in the Simulate menu rather than the Process menu.
+    """
+    return register_process(
+        name        = name,
+        label       = label,
+        category    = category,
+        schema      = schema,
+        description = description,
+        kind        = "simulation",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -173,11 +197,18 @@ class ProcessRegistry:
     def all_entries(self) -> list[ProcessEntry]:
         return list(self._entries.values())
 
-    def by_category(self) -> dict[str, list[ProcessEntry]]:
+    def by_category(self, kind: str | None = None) -> dict[str, list[ProcessEntry]]:
+        """Return entries grouped by category, optionally filtered by kind."""
         result: dict[str, list[ProcessEntry]] = {}
         for entry in self._entries.values():
+            if kind is not None and entry.kind != kind:
+                continue
             result.setdefault(entry.category, []).append(entry)
         return result
+
+    def by_kind(self, kind: str) -> list[ProcessEntry]:
+        """Return all entries with the given kind ('process' or 'simulation')."""
+        return [e for e in self._entries.values() if e.kind == kind]
 
     def by_input_type(self, type_id: str) -> list[ProcessEntry]:
         """Return all processes that accept the given workspace data type_id."""
@@ -211,11 +242,12 @@ class ProcessRegistry:
     # Synchronous execution — batch / headless / tests
     # ------------------------------------------------------------------
 
-    def run(self, name: str, inputs: dict, params: dict) -> Any:
+    def run(self, name: str, inputs: dict, params: dict,
+            annotations: dict | None = None) -> Any:
         """Direct synchronous call — no threading, no progress."""
         entry       = self.get(name)
         full_params = {**entry.schema.defaults(), **params}
-        result      = entry.func(inputs, full_params)
+        result      = entry.func(inputs, full_params, annotations=annotations or {})
         return _record_history(result, name, full_params, inputs)
 
     # ------------------------------------------------------------------
@@ -229,17 +261,19 @@ class ProcessRegistry:
         params:       dict,
         task_manager: Any,
         *,
-        source_id:    str = "",
-        group_id:     str = "",
+        source_id:    str  = "",
+        group_id:     str  = "",
+        annotations:  dict | None = None,
     ) -> Any:
         """Run a single process on a background thread via TaskManager."""
         from angstrompro.core.tasks.task_request import TaskRequest
 
         entry       = self.get(process_name)
         full_params = {**entry.schema.defaults(), **params}
+        resolved_annotations = annotations or {}
 
         def _task_func():
-            result = entry.func(inputs, full_params)
+            result = entry.func(inputs, full_params, annotations=resolved_annotations)
             return _record_history(result, process_name, full_params, inputs)
 
         return task_manager.submit(TaskRequest(
