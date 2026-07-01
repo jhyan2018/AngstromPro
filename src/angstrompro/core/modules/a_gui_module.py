@@ -140,7 +140,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._ws_list = QtWidgets.QTreeWidget()
         self._ws_list.setColumnCount(2)
         self._ws_list.setHeaderLabels(["Name", "Info"])
+        _Interactive = (QtWidgets.QHeaderView.ResizeMode.Interactive
+                        if IS_QT6 else QtWidgets.QHeaderView.Interactive)
         self._ws_list.header().setStretchLastSection(True)
+        self._ws_list.header().setSectionResizeMode(0, _Interactive)
+        self._ws_list.header().setMinimumSectionSize(60)
+        self._ws_list.setColumnWidth(0, 200)
         self._ws_list.setContextMenuPolicy(
             QtCore.Qt.ContextMenuPolicy.CustomContextMenu if IS_QT6
             else QtCore.Qt.CustomContextMenu

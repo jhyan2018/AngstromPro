@@ -18,12 +18,12 @@ class NumberExpression:
             suffix = {
                 -6: 'a', -5: 'f', -4: 'p', -3: 'n', -2: 'u', -1: 'm',
                  0: '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'
-            }.get(quotient, '?')
-            base *= 10 ** remainder
-        else:
-            suffix = '?'
+            }.get(quotient, None)
+            if suffix is not None:
+                base *= 10 ** remainder
+                return f"{base:.{precision}f}{suffix}"
 
-        return f"{base:.{precision}f}{suffix}"
+        return f"{num:.{precision}e}"
 
     @staticmethod
     def simplified_number_to_float(num_str):
@@ -38,4 +38,4 @@ class NumberExpression:
             }.get(suffix, 1)
             return num_base * power
         else:
-            return float(num_str)
+            return float(num_str)  # handles both plain floats and scientific notation (e.g. "1.23e-20")

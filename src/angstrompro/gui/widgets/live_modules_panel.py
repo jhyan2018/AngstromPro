@@ -99,6 +99,28 @@ class LiveModulesPanel(QtWidgets.QWidget):
         wm.item_added.connect(self._on_workspace_changed)
         wm.item_removed.connect(self._on_workspace_changed)
 
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not getattr(self, "_startup_done", False):
+            self._startup_done = True
+            self._launch_startup_modules()
+
+    def _launch_startup_modules(self) -> None:
+        startup_modules = self._context.config.get("app", "startup_modules") or []
+        for entry in startup_modules:
+            module_id = entry.get("module_id", "")
+            count     = int(entry.get("count", 1))
+            if not module_id:
+                continue
+            for _ in range(count):
+                try:
+                    self._context.module_manager.create(module_id, self._context)
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        "Failed to auto-create startup module %r: %s", module_id, exc
+                    )
+
     def _on_workspace_changed(self, *_args) -> None:
         for card in self._cards.values():
             card.refresh()
@@ -269,9 +291,7 @@ class LiveModulesPanel(QtWidgets.QWidget):
         menu.exec(pos)
 
     def _create_module(self, module_id: str) -> None:
-        inst = self._context.module_manager.create(module_id, self._context)
-        if isinstance(inst, QtWidgets.QWidget):
-            inst.show()
+        self._context.module_manager.create(module_id, self._context)
 
     # ------------------------------------------------------------------
     # Card actions

@@ -63,12 +63,6 @@ class TaskDashboard(QtWidgets.QWidget):
         self._tree.currentItemChanged.connect(self._on_selection_changed)
         layout.addWidget(self._tree)
 
-        # log
-        layout.addWidget(QtWidgets.QLabel("Log:"))
-        self._log_box = QtWidgets.QTextEdit()
-        self._log_box.setReadOnly(True)
-        self._log_box.setMaximumHeight(120)
-        layout.addWidget(self._log_box)
 
     # ------------------------------------------------------------------
     # Task observation
@@ -104,8 +98,6 @@ class TaskDashboard(QtWidgets.QWidget):
         handle.cancelled.connect(
             lambda tid=handle.task_id: self._on_cancelled(tid), Q)
 
-        self._log(f"[{request.task_type}] {request.source_id} "
-                  f"({handle.task_id[:8]}) submitted")
         self._update_status()
 
     # ------------------------------------------------------------------
@@ -116,7 +108,6 @@ class TaskDashboard(QtWidgets.QWidget):
         item = self._item_for(task_id)
         if item:
             item.setText(4, "Running")
-        self._log(f"({task_id[:8]}) started")
         self._update_status()
 
     def _on_progress(self, task_id: str, current: int, total: int) -> None:
@@ -129,7 +120,6 @@ class TaskDashboard(QtWidgets.QWidget):
         if item:
             item.setText(4, "Done")
             item.setText(5, "")
-        self._log(f"({task_id[:8]}) done")
         self._finish(task_id)
 
     def _on_error(self, task_id: str, error_text: str) -> None:
@@ -137,7 +127,6 @@ class TaskDashboard(QtWidgets.QWidget):
         if item:
             item.setText(4, "Error")
             item.setText(5, "")
-        self._log(f"({task_id[:8]}) ERROR: {error_text.splitlines()[0]}")
         self._finish(task_id)
 
     def _on_cancelled(self, task_id: str) -> None:
@@ -145,7 +134,6 @@ class TaskDashboard(QtWidgets.QWidget):
         if item:
             item.setText(4, "Cancelled")
             item.setText(5, "")
-        self._log(f"({task_id[:8]}) cancelled")
         self._finish(task_id)
 
     def _finish(self, task_id: str) -> None:
@@ -168,7 +156,6 @@ class TaskDashboard(QtWidgets.QWidget):
             handle.cancel()
             item.setText(4, "Cancelling")
             self._btn_cancel.setEnabled(False)
-            self._log(f"({task_id[:8]}) cancel requested")
 
     def _on_selection_changed(self, current, _previous) -> None:
         if current is None:
@@ -189,9 +176,6 @@ class TaskDashboard(QtWidgets.QWidget):
             if item.data(0, QtCore.Qt.ItemDataRole.UserRole) == task_id:
                 return item
         return None
-
-    def _log(self, text: str) -> None:
-        self._log_box.append(text)
 
     def _update_status(self) -> None:
         n = len(self._handles)

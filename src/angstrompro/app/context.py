@@ -7,6 +7,9 @@ Created on Tue Jun 16 15:52:42 2026
 
 from __future__ import annotations
 
+import logging
+from importlib.metadata import entry_points
+
 from angstrompro.core.configs import ConfigManager
 from angstrompro.core.workspaces import WorkspaceManager
 from angstrompro.core.modules import AModuleManager
@@ -30,9 +33,26 @@ class AppContext:
         self._tasks           = TaskManager(compute_threads=config.get("tasks", "max_concurrent_tasks", 4))
         self._workspace_manager = WorkspaceManager()
         self._module_manager  = AModuleManager(self._workspace_manager)
+        self._load_plugins()   # must run before ProcessRegistry() snapshots _PENDING
         self._processes       = ProcessRegistry()
         self._param_history   = ParamHistoryManager()
         self._channel_manager = ChannelManager(config)
+
+    # ------------------------------------------------------------------
+    # Plugin discovery
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _load_plugins() -> None:
+        """Import every package registered under the 'angstrompro.plugins' entry-point group."""
+        log = logging.getLogger(__name__)
+        eps = entry_points(group="angstrompro.plugins")
+        for ep in eps:
+            try:
+                ep.load()
+                log.info("Loaded plugin: %s (%s)", ep.name, ep.value)
+            except Exception as exc:
+                log.warning("Failed to load plugin %r: %s", ep.name, exc)
 
     @property
     def config(self) -> ConfigManager:

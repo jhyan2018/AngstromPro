@@ -54,6 +54,7 @@ def main(external_namespace=None, start_event_loop=True):
     window = context.module_manager.create("main_workbench", context)
     window.show()
 
+
     # keep references alive
     if external_namespace is not None:
         #external_namespace["data_manager"] = data_manager

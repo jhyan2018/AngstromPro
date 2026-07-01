@@ -25,7 +25,7 @@ class WorkspaceItem:
     payload     — the runtime data object (UdsDataStru, DataScene, or any future type)
     source_path — file this item was loaded from, if any
     item_id     — stable UUID, survives rename
-    annotations — dict mapping role name to annotation data (e.g. "bragg_peaks", "crop_region")
+    annotations — dict mapping role name to annotation data (e.g. "bragg_peaks", "interest_region")
     """
     name:        str
     payload:     WorkspaceData

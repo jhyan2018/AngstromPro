@@ -1,201 +1,147 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Jun 28 2026
+Crop a 3-D stack to a rectangular spatial region.
 
-@author: jiahaoYan
-
-2D crop algorithm — registered as "spatial.crop2d".
-
-Crops a 2D UdsDataStru along both axes using physical coordinate ranges
-(same units as Axis.values). Index arithmetic is done here; callers supply
-only physical min/max values.
+The crop region is read from the "interest_region" annotation (RegionData with
+pixel-index bounds) stored on the workspace item.  The layer axis (axis 0) is
+always preserved; axes 1 (rows) and 2 (cols) are trimmed.
 
 Registered processes
 --------------------
-    spatial.crop2d   Crop a 2D map to an (x_min, x_max) × (y_min, y_max) window.
+    spatial.crop2d_square
+        Crop to a square region with an even side length.
+        Shrinks the annotated region to the largest square with an even pixel
+        count, anchored at the top-left corner.
+
+    spatial.crop2d   (commented out — ImageStackViewer requires square data)
+        Crop to the annotated region without forcing square/even.
 """
 
 from __future__ import annotations
 
 import copy
-import time
 
 import numpy as np
 
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.annotation_data import RegionData
 from angstrompro.core.processes import (
     InputSpec,
-    ParameterSpec,
     ProcessSchema,
     register_process,
 )
+from angstrompro.core.processes.param_schema import AnnotationSpec
 
 # ---------------------------------------------------------------------------
-# Schema
+# Shared schema
 # ---------------------------------------------------------------------------
+
+_ANNOTATION = AnnotationSpec(
+    name     = "interest_region",
+    role     = "interest_region",
+    type_id  = "region",
+    required = True,
+)
 
 _SCHEMA = ProcessSchema(
     inputs=[
         InputSpec(
             name        = "data",
             type_id     = "uds",
-            label       = "2D Map",
-            description = "The 2D UdsDataStru to crop. Must have exactly 2 axes.",
-            ndim        = 2,
+            label       = "3D Stack",
+            description = "UdsDataStru with ndim=3 (layers × rows × cols).",
+            ndim        = 3,
         ),
     ],
-    params=[
-        ParameterSpec(
-            name        = "x_min",
-            type        = float,
-            default     = 0.0,
-            label       = "X min",
-            description = "Lower bound along the first axis (same units as axis values).",
-        ),
-        ParameterSpec(
-            name        = "x_max",
-            type        = float,
-            default     = 1.0,
-            label       = "X max",
-            description = "Upper bound along the first axis.",
-        ),
-        ParameterSpec(
-            name        = "y_min",
-            type        = float,
-            default     = 0.0,
-            label       = "Y min",
-            description = "Lower bound along the second axis.",
-        ),
-        ParameterSpec(
-            name        = "y_max",
-            type        = float,
-            default     = 1.0,
-            label       = "Y max",
-            description = "Upper bound along the second axis.",
-        ),
-        ParameterSpec(
-            name        = "inclusive",
-            type        = bool,
-            default     = True,
-            label       = "Inclusive bounds",
-            description = "Include data points exactly at min/max when True.",
-        ),
-    ],
+    annotations=[_ANNOTATION],
 )
 
 
 # ---------------------------------------------------------------------------
-# Helper
+# Shared implementation
 # ---------------------------------------------------------------------------
 
-def _axis_slice(axis: Axis, lo: float, hi: float, inclusive: bool) -> slice:
-    """Return a slice into axis.values that covers [lo, hi] (or (lo, hi))."""
-    v = axis.values
-    if inclusive:
-        mask = (v >= lo) & (v <= hi)
-    else:
-        mask = (v > lo) & (v < hi)
-    indices = np.where(mask)[0]
-    if indices.size == 0:
-        raise ValueError(
-            f"No data points found between {lo} and {hi} "
-            f"(axis range is [{v.min():.4g}, {v.max():.4g}])."
+def _do_crop(src: UdsDataStru, r0: int, r1: int, c0: int, c1: int) -> UdsDataStru:
+    """Crop src[:, r0:r1+1, c0:c1+1] and trim axes 1 & 2 accordingly."""
+    sr = slice(r0, r1 + 1)
+    sc = slice(c0, c1 + 1)
+
+    def _trim_axis(ax: Axis, s: slice) -> Axis:
+        vals = ax.values[s].copy()
+        return Axis(
+            values = vals,
+            label  = ax.label,
+            units  = ax.units,
+            ticks  = {k: v for k, v in ax.ticks.items() if vals[0] <= k <= vals[-1]},
         )
-    return slice(int(indices[0]), int(indices[-1]) + 1)
+
+    return UdsDataStru(
+        name         = src.name + "_cp",
+        data         = src.data[:, sr, sc].copy(),
+        axes         = [
+            copy.deepcopy(src.axes[0]),
+            _trim_axis(src.axes[1], sr),
+            _trim_axis(src.axes[2], sc),
+        ],
+        info         = dict(src.info),
+        proc_history = [copy.deepcopy(r) for r in src.proc_history],
+    )
+
+
+def _read_region(annotations: dict | None) -> RegionData:
+    if not annotations or "interest_region" not in annotations:
+        raise ValueError(
+            "spatial.crop2d requires a 'interest_region' annotation on the input item. "
+            "Use Points → 'Set Crop Region from Main' to define it first."
+        )
+    return annotations["interest_region"]
 
 
 # ---------------------------------------------------------------------------
-# Registered process
+# spatial.crop2d  (unregistered — ImageStackViewer requires square data)
+# ---------------------------------------------------------------------------
+
+# @register_process(
+#     name        = "spatial.crop2d",
+#     label       = "Crop 2D",
+#     category    = "Spatial",
+#     schema      = _SCHEMA,
+#     description = "Crop the spatial region of a 3-D stack using the interest_region annotation.",
+# )
+def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
+    src: UdsDataStru = inputs["data"]
+    if src.data.ndim != 3:
+        raise ValueError(f"spatial.crop2d requires ndim=3; got shape {src.data.shape}.")
+    region = _read_region(annotations)
+    return _do_crop(src, region.row_min, region.row_max, region.col_min, region.col_max)
+
+
+# ---------------------------------------------------------------------------
+# spatial.crop2d_square  (registered)
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spatial.crop2d",
-    label       = "Crop 2D",
+    name        = "spatial.crop2d_square",
+    label       = "Crop 2D (Square)",
     category    = "Spatial",
     schema      = _SCHEMA,
-    description = "Crop a 2D map to an (x_min, x_max) × (y_min, y_max) window.",
+    description = "Crop a 3-D stack to a square region with an even side length, "
+                  "using the interest_region annotation.",
 )
-def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
-    """
-    Crop a 2D UdsDataStru to a rectangular region in physical coordinates.
-
-    Parameters (via params dict)
-    ----------------------------
-    x_min, x_max : float
-        Crop window along axis 0.
-    y_min, y_max : float
-        Crop window along axis 1.
-    inclusive : bool
-        Whether boundary points are included.
-
-    Returns
-    -------
-    UdsDataStru
-        New object with cropped data and trimmed axes. proc_history is
-        appended automatically by ProcessRegistry after this function returns.
-    """
+def crop2d_square(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     src: UdsDataStru = inputs["data"]
+    if src.data.ndim != 3:
+        raise ValueError(f"spatial.crop2d_square requires ndim=3; got shape {src.data.shape}.")
 
-    # Artificial delay so the Task Dashboard can be observed during development.
-    # Remove once real STM data processing provides natural runtime.
-    time.sleep(30)
+    region = _read_region(annotations)
+    r0, r1 = region.row_min, region.row_max
+    c0, c1 = region.col_min, region.col_max
 
-    if src.data.ndim != 2:
-        raise ValueError(
-            f"spatial.crop2d requires a 2D array; got shape {src.data.shape}."
-        )
-    if len(src.axes) < 2:
-        raise ValueError(
-            f"spatial.crop2d requires at least 2 axes; got {len(src.axes)}."
-        )
+    # Force square and even side length
+    side_len = min(r1 - r0, c1 - c0)
+    if (side_len + 1) % 2 != 0:
+        side_len -= 1
+    r1 = r0 + side_len
+    c1 = c0 + side_len
 
-    x_min     = params["x_min"]
-    x_max     = params["x_max"]
-    y_min     = params["y_min"]
-    y_max     = params["y_max"]
-    inclusive = params["inclusive"]
-
-    if x_min >= x_max:
-        raise ValueError(f"x_min ({x_min}) must be less than x_max ({x_max}).")
-    if y_min >= y_max:
-        raise ValueError(f"y_min ({y_min}) must be less than y_max ({y_max}).")
-
-    sx = _axis_slice(src.axes[0], x_min, x_max, inclusive)
-    sy = _axis_slice(src.axes[1], y_min, y_max, inclusive)
-
-    cropped_data = src.data[sx, sy].copy()
-
-    cropped_axes = [
-        Axis(
-            values = src.axes[0].values[sx].copy(),
-            label  = src.axes[0].label,
-            units  = src.axes[0].units,
-            ticks  = {
-                k: v for k, v in src.axes[0].ticks.items()
-                if src.axes[0].values[sx][0] <= k <= src.axes[0].values[sx][-1]
-            },
-        ),
-        Axis(
-            values = src.axes[1].values[sy].copy(),
-            label  = src.axes[1].label,
-            units  = src.axes[1].units,
-            ticks  = {
-                k: v for k, v in src.axes[1].ticks.items()
-                if src.axes[1].values[sy][0] <= k <= src.axes[1].values[sy][-1]
-            },
-        ),
-        *[copy.deepcopy(ax) for ax in src.axes[2:]],  # pass through any extra axes
-    ]
-
-    return UdsDataStru(
-        name         = src.name + "_crop",
-        data         = cropped_data,
-        axes         = cropped_axes,
-        info         = dict(src.info),
-        proc_history = [copy.deepcopy(r) for r in src.proc_history],
-        landmarks    = {
-            k: v for k, v in src.landmarks.items()
-            if (cropped_axes[0].values[0]  <= k[0] <= cropped_axes[0].values[-1] and
-                cropped_axes[1].values[0]  <= k[1] <= cropped_axes[1].values[-1])
-        },
-    )
+    return _do_crop(src, r0, r1, c0, c1)

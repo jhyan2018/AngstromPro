@@ -134,10 +134,14 @@ class LiveModuleCard(QtWidgets.QFrame):
         mid_row = QtWidgets.QHBoxLayout()
         mid_row.setSpacing(10)
 
-        type_id = getattr(self._instance, "accepted_type_id", "") or "any"
-        ndim    = getattr(self._instance, "accepted_ndim",   None)
+        accepted = getattr(self._instance, "accepted_types", None)
+        if accepted:
+            type_str = ", ".join(sorted(accepted))
+        else:
+            type_str = "any"
+        ndim     = getattr(self._instance, "accepted_ndim", None)
         ndim_str = f"{ndim}D" if ndim is not None else "any dim"
-        meta_text = f"accepts: {type_id}  •  {ndim_str}"
+        meta_text = f"accepts: {type_str}  •  {ndim_str}"
 
         self._lbl_ws = QtWidgets.QLabel()
         self._lbl_ws.setObjectName("card_info_label")

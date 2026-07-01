@@ -148,5 +148,14 @@ QLabel#pref_row_label {
 QLabel#pref_row_desc {
     font-size: 9pt;
 }
+
+/* ── Process param dialog ──────────────────────────────────── */
+QLabel#param_dialog_desc {
+    font-size: 10pt;
+    color: grey;
+}
+QLabel#param_dialog_row_label {
+    font-size: 11pt;
+}
 """
         app.setStyleSheet(app.styleSheet() + extra_qss)

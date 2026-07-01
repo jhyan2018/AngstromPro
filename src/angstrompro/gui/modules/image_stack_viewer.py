@@ -46,7 +46,8 @@ class ImageStackViewer(AGuiModule):
     module_id     = "image_stack_viewer"
     display_name  = "Image Stack Viewer"
     category      = "Basic"
-    accepted_ndim = 2
+    accepted_types = ['uds']
+    accepted_ndim = 3
 
     _sync_layer: bool = False
     staged_labels = ["M", "A"]
@@ -147,6 +148,43 @@ class ImageStackViewer(AGuiModule):
         self.statusBar().showMessage(
             f"Main: {item.name}  shape={item.payload.data.shape}", 4000)
 
+        if not item.name.endswith("_fft"):
+            self._auto_fft(item)
+
+    def _auto_fft(self, src_item: WorkspaceItem) -> None:
+        """Load or compute the FFT of src_item into the aux panel."""
+        expected_fft_name = src_item.name + "_fft"
+        existing = self.workspace.find_item(expected_fft_name)
+        if existing is not None:
+            self._load_fft_aux(existing)
+            return
+
+        if self._context.processes.get("spectral.fft2d") is None:
+            return
+        fft_name = self.workspace.suggest_name(expected_fft_name)
+
+        def _on_result(_tid, result):
+            fft_item = self.workspace.add_item(name=fft_name, payload=result)
+            self._load_fft_aux(fft_item)
+
+        self.submit_process(
+            "spectral.fft2d",
+            input_items = [src_item],
+            params      = None,
+            on_result   = _on_result,
+        )
+
+    def _load_fft_aux(self, fft_item: WorkspaceItem) -> None:
+        self._aux_item = fft_item
+        self.process_inputs = ([self._main_item, fft_item]
+                               if self._main_item else [fft_item])
+        self._panel_aux.setUdsData(fft_item.payload)
+        self._panel_aux.setEnabled(True)
+        if self._sync_layer:
+            self._panel_aux.setImageLayer(self._panel_main.img_current_layer)
+        self.statusBar().showMessage(
+            f"Aux (auto FFT): {fft_item.name}", 4000)
+
     # ------------------------------------------------------------------
     # Message routing between panels
     # ------------------------------------------------------------------
@@ -209,27 +247,29 @@ class ImageStackViewer(AGuiModule):
     # ------------------------------------------------------------------
 
     def _build_annotate_menu(self) -> None:
-        menu = self.menuBar().addMenu("Annotate")
+        menu = self.menuBar().addMenu("Points")
 
-        menu.addAction("Set Bragg Peaks from Main").triggered.connect(
-            self._set_bragg_peaks_main)
         menu.addAction("Set Bragg Peaks from Aux").triggered.connect(
             self._set_bragg_peaks_aux)
-        menu.addAction("Set Crop Region from Main").triggered.connect(
-            self._set_crop_region_main)
-        menu.addAction("Set Crop Region from Aux").triggered.connect(
-            self._set_crop_region_aux)
+        menu.addAction("Set Filter Points from Aux").triggered.connect(
+            self._set_filter_points_from_aux)
+        menu.addAction("Set Interest Region from Main").triggered.connect(
+            self._set_interest_region_main)
+        menu.addAction("Set Mask Center from Main").triggered.connect(
+            self._set_mask_center_main)
         menu.addAction("Set Line Profile from Main").triggered.connect(
             self._set_line_profile_main)
-        menu.addAction("Set Line Profile from Aux").triggered.connect(
-            self._set_line_profile_aux)
         menu.addSeparator()
 
         clear_menu = menu.addMenu("Clear")
         clear_menu.addAction("Clear Bragg Peaks").triggered.connect(
             lambda: self._clear_annotation("bragg_peaks"))
-        clear_menu.addAction("Clear Crop Region").triggered.connect(
-            lambda: self._clear_annotation("crop_region"))
+        clear_menu.addAction("Clear Filter Points").triggered.connect(
+            lambda: self._clear_annotation("filter_points"))
+        clear_menu.addAction("Clear Interest Region").triggered.connect(
+            lambda: self._clear_annotation("interest_region"))
+        clear_menu.addAction("Clear Mask Center").triggered.connect(
+            lambda: self._clear_annotation("mask_center"))
         clear_menu.addAction("Clear Line Profile").triggered.connect(
             lambda: self._clear_annotation("line_profile"))
 
@@ -265,7 +305,7 @@ class ImageStackViewer(AGuiModule):
             f"Bragg peaks set: {len(coords)} points on {self._main_item.name}", 3000)
 
     def _set_bragg_peaks_aux(self) -> None:
-        import numpy as np
+        """Pick points from aux panel, store on the corresponding real-space item."""
         from angstrompro.core.data.annotation_data import PointSetData
         if self._aux_item is None:
             QtWidgets.QMessageBox.information(self, "No aux item",
@@ -277,12 +317,87 @@ class ImageStackViewer(AGuiModule):
                 self, "No points",
                 "No points picked in aux panel. Right-click on canvas to pick points first.")
             return
-        self._aux_item.annotations["bragg_peaks"] = PointSetData(coords=coords)
-        self.workspace.notify_changed(self._aux_item.name)
-        self.statusBar().showMessage(
-            f"Bragg peaks set: {len(coords)} points on {self._aux_item.name}", 3000)
 
-    def _set_crop_region_main(self) -> None:
+        # Resolve target: strip _fft suffix to find the real-space item
+        aux_name = self._aux_item.name
+        if aux_name.endswith("_fft"):
+            real_name = aux_name[:-4]
+            target = self.workspace.find_item(real_name) or self._aux_item
+        else:
+            target = self._aux_item
+
+        target.annotations["bragg_peaks"] = PointSetData(coords=coords)
+        self.workspace.notify_changed(target.name)
+        self.statusBar().showMessage(
+            f"Bragg peaks set: {len(coords)} points on {target.name}", 3000)
+
+    def _set_filter_points_from_aux(self) -> None:
+        """Pick points from aux panel, store as filter_points on the real-space item."""
+        from angstrompro.core.data.annotation_data import PointSetData
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(
+                self, "No main item", "Load an item into the Main panel first.")
+            return
+        coords = self._get_picked_coords(self._panel_aux)
+        if coords is None or len(coords) == 0:
+            QtWidgets.QMessageBox.information(
+                self, "No points",
+                "No points picked in aux panel. Right-click on the FFT canvas to pick filter points first.")
+            return
+        # Always store on the real-space item (strip _fft if main item is FFT)
+        name = self._main_item.name
+        target = (self.workspace.find_item(name[:-4])
+                  if name.endswith("_fft") else self._main_item)
+        if target is None:
+            target = self._main_item
+        target.annotations["filter_points"] = PointSetData(coords=coords)
+        self.workspace.notify_changed(target.name)
+        self.statusBar().showMessage(
+            f"Filter points set: {len(coords)} points on '{target.name}'", 3000)
+
+    def _on_ws_context_menu(self, pos) -> None:
+        from angstrompro.utils.qt_compat import IS_QT6
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+        tree_item = self._ws_list.itemAt(pos)
+        if tree_item is None:
+            return
+        data = tree_item.data(0, _UserRole)
+        if not isinstance(data, tuple):
+            # Top-level item — delegate to base
+            super()._on_ws_context_menu(pos)
+            return
+
+        item_name, role = data
+        menu = QtWidgets.QMenu(self)
+        act_clear = menu.addAction(f"Clear '{role}'")
+
+        act_restore = None
+        if role == "bragg_peaks":
+            act_restore = menu.addAction("Restore to Aux picked points")
+
+        act = menu.exec(self._ws_list.viewport().mapToGlobal(pos))
+        if act == act_clear:
+            ws_item = self.workspace.get_item(item_name)
+            ws_item.annotations.pop(role, None)
+            self.workspace.notify_changed(item_name)
+        elif act_restore is not None and act == act_restore:
+            ws_item = self.workspace.get_item(item_name)
+            self._restore_bragg_peaks_to_aux(ws_item)
+
+    def _restore_bragg_peaks_to_aux(self, ws_item: WorkspaceItem) -> None:
+        ann = ws_item.annotations.get("bragg_peaks")
+        if ann is None or not hasattr(ann, "coords") or len(ann.coords) == 0:
+            return
+        entries = [f"{int(c[1])},{int(c[0])}" for c in ann.coords]  # col,row
+        self._panel_aux.img_picked_points_list = entries
+        self._panel_aux.ui_lw_img_picked_points.clear()
+        self._panel_aux.ui_lw_img_picked_points.addItems(entries)
+        self._panel_aux.ui_lw_img_picked_points.setCurrentRow(len(entries) - 1)
+        self._panel_aux.updateImage()
+        self.statusBar().showMessage(
+            f"Restored {len(entries)} Bragg peaks → Aux picked points", 3000)
+
+    def _set_interest_region_main(self) -> None:
         from angstrompro.core.data.annotation_data import RegionData
         if self._main_item is None:
             return
@@ -294,7 +409,7 @@ class ImageStackViewer(AGuiModule):
             return
         rows = [c[0] for c in coords]
         cols = [c[1] for c in coords]
-        self._main_item.annotations["crop_region"] = RegionData(
+        self._main_item.annotations["interest_region"] = RegionData(
             row_min=min(rows), col_min=min(cols),
             row_max=max(rows), col_max=max(cols),
         )
@@ -302,7 +417,25 @@ class ImageStackViewer(AGuiModule):
         self.statusBar().showMessage(
             f"Crop region set on {self._main_item.name}", 3000)
 
-    def _set_crop_region_aux(self) -> None:
+    def _set_mask_center_main(self) -> None:
+        from angstrompro.core.data.annotation_data import PointSetData
+        import numpy as np
+        if self._main_item is None:
+            return
+        coords = self._get_picked_coords(self._panel_main)
+        if coords is None or len(coords) < 1:
+            QtWidgets.QMessageBox.information(
+                self, "Need 1 point",
+                "Pick exactly 1 point in the main panel to define the mask centre.")
+            return
+        self._main_item.annotations["mask_center"] = PointSetData(
+            coords=np.array([[coords[0][0], coords[0][1]]], dtype=float)
+        )
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"Mask center set on {self._main_item.name}", 3000)
+
+    def _set_interest_region_aux(self) -> None:
         from angstrompro.core.data.annotation_data import RegionData
         if self._aux_item is None:
             QtWidgets.QMessageBox.information(self, "No aux item",
@@ -316,7 +449,7 @@ class ImageStackViewer(AGuiModule):
             return
         rows = [c[0] for c in coords]
         cols = [c[1] for c in coords]
-        self._aux_item.annotations["crop_region"] = RegionData(
+        self._aux_item.annotations["interest_region"] = RegionData(
             row_min=min(rows), col_min=min(cols),
             row_max=max(rows), col_max=max(cols),
         )

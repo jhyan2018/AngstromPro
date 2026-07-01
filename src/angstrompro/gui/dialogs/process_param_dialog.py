@@ -66,8 +66,8 @@ class ProcessParamDialog(QtWidgets.QDialog):
         # description (hidden if empty)
         if self._entry.description:
             lbl = QtWidgets.QLabel(self._entry.description)
+            lbl.setObjectName("param_dialog_desc")
             lbl.setWordWrap(True)
-            lbl.setStyleSheet("color: grey; font-size: 10px;")
             root.addWidget(lbl)
             root.addWidget(_hline())
 
@@ -135,14 +135,15 @@ class ProcessParamDialog(QtWidgets.QDialog):
                 widget = _make_widget(spec)
                 self._widgets[spec.name] = widget
 
-                row_label = spec.label or spec.name
+                row_label_text = spec.label or spec.name
                 if spec.units:
-                    row_label += f"  ({spec.units})"
-
+                    row_label_text += f"  ({spec.units})"
                 if spec.description:
                     widget.setToolTip(spec.description)
 
-                form.addRow(row_label + ":", widget)
+                lbl = QtWidgets.QLabel(row_label_text + ":")
+                lbl.setObjectName("param_dialog_row_label")
+                form.addRow(lbl, widget)
 
             root.addWidget(form_widget)
         else:

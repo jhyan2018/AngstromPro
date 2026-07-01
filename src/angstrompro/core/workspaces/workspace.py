@@ -90,6 +90,9 @@ class Workspace(QtCore.QObject):
     def get_item(self, name: str) -> WorkspaceItem:
         return self._items[name]
 
+    def find_item(self, name: str) -> "WorkspaceItem | None":
+        return self._items.get(name)
+
     def get_payload(self, name: str) -> WorkspaceData:
         return self._items[name].payload
 
