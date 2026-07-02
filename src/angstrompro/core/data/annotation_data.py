@@ -31,4 +31,4 @@ class LineData:
 
 
 AnnotationData = PointSetData | RegionData | LineData
-ANNOTATION_ROLES = ("bragg_peaks", "interest_region", "line_profile", "mask_center")
+ANNOTATION_ROLES = ("bragg_peaks", "interest_region", "line_profile", "mask_center", "lockin_peak")

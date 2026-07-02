@@ -48,6 +48,10 @@ class MainWorkbench(AGuiModule):
             PrefItem("data.max_recent_files", "Recent files limit",  "number",
                      "How many recent files to remember"),
         ]),
+        PrefSection("Plugins", "plug", [
+            PrefItem("plugins.path_plugins", "", "plugin_list",
+                     full_width=True),
+        ]),
     ]
 
     def __init__(self, context: AppContext, parent=None) -> None:
@@ -70,6 +74,7 @@ class MainWorkbench(AGuiModule):
         snapshot = {
             "appearance": copy.deepcopy(cfg.get_group("appearance")),
             "data":       copy.deepcopy(cfg.get_group("data")),
+            "plugins":    copy.deepcopy(cfg.get_group("plugins")),
         }
 
         def _apply(new_cfg: dict) -> None:
@@ -89,6 +94,7 @@ class MainWorkbench(AGuiModule):
             _apply({
                 "appearance": copy.deepcopy(DEFAULTS.get("appearance", {})),
                 "data":       copy.deepcopy(DEFAULTS.get("data", {})),
+                "plugins":    copy.deepcopy(DEFAULTS.get("plugins", {})),
             })
 
         dlg = QtWidgets.QDialog(self)

@@ -9,6 +9,7 @@ from .visualization import DEFAULTS as _visualization
 from .algorithms import DEFAULTS as _algorithms
 from .batch_runner import DEFAULTS as _batch_runner
 from .modules import DEFAULTS as _modules
+from .plugins import DEFAULTS as _plugins
 
 DEFAULTS: dict = {
     "app": _app,
@@ -22,4 +23,5 @@ DEFAULTS: dict = {
     "algorithms": _algorithms,
     "batch_runner": _batch_runner,
     "modules": _modules,
+    "plugins": _plugins,
 }

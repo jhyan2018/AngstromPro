@@ -333,35 +333,41 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "Input data not ready", msg)
             return
 
-        n           = len(entry.schema.inputs)
-        input_items = self.process_inputs[:n]
-        dlg = ProcessParamDialog(entry, self._context, parent=self, input_items=input_items)
+        pre_staged   = self.process_inputs[:len(entry.schema.inputs)]
+        ws_items     = self.workspace.list_items()
+        dlg = ProcessParamDialog(
+            entry, self._context, parent=self,
+            input_items=pre_staged, workspace_items=ws_items,
+        )
         if dlg.exec():
             params      = dlg.params()
-            self.submit_process(process_name, input_items, params)
+            self.submit_process(process_name, dlg.input_items(), params)
 
     def _validate_process_inputs(self, entry) -> tuple[bool, str]:
         """
         Check that process_inputs satisfies entry.schema.inputs.
 
         Rules:
-          - len(process_inputs) >= len(schema.inputs)
-          - For each (spec, item) pair: type_id and ndim must match (None/empty = wildcard)
+          - len(process_inputs) >= number of required inputs (spec.required=True)
+          - For each (spec, item) pair that is staged: type_id and ndim must match
         """
-        required = entry.schema.inputs
-        if not required:
+        specs = entry.schema.inputs
+        if not specs:
             return True, ""   # 0-input process — always valid
 
+        n_required = sum(1 for s in specs if s.required)
         staged = self.process_inputs
-        if len(staged) < len(required):
+
+        if len(staged) < n_required:
+            req_names = ", ".join(f"'{s.name}'" for s in specs if s.required)
             return (
                 False,
-                f"'{entry.label}' needs {len(required)} input(s), "
-                f"but only {len(staged)} item(s) are staged.\n\n"
+                f"'{entry.label}' needs {n_required} required input(s) "
+                f"({req_names}), but only {len(staged)} item(s) are staged.\n\n"
                 f"Load or select the required data first.",
             )
 
-        for i, (spec, item) in enumerate(zip(required, staged)):
+        for i, (spec, item) in enumerate(zip(specs, staged)):
             # type_id check
             if spec.type_id and item.type_id != spec.type_id:
                 return (
@@ -1014,19 +1020,25 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         """
         Default result handler: add the returned WorkspaceData to this module's workspace.
 
+        Accepts either a single WorkspaceData or a list of WorkspaceData objects
+        (e.g. from submit_pipeline with return_all=True, or a process that
+        naturally produces multiple outputs).
+
         Subclasses that need custom behaviour (e.g. display the result immediately)
         should pass on_result= to submit_process() instead of overriding this.
         """
         from angstrompro.core.data.base import WorkspaceData
-        if not isinstance(result, WorkspaceData):
-            log.warning(
-                "Process returned %s which is not WorkspaceData — not added to workspace",
-                type(result).__name__,
-            )
-            return
-        raw_name = getattr(result, "name", None) or "result"
-        name     = self.workspace.suggest_name(raw_name)
-        self.workspace.add_item(name=name, payload=result)
+        items = result if isinstance(result, list) else [result]
+        for item in items:
+            if not isinstance(item, WorkspaceData):
+                log.warning(
+                    "Process returned %s which is not WorkspaceData — not added to workspace",
+                    type(item).__name__,
+                )
+                continue
+            raw_name = getattr(item, "name", None) or "result"
+            name     = self.workspace.suggest_name(raw_name)
+            self.workspace.add_item(name=name, payload=item)
 
     def _on_process_error(self, task_id: str, error_text: str) -> None:
         QtWidgets.QMessageBox.critical(self, "Process Error", error_text)

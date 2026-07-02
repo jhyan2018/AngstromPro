@@ -42,12 +42,36 @@ class AppContext:
     # Plugin discovery
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _load_plugins() -> None:
-        """Import every package registered under the 'angstrompro.plugins' entry-point group."""
+    def _load_plugins(self) -> None:
+        """Load plugins in two passes: private config-path plugins first, then entry-points."""
+        import sys
+        import importlib
         log = logging.getLogger(__name__)
+
+        # Pass 1: path-based plugins declared in config
+        for entry in self._config.get("plugins", "path_plugins", []):
+            path   = entry.get("path", "").strip()
+            module = entry.get("module", "").strip()
+            if not path or not module:
+                continue
+            if module in sys.modules:
+                log.warning("Plugin %r skipped (already loaded by another mechanism)", module)
+                continue
+            if path not in sys.path:
+                sys.path.insert(0, path)
+            try:
+                importlib.import_module(module)
+                log.debug("Loaded plugin: %s", module)
+            except Exception as exc:
+                log.warning("Failed to load plugin %r: %s", module, exc)
+
+        # Pass 2: public plugins registered via 'angstrompro.plugins' entry-point group
         eps = entry_points(group="angstrompro.plugins")
         for ep in eps:
+            module_name = ep.value.split(":")[0].split(".")[0]
+            if module_name in sys.modules:
+                log.warning("Plugin %r skipped (already loaded via config path)", ep.name)
+                continue
             try:
                 ep.load()
                 log.info("Loaded plugin: %s (%s)", ep.name, ep.value)

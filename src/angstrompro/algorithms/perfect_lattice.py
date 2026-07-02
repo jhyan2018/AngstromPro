@@ -30,6 +30,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    ParameterSpec,
     ProcessSchema,
     register_process,
 )
@@ -57,6 +58,24 @@ _SCHEMA = ProcessSchema(
                           "Typically the FFT/k-space item whose bragg_peaks annotation "
                           "holds the two Q-vectors to use for correction.",
             ndim        = 3,
+        ),
+    ],
+    params=[
+        ParameterSpec(
+            name        = "interpolate_method",
+            type        = str,
+            default     = "bilinear",
+            label       = "Interpolation",
+            description = "Pixel interpolation method used during the affine remap.",
+            choices     = ["bilinear"],
+        ),
+        ParameterSpec(
+            name        = "pad_method",
+            type        = str,
+            default     = "constant",
+            label       = "Padding",
+            description = "Edge padding mode passed to numpy.pad.",
+            choices     = ["constant", "reflect", "edge", "wrap", "symmetric"],
         ),
     ],
     annotations=[_ANNOTATION],
@@ -105,13 +124,15 @@ def _rebuild_axes(src: UdsDataStru, new_h: int, new_w: int) -> list:
     return [ax0, ax1, ax2]
 
 
-def _apply_affine(src: UdsDataStru, affine: AffineTransform) -> UdsDataStru:
+def _apply_affine(src: UdsDataStru, affine: AffineTransform,
+                  interpolate_method: str = 'bilinear',
+                  pad_method: str = 'constant') -> UdsDataStru:
     n_layers = src.data.shape[0]
     out_h    = affine.src_X_float.shape[-2]
     out_w    = affine.src_X_float.shape[-1]
     out      = np.zeros((n_layers, out_h, out_w), dtype=np.float64)
     for i in range(n_layers):
-        out[i] = affine.affineMapping(src.data[i], 'bilinear', 'constant')
+        out[i] = affine.affineMapping(src.data[i], interpolate_method, pad_method)
     return UdsDataStru(
         name         = src.name + "_pl",
         data         = out,
@@ -124,7 +145,9 @@ def _apply_affine(src: UdsDataStru, affine: AffineTransform) -> UdsDataStru:
 # Core algorithms (ported from ScienceY/ImageProcess/PerfectLattice.py)
 # ---------------------------------------------------------------------------
 
-def _perfect_lattice_square(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2) -> UdsDataStru:
+def _perfect_lattice_square(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2,
+                            interpolate_method: str = 'bilinear',
+                            pad_method: str = 'constant') -> UdsDataStru:
     affine = AffineTransform()
 
     Ox = (src.data.shape[-1] - src.data.shape[-1] % 2) / 2
@@ -150,10 +173,12 @@ def _perfect_lattice_square(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2) -> UdsData
     affine.setRotateOfAffineMatrix(theta1)
     affine.srcMappedPoints(src.data.shape[-2], src.data.shape[-1])
 
-    return _apply_affine(src, affine)
+    return _apply_affine(src, affine, interpolate_method, pad_method)
 
 
-def _perfect_lattice_hexagonal(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2) -> UdsDataStru:
+def _perfect_lattice_hexagonal(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2,
+                               interpolate_method: str = 'bilinear',
+                               pad_method: str = 'constant') -> UdsDataStru:
     affine = AffineTransform()
 
     Ox = (src.data.shape[-1] - src.data.shape[-1] % 2) / 2
@@ -188,7 +213,7 @@ def _perfect_lattice_hexagonal(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2) -> UdsD
     affine.setRotateOfAffineMatrix(theta1)
     affine.srcMappedPoints(src.data.shape[-2], src.data.shape[-1])
 
-    return _apply_affine(src, affine)
+    return _apply_affine(src, affine, interpolate_method, pad_method)
 
 # ---------------------------------------------------------------------------
 # Registered processes
@@ -208,7 +233,8 @@ def perfect_lattice_square(inputs: dict, params: dict,
     if src.data.ndim != 3:
         raise ValueError(f"spatial.perfect_lattice_square requires ndim=3; got {src.data.shape}.")
     bPx1, bPy1, bPx2, bPy2 = _read_bragg_peaks(annotations)
-    return _perfect_lattice_square(src, bPx1, bPy1, bPx2, bPy2)
+    return _perfect_lattice_square(src, bPx1, bPy1, bPx2, bPy2,
+                                   params["interpolate_method"], params["pad_method"])
 
 
 @register_process(
@@ -225,4 +251,5 @@ def perfect_lattice_hexagonal(inputs: dict, params: dict,
     if src.data.ndim != 3:
         raise ValueError(f"spatial.perfect_lattice_hexagonal requires ndim=3; got {src.data.shape}.")
     bPx1, bPy1, bPx2, bPy2 = _read_bragg_peaks(annotations)
-    return _perfect_lattice_hexagonal(src, bPx1, bPy1, bPx2, bPy2)
+    return _perfect_lattice_hexagonal(src, bPx1, bPy1, bPx2, bPy2,
+                                      params["interpolate_method"], params["pad_method"])

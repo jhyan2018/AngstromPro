@@ -288,8 +288,9 @@ class ProcessRegistry:
         steps:        list[tuple[str, dict, dict]],
         task_manager: Any,
         *,
-        source_id:    str = "",
-        group_id:     str = "",
+        source_id:    str  = "",
+        group_id:     str  = "",
+        return_all:   bool = False,
     ) -> Any:
         """
         Run a sequence of processes as one background task.
@@ -303,6 +304,11 @@ class ProcessRegistry:
         The first step must supply all its inputs explicitly.
         Subsequent steps receive the previous result as inputs["data"]
         unless they supply their own non-empty inputs dict.
+
+        return_all : bool, default False
+            False → return only the final step's result (default behaviour).
+            True  → return a list of every step's result so all intermediate
+                    outputs are added to the workspace.
         """
         from angstrompro.core.tasks.task_request import TaskRequest
 
@@ -311,13 +317,24 @@ class ProcessRegistry:
             entry = self.get(name)
             resolved.append((entry, step_inputs, {**entry.schema.defaults(), **step_params}))
 
+        _PREV = "__prev__"
+
         def _task_func():
-            result = None
+            result  = None
+            results = []
             for entry, step_inputs, full_params in resolved:
-                effective_inputs = step_inputs if step_inputs else {"data": result}
+                if step_inputs:
+                    # substitute any "__prev__" sentinel with the previous result
+                    effective_inputs = {
+                        k: (result if v == _PREV else v)
+                        for k, v in step_inputs.items()
+                    }
+                else:
+                    effective_inputs = {"data": result}
                 result = entry.func(effective_inputs, full_params)
                 result = _record_history(result, entry.name, full_params, effective_inputs)
-            return result
+                results.append(result)
+            return results if return_all else result
 
         return task_manager.submit(TaskRequest(
             task_func = _task_func,

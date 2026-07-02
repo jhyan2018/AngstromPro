@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """
+Created on Wed Sep 13 14:03:55 2023
+
+@author: Jiahao Yan & Huiyu Zhao
+
 Pixel interpolation utilities.
 
 Classes

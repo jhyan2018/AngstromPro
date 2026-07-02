@@ -35,6 +35,7 @@ class InputSpec:
     label:       str        = ""
     description: str        = ""
     ndim:        int | None = None  # required array dimensionality; None = any
+    required:    bool       = True  # False = optional input; process receives None if absent
 
     def __post_init__(self) -> None:
         if not self.label:

@@ -71,7 +71,7 @@ class ProcessRunner:
         log.debug(
             "ProcessRunner.run: %s  inputs=[%s]  params=%s",
             process_name,
-            ", ".join(item.name for item in input_items),
+            ", ".join(item.name for item in input_items if item is not None),
             list(merged.keys()),
         )
 
@@ -127,14 +127,25 @@ class ProcessRunner:
 
     @staticmethod
     def _build_inputs(entry, items: list[WorkspaceItem]) -> dict:
-        """Map WorkspaceItems to a named inputs dict by schema order."""
+        """Map WorkspaceItems to a named inputs dict by schema order.
+
+        Required inputs must be present; optional inputs (spec.required=False)
+        that have no staged item are mapped to None.
+        """
         input_specs = entry.schema.inputs
-        if len(items) != len(input_specs):
+        n_required  = sum(1 for s in input_specs if s.required)
+        if len(items) < n_required:
             raise ValueError(
-                f"Process '{entry.name}' expects {len(input_specs)} input(s) "
-                f"({[s.name for s in input_specs]}), got {len(items)}."
+                f"Process '{entry.name}' requires {n_required} input(s) "
+                f"({[s.name for s in input_specs if s.required]}), got {len(items)}."
             )
-        return {spec.name: item.payload for spec, item in zip(input_specs, items)}
+        result = {}
+        for i, spec in enumerate(input_specs):
+            if i < len(items):
+                result[spec.name] = items[i].payload
+            else:
+                result[spec.name] = None   # optional input not staged
+        return result
 
     @staticmethod
     def _build_annotations(entry, items: list[WorkspaceItem]) -> dict:

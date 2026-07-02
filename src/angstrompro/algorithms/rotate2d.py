@@ -42,6 +42,22 @@ _SCHEMA = ProcessSchema(
             min         = -360.0,
             max         =  360.0,
         ),
+        ParameterSpec(
+            name        = "interpolate_method",
+            type        = str,
+            default     = "bilinear",
+            label       = "Interpolation",
+            description = "Pixel interpolation method used during rotation.",
+            choices     = ["bilinear"],
+        ),
+        ParameterSpec(
+            name        = "pad_method",
+            type        = str,
+            default     = "constant",
+            label       = "Padding",
+            description = "Edge padding mode passed to numpy.pad.",
+            choices     = ["constant", "reflect", "edge", "wrap", "symmetric"],
+        ),
     ],
 )
 
@@ -58,7 +74,8 @@ def rotate2d_process(inputs: dict, params: dict, *, annotations: dict | None = N
     if src.data.ndim != 3:
         raise ValueError(f"spatial.rotate2d requires ndim=3; got shape {src.data.shape}.")
 
-    out = rotate2d(src.data, params["theta"])
+    out = rotate2d(src.data, params["theta"],
+                   params["interpolate_method"], params["pad_method"])
 
     return UdsDataStru(
         name         = src.name + "_rot",

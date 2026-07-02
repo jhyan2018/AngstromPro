@@ -257,6 +257,8 @@ class ImageStackViewer(AGuiModule):
             self._set_interest_region_main)
         menu.addAction("Set Mask Center from Main").triggered.connect(
             self._set_mask_center_main)
+        menu.addAction("Set Lock-in Peak from Aux").triggered.connect(
+            self._set_lockin_peak_aux)
         menu.addAction("Set Line Profile from Main").triggered.connect(
             self._set_line_profile_main)
         menu.addSeparator()
@@ -270,6 +272,8 @@ class ImageStackViewer(AGuiModule):
             lambda: self._clear_annotation("interest_region"))
         clear_menu.addAction("Clear Mask Center").triggered.connect(
             lambda: self._clear_annotation("mask_center"))
+        clear_menu.addAction("Clear Lock-in Peak").triggered.connect(
+            lambda: self._clear_annotation("lockin_peak"))
         clear_menu.addAction("Clear Line Profile").triggered.connect(
             lambda: self._clear_annotation("line_profile"))
 
@@ -434,6 +438,28 @@ class ImageStackViewer(AGuiModule):
         self.workspace.notify_changed(self._main_item.name)
         self.statusBar().showMessage(
             f"Mask center set on {self._main_item.name}", 3000)
+
+    def _set_lockin_peak_aux(self) -> None:
+        """Pick one point from the aux (FFT) panel, store as lockin_peak on the real-space item."""
+        from angstrompro.core.data.annotation_data import PointSetData
+        import numpy as np
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(self, "No main item",
+                                              "Load an item into the Main panel first.")
+            return
+        coords = self._get_picked_coords(self._panel_aux)
+        if coords is None or len(coords) < 1:
+            QtWidgets.QMessageBox.information(
+                self, "Need 1 point",
+                "Pick exactly 1 point in the Aux (FFT) panel to define the lock-in Q-vector.")
+            return
+        # Store on the real-space item (main panel), not on the FFT item
+        self._main_item.annotations["lockin_peak"] = PointSetData(
+            coords=np.array([[coords[0][0], coords[0][1]]], dtype=float))
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"Lock-in peak set on {self._main_item.name} "
+            f"(col={int(coords[0][1])}, row={int(coords[0][0])})", 3000)
 
     def _set_interest_region_aux(self) -> None:
         from angstrompro.core.data.annotation_data import RegionData

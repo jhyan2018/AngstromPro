@@ -38,19 +38,22 @@ class ProcessParamDialog(QtWidgets.QDialog):
 
     def __init__(
         self,
-        entry:        "ProcessEntry",
-        context:      "AppContext",
-        parent:       QtWidgets.QWidget | None = None,
-        input_items:  list | None = None,
+        entry:           "ProcessEntry",
+        context:         "AppContext",
+        parent:          QtWidgets.QWidget | None = None,
+        input_items:     list | None = None,
+        workspace_items: list | None = None,
     ) -> None:
         super().__init__(parent)
-        self._entry        = entry
-        self._context      = context
-        self._input_items  = input_items or []
-        self._widgets: dict[str, QtWidgets.QWidget] = {}
+        self._entry           = entry
+        self._context         = context
+        self._input_items     = input_items or []
+        self._workspace_items = workspace_items or []
+        self._widgets:      dict[str, QtWidgets.QWidget] = {}
+        self._input_combos: dict[str, QtWidgets.QComboBox] = {}
 
         self.setWindowTitle(entry.label)
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(420)
         self._setup_ui()
         self._load_values()
 
@@ -69,6 +72,55 @@ class ProcessParamDialog(QtWidgets.QDialog):
             lbl.setObjectName("param_dialog_desc")
             lbl.setWordWrap(True)
             root.addWidget(lbl)
+            root.addWidget(_hline())
+
+        # inputs section
+        input_specs = self._entry.schema.inputs
+        if input_specs:
+            root.addWidget(QtWidgets.QLabel("<b>Inputs</b>"))
+            inp_form_widget = QtWidgets.QWidget()
+            inp_form = QtWidgets.QFormLayout(inp_form_widget)
+            inp_form.setContentsMargins(0, 0, 0, 0)
+            inp_form.setHorizontalSpacing(16)
+            inp_form.setVerticalSpacing(4)
+
+            for i, spec in enumerate(input_specs):
+                combo = QtWidgets.QComboBox()
+                combo.setSizePolicy(
+                    QtWidgets.QSizePolicy.Policy.Expanding,
+                    QtWidgets.QSizePolicy.Policy.Fixed,
+                )
+                if not spec.required:
+                    combo.addItem("(none)", None)
+
+                for ws_item in self._workspace_items:
+                    # filter by type_id and ndim
+                    if spec.type_id and ws_item.type_id != spec.type_id:
+                        continue
+                    if spec.ndim is not None:
+                        actual_ndim = getattr(
+                            getattr(ws_item.payload, "data", None), "ndim", None)
+                        if actual_ndim is not None and actual_ndim != spec.ndim:
+                            continue
+                    combo.addItem(ws_item.name, ws_item)
+
+                # pre-select the staged item for this slot
+                pre = self._input_items[i] if i < len(self._input_items) else None
+                if pre is not None:
+                    idx = combo.findText(pre.name)
+                    if idx >= 0:
+                        combo.setCurrentIndex(idx)
+
+                if i == 0:
+                    combo.setEnabled(False)
+
+                self._input_combos[spec.name] = combo
+                label_text = (spec.label or spec.name) + ":"
+                if not spec.required:
+                    label_text = label_text + " (opt)"
+                inp_form.addRow(QtWidgets.QLabel(label_text), combo)
+
+            root.addWidget(inp_form_widget)
             root.addWidget(_hline())
 
         # annotations section
@@ -205,6 +257,17 @@ class ProcessParamDialog(QtWidgets.QDialog):
     # ------------------------------------------------------------------
     # Result
     # ------------------------------------------------------------------
+
+    def input_items(self) -> list:
+        """Return the workspace items selected for each input slot (None for optional unset)."""
+        result = []
+        for spec in self._entry.schema.inputs:
+            combo = self._input_combos.get(spec.name)
+            if combo is not None:
+                result.append(combo.currentData())
+            else:
+                result.append(None)
+        return result
 
     def params(self) -> dict[str, Any]:
         """Return the current param values as a plain dict."""

@@ -9,6 +9,7 @@ ProcessRegistry.__init__ can snapshot _PENDING.
 """
 
 from . import crop2d
+from . import simulate
 from . import extend_region
 from . import fft
 from . import fft_filter
@@ -16,3 +17,5 @@ from . import spatial_mask
 from . import background_subtract
 from . import rotate2d
 from . import perfect_lattice
+from . import lock_in_2d
+from . import lf_correction

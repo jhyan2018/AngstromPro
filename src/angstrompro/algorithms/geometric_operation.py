@@ -184,7 +184,9 @@ class AffineTransform:
 # Convenience function
 # ---------------------------------------------------------------------------
 
-def rotate2d(data3d: np.ndarray, theta_deg: float) -> np.ndarray:
+def rotate2d(data3d: np.ndarray, theta_deg: float,
+             interpolate_method: str = 'bilinear',
+             pad_method: str = 'constant') -> np.ndarray:
     """Rotate every layer of a 3-D stack counter-clockwise by ``theta_deg`` degrees.
 
     Parameters
@@ -192,6 +194,10 @@ def rotate2d(data3d: np.ndarray, theta_deg: float) -> np.ndarray:
     data3d : ndarray (L, H, W)
     theta_deg : float
         Rotation angle in degrees.
+    interpolate_method : str
+        Pixel interpolation method ('bilinear').
+    pad_method : str
+        Edge padding mode ('constant', 'reflect', 'edge', …).
 
     Returns
     -------
@@ -208,6 +214,6 @@ def rotate2d(data3d: np.ndarray, theta_deg: float) -> np.ndarray:
     out      = np.zeros((n_layers, out_h, out_w), dtype=data3d.dtype)
 
     for i in range(n_layers):
-        out[i] = affine.affineMapping(data3d[i], 'bilinear', 'constant')
+        out[i] = affine.affineMapping(data3d[i], interpolate_method, pad_method)
 
     return out
