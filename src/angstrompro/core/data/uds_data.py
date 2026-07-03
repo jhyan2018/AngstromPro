@@ -30,6 +30,9 @@ class ProcRecord:
     params: dict      = field(default_factory=dict)   # exact params used
     input_item_names: list[str] = field(default_factory=list)
     # WorkspaceItem names of every input fed to this step, in schema order
+    annotations: dict = field(default_factory=dict)
+    # role → serialized annotation snapshot (plain dicts, JSON-safe)
+    # populated by registry._record_history via serialize_annotation()
 
 
 @dataclass

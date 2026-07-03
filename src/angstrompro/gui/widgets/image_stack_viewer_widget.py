@@ -102,7 +102,9 @@ class _PickedPointItem(QtWidgets.QGraphicsEllipseItem):
         # Label child — ignores view transform so text stays readable at any zoom
         self._lbl = QtWidgets.QGraphicsTextItem(self)
         self._lbl.setDefaultTextColor(color)
-        self._lbl.setFlag(_GIF_IGNORE, True)
+        self._lbl.setFlag(_GIF_IGNORE,  True)
+        self._lbl.setFlag(_GIF_MOVABLE, True)
+        self._lbl.setFlag(_GIF_SELECT,  True)
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)
@@ -178,16 +180,19 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
 
     def mousePressEvent(self, event):
         if event.button() == LeftButton:
-            # Pan only on background; clicking a point item lets Qt handle drag
-            item = self.itemAt(event.pos())
-            if not isinstance(item, _PickedPointItem):
+            # Let Qt deliver the event to scene items first (handles all movable items)
+            super().mousePressEvent(event)
+            # Only pan if no scene item grabbed the mouse
+            if self.scene().mouseGrabberItem() is None:
                 self._panning   = True
                 self._pan_start = event.pos()
                 self.setCursor(_CLOSED_HAND)
         elif event.button() == RightButton:
             pt = self.mapToScene(event.pos())
             self.scenePointPicked.emit(pt.x(), pt.y())
-        super().mousePressEvent(event)
+            super().mousePressEvent(event)
+        else:
+            super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
         pt = self.mapToScene(event.pos())
@@ -282,7 +287,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             self.imageMarkerColorChanged)
 
         self.ui_cb_img_pk_pts_mode = QtWidgets.QComboBox()
-        self.ui_cb_img_pk_pts_mode.addItems(["Points", "Lines", "Region"])
+        self.ui_cb_img_pk_pts_mode.addItems(["Points", "Lines", "Circle", "Region"])
         self.ui_cb_img_pk_pts_mode.currentIndexChanged.connect(
             self._update_annotation_overlay)
 
@@ -381,7 +386,9 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
         self.img_picked_points_list = []
         self._point_items           = []   # _PickedPointItem objects in scene
-        self._overlay_items         = []   # line / rect / label items
+        self._overlay_items         = []   # line / rect / shape items (redrawn on every update)
+        self._label_items           = []   # movable label items (redrawn only on topology change)
+        self._label_key             = None # (n, mode) — detects topology change
         self._rt_cursor_item        = None
         self._bias_text_item        = None
 
@@ -405,8 +412,8 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.img_is_rt_cmp_on            = False
         self.img_color_map               = 'gray'
 
-        self.img_marker_cv_list = ['#ff0000', '#00ff00', '#0000ff', '#000000', '#ffffff']
-        self.img_marker_cn_list = ['Red', 'Green', 'Blue', 'Black', 'White']
+        self.img_marker_cv_list = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#000000', '#ffffff']
+        self.img_marker_cn_list = ['Red', 'Green', 'Blue', 'Yellow', 'Black', 'White']
 
         self.d = 0
         self.c = 0
@@ -474,11 +481,18 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             self._scene.removeItem(item)
         self._point_items.clear()
         self._clear_overlay_items()
+        self._clear_label_items()
 
     def _clear_overlay_items(self):
         for item in self._overlay_items:
             self._scene.removeItem(item)
         self._overlay_items.clear()
+
+    def _clear_label_items(self):
+        for item in self._label_items:
+            self._scene.removeItem(item)
+        self._label_items.clear()
+        self._label_key = None
 
     def _rebuild_point_items(self):
         """Recreate point items from img_picked_points_list (e.g. after colour change)."""
@@ -499,6 +513,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._clear_overlay_items()
         n = len(self._point_items)
         if n < 1:
+            self._clear_label_items()
             return
 
         color = self._mk_qcolor()
@@ -506,6 +521,13 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         pen.setCosmetic(True)
         pen.setWidthF(1.5)
         mode  = self.ui_cb_img_pk_pts_mode.currentText()
+
+        # Recreate labels only when topology (point count or mode) changes
+        _new_key = (n, mode)
+        _labels_dirty = _new_key != self._label_key
+        if _labels_dirty:
+            self._clear_label_items()
+            self._label_key = _new_key
 
         if mode == "Lines" and n >= 2:
             for i in range(n - 1):
@@ -519,11 +541,12 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
                 self._overlay_items.append(li)
                 dist = math.hypot(p1.scene_col() - p0.scene_col(),
                                   p1.scene_row() - p0.scene_row())
-                self._overlay_items.append(self._make_label(
-                    f"{dist:.1f}px",
-                    (p0.scene_col() + p1.scene_col()) / 2,
-                    (p0.scene_row() + p1.scene_row()) / 2,
-                    color))
+                if _labels_dirty:
+                    self._label_items.append(self._make_label(
+                        f"{dist:.1f}px",
+                        (p0.scene_col() + p1.scene_col()) / 2,
+                        (p0.scene_row() + p1.scene_row()) / 2,
+                        color))
 
             for i in range(n - 2):
                 p0 = self._point_items[i]
@@ -537,9 +560,34 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
                 mag = math.hypot(*v1) * math.hypot(*v2)
                 if mag > 0:
                     ang = math.degrees(math.acos(max(-1.0, min(1.0, dot / mag))))
-                    self._overlay_items.append(self._make_label(
-                        f"{ang:.1f}°",
-                        p1.scene_col(), p1.scene_row(), color))
+                    if _labels_dirty:
+                        self._label_items.append(self._make_label(
+                            f"{ang:.1f}°",
+                            p1.scene_col(), p1.scene_row(), color))
+
+        elif mode == "Circle" and n >= 2:
+            p0, p1 = self._point_items[0], self._point_items[1]
+            cx, cy = p0.scene_col(), p0.scene_row()
+            radius = math.hypot(p1.scene_col() - cx, p1.scene_row() - cy)
+            ci = QtWidgets.QGraphicsEllipseItem(
+                cx - radius, cy - radius, 2 * radius, 2 * radius)
+            ci.setPen(pen)
+            ci.setBrush(QtGui.QBrush(_NO_BRUSH))
+            ci.setZValue(5)
+            self._scene.addItem(ci)
+            self._overlay_items.append(ci)
+            # radius line from centre to edge point
+            li = QtWidgets.QGraphicsLineItem(cx, cy, p1.scene_col(), p1.scene_row())
+            li.setPen(pen)
+            li.setZValue(5)
+            self._scene.addItem(li)
+            self._overlay_items.append(li)
+            if _labels_dirty:
+                self._label_items.append(self._make_label(
+                    f"r={radius:.1f}px",
+                    (cx + p1.scene_col()) / 2,
+                    (cy + p1.scene_row()) / 2,
+                    color))
 
         elif mode == "Region" and n >= 2:
             p0, p1 = self._point_items[0], self._point_items[1]
@@ -556,15 +604,18 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             ri.setZValue(5)
             self._scene.addItem(ri)
             self._overlay_items.append(ri)
-            self._overlay_items.append(self._make_label(
-                f"{abs(x1-x0):.0f}×{abs(y1-y0):.0f}px",
-                min(x0, x1), min(y0, y1), color))
+            if _labels_dirty:
+                self._label_items.append(self._make_label(
+                    f"{abs(x1-x0):.0f}×{abs(y1-y0):.0f}px",
+                    min(x0, x1), min(y0, y1), color))
 
     def _make_label(self, text: str, x: float, y: float,
                     color: QtGui.QColor) -> QtWidgets.QGraphicsTextItem:
         lbl = QtWidgets.QGraphicsTextItem(text)
         lbl.setDefaultTextColor(color)
-        lbl.setFlag(_GIF_IGNORE, True)
+        lbl.setFlag(_GIF_IGNORE,   True)
+        lbl.setFlag(_GIF_MOVABLE,  True)
+        lbl.setFlag(_GIF_SELECT,   True)
         font = QtGui.QFont()
         font.setPointSize(11)
         font.setBold(True)

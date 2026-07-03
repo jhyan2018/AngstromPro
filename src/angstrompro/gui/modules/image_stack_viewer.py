@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets, Action
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
 
@@ -39,6 +39,79 @@ if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
 
 log = logging.getLogger(__name__)
+
+
+class _VideoExportProgressDialog(QtWidgets.QDialog):
+    """
+    Progress dialog for video export that stays open after completion,
+    showing a summary before the user dismisses it.
+    """
+
+    def __init__(self, n_frames: int, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Export Video")
+        self.setModal(True)
+        self.setMinimumWidth(420)
+        self.cancelled = False
+        self._n = n_frames
+        self._build_ui()
+
+    def _build_ui(self) -> None:
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(10)
+        layout.setContentsMargins(16, 16, 16, 16)
+
+        self._label = QtWidgets.QLabel("Preparing…")
+        layout.addWidget(self._label)
+
+        self._bar = QtWidgets.QProgressBar()
+        self._bar.setRange(0, self._n)
+        self._bar.setValue(0)
+        layout.addWidget(self._bar)
+
+        # Summary (hidden until done)
+        self._summary = QtWidgets.QPlainTextEdit()
+        self._summary.setReadOnly(True)
+        self._summary.setVisible(False)
+        self._summary.setFixedHeight(130)
+        layout.addWidget(self._summary)
+
+        # Buttons
+        self._btn_box = QtWidgets.QDialogButtonBox()
+        self._cancel_btn = self._btn_box.addButton(
+            QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        self._cancel_btn.clicked.connect(self._on_cancel)
+        self._ok_btn = self._btn_box.addButton(
+            QtWidgets.QDialogButtonBox.StandardButton.Ok)
+        self._ok_btn.setVisible(False)
+        self._ok_btn.clicked.connect(self.accept)
+        layout.addWidget(self._btn_box)
+
+    def set_progress(self, value: int, label: str) -> None:
+        self._bar.setValue(value)
+        self._label.setText(label)
+
+    def finish(self, *, success: bool, summary: str, path: str) -> None:
+        self._bar.setValue(self._n)
+        if success:
+            self._label.setText(f"Done — saved to:\n{path}")
+            self._summary.setPlainText(summary)
+            self._summary.setVisible(True)
+        else:
+            self._label.setText("Export failed.")
+            self._summary.setPlainText(
+                f"Error:\n{summary}\n\n"
+                "For MP4/AVI: pip install imageio[ffmpeg]\n"
+                "For GIF:     pip install pillow")
+            self._summary.setVisible(True)
+        self._cancel_btn.setVisible(False)
+        self._ok_btn.setVisible(True)
+        self.adjustSize()
+
+    def _on_cancel(self) -> None:
+        self.cancelled = True
+        self._cancel_btn.setEnabled(False)
+        self._label.setText("Cancelling…")
 
 
 @register_module
@@ -249,33 +322,291 @@ class ImageStackViewer(AGuiModule):
     def _build_annotate_menu(self) -> None:
         menu = self.menuBar().addMenu("Points")
 
-        menu.addAction("Set Bragg Peaks from Aux").triggered.connect(
-            self._set_bragg_peaks_aux)
-        menu.addAction("Set Filter Points from Aux").triggered.connect(
-            self._set_filter_points_from_aux)
         menu.addAction("Set Interest Region from Main").triggered.connect(
             self._set_interest_region_main)
         menu.addAction("Set Mask Center from Main").triggered.connect(
             self._set_mask_center_main)
+        menu.addAction("Set Bragg Peaks from Aux").triggered.connect(
+            self._set_bragg_peaks_aux)
+        menu.addAction("Set Filter Points from Aux").triggered.connect(
+            self._set_filter_points_from_aux)
         menu.addAction("Set Lock-in Peak from Aux").triggered.connect(
             self._set_lockin_peak_aux)
-        menu.addAction("Set Line Profile from Main").triggered.connect(
-            self._set_line_profile_main)
+        cut_menu = menu.addMenu("Cut")
+        cut_menu.addAction("Set Line Cut from Main").triggered.connect(
+            self._set_line_cut_main)
+        cut_menu.addAction("Set Circle Cut from Main").triggered.connect(
+            self._set_circle_cut_points_main)
+        register_menu = menu.addMenu("Register")
+        register_menu.addAction("Set Src Points from Main").triggered.connect(
+            self._set_register_points_main)
+        register_menu.addAction("Set Ref Points from Aux").triggered.connect(
+            self._set_register_ref_points_aux)
+
         menu.addSeparator()
 
         clear_menu = menu.addMenu("Clear")
-        clear_menu.addAction("Clear Bragg Peaks").triggered.connect(
-            lambda: self._clear_annotation("bragg_peaks"))
-        clear_menu.addAction("Clear Filter Points").triggered.connect(
-            lambda: self._clear_annotation("filter_points"))
         clear_menu.addAction("Clear Interest Region").triggered.connect(
             lambda: self._clear_annotation("interest_region"))
         clear_menu.addAction("Clear Mask Center").triggered.connect(
             lambda: self._clear_annotation("mask_center"))
+        clear_menu.addAction("Clear Bragg Peaks").triggered.connect(
+            lambda: self._clear_annotation("bragg_peaks"))
+        clear_menu.addAction("Clear Filter Points").triggered.connect(
+            lambda: self._clear_annotation("filter_points"))
         clear_menu.addAction("Clear Lock-in Peak").triggered.connect(
             lambda: self._clear_annotation("lockin_peak"))
-        clear_menu.addAction("Clear Line Profile").triggered.connect(
-            lambda: self._clear_annotation("line_profile"))
+        clear_menu.addAction("Clear Line Cut").triggered.connect(
+            lambda: self._clear_annotation("line_cut"))
+        clear_menu.addAction("Clear Circle Cut").triggered.connect(
+            lambda: self._clear_annotation("circle_cut_points"))
+        clear_menu.addAction("Clear Register Src Points").triggered.connect(
+            lambda: self._clear_annotation("register_points"))
+        clear_menu.addAction("Clear Register Ref Points").triggered.connect(
+            lambda: self._clear_annotation("register_reference_points"))
+
+    # ------------------------------------------------------------------
+    # File menu override — adds Export Image… before Close
+    # ------------------------------------------------------------------
+
+    def _build_file_menu(self) -> None:
+        super()._build_file_menu()
+        # Find the File menu that the base class just added
+        file_menu = None
+        for action in self.menuBar().actions():
+            if action.text() == "File":
+                file_menu = action.menu()
+                break
+        if file_menu is None:
+            return
+
+        # Insert Export Image… before the Close action
+        close_action = None
+        for act in file_menu.actions():
+            if act.text() == "Close Window":
+                close_action = act
+                break
+
+        export_img_action = Action("Export Image…", self)
+        export_img_action.setShortcut("Ctrl+E")
+        export_img_action.triggered.connect(self._on_export_image)
+
+        export_vid_action = Action("Export Video…", self)
+        export_vid_action.setShortcut("Ctrl+Shift+E")
+        export_vid_action.triggered.connect(self._on_export_video)
+
+        if close_action is not None:
+            file_menu.insertAction(close_action, export_img_action)
+            file_menu.insertAction(close_action, export_vid_action)
+            file_menu.insertSeparator(close_action)
+        else:
+            file_menu.addSeparator()
+            file_menu.addAction(export_img_action)
+            file_menu.addAction(export_vid_action)
+
+    # ------------------------------------------------------------------
+    # Export helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _last_export_dir() -> str:
+        """Return last-used export directory, falling back to Documents."""
+        from pathlib import Path
+        try:
+            from angstrompro.app.user_data_folder import get_qsettings
+            s = get_qsettings()
+            saved = s.value("Export/last_dir", "")
+            if saved and Path(saved).exists():
+                return saved
+        except Exception:
+            pass
+        docs = Path.home() / "Documents"
+        return str(docs) if docs.exists() else str(Path.home())
+
+    @staticmethod
+    def _save_export_dir(file_path: str) -> None:
+        """Persist the directory of the last saved export file."""
+        from pathlib import Path
+        try:
+            from angstrompro.app.user_data_folder import get_qsettings
+            s = get_qsettings()
+            s.setValue("Export/last_dir", str(Path(file_path).parent))
+            s.sync()
+        except Exception:
+            pass
+
+    def _on_export_image(self) -> None:
+        from angstrompro.gui.dialogs.export_image_dialog import ExportImageDialog
+        has_aux = self._aux_item is not None
+        dlg = ExportImageDialog.run(self, has_aux=has_aux)
+        if dlg is None:
+            return
+
+        panel = self._panel_main if dlg.panel == "Main" else self._panel_aux
+        pixmap = panel._pixmap_item.pixmap()
+        if pixmap.isNull():
+            QtWidgets.QMessageBox.information(
+                self, "Nothing to export", "No image is loaded in this panel.")
+            return
+
+        if dlg.with_overlay:
+            export_pixmap = panel._view.viewport().grab()
+        else:
+            export_pixmap = pixmap
+
+        if dlg.to_clipboard:
+            QtWidgets.QApplication.clipboard().setPixmap(export_pixmap)
+            self.statusBar().showMessage("Image copied to clipboard.", 3000)
+        else:
+            fmt = dlg.file_format
+            filters = {"PNG": "PNG (*.png)", "TIFF": "TIFF (*.tif *.tiff)",
+                       "JPEG": "JPEG (*.jpg *.jpeg)"}
+            chosen_filter = filters.get(fmt, "PNG (*.png)")
+            all_filters = ";;".join(filters.values())
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Save Image", self._last_export_dir(), all_filters, chosen_filter)
+            if path:
+                export_pixmap.save(path)
+                self._save_export_dir(path)
+                self.statusBar().showMessage(f"Saved to {path}", 4000)
+
+    def _on_export_video(self) -> None:
+        from angstrompro.gui.dialogs.export_video_dialog import ExportVideoDialog
+
+        # Determine available layers from main item
+        n_layers = (self._main_item.payload.data.shape[0]
+                    if self._main_item is not None else 1)
+        has_aux  = self._aux_item is not None
+
+        dlg = ExportVideoDialog.run(self, has_aux=has_aux, n_layers=n_layers)
+        if dlg is None:
+            return
+
+        panel = self._panel_main if dlg.panel == "Main" else self._panel_aux
+        if panel._pixmap_item.pixmap().isNull():
+            QtWidgets.QMessageBox.information(
+                self, "Nothing to export", "No image is loaded in this panel.")
+            return
+
+        fmt_ext = {"MP4": ".mp4", "GIF": ".gif", "AVI": ".avi"}
+        ext = fmt_ext[dlg.file_format]
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save Video", self._last_export_dir(),
+            f"{dlg.file_format} (*{ext})")
+        if not path:
+            return
+        if not path.lower().endswith(ext):
+            path += ext
+        self._save_export_dir(path)
+        self._run_video_export(panel, dlg, path)
+
+    def _run_video_export(self, panel, dlg, path: str) -> None:
+        first = dlg.first_layer
+        last  = dlg.last_layer
+        layers = range(first, last + 1)
+        n = len(layers)
+
+        import numpy as np
+
+        # Custom progress dialog that stays open after completion
+        prog = _VideoExportProgressDialog(n, self)
+        prog.show()
+        QtWidgets.QApplication.processEvents()
+
+        frames: list[np.ndarray] = []
+
+        _fmt_rgba = (QtGui.QImage.Format.Format_RGBA8888
+                     if hasattr(QtGui.QImage.Format, "Format_RGBA8888")
+                     else QtGui.QImage.Format_RGBA8888)
+
+        original_layer = panel.ui_sb_image_layers.value()
+        for i, layer in enumerate(layers):
+            if prog.cancelled:
+                break
+            prog.set_progress(i, f"Capturing layer {layer} / {last}…")
+            QtWidgets.QApplication.processEvents()
+            panel.ui_sb_image_layers.setValue(layer)
+            QtWidgets.QApplication.processEvents()
+
+            if dlg.with_overlay:
+                px  = panel._view.viewport().grab()
+                img = px.toImage()
+            else:
+                img = panel._pixmap_item.pixmap().toImage()
+
+            img = img.convertToFormat(_fmt_rgba)
+            ptr = img.bits()
+            if hasattr(ptr, "setsize"):
+                ptr.setsize(img.sizeInBytes()
+                            if hasattr(img, "sizeInBytes") else img.byteCount())
+            arr = np.frombuffer(ptr, dtype=np.uint8).reshape(
+                img.height(), img.width(), 4).copy()
+            frames.append(arr[..., :3])
+
+        panel.ui_sb_image_layers.setValue(original_layer)
+        QtWidgets.QApplication.processEvents()
+
+        if prog.cancelled or not frames:
+            prog.close()
+            self.statusBar().showMessage("Export cancelled.", 3000)
+            return
+
+        prog.set_progress(n, "Writing file…")
+        QtWidgets.QApplication.processEvents()
+
+        try:
+            summary = self._write_video(frames, path, dlg)
+            prog.finish(success=True, summary=summary, path=path)
+            self.statusBar().showMessage(f"Video saved to {path}", 5000)
+        except Exception as exc:
+            prog.finish(success=False, summary=str(exc), path=path)
+            self.statusBar().showMessage("Export failed.", 4000)
+
+    @staticmethod
+    def _write_video(frames: list, path: str, dlg) -> str:
+        """Write frames to file. Returns a human-readable summary string."""
+        fmt = dlg.file_format
+        fps = dlg.fps
+        n   = len(frames)
+        h, w = frames[0].shape[:2]
+
+        if fmt == "GIF":
+            from PIL import Image as PilImage
+            import PIL
+            duration_ms = int(1000 / fps)
+            pil_frames  = [PilImage.fromarray(f) for f in frames]
+            pil_frames[0].save(
+                path, save_all=True, append_images=pil_frames[1:],
+                loop=0, duration=duration_ms, optimize=False)
+            return (f"Format:  GIF\n"
+                    f"Backend: Pillow {PIL.__version__}\n"
+                    f"Frames:  {n}  ({w} × {h} px)\n"
+                    f"FPS:     {fps}\n"
+                    f"Duration: {n / fps:.1f} s")
+        else:
+            import imageio
+            quality = dlg.quality
+            # Map 0-100 → bitrate string: 100→"50M", 50→"8M", 0→"500k"
+            # Bitrate gives true full-range quality control across all codecs
+            # without relying on codec-specific CRF/qscale parameters
+            mbps = 0.5 + (quality / 100) ** 2 * 49.5   # quadratic: more headroom at top
+            bitrate = f"{mbps:.1f}M"
+            if fmt == "MP4":
+                codec      = "libx264"
+                codec_desc = f"libx264 via ffmpeg  ({bitrate})"
+            else:  # AVI
+                codec      = "mjpeg"
+                codec_desc = f"mjpeg via ffmpeg  ({bitrate})"
+
+            imageio.mimwrite(path, frames, fps=fps, codec=codec,
+                             bitrate=bitrate, macro_block_size=1)
+
+            return (f"Format:  {fmt}\n"
+                    f"Backend: imageio {imageio.__version__} + ffmpeg\n"
+                    f"Codec:   {codec_desc}\n"
+                    f"Frames:  {n}  ({w} × {h} px)\n"
+                    f"FPS:     {fps}    Quality: {quality}/100  ({bitrate})\n"
+                    f"Duration: {n / fps:.1f} s")
 
     def _get_picked_coords(self, panel) -> "np.ndarray | None":
         """Parse img_picked_points_list from a panel into an (N,2) [row, col] array."""
@@ -358,6 +689,60 @@ class ImageStackViewer(AGuiModule):
         self.workspace.notify_changed(target.name)
         self.statusBar().showMessage(
             f"Filter points set: {len(coords)} points on '{target.name}'", 3000)
+
+    def _set_register_points_main(self) -> None:
+        """Pick points from main panel, store as register_points on main item."""
+        from angstrompro.core.data.annotation_data import PointSetData
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(
+                self, "No main item", "Load an item into the Main panel first.")
+            return
+        coords = self._get_picked_coords(self._panel_main)
+        if coords is None or len(coords) == 0:
+            QtWidgets.QMessageBox.information(
+                self, "No points",
+                "No points picked in main panel. Right-click on canvas to pick points first.")
+            return
+        self._main_item.annotations["register_points"] = PointSetData(coords=coords)
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"Register src points set: {len(coords)} points on '{self._main_item.name}'", 3000)
+
+    def _set_register_ref_points_aux(self) -> None:
+        """Pick points from aux panel, store as register_reference_points on main item."""
+        from angstrompro.core.data.annotation_data import PointSetData
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(
+                self, "No main item", "Load an item into the Main panel first.")
+            return
+        coords = self._get_picked_coords(self._panel_aux)
+        if coords is None or len(coords) == 0:
+            QtWidgets.QMessageBox.information(
+                self, "No points",
+                "No points picked in aux panel. Right-click on canvas to pick points first.")
+            return
+        self._main_item.annotations["register_reference_points"] = PointSetData(coords=coords)
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"Register ref points set: {len(coords)} points on '{self._main_item.name}'", 3000)
+
+    def _set_circle_cut_points_main(self) -> None:
+        """Pick 2 points from main panel, store as circle_cut_points on main item."""
+        from angstrompro.core.data.annotation_data import PointSetData
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(
+                self, "No main item", "Load an item into the Main panel first.")
+            return
+        coords = self._get_picked_coords(self._panel_main)
+        if coords is None or len(coords) < 2:
+            QtWidgets.QMessageBox.information(
+                self, "Need 2 points",
+                "Pick exactly 2 points on the main canvas first: [0] centre, [1] edge.")
+            return
+        self._main_item.annotations["circle_cut_points"] = PointSetData(coords=coords[:2])
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"Circle cut points set on '{self._main_item.name}'", 3000)
 
     def _on_ws_context_menu(self, pos) -> None:
         from angstrompro.utils.qt_compat import IS_QT6
@@ -483,7 +868,7 @@ class ImageStackViewer(AGuiModule):
         self.statusBar().showMessage(
             f"Crop region set on {self._aux_item.name}", 3000)
 
-    def _set_line_profile_main(self) -> None:
+    def _set_line_cut_main(self) -> None:
         from angstrompro.core.data.annotation_data import LineData
         if self._main_item is None:
             return
@@ -495,12 +880,12 @@ class ImageStackViewer(AGuiModule):
             return
         p1 = (float(coords[0][0]), float(coords[0][1]))
         p2 = (float(coords[1][0]), float(coords[1][1]))
-        self._main_item.annotations["line_profile"] = LineData(p1=p1, p2=p2)
+        self._main_item.annotations["line_cut"] = LineData(p1=p1, p2=p2)
         self.workspace.notify_changed(self._main_item.name)
         self.statusBar().showMessage(
             f"Line profile set on {self._main_item.name}", 3000)
 
-    def _set_line_profile_aux(self) -> None:
+    def _set_line_cut_aux(self) -> None:
         from angstrompro.core.data.annotation_data import LineData
         if self._aux_item is None:
             QtWidgets.QMessageBox.information(self, "No aux item",
@@ -514,7 +899,7 @@ class ImageStackViewer(AGuiModule):
             return
         p1 = (float(coords[0][0]), float(coords[0][1]))
         p2 = (float(coords[1][0]), float(coords[1][1]))
-        self._aux_item.annotations["line_profile"] = LineData(p1=p1, p2=p2)
+        self._aux_item.annotations["line_cut"] = LineData(p1=p1, p2=p2)
         self.workspace.notify_changed(self._aux_item.name)
         self.statusBar().showMessage(
             f"Line profile set on {self._aux_item.name}", 3000)

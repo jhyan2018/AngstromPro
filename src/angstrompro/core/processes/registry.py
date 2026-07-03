@@ -148,19 +148,29 @@ def _record_history(
     process_name: str,
     params:       dict,
     inputs:       dict,
+    annotations:  dict | None = None,
 ) -> Any:
     """Append a ProcRecord to the result if it is a UdsDataStru."""
     from angstrompro.core.data.uds_data import UdsDataStru, ProcRecord
+    from angstrompro.core.data.annotation_data import serialize_annotation
     if isinstance(result, UdsDataStru):
         input_item_names = [
             getattr(v, "name", "")
             for v in inputs.values()
             if hasattr(v, "name")
         ]
+        serialized_annotations: dict = {}
+        for role, ann in (annotations or {}).items():
+            if ann is not None:
+                try:
+                    serialized_annotations[role] = serialize_annotation(ann)
+                except TypeError:
+                    pass   # unknown type — skip rather than crash
         result.proc_history.append(ProcRecord(
             step             = process_name,
             params           = dict(params),
             input_item_names = input_item_names,
+            annotations      = serialized_annotations,
         ))
     return result
 
@@ -248,7 +258,7 @@ class ProcessRegistry:
         entry       = self.get(name)
         full_params = {**entry.schema.defaults(), **params}
         result      = entry.func(inputs, full_params, annotations=annotations or {})
-        return _record_history(result, name, full_params, inputs)
+        return _record_history(result, name, full_params, inputs, annotations)
 
     # ------------------------------------------------------------------
     # Async execution — GUI / background batch
@@ -274,7 +284,7 @@ class ProcessRegistry:
 
         def _task_func():
             result = entry.func(inputs, full_params, annotations=resolved_annotations)
-            return _record_history(result, process_name, full_params, inputs)
+            return _record_history(result, process_name, full_params, inputs, resolved_annotations)
 
         return task_manager.submit(TaskRequest(
             task_func = _task_func,
@@ -285,7 +295,7 @@ class ProcessRegistry:
 
     def submit_pipeline(
         self,
-        steps:        list[tuple[str, dict, dict]],
+        steps:        list[tuple[str, dict, dict, dict | None]],
         task_manager: Any,
         *,
         source_id:    str  = "",
@@ -296,10 +306,13 @@ class ProcessRegistry:
         Run a sequence of processes as one background task.
 
         steps = [
-            ("spectral.normalize", {"data": uds}, {"method": "minmax"}),
-            ("spectral.fft",       {},            {"shift": True}),
-            ("spatial.crop",       {},            {"x_min": 0.1}),
+            ("spectral.normalize", {"data": uds}, {"method": "minmax"}, None),
+            ("spectral.fft",       {},            {"shift": True},       None),
+            ("spatial.register",   {},            {"ratio": 2.0},        {"register_points": ann}),
         ]
+
+        Each step is a 4-tuple: (process_name, inputs, params, annotations).
+        annotations may be None or omitted (treated as {}).
 
         The first step must supply all its inputs explicitly.
         Subsequent steps receive the previous result as inputs["data"]
@@ -312,27 +325,38 @@ class ProcessRegistry:
         """
         from angstrompro.core.tasks.task_request import TaskRequest
 
-        resolved: list[tuple[ProcessEntry, dict, dict]] = []
-        for name, step_inputs, step_params in steps:
+        resolved: list[tuple[ProcessEntry, dict, dict, dict]] = []
+        for step in steps:
+            # accept both 3-tuple (legacy) and 4-tuple (with annotations)
+            if len(step) == 4:
+                name, step_inputs, step_params, step_annotations = step
+            else:
+                name, step_inputs, step_params = step
+                step_annotations = {}
             entry = self.get(name)
-            resolved.append((entry, step_inputs, {**entry.schema.defaults(), **step_params}))
+            resolved.append((
+                entry,
+                step_inputs,
+                {**entry.schema.defaults(), **step_params},
+                step_annotations or {},
+            ))
 
         _PREV = "__prev__"
 
         def _task_func():
             result  = None
             results = []
-            for entry, step_inputs, full_params in resolved:
+            for entry, step_inputs, full_params, step_ann in resolved:
                 if step_inputs:
-                    # substitute any "__prev__" sentinel with the previous result
                     effective_inputs = {
                         k: (result if v == _PREV else v)
                         for k, v in step_inputs.items()
                     }
                 else:
                     effective_inputs = {"data": result}
-                result = entry.func(effective_inputs, full_params)
-                result = _record_history(result, entry.name, full_params, effective_inputs)
+                result = entry.func(effective_inputs, full_params, annotations=step_ann)
+                result = _record_history(result, entry.name, full_params,
+                                         effective_inputs, step_ann)
                 results.append(result)
             return results if return_all else result
 

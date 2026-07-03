@@ -1,23 +1,19 @@
-import os
-import sys
 from pathlib import Path
 
-APP_NAME = "angstrompro"
+from angstrompro.app.user_data_folder import get_user_data_folder
 
 
-def get_config_dir() -> Path:
-    if sys.platform == "win32":
-        base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
-    elif sys.platform == "darwin":
-        base = Path.home() / "Library" / "Application Support"
-    else:
-        # XDG base dir spec (Linux and other POSIX)
-        base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-
-    config_dir = base / APP_NAME
-    config_dir.mkdir(parents=True, exist_ok=True)
-    return config_dir
+def get_config_dir() -> Path | None:
+    """Return <UserDataFolder>/config/, or None if the folder is not yet set."""
+    root = get_user_data_folder()
+    if root is None:
+        return None
+    d = root / "config"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
-def get_config_file() -> Path:
-    return get_config_dir() / "config.json"
+def get_config_file() -> Path | None:
+    """Return the config JSON path, or None if the user data folder is not yet set."""
+    d = get_config_dir()
+    return (d / "config.json") if d is not None else None

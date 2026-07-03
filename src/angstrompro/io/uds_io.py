@@ -44,7 +44,8 @@ def _uds_to_dict(uds: UdsDataStru) -> dict:
         ],
         "info":         uds.info,
         "proc_history": [
-            {"step": r.step, "params": r.params, "input_item_names": r.input_item_names}
+            {"step": r.step, "params": r.params,
+             "input_item_names": r.input_item_names, "annotations": r.annotations}
             for r in uds.proc_history
         ],
         # landmarks: tuple keys serialised as JSON arrays
@@ -96,7 +97,8 @@ def _write_to_group(g, uds: UdsDataStru) -> None:
         )
     g.attrs["info"]         = json.dumps(uds.info)
     g.attrs["proc_history"] = json.dumps(
-        [{"step": r.step, "params": r.params, "input_item_names": r.input_item_names}
+        [{"step": r.step, "params": r.params,
+          "input_item_names": r.input_item_names, "annotations": r.annotations}
          for r in uds.proc_history]
     )
     g.attrs["landmarks"] = json.dumps(

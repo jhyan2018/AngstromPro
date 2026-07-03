@@ -31,4 +31,33 @@ class LineData:
 
 
 AnnotationData = PointSetData | RegionData | LineData
-ANNOTATION_ROLES = ("bragg_peaks", "interest_region", "line_profile", "mask_center", "lockin_peak")
+ANNOTATION_ROLES = ("bragg_peaks", "interest_region", "line_cut", "mask_center", "lockin_peak",
+                    "register_points", "register_reference_points",
+                    "circle_cut_points")
+
+
+def serialize_annotation(ann: AnnotationData) -> dict:
+    """Convert an annotation object to a plain JSON-safe dict for storage in ProcRecord."""
+    if isinstance(ann, PointSetData):
+        return {"type": "point_set", "coords": ann.coords.tolist()}
+    if isinstance(ann, RegionData):
+        return {"type": "region",
+                "row_min": ann.row_min, "col_min": ann.col_min,
+                "row_max": ann.row_max, "col_max": ann.col_max}
+    if isinstance(ann, LineData):
+        return {"type": "line",
+                "p1": list(ann.p1), "p2": list(ann.p2), "n_points": ann.n_points}
+    raise TypeError(f"serialize_annotation: unknown annotation type {type(ann)!r}")
+
+
+def deserialize_annotation(d: dict) -> AnnotationData:
+    """Reconstruct an annotation object from a serialized dict."""
+    t = d.get("type")
+    if t == "point_set":
+        return PointSetData(coords=np.array(d["coords"]))
+    if t == "region":
+        return RegionData(row_min=d["row_min"], col_min=d["col_min"],
+                          row_max=d["row_max"], col_max=d["col_max"])
+    if t == "line":
+        return LineData(p1=tuple(d["p1"]), p2=tuple(d["p2"]), n_points=d["n_points"])
+    raise ValueError(f"deserialize_annotation: unknown type {t!r}")

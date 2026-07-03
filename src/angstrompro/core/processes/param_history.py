@@ -23,8 +23,9 @@ from angstrompro.core.configs.config_paths import get_config_dir
 log = logging.getLogger(__name__)
 
 
-def _get_history_file() -> Path:
-    return get_config_dir() / "params_history.json"
+def _get_history_file() -> Path | None:
+    d = get_config_dir()
+    return (d / "params_history.json") if d is not None else None
 
 
 class ParamHistoryManager:
@@ -63,7 +64,7 @@ class ParamHistoryManager:
 
     def _load(self) -> None:
         path = _get_history_file()
-        if not path.exists():
+        if path is None or not path.exists():
             return
         try:
             self._history = json.loads(path.read_text(encoding="utf-8"))
@@ -72,6 +73,9 @@ class ParamHistoryManager:
 
     def _flush(self) -> None:
         path = _get_history_file()
+        if path is None:
+            log.warning("Params history not saved: user data folder is not set")
+            return
         try:
             path.write_text(json.dumps(self._history, indent=2), encoding="utf-8")
         except OSError as exc:

@@ -102,17 +102,19 @@ class ProcessRunner:
         steps = [
             ("spectral.normalize", [item],  {"method": "minmax"}),
             ("spectral.fft",       [],      {"shift": True}),
-            ("spatial.crop",       [],      {"x_min": 0.1}),
+            ("spatial.register",   [item],  {"ratio": 2.0}),
         ]
 
         Steps with an empty item list receive the previous result as
-        inputs["data"] automatically.
+        inputs["data"] automatically.  Annotations are resolved automatically
+        from the first item in each step's item list (same rule as run()).
         """
         resolved_steps = []
         for process_name, items, params in steps:
-            entry  = self._registry.get(process_name)
-            inputs = self._build_inputs(entry, items) if items else {}
-            resolved_steps.append((process_name, inputs, params))
+            entry       = self._registry.get(process_name)
+            inputs      = self._build_inputs(entry, items) if items else {}
+            annotations = self._build_annotations(entry, items) if items else {}
+            resolved_steps.append((process_name, inputs, params, annotations))
 
         return self._registry.submit_pipeline(
             steps        = resolved_steps,

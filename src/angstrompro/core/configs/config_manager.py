@@ -95,6 +95,9 @@ class ConfigManager:
     def save_defaults(self) -> None:
         """Persist only values that differ from built-in defaults to the config file."""
         path = get_config_file()
+        if path is None:
+            log.warning("Config not saved: user data folder is not set")
+            return
         diff = _diff_from_defaults(self._config, DEFAULTS)
         try:
             path.write_text(json.dumps(diff, indent=2), encoding="utf-8")
@@ -123,6 +126,9 @@ class ConfigManager:
     def _load(self) -> None:
         self._config = copy.deepcopy(DEFAULTS)
         path = get_config_file()
+        if path is None:
+            log.debug("Config file unavailable (user data folder not set); using defaults")
+            return
         if path.exists():
             try:
                 saved = json.loads(path.read_text(encoding="utf-8"))
