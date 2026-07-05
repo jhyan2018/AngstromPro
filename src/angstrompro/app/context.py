@@ -11,6 +11,7 @@ import logging
 from importlib.metadata import entry_points
 
 from angstrompro.core.configs import ConfigManager
+from angstrompro.core.configs.plugin_config import PluginConfig
 from angstrompro.core.workspaces import WorkspaceManager
 from angstrompro.core.modules import AModuleManager
 from angstrompro.core.tasks import TaskManager
@@ -36,7 +37,8 @@ class AppContext:
         self._load_plugins()   # must run before ProcessRegistry() snapshots _PENDING
         self._processes       = ProcessRegistry()
         self._param_history   = ParamHistoryManager()
-        self._channel_manager = ChannelManager(config)
+        self._channel_manager  = ChannelManager(config)
+        self._plugin_configs:  dict[str, PluginConfig] = {}
 
     # ------------------------------------------------------------------
     # Plugin discovery
@@ -117,3 +119,11 @@ class AppContext:
     @property
     def channel_manager(self) -> ChannelManager:
         return self._channel_manager
+
+    def get_plugin_config(self, plugin_id: str) -> PluginConfig:
+        """Return the isolated PluginConfig for the given plugin namespace."""
+        if plugin_id not in self._plugin_configs:
+            from angstrompro.app.app_path import AppPaths
+            path = AppPaths.create().plugin_config_json(plugin_id)
+            self._plugin_configs[plugin_id] = PluginConfig(plugin_id, path)
+        return self._plugin_configs[plugin_id]

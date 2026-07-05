@@ -159,6 +159,15 @@ QLabel#pref_row_desc {
     font-size: 9pt;
 }
 
+/* ── Tables ────────────────────────────────────────────────── */
+QHeaderView::section {
+    font-size: 11pt;
+    padding: 4px 8px;
+}
+QTableWidget {
+    font-size: 11pt;
+}
+
 /* ── Process param dialog ──────────────────────────────────── */
 QLabel#param_dialog_desc {
     font-size: 10pt;

@@ -26,6 +26,7 @@ from typing import Any
 
 from angstrompro.core.configs.defaults import DEFAULTS  # assembled from defaults/ subpackage
 from angstrompro.core.configs.config_paths import get_config_file
+from angstrompro.core.configs.config_validation import validate_and_coerce
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +91,9 @@ class ConfigManager:
 
     def set_module_config(self, module_key: str, config: dict) -> None:
         """Replace a single module's config slice in the live config (does not persist)."""
-        self._config.setdefault("modules", {})[module_key] = copy.deepcopy(config)
+        defaults = DEFAULTS.get("modules", {}).get(module_key, {})
+        validated = validate_and_coerce(config, defaults, module_key)
+        self._config.setdefault("modules", {})[module_key] = validated
 
     def save_defaults(self) -> None:
         """Persist only values that differ from built-in defaults to the config file."""
@@ -132,6 +135,7 @@ class ConfigManager:
         if path.exists():
             try:
                 saved = json.loads(path.read_text(encoding="utf-8"))
+                saved = validate_and_coerce(saved, DEFAULTS)
                 self._config = _deep_merge(self._config, saved)
                 log.debug("Config loaded from %s", path)
             except (OSError, json.JSONDecodeError) as exc:

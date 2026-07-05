@@ -69,7 +69,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
     # Config sections shown in Edit → Preferences for this module.
     # None = show all (intended for MainWorkbench only).
-    config_sections: list[str] | None = ["gui", "algorithms"]
+    config_sections: list[str] | None = ["algorithms"]
 
     # Short badge labels shown next to staged items in the workspace panel.
     # Index matches process_inputs order.  e.g. ["M", "A"] for ImageStackViewer.
@@ -100,8 +100,15 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._process_inputs: list = []          # backing store for the property
         self._init_module(context)   # sets self.workspace, self._context
 
-        # Per-instance runtime copy of this module's config slice (modules → module_id)
-        self._config: dict = context.config.get_group("modules").get(self.module_id, {})
+        # Per-instance runtime copy of this module's config slice.
+        # Plugin modules (module_id contains a dot) use isolated per-plugin config files.
+        if "." in self.module_id:
+            _plugin_ns = self.module_id.split(".")[0]
+            self._plugin_ns: str | None = _plugin_ns
+            self._config: dict = context.get_plugin_config(_plugin_ns).get_module(self.module_id)
+        else:
+            self._plugin_ns = None
+            self._config: dict = context.config.get_group("modules").get(self.module_id, {})
 
         self.setWindowTitle(self.display_name or self.module_id)
         self.resize(900, 640)
@@ -391,7 +398,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     def _on_open_process_browser(self) -> None:
         from angstrompro.gui.dialogs.process_browser_dialog import ProcessBrowserDialog
         dlg = ProcessBrowserDialog(self._context, parent=self)
-        dlg.exec()
+        dlg.setWindowModality(QtCore.Qt.WindowModality.NonModal)
+        dlg.show()
 
     def _on_configure_process_menu(self) -> None:
         from angstrompro.gui.dialogs.process_menu_config_dialog import ProcessMenuConfigDialog
@@ -625,9 +633,15 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         from angstrompro.core.configs.defaults import DEFAULTS
         from angstrompro.utils.qt_compat import QtWidgets
 
+        from angstrompro.app.user_data_folder import get_qsettings
+        _qs_key = f"prefs_size/{self.module_id}"
+
         dlg = QtWidgets.QDialog(self)
+        dlg.setWindowModality(QtCore.Qt.WindowModality.NonModal)
         dlg.setWindowTitle(f"Preferences — {self.display_name}")
-        dlg.resize(900, 600)
+        qs = get_qsettings()
+        dlg.resize(qs.value(_qs_key, QtCore.QSize(900, 600)))
+        dlg.finished.connect(lambda: get_qsettings().setValue(_qs_key, dlg.size()))
         layout = QtWidgets.QVBoxLayout(dlg)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -636,8 +650,13 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         def _save_as_default(cfg: dict) -> None:
             self._config = copy.deepcopy(cfg)
-            self._context.config.set_module_config(self.module_id, cfg)
-            self._context.config.save_defaults()
+            if self._plugin_ns:
+                pc = self._context.get_plugin_config(self._plugin_ns)
+                pc.set_module(self.module_id, cfg)
+                pc.save()
+            else:
+                self._context.config.set_module_config(self.module_id, cfg)
+                self._context.config.save_defaults()
 
         def _reset() -> None:
             from angstrompro.core.configs.defaults import DEFAULTS
@@ -689,7 +708,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                                             sections=self.config_sections)
 
         layout.addWidget(widget)
-        dlg.exec()
+        dlg.show()
 
     def _on_file_open(self) -> None:
         from angstrompro.io.angstrom_io import registered_formats
@@ -698,7 +717,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             f"{f.display_name} (*{f.extension})" for f in formats if f.readable
         )
         filters = "All Files (*);;" + format_filters
-        start_dir = self._context.config.get("data", "default_open_dir") or ""
+        start_dir = self._context.config.get("io", "default_open_dir") or ""
         path, _ = QtWidgets.QFileDialog.getOpenFileName(self, "Open File", start_dir, filters)
         if not path:
             return

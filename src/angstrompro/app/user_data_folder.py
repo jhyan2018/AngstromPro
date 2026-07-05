@@ -14,9 +14,7 @@ Folder layout under the user data folder
   config/
     config.json          ← ConfigManager (app settings, diff-only from defaults)
     settings.ini         ← QSettings (UI state: window geometry, last-used values)
-    process_menus.json   ← user-customised process menu layout
     plugins.json         ← plugin search paths
-  recent_files.json
   cache/
     snapshots/           ← dataset thumbnails for quick browser (regenerable)
   logs/

@@ -19,7 +19,8 @@ class PrefItem:
     label: str          # row label (ignored when full_width=True)
     widget: str         # "checkbox" | "number" | registered custom type name
     desc: str = ""      # optional muted subtitle under the label
-    full_width: bool = False  # True → widget fills the whole section body (no label row)
+    full_width: bool = False   # True → widget fills the whole section body (no label row)
+    expandable: bool = False   # True → card stretches to fill remaining vertical space
     kwargs: dict = field(default_factory=dict)  # passed to the widget constructor
 
 

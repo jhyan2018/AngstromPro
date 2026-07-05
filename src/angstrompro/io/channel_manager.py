@@ -9,7 +9,7 @@ register a FormatChannelConfig that declares:
   - Whether each channel is loaded by default (pre-checked in the picker dialog)
 
 The manager merges built-in defaults with user overrides stored in app config
-under  data.channel_manager.<format_id>  and is accessible on AppContext.
+under  io.channel_manager.<format_id>  and is accessible on AppContext.
 
 User customisation
 ------------------
@@ -20,7 +20,7 @@ Users can:
 
 These overrides are serialised as::
 
-    config["data"]["channel_manager"]["nanonis_3ds"] = {
+    config["io"]["channel_manager"]["nanonis_3ds"] = {
         "dI/dV": {
             "aliases": ["My dIdV channel", "LI Demod 1 X", ...],
             "load_by_default": true,
@@ -90,7 +90,7 @@ class FormatChannelConfig:
 # ---------------------------------------------------------------------------
 
 def _builtin_from_defaults() -> dict[str, FormatChannelConfig]:
-    from angstrompro.core.configs.defaults.data import DEFAULTS
+    from angstrompro.core.configs.defaults.io import DEFAULTS
     raw: dict = DEFAULTS.get("channel_manager", {})
     result: dict[str, FormatChannelConfig] = {}
     for fmt_id, fmt_dict in raw.items():
@@ -147,7 +147,7 @@ class ChannelManager:
     def save_format(self, format_id: str, channels: list[ChannelConfig],
                     auto_load: bool = False) -> None:
         """Persist a user-edited format config to app config and rebuild cache."""
-        user_map = self._config.get("data", "channel_manager") or {}
+        user_map = self._config.get("io", "channel_manager") or {}
         user_map[format_id] = {
             "__auto_load__": auto_load,
             **{
@@ -158,7 +158,7 @@ class ChannelManager:
                 for cc in channels
             }
         }
-        self._config.set("data", "channel_manager", user_map)
+        self._config.set("io", "channel_manager", user_map)
         self._config.save_defaults()
         self.reload()
 
@@ -167,7 +167,7 @@ class ChannelManager:
     # ------------------------------------------------------------------
 
     def _build_cache(self) -> None:
-        user_root: dict = self._config.get("data", "channel_manager") or {}
+        user_root: dict = self._config.get("io", "channel_manager") or {}
 
         # Start from built-ins, then overlay user overrides
         for fmt_id, builtin_cfg in _BUILTIN.items():

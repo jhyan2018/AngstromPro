@@ -86,11 +86,15 @@ _BUILTIN_CONTROLS = {
 }
 
 
-def _make_control(item: PrefItem, value) -> QtWidgets.QWidget:
+def _make_control(item: PrefItem, value, context=None) -> QtWidgets.QWidget:
+    import inspect
     cls = _BUILTIN_CONTROLS.get(item.widget) or get_widget_class(item.widget)
     if cls is None:
         raise ValueError(f"Unknown preference widget type: {item.widget!r}")
-    ctrl = cls(**item.kwargs) if item.kwargs else cls()
+    kw = dict(item.kwargs) if item.kwargs else {}
+    if context is not None and "context" in inspect.signature(cls.__init__).parameters:
+        kw["context"] = context
+    ctrl = cls(**kw) if kw else cls()
     if hasattr(ctrl, "set_value"):
         ctrl.set_value(value)
     return ctrl
@@ -117,7 +121,7 @@ def _set_path(cfg: dict, dot_key: str, value) -> None:
 # ── section card ───────────────────────────────────────────────────────────────
 
 class _SectionCard(QtWidgets.QFrame):
-    def __init__(self, section: PrefSection, parent=None):
+    def __init__(self, section: PrefSection, show_header: bool = True, parent=None):
         super().__init__(parent)
         self.setFrameShape(
             QtWidgets.QFrame.Shape.StyledPanel if IS_QT6
@@ -134,26 +138,25 @@ class _SectionCard(QtWidgets.QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # header strip
-        header = QtWidgets.QWidget()
-        header.setObjectName("pref_section_header")
-        header.setStyleSheet(
-            "QWidget#pref_section_header {"
-            "  background: palette(window);"
-            "  border-bottom: 0.5px solid palette(mid);"
-            "  border-top-left-radius: 8px;"
-            "  border-top-right-radius: 8px;"
-            "}"
-        )
-        h_row = QtWidgets.QHBoxLayout(header)
-        h_row.setContentsMargins(12, 6, 12, 6)
-        h_row.setSpacing(7)
-
-        title_lbl = QtWidgets.QLabel(section.title.upper())
-        title_lbl.setObjectName("pref_section_header_label")
-        h_row.addWidget(title_lbl)
-        h_row.addStretch()
-        layout.addWidget(header)
+        if show_header:
+            header = QtWidgets.QWidget()
+            header.setObjectName("pref_section_header")
+            header.setStyleSheet(
+                "QWidget#pref_section_header {"
+                "  background: palette(window);"
+                "  border-bottom: 0.5px solid palette(mid);"
+                "  border-top-left-radius: 8px;"
+                "  border-top-right-radius: 8px;"
+                "}"
+            )
+            h_row = QtWidgets.QHBoxLayout(header)
+            h_row.setContentsMargins(12, 6, 12, 6)
+            h_row.setSpacing(7)
+            title_lbl = QtWidgets.QLabel(section.title.upper())
+            title_lbl.setObjectName("pref_section_header_label")
+            h_row.addWidget(title_lbl)
+            h_row.addStretch()
+            layout.addWidget(header)
 
         self._body_layout = QtWidgets.QVBoxLayout()
         self._body_layout.setContentsMargins(0, 0, 0, 0)
@@ -178,6 +181,7 @@ class PreferencesPanel(QtWidgets.QWidget):
         on_apply: Callable | None = None,
         on_save_as_default: Callable | None = None,
         on_reset: Callable | None = None,
+        context=None,
         parent=None,
     ):
         super().__init__(parent)
@@ -186,6 +190,7 @@ class PreferencesPanel(QtWidgets.QWidget):
         self._on_apply_cb = on_apply
         self._on_save_cb  = on_save_as_default
         self._on_reset_cb = on_reset
+        self._context     = context
         self._controls: list[tuple[str, QtWidgets.QWidget]] = []
 
         self._build_ui(module_name)
@@ -237,7 +242,7 @@ class PreferencesPanel(QtWidgets.QWidget):
                 btn.setChecked(True)
             self._btn_group.addButton(btn, i)
             sb_layout.addWidget(btn)
-            self._stack.addWidget(self._build_page(section))
+            self._stack.addWidget(self._build_page(section, self._context))
 
         sb_layout.addStretch()
         self._btn_group.idClicked.connect(self._stack.setCurrentIndex)
@@ -253,7 +258,7 @@ class PreferencesPanel(QtWidgets.QWidget):
         right_layout.addWidget(self._build_bottom_bar())
         root.addWidget(right, stretch=1)
 
-    def _build_page(self, section: PrefSection) -> QtWidgets.QWidget:
+    def _build_page(self, section: PrefSection, context=None) -> QtWidgets.QWidget:
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(
@@ -270,15 +275,21 @@ class PreferencesPanel(QtWidgets.QWidget):
         title.setObjectName("pref_section_title")
         layout.addWidget(title)
 
+        # count how many cards this section will produce
+        _n_cards = sum(1 for it in section.items if it.full_width)
+        if any(not it.full_width for it in section.items):
+            _n_cards += 1
+        _show_header = _n_cards > 1
+
         pending: list[PrefItem] = []
 
         def _flush(items: list[PrefItem]) -> None:
             if not items:
                 return
-            card = _SectionCard(section)
+            card = _SectionCard(section, show_header=_show_header)
             for j, it in enumerate(items):
                 value = _get_path(self._config, it.key)
-                ctrl  = _make_control(it, value)
+                ctrl  = _make_control(it, value, context)
                 self._controls.append((it.key, ctrl))
 
                 row = QtWidgets.QWidget()
@@ -307,21 +318,25 @@ class PreferencesPanel(QtWidgets.QWidget):
                 card.add_row_widget(row)
             layout.addWidget(card)
 
+        has_expandable = False
         for item in section.items:
             if item.full_width:
                 _flush(pending)
                 pending = []
-                card = _SectionCard(section)
+                card = _SectionCard(section, show_header=_show_header)
                 value = _get_path(self._config, item.key)
-                ctrl  = _make_control(item, value)
+                ctrl  = _make_control(item, value, context)
                 self._controls.append((item.key, ctrl))
                 card.add_full_width(ctrl)
-                layout.addWidget(card)
+                layout.addWidget(card, stretch=1 if item.expandable else 0)
+                if item.expandable:
+                    has_expandable = True
             else:
                 pending.append(item)
 
         _flush(pending)
-        layout.addStretch()
+        if not has_expandable:
+            layout.addStretch()
         scroll.setWidget(page)
         return scroll
 
@@ -357,8 +372,10 @@ class PreferencesPanel(QtWidgets.QWidget):
     def _collect(self) -> dict:
         cfg = copy.deepcopy(self._config)
         for dot_key, ctrl in self._controls:
-            if hasattr(ctrl, "get_value"):
+            if dot_key and hasattr(ctrl, "get_value"):
                 _set_path(cfg, dot_key, ctrl.get_value())
+            elif not dot_key and hasattr(ctrl, "get_value"):
+                ctrl.get_value()  # trigger side-effects (e.g. channel manager save)
         return cfg
 
     def _on_apply(self) -> None:
