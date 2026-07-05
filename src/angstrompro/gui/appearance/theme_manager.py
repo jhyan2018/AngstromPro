@@ -51,13 +51,23 @@ class ThemeManager:
     def _apply_qdarktheme(self, theme: str) -> None:
         try:
             import qdarktheme
+            from angstrompro.utils.qt_compat import QtWidgets
 
-            kwargs: dict = {}
             accent = self._cfg.get("accent_color", "")
-            if accent:
-                kwargs["custom_colors"] = {"primary": accent}
+            custom_colors = {"primary": accent} if accent else {}
 
-            qdarktheme.setup_theme(theme, **kwargs)
+            # qdarktheme ≥ 2.0 replaced setup_theme() with load_stylesheet(theme)
+            if hasattr(qdarktheme, "setup_theme"):
+                kwargs: dict = {}
+                if custom_colors:
+                    kwargs["custom_colors"] = custom_colors
+                qdarktheme.setup_theme(theme, **kwargs)
+            else:
+                stylesheet = qdarktheme.load_stylesheet(theme)
+                app = QtWidgets.QApplication.instance()
+                if app is not None:
+                    app.setStyleSheet(stylesheet)
+
             self._cfg["theme"] = theme
             log.info("Theme applied: %s", theme)
 

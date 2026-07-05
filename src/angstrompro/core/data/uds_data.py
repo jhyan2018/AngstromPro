@@ -49,6 +49,24 @@ class UdsDataStru(WorkspaceData):
     # 1D k-path  — handled by Axis.ticks
     # 2D BZ map  — {(0.0, 0.0): "Γ", (0.5, 0.5): "K", (1.0, 0.0): "M"}
 
+    def display_type(self) -> str:
+        ndim = self.data.ndim
+        kind = {1: "1D Spectrum", 2: "2D Map", 3: "Spectroscopy Stack"}.get(ndim, f"{ndim}D Array")
+        return kind
+
+    def summary(self) -> dict[str, str]:
+        shape_str = " × ".join(str(s) for s in self.data.shape)
+        axes_str  = ", ".join(ax.label for ax in self.axes) if self.axes else "—"
+        d = {
+            "Name":  self.name,
+            "Shape": shape_str,
+            "dtype": str(self.data.dtype),
+            "Axes":  axes_str,
+        }
+        if self.proc_history:
+            d["History"] = f"{len(self.proc_history)} step(s)"
+        return d
+
     @staticmethod
     def from_array(data: np.ndarray, name: str) -> "UdsDataStru":
         """Create with default pixel-index axes, matching old UdsDataStru.__init__."""

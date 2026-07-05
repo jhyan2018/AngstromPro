@@ -20,7 +20,6 @@ IMAGE_VIEWER_DEFAULTS = {
         "slider_scale_zoom_factor": 0.6,
     },
     "canvas": {
-        "canvas_size_factor": 0.33,
         "canvas_only": True,
         "canvas_name_on": False,
         "canvas_color_bar_on": False,
@@ -31,5 +30,6 @@ IMAGE_VIEWER_DEFAULTS = {
         "canvas_font_size": 14,
         "canvas_font_color": "r",
         "bias_text": False,
+        "bias_text_color": "Red",
     },
 }

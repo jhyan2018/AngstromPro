@@ -32,10 +32,10 @@ class _CheckboxControl(QtWidgets.QCheckBox):
 
 
 class _NumberControl(QtWidgets.QDoubleSpinBox):
-    def __init__(self, parent=None):
+    def __init__(self, min: float = -1e9, max: float = 1e9, parent=None):
         super().__init__(parent)
         self.setDecimals(3)
-        self.setRange(-1e9, 1e9)
+        self.setRange(min, max)
         self.setButtonSymbols(
             QtWidgets.QAbstractSpinBox.ButtonSymbols.NoButtons
             if IS_QT6 else

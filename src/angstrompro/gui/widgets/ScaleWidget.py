@@ -36,8 +36,8 @@ class ScaleWidget(QtWidgets.QWidget):
         self.data_lower_limit = 0.0
         self.data_upper_value = 0.0
         self.data_lower_value = 0.0
-        self.zoom_out_factor = 0.2
-        self.zoom_in_factor  = 0.8
+        self.zoom_out_factor = 0.6
+        self.zoom_in_factor  = 0.6
         self.data_scale_fixed = False
 
         self.data_sigma_factor         = 4.5
@@ -228,11 +228,15 @@ class ScaleWidget(QtWidgets.QWidget):
     def setZoomFactor(self, zoom_factor):
         if 0 < zoom_factor < 1:
             self.zoom_in_factor  = zoom_factor
-            self.zoom_out_factor = 1 - zoom_factor
+            self.zoom_out_factor = zoom_factor
 
     def setSigmaDefault(self, sigma_default):
         self.data_sigma_factor_default = sigma_default
         self.data_sigma_factor         = sigma_default
+        self.ui_le_data_sigma_factor.setSNText(str(sigma_default))
+        if self.ui_pb_sigma.isChecked() and hasattr(self.data, '__len__') and len(self.data) > 0:
+            self.AutoScale()
+            self.scaleChanged.emit()
 
     def setSigma(self, sigma):
         self.data_sigma_factor = sigma
@@ -249,8 +253,13 @@ class ScaleWidget(QtWidgets.QWidget):
         self.scaleChanged.emit()
 
     def setFFTAutoScaleFactor(self, fft_auto_scale_factor):
-        if 0 < fft_auto_scale_factor < 1:
+        if 0 < fft_auto_scale_factor <= 1:
             self.auto_scale_fft_factor = fft_auto_scale_factor
+            if (self.data_suffix == 'SUFFIX_FFT'
+                    and not self.ui_pb_sigma.isChecked()
+                    and hasattr(self.data, '__len__') and len(self.data) > 0):
+                self.AutoScale()
+                self.scaleChanged.emit()
 
     def setDataScaleFixed(self, data_scale_fixed):
         self.data_scale_fixed = data_scale_fixed

@@ -31,6 +31,7 @@ if IS_QT6:
     _ARROW       = QtCore.Qt.CursorShape.ArrowCursor
     _SMOOTH_TM   = QtCore.Qt.TransformationMode.FastTransformation
     _SP_EXPAND   = QtWidgets.QSizePolicy.Policy.Expanding
+    _SP_PREFER   = QtWidgets.QSizePolicy.Policy.Preferred
     _GIF_MOVABLE = QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsMovable
     _GIF_SELECT  = QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemIsSelectable
     _GIF_GEOM    = QtWidgets.QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
@@ -45,6 +46,7 @@ else:
     _ARROW       = QtCore.Qt.ArrowCursor
     _SMOOTH_TM   = QtCore.Qt.FastTransformation
     _SP_EXPAND   = QtWidgets.QSizePolicy.Expanding
+    _SP_PREFER   = QtWidgets.QSizePolicy.Preferred
     _GIF_MOVABLE = QtWidgets.QGraphicsItem.ItemIsMovable
     _GIF_SELECT  = QtWidgets.QGraphicsItem.ItemIsSelectable
     _GIF_GEOM    = QtWidgets.QGraphicsItem.ItemSendsGeometryChanges
@@ -155,8 +157,10 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
     item is placed at the scene origin.
     """
 
-    sceneMouseMoved  = Signal(float, float)   # col, row
-    scenePointPicked = Signal(float, float)   # col, row
+    sceneMouseMoved  = Signal(float, float)          # col, row
+    scenePointPicked = Signal(float, float)          # col, row (right-click)
+    mouseReleased    = Signal(str)                   # "LEFT_BUTTON" | "RIGHT_BUTTON"
+    wheelScrolled    = Signal(float, float, int)     # col, row, angleDelta_y
 
     _ZOOM_FACTOR = 1.25
 
@@ -169,20 +173,20 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         self.setDragMode(_NO_DRAG)
         self.setRenderHint(SmoothPixmapTransform, False)
         self.setMouseTracking(True)
-        self.setMinimumWidth(400)
         self.setSizePolicy(_SP_EXPAND, _SP_EXPAND)
         self._panning   = False
         self._pan_start = QtCore.QPoint()
 
     def wheelEvent(self, event):
-        f = self._ZOOM_FACTOR if event.angleDelta().y() > 0 else 1.0 / self._ZOOM_FACTOR
+        delta = event.angleDelta().y()
+        f = self._ZOOM_FACTOR if delta > 0 else 1.0 / self._ZOOM_FACTOR
         self.scale(f, f)
+        pt = self.mapToScene(event.pos())
+        self.wheelScrolled.emit(pt.x(), pt.y(), delta)
 
     def mousePressEvent(self, event):
         if event.button() == LeftButton:
-            # Let Qt deliver the event to scene items first (handles all movable items)
             super().mousePressEvent(event)
-            # Only pan if no scene item grabbed the mouse
             if self.scene().mouseGrabberItem() is None:
                 self._panning   = True
                 self._pan_start = event.pos()
@@ -210,6 +214,9 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         if event.button() == LeftButton:
             self._panning = False
             self.setCursor(_ARROW)
+            self.mouseReleased.emit("LEFT_BUTTON")
+        elif event.button() == RightButton:
+            self.mouseReleased.emit("RIGHT_BUTTON")
         super().mouseReleaseEvent(event)
 
     def fit_scene(self):
@@ -248,6 +255,8 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._view  = _ImageGraphicsView(self._scene)
         self._view.sceneMouseMoved.connect(self._on_scene_mouse_moved)
         self._view.scenePointPicked.connect(self._on_scene_point_picked)
+        self._view.mouseReleased.connect(self._on_scene_mouse_released)
+        self._view.wheelScrolled.connect(self._on_scene_wheel_scrolled)
 
         self._pixmap_item = QtWidgets.QGraphicsPixmapItem()
         self._pixmap_item.setTransformationMode(_SMOOTH_TM)
@@ -271,6 +280,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_sb_image_layers.setEnabled(False)
         self.ui_le_layer_value       = QtWidgets.QLineEdit()
         self.ui_le_layer_value.setEnabled(False)
+        self.ui_lb_layer_unit        = QtWidgets.QLabel("")
 
         self.ui_scale_widget = ScaleWidget(Vertical)
         self.ui_scale_widget.scaleChanged.connect(self.imgeScaleChanged)
@@ -322,9 +332,14 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         right_top.addWidget(self.ui_lw_img_picked_points)
         right_top.addWidget(self.ui_pb_img_picked_points_remove)
 
+        right_panel = QtWidgets.QWidget()
+        right_panel.setLayout(right_top)
+        right_panel.setMaximumWidth(200)
+        right_panel.setSizePolicy(_SP_PREFER, _SP_EXPAND)
+
         top_row = QtWidgets.QHBoxLayout()
         top_row.addWidget(self._view, stretch=1)
-        top_row.addLayout(right_top)
+        top_row.addWidget(right_panel)
 
         left_bot = QtWidgets.QVBoxLayout()
         left_bot.addWidget(self.ui_pb_select_var)
@@ -340,6 +355,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         hl.addWidget(self.ui_lb_image_layer)
         hl.addWidget(self.ui_sb_image_layers)
         hl.addWidget(self.ui_le_layer_value)
+        hl.addWidget(self.ui_lb_layer_unit)
         left_bot.addLayout(hl)
 
         right_bot = QtWidgets.QVBoxLayout()
@@ -362,6 +378,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         grid.addLayout(vlay, 0, 0)
         grid.setContentsMargins(0, 0, 0, 0)
         self.setLayout(grid)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._view.setFixedHeight(self._view.width())
 
     def initNonUiMembers(self):
         self.uds_variable            = 0
@@ -391,10 +411,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._label_key             = None # (n, mode) — detects topology change
         self._rt_cursor_item        = None
         self._bias_text_item        = None
+        self._bias_text_color       = '#ff0000'
 
         self.img_current_layer = 0
         self.sync_rt_points    = False
-        self.img_sync_layer    = False
         self.bias_text_shown   = False
 
         # Legacy mouse-state attributes read by parent module via sendMsgSignal
@@ -438,8 +458,19 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_MOVED'))
 
     def _on_scene_point_picked(self, col: float, row: float):
+        self.mouse_event_button = 'RIGHT_BUTTON'
         self._add_picked_point(col, row)
         self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_PRESSED'))
+
+    def _on_scene_mouse_released(self, button: str):
+        self.mouse_event_button = button
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_MOUSE_RELEASED'))
+
+    def _on_scene_wheel_scrolled(self, col: float, row: float, delta: int):
+        self.selected_data_pt_x   = col
+        self.selected_data_pt_y   = row
+        self.mouse_event_angleDelta_y = delta
+        self.sendMsgSignalEmit(self.msg_type.index('CANVAS_WHEALED'))
 
     # ── picked-point management ───────────────────────────────────────────
 
@@ -506,6 +537,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
                     on_moved=self._on_point_moved)
                 self._scene.addItem(item)
                 self._point_items.append(item)
+        self._sync_listwidget()
         self._update_annotation_overlay()
 
     def _update_annotation_overlay(self):
@@ -747,13 +779,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
     def setScaleWidgetDataScaleFixed(self, data_scale_fixed):
         self.ui_scale_widget.setDataScaleFixed(data_scale_fixed)
 
-    def setImageSyncLayer(self, sync_layer):
-        self.img_sync_layer = sync_layer
-
-    def setImageLayer(self, layer):
-        if self.img_sync_layer:
-            self.ui_sb_image_layers.setValue(layer)
-
     def setImagePickedPoints(self, picked_points):
         self.img_picked_points_list = list(picked_points)
         self._rebuild_point_items()
@@ -763,11 +788,26 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
     def setBiasTextShown(self, bias_text_shown):
         self.bias_text_shown = bias_text_shown
+        self.updateImage()
+
+    def setBiasTextColor(self, color_name: str):
+        _color_map = {
+            'Red': '#ff0000', 'Green': '#00ff00', 'Blue': '#0000ff',
+            'Yellow': '#ffff00', 'Black': '#000000', 'White': '#ffffff',
+        }
+        self._bias_text_color = _color_map.get(color_name, '#ff0000')
+        if self._bias_text_item is not None:
+            self._bias_text_item.setDefaultTextColor(QtGui.QColor(self._bias_text_color))
 
     def getLayerValue(self):
-        if 'LayerValue' in self.uds_variable.info:
-            v = self.uds_variable.info['LayerValue']
-            self.uds_var_layer_value = v if isinstance(v, list) else str(v).split(',')
+        axes = getattr(self.uds_variable, 'axes', None)
+        if axes and len(axes) > 0 and hasattr(axes[0], 'values') and len(axes[0].values) > 0:
+            self._layer_unit = getattr(axes[0], 'units', '')
+            self.ui_lb_layer_unit.setText(self._layer_unit)
+            self.uds_var_layer_value = [
+                NumberExpression.float_to_simplified_number(v)
+                for v in axes[0].values
+            ]
 
     def setUdsData(self, usd_variable):
         self.selected_var_name     = usd_variable.name
@@ -783,6 +823,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
         self.ui_le_selected_var.setText(self.selected_var_name)
         self.ui_le_layer_value.setText('')
+        self.ui_lb_layer_unit.setText('')
 
         var_shape = np.shape(self.uds_variable.data)
         if len(var_shape) >= 3:
@@ -861,15 +902,17 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._scene.setSceneRect(-margin, -margin, w + 2 * margin, h + 2 * margin)
 
         if self.bias_text_shown:
-            txt = self.ui_le_layer_value.text() + 'V'
+            txt = self.ui_le_layer_value.text() + self.ui_lb_layer_unit.text()
             if self._bias_text_item is None:
                 self._bias_text_item = QtWidgets.QGraphicsTextItem()
-                self._bias_text_item.setDefaultTextColor(QtGui.QColor('#ff0000'))
+                self._bias_text_item.setDefaultTextColor(QtGui.QColor(self._bias_text_color))
                 self._bias_text_item.setFlag(_GIF_IGNORE, True)
+                self._bias_text_item.setFlag(_GIF_MOVABLE, True)
+                self._bias_text_item.setFlag(_GIF_SELECT, True)
                 self._bias_text_item.setZValue(15)
+                self._bias_text_item.setPos(pixmap.width() / 2, pixmap.height() - 20)
                 self._scene.addItem(self._bias_text_item)
             self._bias_text_item.setPlainText(txt)
-            self._bias_text_item.setPos(pixmap.width() / 2, pixmap.height() - 20)
         else:
             if self._bias_text_item is not None:
                 self._scene.removeItem(self._bias_text_item)

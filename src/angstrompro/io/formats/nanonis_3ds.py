@@ -61,8 +61,6 @@ def load(path: Path, channel_index: int = 0,
         x_range = grid_settings["w"]
         y_range = grid_settings["h"]
 
-        # Sweep axis from fixed parameters stored in the data block
-        fixed_params = [p.strip() for p in header.get("fixed parameters", "").split(";")]
         sweep_signal = header.get("sweep signal", "Bias (V)").strip()
 
         # Load raw data
@@ -72,7 +70,6 @@ def load(path: Path, channel_index: int = 0,
             raw = np.fromfile(f, dtype=">f4")
 
         total_pixels = x_pixels * y_pixels
-        # Pad or truncate to exact expected size
         expected = total_pixels * stride
         if raw.size < expected:
             raw = np.pad(raw, (0, expected - raw.size))
@@ -99,18 +96,32 @@ def load(path: Path, channel_index: int = 0,
 
         data3D = np.flip(data3D, axis=1)
 
-        # Extract sweep-start and sweep-end from fixed parameter layers
-        sweep_start = 0.0
-        sweep_end = 1.0
-        if "sweep start" in fixed_params:
-            idx = fixed_params.index("sweep start")
-            sweep_start = float(data3D[idx, -1, -1])
-        if "sweep end" in fixed_params:
-            idx = fixed_params.index("sweep end")
-            sweep_end = float(data3D[idx, -1, -1])
+        # Read sweep axis: prefer the sweep-signal channel stored in the data block
+        # (present when Nanonis records the swept variable explicitly, e.g. non-linear sweeps).
+        # Fall back to linspace(sweep_start, sweep_end, n_points) for standard linear sweeps.
+        channels_lower = [c.lower() for c in channels]
+        sweep_signal_lower = sweep_signal.lower()
+        sweep_ch_idx = next(
+            (i for i, c in enumerate(channels_lower)
+             if sweep_signal_lower in c or c in sweep_signal_lower),
+            None,
+        )
+        if sweep_ch_idx is not None:
+            start = par_num + sweep_ch_idx * n_points
+            sweep_vals = data3D[start:start + n_points, 0, 0].astype(np.float64)
+        else:
+            # Standard linear sweep: read start/end from fixed parameters
+            fixed_params = [p.strip() for p in header.get("fixed parameters", "").split(";")]
+            fixed_params_lower = [p.lower() for p in fixed_params]
+            sweep_start, sweep_end = 0.0, 0.0
+            if "sweep start" in fixed_params_lower:
+                sweep_start = float(data3D[fixed_params_lower.index("sweep start"), 0, 0])
+            if "sweep end" in fixed_params_lower:
+                sweep_end = float(data3D[fixed_params_lower.index("sweep end"), 0, 0])
+            sweep_vals = np.linspace(sweep_start, sweep_end, n_points)
 
-        bias_vals = np.linspace(sweep_start, sweep_end, n_points)
-        ax_bias = Axis(values=bias_vals, label="Bias (V)", units="V")
+        sweep_units = sweep_signal.split("(")[-1].rstrip(")").strip() if "(" in sweep_signal else ""
+        ax_bias = Axis(values=sweep_vals, label=sweep_signal, units=sweep_units)
         ax_y = Axis(values=np.linspace(0.0, y_range, y_pixels), label="Y (m)", units="m")
         ax_x = Axis(values=np.linspace(0.0, x_range, x_pixels), label="X (m)", units="m")
 
@@ -121,8 +132,6 @@ def load(path: Path, channel_index: int = 0,
             "x_pixels":       x_pixels,
             "y_pixels":       y_pixels,
             "sweep_signal":   sweep_signal,
-            "sweep_start_v":  sweep_start,
-            "sweep_end_v":    sweep_end,
             "grid_settings":  grid_settings,
         }
         if "bias>bias (v)" in header:

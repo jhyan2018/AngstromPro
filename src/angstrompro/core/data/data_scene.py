@@ -43,3 +43,19 @@ class DataScene(WorkspaceData):
     name: str
     entries: list[SceneEntry]   = field(default_factory=list)
     canvas_config: CanvasConfig = field(default_factory=CanvasConfig)
+
+    def display_type(self) -> str:
+        return "Plot Scene"
+
+    def summary(self) -> dict[str, str]:
+        d: dict[str, str] = {
+            "Name":   self.name,
+            "Curves": str(len(self.entries)),
+        }
+        if self.canvas_config.title:
+            d["Title"] = self.canvas_config.title
+        if self.canvas_config.x_label:
+            d["X"] = self.canvas_config.x_label
+        if self.canvas_config.y_label:
+            d["Y"] = self.canvas_config.y_label
+        return d

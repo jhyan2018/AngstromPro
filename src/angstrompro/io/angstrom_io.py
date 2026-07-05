@@ -59,6 +59,25 @@ _READERS:  dict[str, Callable]    = {}
 _WRITERS:  dict[str, Callable]    = {}
 _FORMATS:  dict[str, FormatInfo]  = {}
 
+# Extension → loader callable registered by plugins (e.g. ".cif" → load_lattice).
+# Unlike _READERS (keyed by type_id), this maps raw file extensions to functions
+# that accept a Path and return a WorkspaceData directly.
+_EXT_LOADERS: dict[str, Callable] = {}
+
+
+def register_ext_loader(ext: str, loader: Callable) -> None:
+    """Register a plugin loader for a raw file extension (e.g. '.cif').
+
+    The loader receives a single Path argument and must return a WorkspaceData.
+    Extensions are matched case-insensitively after normalisation to lowercase.
+
+    Example (in myplugin/io/lattice_io.py)::
+
+        register_ext_loader(".cif",     load_lattice)
+        register_ext_loader(".poscar",  load_lattice)
+    """
+    _EXT_LOADERS[ext.lower()] = loader
+
 # Legacy format entry — always present, read-only
 _FORMATS["__legacy_uds__"] = FormatInfo(
     type_id      = "__legacy_uds__",
@@ -89,6 +108,11 @@ def register_io(
         readable     = True,
         writable     = True,
     )
+
+
+def can_save(data: WorkspaceData) -> bool:
+    """Return True if a writer is registered for this data type."""
+    return data.type_id in _WRITERS
 
 
 def registered_formats() -> list[FormatInfo]:
@@ -157,6 +181,9 @@ def load(path: Path) -> WorkspaceData:
                 f"Reader for {ext!r} (type_id={type_id!r}) not registered."
             )
         return _READERS[type_id](path)
+
+    if ext in _EXT_LOADERS:
+        return _EXT_LOADERS[ext](path)
 
     raise ValueError(
         f"Cannot load {path.name}: not an HDF5 file and extension {ext!r} "

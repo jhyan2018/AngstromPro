@@ -122,7 +122,6 @@ class ImageStackViewer(AGuiModule):
     accepted_types = ['uds']
     accepted_ndim = 3
 
-    _sync_layer: bool = False
     staged_labels = ["M", "A"]
 
     preferences_schema = [
@@ -137,12 +136,13 @@ class ImageStackViewer(AGuiModule):
         ]),
         PrefSection("Scale", "adjustments-horizontal", [
             PrefItem("factor.sigma",                    "Sigma",              "number", "σ window for histogram auto-scale"),
-            PrefItem("factor.fft_auto_scale_factor",    "FFT auto scale",     "number", "Upper fraction of FFT max kept"),
-            PrefItem("factor.slider_scale_zoom_factor", "Slider zoom factor", "number", "Step size for zoom in/out buttons"),
+            PrefItem("factor.fft_auto_scale_factor",    "FFT auto scale",     "number", "Upper fraction of FFT max kept",  kwargs={"min": 0.001, "max": 1.0}),
+            PrefItem("factor.slider_scale_zoom_factor", "Slider zoom factor", "number", "Step size for zoom in/out buttons", kwargs={"min": 0.001, "max": 0.999}),
         ]),
         PrefSection("Canvas", "layout-kanban", [
-            PrefItem("canvas.canvas_size_factor", "Size factor", "number", "Relative canvas size within the panel"),
-            PrefItem("canvas.bias_text",          "Show bias value", "checkbox", "Overlay bias setpoint text on image"),
+            PrefItem("canvas.bias_text",       "Show bias value", "checkbox", "Overlay bias setpoint text on image"),
+            PrefItem("canvas.bias_text_color", "Bias text color", "dropdown", "Color of the bias annotation",
+                     kwargs={"choices": ["Red", "Green", "Blue", "Yellow", "Black", "White"]}),
         ]),
     ]
 
@@ -158,32 +158,48 @@ class ImageStackViewer(AGuiModule):
     # ------------------------------------------------------------------
 
     def _apply_config_to_panels(self, cfg: dict) -> None:
+        panels = [p for p in (
+            getattr(self, "_panel_main", None),
+            getattr(self, "_panel_aux", None),
+        ) if p is not None]
+
+        # colormap
         cmap_list = cfg.get("colormap", {}).get("cmap_palette_list", ["gray"])
-        if hasattr(self, "_panel_main"):
-            self._panel_main.setup_palette(cmap_list)
-        if hasattr(self, "_panel_aux"):
-            self._panel_aux.setup_palette(cmap_list)
+        for p in panels:
+            p.setup_palette(cmap_list)
+
+        # sync
+        sync = cfg.get("sync", {})
+        for p in panels:
+            p.setSyncRtPoint(sync.get("real_time_cursor", False))
+
+        # factor (scale widget)
+        factor = cfg.get("factor", {})
+        for p in panels:
+            p.setScaleWidgetSigmaDefault(factor.get("sigma", 5))
+            p.setScaleWidgetFFTAutoScaleFactor(factor.get("fft_auto_scale_factor", 0.5))
+            p.setScaleWidgetZoomFactor(factor.get("slider_scale_zoom_factor", 0.6))
+
+        # canvas
+        canvas = cfg.get("canvas", {})
+        for p in panels:
+            p.setBiasTextColor(canvas.get("bias_text_color", "Red"))
+            p.setBiasTextShown(canvas.get("bias_text", False))
 
     def build_ui(self) -> None:
         from angstrompro.gui.widgets.image_stack_viewer_widget import ImageStackViewerWidget
         from angstrompro.gui.resources.colormaps import register_all
         register_all()
 
-        cmap_list = (
-            self._config
-            .get("colormap", {})
-            .get("cmap_palette_list", ["gray"])
-        )
-
         self._panel_main = ImageStackViewerWidget()
         self._panel_main.ui_lb_widget_name.setText("<b>— MAIN —</b>")
         self._panel_main.sendMsgSignal.connect(self._on_msg_from_main)
-        self._panel_main.setup_palette(cmap_list)
 
         self._panel_aux = ImageStackViewerWidget()
         self._panel_aux.ui_lb_widget_name.setText("<b>— AUXILIARY —</b>")
         self._panel_aux.sendMsgSignal.connect(self._on_msg_from_aux)
-        self._panel_aux.setup_palette(cmap_list)
+
+        self._apply_config_to_panels(self._config)
 
         self._splitter = QtWidgets.QSplitter(
             QtCore.Qt.Orientation.Horizontal
@@ -253,8 +269,9 @@ class ImageStackViewer(AGuiModule):
                                if self._main_item else [fft_item])
         self._panel_aux.setUdsData(fft_item.payload)
         self._panel_aux.setEnabled(True)
-        if self._sync_layer:
-            self._panel_aux.setImageLayer(self._panel_main.img_current_layer)
+        if self._config.get("sync", {}).get("layer", False):
+            self._panel_aux.ui_sb_image_layers.setValue(
+                self._panel_main.img_current_layer)
         self.statusBar().showMessage(
             f"Aux (auto FFT): {fft_item.name}", 4000)
 
@@ -263,13 +280,56 @@ class ImageStackViewer(AGuiModule):
     # ------------------------------------------------------------------
 
     def _on_msg_from_main(self, msg_idx: int) -> None:
-        msg = self._panel_main.msg_type[msg_idx]
+        msg  = self._panel_main.msg_type[msg_idx]
+        sync = self._config.get("sync", {})
+
         if msg == "SELECT_USD_VARIABLE":
             name = self._selected_item_name()
             if name is not None:
                 self.load_item(self.workspace.get_item(name))
-        elif msg == "SYNC_LAYER" and self._sync_layer:
-            self._panel_aux.setImageLayer(self._panel_main.img_current_layer)
+
+        elif msg == "SYNC_LAYER":
+            if sync.get("layer", False):
+                self._panel_aux.ui_sb_image_layers.setValue(
+                    self._panel_main.img_current_layer)
+
+        elif msg == "CANVAS_MOUSE_MOVED":
+            if sync.get("real_time_cursor", False):
+                self._panel_aux.selected_data_pt_x = self._panel_main.selected_data_pt_x
+                self._panel_aux.selected_data_pt_y = self._panel_main.selected_data_pt_y
+                self._panel_aux._update_rt_cursor()
+            if sync.get("canvas_view_zoom", False):
+                self._panel_aux._view.setTransform(
+                    self._panel_main._view.transform())
+                self._panel_aux._view.horizontalScrollBar().setValue(
+                    self._panel_main._view.horizontalScrollBar().value())
+                self._panel_aux._view.verticalScrollBar().setValue(
+                    self._panel_main._view.verticalScrollBar().value())
+
+        elif msg == "CANVAS_MOUSE_PRESSED":
+            if sync.get("picked_points", False):
+                e_b = self._panel_main.mouse_event_button
+                if e_b == "RIGHT_BUTTON":
+                    self._panel_aux.setImagePickedPoints(
+                        self._panel_main.img_picked_points_list.copy())
+            if sync.get("canvas_view_zoom", False):
+                self._panel_aux._view.setTransform(
+                    self._panel_main._view.transform())
+
+        elif msg == "CANVAS_MOUSE_RELEASED":
+            if sync.get("canvas_view_zoom", False):
+                self._panel_aux._view.setTransform(
+                    self._panel_main._view.transform())
+
+        elif msg == "CANVAS_WHEALED":
+            if sync.get("canvas_view_zoom", False):
+                self._panel_aux._view.setTransform(
+                    self._panel_main._view.transform())
+
+        elif msg == "REMOVE_SYNC_PICKED_POINTS":
+            if sync.get("picked_points", False):
+                self._panel_aux.setImagePickedPoints(
+                    self._panel_main.img_picked_points_list.copy())
 
     def _on_msg_from_aux(self, msg_idx: int) -> None:
         msg = self._panel_aux.msg_type[msg_idx]
@@ -289,13 +349,14 @@ class ImageStackViewer(AGuiModule):
         self.process_inputs = [self._main_item, item] if self._main_item else [item]
         self._panel_aux.setUdsData(item.payload)
         self._panel_aux.setEnabled(True)
-        if self._sync_layer:
-            self._panel_aux.setImageLayer(self._panel_main.img_current_layer)
+        if self._config.get("sync", {}).get("layer", False):
+            self._panel_aux.ui_sb_image_layers.setValue(
+                self._panel_main.img_current_layer)
         self.statusBar().showMessage(
             f"Aux: {item.name}  shape={item.payload.data.shape}", 4000)
 
     # ------------------------------------------------------------------
-    # Sync actions in View menu
+    # RT-ColorMap actions in View menu
     # ------------------------------------------------------------------
 
     def _add_sync_actions(self) -> None:
@@ -307,9 +368,24 @@ class ImageStackViewer(AGuiModule):
         if view_menu is None:
             return
         view_menu.addSeparator()
-        act = view_menu.addAction("Sync Layer (Main → Aux)")
-        act.setCheckable(True)
-        act.toggled.connect(lambda v: setattr(self, "_sync_layer", v))
+        view_menu.addAction("RT-ColorMap  (Main)").triggered.connect(
+            self._show_rt_cmp_main)
+        view_menu.addAction("RT-ColorMap  (Aux)").triggered.connect(
+            self._show_rt_cmp_aux)
+
+    def _show_rt_cmp_main(self) -> None:
+        w = self._panel_main.ui_rt_cmp
+        w.setWidgetTitle("RT-CMP  Main")
+        w.show()
+        w.raise_()
+        w.activateWindow()
+
+    def _show_rt_cmp_aux(self) -> None:
+        w = self._panel_aux.ui_rt_cmp
+        w.setWidgetTitle("RT-CMP  Aux")
+        w.show()
+        w.raise_()
+        w.activateWindow()
 
     # ------------------------------------------------------------------
     # Helpers
