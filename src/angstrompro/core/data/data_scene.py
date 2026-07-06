@@ -9,12 +9,13 @@ from .uds_data import UdsDataStru
 
 @dataclass
 class PlotStyle:
-    color: str      = ""        # empty = auto-assigned by canvas
+    color: str       = ""        # empty = auto-assigned by canvas
     linewidth: float = 1.5
-    marker: str     = ""        # e.g. "o", "s", "" = no marker
-    alpha: float    = 1.0
-    label: str      = ""        # curve legend label
-    visible: bool   = True
+    linestyle: str   = "solid"   # "solid", "dashed", "dotted", "dashdot"
+    marker: str      = ""        # e.g. "o", "s", "" = no marker
+    alpha: float     = 1.0
+    label: str       = ""        # curve legend label
+    visible: bool    = True
 
 
 @dataclass
@@ -27,6 +28,11 @@ class CanvasConfig:
     y_min: float | None = None
     y_max: float | None = None
     legend_visible: bool = True
+    # curve-stack specific
+    plot_mode: str   = "stack"    # "stack" | "colormap"
+    offset: float    = 0.0        # waterfall offset (stack mode)
+    colormap: str    = "RdBu_r"   # colormap name (colormap mode)
+    show_grid: bool  = False
 
 
 @dataclass

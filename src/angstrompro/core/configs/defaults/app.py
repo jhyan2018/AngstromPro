@@ -7,5 +7,6 @@ DEFAULTS = {
     # Each entry: {"module_id": "image_stack_viewer", "count": 1}
     "startup_modules": [
         {"module_id": "image_stack_viewer", "count": 1},
+        {"module_id": "curve_stack_viewer", "count": 1},
     ],
 }

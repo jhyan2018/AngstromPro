@@ -3,7 +3,10 @@ DEFAULTS = {
     # These are the defaults shipped with the package.
     # Add entries here when you register a new built-in process.
     "process_menus": {
-        "image_stack_viewer": [
+        "image_stack_viewer": [],
+        "curve_stack_viewer": [
+            "curve.smooth_savgol",
+            "curve.smooth_gaussian",
         ],
     },
 

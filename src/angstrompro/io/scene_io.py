@@ -41,6 +41,10 @@ def _scene_to_dict(scene: DataScene) -> dict:
             "x_max":          scene.canvas_config.x_max,
             "y_min":          scene.canvas_config.y_min,
             "y_max":          scene.canvas_config.y_max,
+            "plot_mode":      scene.canvas_config.plot_mode,
+            "offset":         scene.canvas_config.offset,
+            "colormap":       scene.canvas_config.colormap,
+            "show_grid":      scene.canvas_config.show_grid,
         },
         "entries": [
             {
@@ -48,6 +52,7 @@ def _scene_to_dict(scene: DataScene) -> dict:
                 "style": {
                     "color":     entry.style.color,
                     "linewidth": entry.style.linewidth,
+                    "linestyle": entry.style.linestyle,
                     "marker":    entry.style.marker,
                     "alpha":     entry.style.alpha,
                     "label":     entry.style.label,
@@ -70,10 +75,14 @@ def _dict_to_scene(d: dict) -> DataScene:
         x_label        = cc.get("x_label", ""),
         y_label        = cc.get("y_label", ""),
         legend_visible = cc.get("legend_visible", True),
-        x_min = _nan_to_none(cc.get("x_min")),
-        x_max = _nan_to_none(cc.get("x_max")),
-        y_min = _nan_to_none(cc.get("y_min")),
-        y_max = _nan_to_none(cc.get("y_max")),
+        x_min      = _nan_to_none(cc.get("x_min")),
+        x_max      = _nan_to_none(cc.get("x_max")),
+        y_min      = _nan_to_none(cc.get("y_min")),
+        y_max      = _nan_to_none(cc.get("y_max")),
+        plot_mode  = cc.get("plot_mode", "stack"),
+        offset     = float(cc.get("offset", 0.0)),
+        colormap   = cc.get("colormap", "RdBu_r"),
+        show_grid  = bool(cc.get("show_grid", False)),
     )
 
     entries = []
@@ -83,6 +92,7 @@ def _dict_to_scene(d: dict) -> DataScene:
         style = PlotStyle(
             color     = s.get("color", ""),
             linewidth = s.get("linewidth", 1.5),
+            linestyle = s.get("linestyle", "solid"),
             marker    = s.get("marker", ""),
             alpha     = s.get("alpha", 1.0),
             label     = s.get("label", ""),
@@ -110,6 +120,10 @@ def save(path: Path, scene: DataScene) -> None:
         cc.attrs["x_label"]        = scene.canvas_config.x_label
         cc.attrs["y_label"]        = scene.canvas_config.y_label
         cc.attrs["legend_visible"] = scene.canvas_config.legend_visible
+        cc.attrs["plot_mode"]      = scene.canvas_config.plot_mode
+        cc.attrs["offset"]         = scene.canvas_config.offset
+        cc.attrs["colormap"]       = scene.canvas_config.colormap
+        cc.attrs["show_grid"]      = scene.canvas_config.show_grid
         for key in ("x_min", "x_max", "y_min", "y_max"):
             val = getattr(scene.canvas_config, key)
             cc.attrs[key] = val if val is not None else float("nan")
@@ -121,6 +135,7 @@ def save(path: Path, scene: DataScene) -> None:
             sg = g.create_group("style")
             sg.attrs["color"]     = entry.style.color
             sg.attrs["linewidth"] = entry.style.linewidth
+            sg.attrs["linestyle"] = entry.style.linestyle
             sg.attrs["marker"]    = entry.style.marker
             sg.attrs["alpha"]     = entry.style.alpha
             sg.attrs["label"]     = entry.style.label
@@ -144,6 +159,10 @@ def load(path: Path) -> DataScene:
             "x_max":          float(cc_g.attrs.get("x_max", float("nan"))),
             "y_min":          float(cc_g.attrs.get("y_min", float("nan"))),
             "y_max":          float(cc_g.attrs.get("y_max", float("nan"))),
+            "plot_mode":      str(cc_g.attrs.get("plot_mode", "stack")),
+            "offset":         float(cc_g.attrs.get("offset", 0.0)),
+            "colormap":       str(cc_g.attrs.get("colormap", "RdBu_r")),
+            "show_grid":      bool(cc_g.attrs.get("show_grid", False)),
         }
 
         entries_raw = []
@@ -156,6 +175,7 @@ def load(path: Path) -> DataScene:
                 "style": {
                     "color":     str(sg.attrs.get("color", "")),
                     "linewidth": float(sg.attrs.get("linewidth", 1.5)),
+                    "linestyle": str(sg.attrs.get("linestyle", "solid")),
                     "marker":    str(sg.attrs.get("marker", "")),
                     "alpha":     float(sg.attrs.get("alpha", 1.0)),
                     "label":     str(sg.attrs.get("label", "")),

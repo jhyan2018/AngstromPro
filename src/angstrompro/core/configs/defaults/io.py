@@ -16,5 +16,12 @@ DEFAULTS = {
             "dI/dV":      {"aliases": ["LI Demod 1 X", "dI/dV", "Input 2"],        "load_by_default": False},
             "dI/dV (Y)":  {"aliases": ["LI Demod 1 Y"],                             "load_by_default": False},
         },
+        "nanonis_dat": {
+            "__auto_load__": False,
+            "Current":    {"aliases": ["Current (A)", "Current"],                   "load_by_default": True},
+            "dI/dV":      {"aliases": ["LI Demod 1 X (A)", "LI Demod 1 X"],        "load_by_default": True},
+            "dI/dV (Y)":  {"aliases": ["LI Demod 1 Y (A)", "LI Demod 1 Y"],        "load_by_default": False},
+            "Z":          {"aliases": ["Z (m)", "Z"],                               "load_by_default": False},
+        },
     },
 }

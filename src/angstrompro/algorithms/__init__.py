@@ -30,3 +30,4 @@ from . import normalization
 from . import line_circle_cut
 from . import interpolation
 from . import symmetrize
+from . import smooth1d

@@ -540,6 +540,18 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 ws_item = self.workspace.get_item(item_name)
                 ws_item.annotations.pop(role, None)
                 self.workspace.notify_changed(item_name)
+        elif isinstance(data, str):
+            ws_item = self.workspace.get_item(data)
+            if ws_item is None:
+                return
+            menu = QtWidgets.QMenu(self)
+            self._populate_ws_item_context_menu(menu, ws_item)
+            if not menu.isEmpty():
+                menu.exec(self._ws_list.viewport().mapToGlobal(pos))
+
+    def _populate_ws_item_context_menu(
+            self, menu: "QtWidgets.QMenu", item: "WorkspaceItem") -> None:
+        """Hook for subclasses to add actions to the workspace item context menu."""
 
     def _on_add_item(self) -> None:
         self.on_add_item()
@@ -741,7 +753,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         from angstrompro.io import load
         p = Path(path)
         try:
-            result = self._load_with_channel_picker(p)
+            from angstrompro.gui.utils.file_loading import load_with_channel_picker
+            result = load_with_channel_picker(p, self._context, self)
             if result is None:
                 return  # user cancelled
         except Exception as exc:
@@ -755,154 +768,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self.workspace.add_item(name=name, payload=payload)
 
     def _load_with_channel_picker(self, p):
-        """Load a file, showing a channel picker for multi-channel formats."""
-        from angstrompro.io import load
-
-        _CHANNEL_PICKER_EXTS = {".3ds", ".sxm"}
-        ext = p.suffix.lower()
-
-        if ext not in _CHANNEL_PICKER_EXTS:
-            return load(p)
-
-        # --- .3ds --- (display names applied after loading)
-
-        if ext == ".3ds":
-            from angstrompro.io.formats.nanonis_3ds import parse_header, load as load_3ds
-            from angstrompro.gui.dialogs.channel_picker_dialog import ChannelPickerDialog
-            header, _ = parse_header(p)
-            channels = [c.strip() for c in header.get("channels", "").split(";") if c.strip()]
-            if not channels:
-                return load(p)
-            fmt_cfg = self._context.channel_manager.get("nanonis_3ds")
-            resolved = fmt_cfg.resolve(channels) if fmt_cfg else []
-            if fmt_cfg and fmt_cfg.auto_load:
-                pairs = self._resolve_auto_load(fmt_cfg, resolved, channels)
-                if pairs is None:
-                    return None   # user cancelled unmatched dialog
-                indices = [idx for _, idx in pairs]
-                result = load_3ds(p, channel_indices=indices or [0])
-                return self._apply_display_names(result, pairs, p.stem)
-            grid_dim = header.get("grid dim", "1x1").split("x")
-            file_info = {
-                "x_pixels": int(grid_dim[0]) if len(grid_dim) > 0 else "?",
-                "y_pixels": int(grid_dim[1]) if len(grid_dim) > 1 else "?",
-                "n_points": header.get("points", ""),
-            }
-            dlg = ChannelPickerDialog(self, p, channels, file_info, fmt_cfg)
-            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
-                return None
-            indices = dlg.selected_indices()
-            if not indices:
-                return None
-            idx_to_display = {idx: cc.display_name for cc, idx in resolved if idx is not None}
-            result = load_3ds(p, channel_indices=indices)
-            pairs = [(None, idx) for idx in indices]
-            return self._apply_display_names(result, pairs, p.stem, idx_to_display)
-
-        # --- .sxm ---
-        if ext == ".sxm":
-            from angstrompro.io.formats.nanonis_sxm import _parse_header, load as load_sxm
-            from angstrompro.gui.dialogs.channel_picker_dialog import ChannelPickerDialog
-            header, _ = _parse_header(p)
-            data_info = header.get("DATA_INFO", "")
-            lines = [ln for ln in data_info.strip().split("\n") if ln.strip()]
-            channels = []
-            for line in lines[1:]:
-                parts = line.split("\t")
-                if len(parts) > 1:
-                    channels.append(parts[1].strip())
-            if not channels:
-                return load(p)
-            fmt_cfg = self._context.channel_manager.get("nanonis_sxm")
-            resolved = fmt_cfg.resolve(channels) if fmt_cfg else []
-            if fmt_cfg and fmt_cfg.auto_load:
-                pairs = self._resolve_auto_load(fmt_cfg, resolved, channels)
-                if pairs is None:
-                    return None
-                indices = [idx for _, idx in pairs]
-                result = load_sxm(p, channel_indices=indices or [0])
-                return self._apply_display_names(result, pairs, p.stem)
-            pixels = header.get("SCAN_PIXELS", "? ?").split()
-            file_info = {
-                "x_pixels": pixels[0] if len(pixels) > 0 else "?",
-                "y_pixels": pixels[1] if len(pixels) > 1 else "?",
-            }
-            dlg = ChannelPickerDialog(self, p, channels, file_info, fmt_cfg)
-            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
-                return None
-            indices = dlg.selected_indices()
-            if not indices:
-                return None
-            idx_to_display = {idx: cc.display_name for cc, idx in resolved if idx is not None}
-            result = load_sxm(p, channel_indices=indices)
-            pairs = [(None, idx) for idx in indices]
-            return self._apply_display_names(result, pairs, p.stem, idx_to_display)
-
-        return load(p)
-
-    def _resolve_auto_load(self, fmt_cfg, resolved, file_channels):
-        """
-        For auto-load: collect matched default pairs; if any default channel is
-        unmatched show UnmatchedChannelsDialog.  Returns list of (cc, idx) pairs
-        ready for loading, or None if user cancelled.
-
-        Also saves new aliases back to ChannelManager when user requests it.
-        """
-        from angstrompro.gui.dialogs.unmatched_channels_dialog import UnmatchedChannelsDialog
-
-        matched   = [(cc, idx) for cc, idx in resolved
-                     if cc.load_by_default and idx is not None]
-        unmatched = [cc for cc, idx in resolved
-                     if cc.load_by_default and idx is None]
-
-        if unmatched:
-            dlg = UnmatchedChannelsDialog(self, unmatched, file_channels)
-            if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
-                return None
-
-            # Collect user's choices and save aliases if requested
-            new_aliases: dict[str, str] = {}   # display_name → file channel to prepend
-            for res in dlg.resolutions():
-                if res.file_index is not None:
-                    matched.append((res.channel_config, res.file_index))
-                if res.save_alias and res.file_channel:
-                    new_aliases[res.channel_config.display_name] = res.file_channel
-
-            if new_aliases:
-                self._save_new_aliases(fmt_cfg, new_aliases)
-
-        return matched if matched else None
-
-    def _save_new_aliases(self, fmt_cfg, new_aliases: dict[str, str]) -> None:
-        """Prepend newly discovered file channel names to the matching ChannelConfig alias lists."""
-        from angstrompro.io.channel_manager import ChannelConfig
-        updated = []
-        for cc in fmt_cfg.channels:
-            if cc.display_name in new_aliases:
-                new_alias = new_aliases[cc.display_name]
-                aliases = [new_alias] + [a for a in cc.aliases if a != new_alias]
-                updated.append(ChannelConfig(cc.display_name, aliases, cc.load_by_default))
-            else:
-                updated.append(cc)
-        self._context.channel_manager.save_format(
-            fmt_cfg.format_id, updated, auto_load=fmt_cfg.auto_load)
-
-    @staticmethod
-    def _apply_display_names(result, pairs, stem: str,
-                             idx_to_display: dict | None = None):
-        """Rename each UdsDataStru to  stem_DisplayName."""
-        items = result if isinstance(result, list) else [result]
-        for payload, (cc, idx) in zip(items, pairs):
-            if cc is not None:
-                display = cc.display_name
-            elif idx_to_display and idx in idx_to_display:
-                display = idx_to_display[idx]
-            else:
-                display = getattr(payload, "name", stem)
-            payload.name = f"{stem}_{display}"
-            if hasattr(payload, "info") and isinstance(payload.info, dict):
-                payload.info["channel_display_name"] = display
-        return result
+        """Deprecated: use angstrompro.gui.utils.file_loading.load_with_channel_picker."""
+        from angstrompro.gui.utils.file_loading import load_with_channel_picker
+        return load_with_channel_picker(p, self._context, self)
 
     def _on_file_save(self) -> None:
         name = self._selected_item_name()
