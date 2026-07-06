@@ -144,9 +144,9 @@ class ChannelManager:
         self._cache.clear()
         self._build_cache()
 
-    def save_format(self, format_id: str, channels: list[ChannelConfig],
-                    auto_load: bool = False) -> None:
-        """Persist a user-edited format config to app config and rebuild cache."""
+    def update_format(self, format_id: str, channels: list[ChannelConfig],
+                      auto_load: bool = False) -> None:
+        """Update in-memory config for a format and rebuild cache (no disk write)."""
         user_map = self._config.get("io", "channel_manager") or {}
         user_map[format_id] = {
             "__auto_load__": auto_load,
@@ -159,8 +159,13 @@ class ChannelManager:
             }
         }
         self._config.set("io", "channel_manager", user_map)
-        self._config.save_defaults()
         self.reload()
+
+    def save_format(self, format_id: str, channels: list[ChannelConfig],
+                    auto_load: bool = False) -> None:
+        """Persist a user-edited format config to app config and rebuild cache."""
+        self.update_format(format_id, channels, auto_load)
+        self._config.save_defaults()
 
     # ------------------------------------------------------------------
     # Internal

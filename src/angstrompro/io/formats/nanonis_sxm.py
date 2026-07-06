@@ -204,4 +204,5 @@ register_io(
     extension=".sxm",
     display_name="Nanonis Map (.sxm)",
     description="Nanonis STM scan image, multi-channel (forward scan only).",
+    writable=False,
 )

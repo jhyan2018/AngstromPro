@@ -176,8 +176,6 @@ class UserDataFolderDialog(QtWidgets.QDialog):
         logging.getLogger(__name__).info(
             "First launch: showing User Data Folder setup dialog"
         )
-        print("[AngstromPro] First launch — please set your User Data Folder "
-              "in the dialog window that just opened.")
         dlg = cls(parent)
         # WindowStaysOnTopHint ensures visibility even in IDEs like Spyder
         if hasattr(QtCore.Qt, "WindowType"):

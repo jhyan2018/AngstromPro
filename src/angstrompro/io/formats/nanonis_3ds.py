@@ -182,4 +182,5 @@ register_io(
     extension=".3ds",
     display_name="Nanonis Grid Spectroscopy (.3ds)",
     description="Nanonis 3D spectroscopy grid; loads first channel as (n_points, y, x).",
+    writable=False,
 )

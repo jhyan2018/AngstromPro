@@ -30,6 +30,11 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         super().__init__(parent)
         self._current_item = None
         self._setup_ui()
+        # Prevent content width from propagating as window minimum size
+        self.setMinimumSize(QtCore.QSize(0, 0))
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return QtCore.QSize(50, 50)
 
     # ------------------------------------------------------------------
     # UI construction

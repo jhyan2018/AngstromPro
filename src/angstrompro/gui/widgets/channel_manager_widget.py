@@ -99,7 +99,7 @@ class ChannelManagerWidget(QtWidgets.QWidget):
     # ── PrefItem protocol (no-ops — state managed internally) ─────────────
 
     def get_value(self):
-        self._on_save()
+        self._on_apply()
         return None
 
     def set_value(self, v): pass
@@ -201,14 +201,14 @@ class ChannelManagerWidget(QtWidgets.QWidget):
             channels.append(ChannelConfig(name, aliases, default))
         return channels
 
-    def _on_save(self) -> None:
+    def _on_apply(self) -> None:
         row = self._fmt_list.currentRow()
         if row < 0:
             return
-        fmt_id   = self._fmt_list.item(row).text()
-        channels = self._collect_channels()
+        fmt_id    = self._fmt_list.item(row).text()
+        channels  = self._collect_channels()
         auto_load = self._auto_load_cb.isChecked()
-        self._cm.save_format(fmt_id, channels, auto_load=auto_load)
+        self._cm.update_format(fmt_id, channels, auto_load=auto_load)
         self._dirty = False
 
 

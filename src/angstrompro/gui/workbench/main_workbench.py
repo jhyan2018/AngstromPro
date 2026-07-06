@@ -6,6 +6,7 @@ Created on Tue Jun 16 15:30:33 2026
 """
 
 import copy
+import logging
 import numpy as np
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
 from angstrompro.app.context import AppContext
@@ -14,6 +15,7 @@ from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 from angstrompro.gui.widgets.task_dashboard import TaskDashboard
+from angstrompro.gui.widgets.log_panel import LogPanel
 from angstrompro.gui.widgets.live_modules_panel import LiveModulesPanel
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem, PreferencesPanel
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
@@ -28,6 +30,11 @@ class MainWorkbench(AGuiModule):
     config_sections = None
 
     _global_preferences_schema = [
+        PrefSection("General", "settings", [
+            PrefItem("app.log_level", "Log panel level", "dropdown",
+                     "Minimum severity shown in the log panel",
+                     kwargs={"choices": ["WARNING", "ERROR", "INFO", "DEBUG"]}),
+        ]),
         PrefSection("Appearance", "palette", [
             PrefItem("appearance.theme",     "Theme",     "dropdown",
                      "Colour theme for the application",
@@ -63,7 +70,6 @@ class MainWorkbench(AGuiModule):
         self._counter = 0
         self.resize(1000, 600)
         self._set_app_icon()
-        # Restore geometry immediately (before show), defer dock state until after show
         self._restore_geometry()
         QtWidgets.QApplication.instance().aboutToQuit.connect(self._save_layout)
 
@@ -74,20 +80,29 @@ class MainWorkbench(AGuiModule):
     def _on_preferences(self) -> None:
         cfg = self._context.config
 
-        # Assemble a flat snapshot of the global sections we expose
+        # Assemble a flat snapshot of the global sections we expose.
+        # channel_manager is excluded — it saves itself directly via ChannelManagerWidget.
+        io_snap = copy.deepcopy(cfg.get_group("io"))
+        io_snap.pop("channel_manager", None)
         snapshot = {
+            "app":        copy.deepcopy(cfg.get_group("app")),
             "appearance": copy.deepcopy(cfg.get_group("appearance")),
-            "io":         copy.deepcopy(cfg.get_group("io")),
+            "io":         io_snap,
             "plugins":    copy.deepcopy(cfg.get_group("plugins")),
         }
+
+        _appearance_before = copy.deepcopy(cfg.get_group("appearance"))
 
         def _apply(new_cfg: dict) -> None:
             for section, values in new_cfg.items():
                 for key, val in values.items():
                     cfg.set(section, key, val)
-            # Re-apply appearance live
-            from angstrompro.gui.appearance.theme_manager import ThemeManager
-            ThemeManager(cfg.get_group("appearance")).apply()
+            if cfg.get_group("appearance") != _appearance_before:
+                from angstrompro.gui.appearance.theme_manager import ThemeManager
+                ThemeManager(cfg.get_group("appearance")).apply()
+            from angstrompro.gui.widgets.log_panel import _LEVEL_MAP
+            self._log_panel.set_min_level(
+                _LEVEL_MAP.get(cfg.get("app", "log_level", "WARNING"), logging.WARNING))
 
         def _save(new_cfg: dict) -> None:
             _apply(new_cfg)
@@ -95,9 +110,12 @@ class MainWorkbench(AGuiModule):
 
         def _reset() -> None:
             from angstrompro.core.configs.defaults import DEFAULTS
+            io_defaults = copy.deepcopy(DEFAULTS.get("io", {}))
+            io_defaults.pop("channel_manager", None)
             _apply({
+                "app":        copy.deepcopy(DEFAULTS.get("app", {})),
                 "appearance": copy.deepcopy(DEFAULTS.get("appearance", {})),
-                "io":         copy.deepcopy(DEFAULTS.get("io", {})),
+                "io":         io_defaults,
                 "plugins":    copy.deepcopy(DEFAULTS.get("plugins", {})),
             })
 
@@ -124,12 +142,16 @@ class MainWorkbench(AGuiModule):
         ))
         dlg.show()
 
-    def build_ui(self) -> None:
+    def _populate_help_menu(self, menu) -> None:
         from angstrompro.gui.dialogs.about_dialog import show_about
-
-        help_menu = self.menuBar().addMenu("Help")
-        act_about = help_menu.addAction("About AngstromPro…")
+        menu.addSeparator()
+        act_formats = menu.addAction("Supported Formats…")
+        act_formats.triggered.connect(self._on_format_browser)
+        menu.addSeparator()
+        act_about = menu.addAction("About AngstromPro…")
         act_about.triggered.connect(lambda: show_about(self))
+
+    def build_ui(self) -> None:
 
         DockArea = QtCore.Qt.DockWidgetArea
 
@@ -145,12 +167,29 @@ class MainWorkbench(AGuiModule):
                                          DockArea.TopDockWidgetArea   | DockArea.BottomDockWidgetArea)
         self.addDockWidget(DockArea.RightDockWidgetArea, self._dock_tasks)
 
+        # --- Log dock (below Tasks) ---
+        from angstrompro.gui.widgets.log_panel import _LEVEL_MAP
+        log_level = _LEVEL_MAP.get(
+            self._context.config.get("app", "log_level", "WARNING"), logging.WARNING)
+        self._log_panel = LogPanel(min_level=log_level)
+        self._dock_log = QtWidgets.QDockWidget("Log", self)
+        self._dock_log.setObjectName("wb_dock_log")
+        self._dock_log.setWidget(self._log_panel)
+        self._dock_log.setAllowedAreas(DockArea.BottomDockWidgetArea | DockArea.TopDockWidgetArea |
+                                       DockArea.LeftDockWidgetArea   | DockArea.RightDockWidgetArea)
+        self.addDockWidget(DockArea.RightDockWidgetArea, self._dock_log)
+        self.splitDockWidget(self._dock_tasks, self._dock_log, QtCore.Qt.Orientation.Vertical)
+
         # --- Dev: Config editor — hidden dock, toggled via Ctrl+Shift+D ---
         self._dock_config = None
         act_dev = QtWidgets.QAction(self)
         act_dev.setShortcut("Ctrl+Shift+D")
         act_dev.triggered.connect(self._toggle_config_editor)
         self.addAction(act_dev)
+
+    def _on_format_browser(self) -> None:
+        from angstrompro.gui.dialogs.format_browser_dialog import show_format_browser
+        show_format_browser(self)
 
     def _toggle_config_editor(self) -> None:
         if self._dock_config is None:
@@ -187,6 +226,7 @@ class MainWorkbench(AGuiModule):
     def _apply_default_layout(self) -> None:
         """Set coded default dock proportions — used on first launch."""
         self.resizeDocks([self._dock_tasks], [300], QtCore.Qt.Orientation.Vertical)
+        self.resizeDocks([self._dock_log],   [150], QtCore.Qt.Orientation.Vertical)
 
     def _restore_geometry(self) -> None:
         from angstrompro.app.user_data_folder import get_qsettings
@@ -212,8 +252,10 @@ class MainWorkbench(AGuiModule):
         qs = get_qsettings()
         qs.setValue("workbench/geometry", self.saveGeometry())
         qs.setValue("workbench/layout",   self.saveState())
+        qs.sync()
 
     def closeEvent(self, event) -> None:
+        self._save_layout()
         super().closeEvent(event)   # hides the window, ignores the event
 
     def _set_app_icon(self) -> None:

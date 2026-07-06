@@ -97,6 +97,7 @@ def register_io(
     extension:    str  = "",
     display_name: str  = "",
     description:  str  = "",
+    writable:     bool = True,
 ) -> None:
     _READERS[type_id] = reader
     _WRITERS[type_id] = writer
@@ -106,7 +107,7 @@ def register_io(
         display_name = display_name or type_id,
         description  = description,
         readable     = True,
-        writable     = True,
+        writable     = writable,
     )
 
 
@@ -120,6 +121,21 @@ def registered_formats() -> list[FormatInfo]:
     modern = [f for f in _FORMATS.values() if not f.type_id.startswith("__")]
     legacy = [f for f in _FORMATS.values() if f.type_id.startswith("__")]
     return sorted(modern, key=lambda f: f.display_name) + legacy
+
+
+def registered_ext_loaders() -> list[FormatInfo]:
+    """Return FormatInfo stubs for plugin loaders registered via register_ext_loader."""
+    return [
+        FormatInfo(
+            type_id      = f"ext_loader:{ext}",
+            extension    = ext,
+            display_name = ext.lstrip(".").upper() + " (plugin)",
+            description  = "Loaded by a plugin via register_ext_loader().",
+            readable     = True,
+            writable     = False,
+        )
+        for ext in sorted(_EXT_LOADERS)
+    ]
 
 
 def _is_hdf5(path: Path) -> bool:

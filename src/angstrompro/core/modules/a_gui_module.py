@@ -124,6 +124,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._connect_signals()
 
         self.build_ui()   # subclass sets central widget
+        self._build_help_menu()  # always the rightmost menu
 
     # ------------------------------------------------------------------
     # Workspace dock
@@ -223,8 +224,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
     def _rebuild_process_submenu(self) -> None:
         """Rebuild the dynamic category submenus from the 3-layer merged process list."""
-        # Remove everything after the fixed header (Browser action + separator = 2 items)
-        for act in self._process_menu.actions()[2:]:
+        # Remove everything after the fixed header (Browser + Configure + separator = 3 items)
+        for act in self._process_menu.actions()[3:]:
             self._process_menu.removeAction(act)
 
         registry = self._context.processes
@@ -394,6 +395,21 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     )
 
         return True, ""
+
+    def _build_help_menu(self) -> None:
+        # Create a temporary menu to let subclasses populate it;
+        # only add it to the menu bar if the subclass added any items.
+        tmp = QtWidgets.QMenu("Help", self)
+        self._populate_help_menu(tmp)
+        if not tmp.isEmpty():
+            self._help_menu = self.menuBar().addMenu("Help")
+            for action in tmp.actions():
+                self._help_menu.addAction(action)
+        else:
+            self._help_menu = None
+
+    def _populate_help_menu(self, menu: QtWidgets.QMenu) -> None:
+        """Hook for subclasses to append items to the Help menu."""
 
     def _on_open_process_browser(self) -> None:
         from angstrompro.gui.dialogs.process_browser_dialog import ProcessBrowserDialog
@@ -1060,7 +1076,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self.workspace.add_item(name=name, payload=item)
 
     def _on_process_error(self, task_id: str, error_text: str) -> None:
-        QtWidgets.QMessageBox.critical(self, "Process Error", error_text)
+        log.error("Process error [%s]: %s", task_id, error_text)
 
     # ------------------------------------------------------------------
     # Subclass hooks

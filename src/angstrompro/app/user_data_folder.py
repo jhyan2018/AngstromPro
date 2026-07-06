@@ -108,6 +108,32 @@ def get_qsettings():
                             else QtCore.QSettings.IniFormat)
 
 
+def setup_file_logging() -> None:
+    """
+    Attach a rotating file handler to the root logger writing to
+    <UserDataFolder>/logs/angstrompro.log (max 1 MB, keep 3 backups).
+    Safe to call multiple times — installs only once.
+    """
+    import logging
+    import logging.handlers
+
+    root = logging.getLogger()
+    if any(isinstance(h, logging.handlers.RotatingFileHandler) for h in root.handlers):
+        return
+    try:
+        log_path = user_data_subpath("logs", "angstrompro.log")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        fh = logging.handlers.RotatingFileHandler(
+            log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"))
+        root.addHandler(fh)
+    except Exception as exc:
+        logging.warning("Could not set up file logging: %s", exc)
+
+
 def default_suggestion() -> Path:
     """
     Suggest a sensible default path to show in the setup dialog.

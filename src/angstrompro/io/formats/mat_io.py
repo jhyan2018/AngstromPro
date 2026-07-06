@@ -54,4 +54,5 @@ register_io(
     extension=".mat",
     display_name="MATLAB Data (.mat)",
     description="MATLAB binary data file.",
+    writable=False,
 )

@@ -44,4 +44,5 @@ register_io(
     extension=".txt",
     display_name="Text Data (.txt)",
     description="Whitespace-delimited numeric text file.",
+    writable=False,
 )

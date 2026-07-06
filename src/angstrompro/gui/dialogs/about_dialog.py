@@ -13,11 +13,13 @@ from angstrompro.utils.qt_compat import QtWidgets
 
 
 def show_about(parent: QtWidgets.QWidget | None = None) -> None:
+    from angstrompro.core.configs.defaults.app import DEFAULTS as _APP_DEFAULTS
+    version = _APP_DEFAULTS.get("version", "unknown")
     current_year = str(datetime.now().year)
     QtWidgets.QMessageBox.about(
         parent,
         "About AngstromPro",
-        "AngstromPro v1.0\n\n"
+        f"AngstromPro v{version}\n\n"
         "Created by Huiyu Zhao & Jiahao Yan\n"
         f"© 2023 – {current_year}\n\n"
         "Data management, visualization, processing & simulation\n"

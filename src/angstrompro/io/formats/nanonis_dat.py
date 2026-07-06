@@ -85,4 +85,5 @@ register_io(
     extension=".dat",
     display_name="Nanonis Point Spectroscopy (.dat)",
     description="Nanonis ASCII point spectroscopy; rows=points, cols=channels.",
+    writable=False,
 )

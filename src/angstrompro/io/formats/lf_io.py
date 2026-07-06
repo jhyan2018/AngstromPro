@@ -120,6 +120,7 @@ register_io(
     extension=".1fl",
     display_name="LF dI/dV Map (.1fl)",
     description="LF STM binary dI/dV spectroscopy map.",
+    writable=False,
 )
 
 register_io(
@@ -129,4 +130,5 @@ register_io(
     extension=".tfr",
     display_name="LF Topo Map (.tfr)",
     description="LF STM binary topography map.",
+    writable=False,
 )
