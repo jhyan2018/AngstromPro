@@ -68,5 +68,18 @@ def prepare_entry(name: str, uds) -> dict:
         y_base_label = info.get("channel_display_name") or raw_col or name
         y_label      = f"{y_base_label} ({y_prefix})" if y_prefix else y_base_label
 
+    # row axis — present when data is 2D and has a non-sweep leading axis
+    row_values: np.ndarray | None = None
+    row_label: str = ""
+    if y_arr.shape[0] > 1 and len(uds.axes) >= 2:
+        raw_row = np.asarray(uds.axes[0].values, dtype=float)
+        if raw_row.size == y_arr.shape[0]:
+            row_prefix, row_scale = si_scale(raw_row) if raw_row.size > 0 else ('', 1.0)
+            row_values = raw_row * row_scale
+            ru = uds.axes[0].units or ""
+            rl = uds.axes[0].label or ""
+            row_label = f"{rl} ({row_prefix}{ru})" if ru else rl
+
     return {"uds": uds, "x": x_arr, "x_label": x_label,
-            "y": y_arr, "y_label": y_label}
+            "y": y_arr, "y_label": y_label,
+            "row_values": row_values, "row_label": row_label}

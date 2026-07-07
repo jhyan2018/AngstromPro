@@ -28,7 +28,7 @@ from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
-from angstrompro.utils.qt_compat import QtWidgets
+from angstrompro.utils.qt_compat import QtWidgets, Action
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
@@ -43,14 +43,14 @@ class CurveStackViewer(AGuiModule):
     category     = "Basic"
 
     accepted_types = {"uds", "scene"}
-    accepted_ndim  = None          # accepts 1D and 2D
-    staged_labels  = ["Primary", "Reference"]
+    accepted_ndim  = 2          # accepts 1D and 2D
+    staged_labels  = ["I", "R"]
 
     preferences_schema = [
         PrefSection("Display", "chart-line", [
             PrefItem("line_width", "Line width", "number",
                      "Matplotlib line width for all curves",
-                     kwargs={"min": 0.1, "max": 10.0, "step": 0.5}),
+                     kwargs={"min": 0.1, "max": 10.0}),
             PrefItem("show_grid", "Show grid", "checkbox",
                      "Draw a dashed grid on the plot"),
         ]),
@@ -67,76 +67,63 @@ class CurveStackViewer(AGuiModule):
         # ── staged slots (hidden from widget) ─────────────────────────────
         self._primary_item:   WorkspaceItem | None = None
         self._reference_item: WorkspaceItem | None = None
-
-        # ── reference panel ───────────────────────────────────────────────
-        ref_bar = self._build_reference_bar()
+        self._displayed_names: set[str] = set()   # tracks all items shown in plot
 
         # ── viewer widget ─────────────────────────────────────────────────
         self._viewer = CurveStackViewerWidget(config=self._config)
         self._viewer.extract_requested.connect(self._on_extract_requested)
+        self._viewer.cleared.connect(self._on_viewer_cleared)
 
         default_tpl = self._config.get("default_template", "")
         if default_tpl:
             self._viewer.apply_template_by_name(default_tpl)
 
-        container = QtWidgets.QWidget()
-        vl = QtWidgets.QVBoxLayout(container)
-        vl.setContentsMargins(0, 0, 0, 0)
-        vl.setSpacing(0)
-        vl.addWidget(ref_bar)
-        vl.addWidget(self._viewer)
-        self.setCentralWidget(container)
+        self._build_scene_menu()
+        self.setCentralWidget(self._viewer)
 
-        # ── toolbar action ────────────────────────────────────────────────
-        tb = self.addToolBar("Scene")
-        act_save_scene = tb.addAction("Save as Scene…")
-        act_save_scene.setToolTip("Save current figure as a scene WorkspaceItem")
-        act_save_scene.triggered.connect(self._on_save_scene)
+        # suppress mpl toolbar save buttons (export handled via File menu)
+        self._remove_mpl_save_actions()
 
-    def _build_reference_bar(self) -> QtWidgets.QWidget:
-        bar = QtWidgets.QWidget()
-        bar.setFixedHeight(30)
-        hl  = QtWidgets.QHBoxLayout(bar)
-        hl.setContentsMargins(6, 2, 6, 2)
-        hl.setSpacing(6)
+    # ── Slot hooks ────────────────────────────────────────────────────────
 
-        hl.addWidget(QtWidgets.QLabel("Reference:"))
+    def _clear_slot(self, idx: int) -> None:
+        if idx == 1:
+            self._clear_reference()
 
-        self._ref_label = QtWidgets.QLabel("—")
-        self._ref_label.setStyleSheet("color: gray; font-style: italic;")
-        hl.addWidget(self._ref_label)
+    # ── Display color hook ────────────────────────────────────────────────
 
-        self._ref_clear_btn = QtWidgets.QPushButton("✕")
-        self._ref_clear_btn.setFixedWidth(24)
-        self._ref_clear_btn.setToolTip("Clear reference item")
-        self._ref_clear_btn.setEnabled(False)
-        self._ref_clear_btn.clicked.connect(self._clear_reference)
-        hl.addWidget(self._ref_clear_btn)
-
-        hl.addStretch()
-        return bar
+    def _get_display_color(self, item_name: str) -> str | None:
+        if item_name in self._displayed_names:
+            return "#2196F3"   # blue — shown in plot
+        return None
 
     # ── Item loading ──────────────────────────────────────────────────────
 
     def on_item_loaded(self, item: WorkspaceItem) -> None:
-        """Double-click: clear everything, set as primary, replot."""
+        """Double-click: if uds, clear and reload as Input; if scene, restore display."""
         if item.type_id == "scene":
             self._restore_scene(item)
             return
         if not self._validate_uds(item):
             return
         self._primary_item = item
+        self._displayed_names.clear()
+        self._displayed_names.add(item.name)
         self._sync_process_inputs()
         self._viewer.clear()
         self._viewer.add_dataset(item.name, item.payload)
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
 
     def _restore_scene(self, item: WorkspaceItem) -> None:
         self._primary_item = None
         self._clear_reference()
+        self._displayed_names.clear()
+        self._displayed_names.add(item.name)
         self._viewer.restore_scene(item.payload)
+        self._refresh_workspace_panel()
 
     def _on_extract_requested(self, pairs: list) -> None:
-        """Receive (suggested_name, UdsDataStru) pairs from widget and add to workspace."""
         from angstrompro.gui.dialogs.extract_curves_dialog import ExtractCurvesDialog
         dlg = ExtractCurvesDialog(pairs, parent=self)
         if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
@@ -160,24 +147,23 @@ class CurveStackViewer(AGuiModule):
         """Overlay item on current figure without touching staged list."""
         if not self._validate_uds(item):
             return
+        self._displayed_names.add(item.name)
         self._viewer.add_dataset(item.name, item.payload)
+        self._refresh_workspace_panel()
 
     def _set_reference(self, item: WorkspaceItem) -> None:
         self._reference_item = item
-        self._ref_label.setText(item.name)
-        self._ref_label.setStyleSheet("")
-        self._ref_clear_btn.setEnabled(True)
         self._sync_process_inputs()
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
 
     def _clear_reference(self) -> None:
         self._reference_item = None
-        self._ref_label.setText("—")
-        self._ref_label.setStyleSheet("color: gray; font-style: italic;")
-        self._ref_clear_btn.setEnabled(False)
         self._sync_process_inputs()
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
 
     def _sync_process_inputs(self) -> None:
-        """Keep process_inputs aligned with primary + reference slots."""
         inputs = []
         if self._primary_item is not None:
             inputs.append(self._primary_item)
@@ -189,14 +175,151 @@ class CurveStackViewer(AGuiModule):
 
     def _populate_ws_item_context_menu(
             self, menu: QtWidgets.QMenu, item: WorkspaceItem) -> None:
-        if item.type_id not in self.accepted_types:
+        if item.type_id == "uds":
+            act_add = menu.addAction("Add to plot")
+            act_ref = menu.addAction("Set as Reference")
+            act_add.triggered.connect(lambda: self._add_to_plot(item))
+            act_ref.triggered.connect(lambda: self._set_reference(item))
+            if self._reference_item is not None and self._reference_item.name == item.name:
+                act_clr = menu.addAction("Clear Reference")
+                act_clr.triggered.connect(self._clear_reference)
+
+    # ── Scene menu ────────────────────────────────────────────────────────
+
+    def _build_scene_menu(self) -> None:
+        menu = self.menuBar().addMenu("Scene")
+
+        act_save = Action("Save as Scene…", self)
+        act_save.setShortcut("Ctrl+Shift+S")
+        act_save.setToolTip("Capture current figure as a WorkspaceItem (data + style)")
+        act_save.triggered.connect(self._on_save_scene)
+        menu.addAction(act_save)
+
+        menu.addSeparator()
+
+        self._tpl_load_menu = menu.addMenu("Load Template")
+        self._tpl_load_menu.aboutToShow.connect(self._refresh_template_menu)
+
+        act_save_tpl = Action("Save Template…", self)
+        act_save_tpl.setToolTip("Save current plot style as a reusable template")
+        act_save_tpl.triggered.connect(self._on_save_template)
+        menu.addAction(act_save_tpl)
+
+    def _refresh_template_menu(self) -> None:
+        from angstrompro.gui.widgets.curve_stack import template_manager as tmgr
+        self._tpl_load_menu.clear()
+        names = tmgr.list_templates()
+        if not names:
+            act = self._tpl_load_menu.addAction("(no templates saved)")
+            act.setEnabled(False)
             return
-        act_add = menu.addAction("Add to plot")
-        act_ref = menu.addAction("Set as reference")
-        act_add.triggered.connect(lambda: self._add_to_plot(item))
-        act_ref.triggered.connect(lambda: self._set_reference(item))
+        for name in names:
+            act = self._tpl_load_menu.addAction(name)
+            act.triggered.connect(
+                lambda _checked, n=name: self._viewer.apply_template_by_name(n))
+
+    def _on_save_template(self) -> None:
+        self._viewer._on_save_template()
+
+    # ── File menu ─────────────────────────────────────────────────────────
+
+    def _build_file_menu(self) -> None:
+        super()._build_file_menu()
+        file_menu = None
+        for action in self.menuBar().actions():
+            if action.text() == "File":
+                file_menu = action.menu()
+                break
+        if file_menu is None:
+            return
+        prefs_action = next(
+            (a for a in file_menu.actions() if a.text() == "Preferences…"), None)
+
+        export_act = Action("Export Figure…", self)
+        export_act.setShortcut("Ctrl+E")
+        export_act.triggered.connect(self._on_export_figure)
+
+        if prefs_action is not None:
+            sep = file_menu.insertSeparator(prefs_action)
+            file_menu.insertAction(sep, export_act)
+        else:
+            file_menu.addSeparator()
+            file_menu.addAction(export_act)
+
+    def _remove_mpl_save_actions(self) -> None:
+        """Remove the save button from every mpl NavigationToolbar in the viewer."""
+        from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
+        for navbar in self._viewer.findChildren(NavigationToolbar2QT):
+            for action in navbar.actions():
+                if "save" in action.text().lower() or "save" in action.toolTip().lower():
+                    navbar.removeAction(action)
+
+    def _on_export_figure(self) -> None:
+        from angstrompro.gui.dialogs.export_figure_dialog import ExportFigureDialog
+
+        plot_widget = self._viewer._plot_widget
+        if plot_widget is None or not hasattr(plot_widget, "_fig"):
+            QtWidgets.QMessageBox.information(
+                self, "Nothing to export", "No figure is currently displayed.")
+            return
+
+        dlg = ExportFigureDialog.run(self)
+        if dlg is None:
+            return
+
+        fig = plot_widget._fig
+
+        if dlg.to_clipboard:
+            self._export_figure_to_clipboard(fig)
+            return
+
+        _EXT = {"PNG": "png", "PDF": "pdf", "SVG": "svg", "TIFF": "tif"}
+        ext  = _EXT.get(dlg.file_format, "png")
+        filters = (
+            "PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;TIFF (*.tiff *.tif)"
+        )
+        from pathlib import Path
+        default_name = (self._primary_item.name if self._primary_item else "figure") + f".{ext}"
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export Figure",
+            str(Path.home() / default_name),
+            filters,
+        )
+        if not path:
+            return
+
+        kwargs: dict = {"bbox_inches": "tight" if dlg.tight else None}
+        if dlg.file_format not in ("PDF", "SVG"):
+            kwargs["dpi"] = dlg.dpi
+        if dlg.transparent:
+            kwargs["transparent"] = True
+
+        try:
+            fig.savefig(path, **kwargs)
+            self.statusBar().showMessage(f"Figure saved to {path}", 4000)
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(self, "Export failed", str(exc))
+
+    def _export_figure_to_clipboard(self, fig) -> None:
+        import io
+        from angstrompro.utils.qt_compat import QtGui
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        buf.seek(0)
+        pixmap = QtGui.QPixmap()
+        pixmap.loadFromData(buf.read(), "PNG")
+        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+        self.statusBar().showMessage("Figure copied to clipboard.", 3000)
 
     # ── Config ────────────────────────────────────────────────────────────
+
+    def _on_viewer_cleared(self) -> None:
+        self._primary_item = None
+        self._reference_item = None
+        self._displayed_names.clear()
+        self._sync_process_inputs()
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
 
     def _apply_config_to_panels(self, cfg: dict) -> None:
         self._viewer.apply_config(cfg)

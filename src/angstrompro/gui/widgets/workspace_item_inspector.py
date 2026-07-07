@@ -113,6 +113,8 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         """Populate the tree. Returns True if any ndarray nodes were added."""
         if payload.type_id == "uds":
             return self._populate_uds(payload)
+        if payload.type_id == "scene":
+            return self._populate_scene(payload)
         return self._populate_generic(payload)
 
     def _make_array_node(self, parent, label: str, array: np.ndarray) -> QtWidgets.QTreeWidgetItem:
@@ -181,6 +183,61 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
             for coords, lbl in uds.landmarks.items():
                 key = "(" + ", ".join(f"{c:.4g}" for c in coords) + ")"
                 QtWidgets.QTreeWidgetItem(lm_node, [key, lbl])
+
+        return has_array
+
+    def _populate_scene(self, scene) -> bool:
+        has_array = False
+
+        # canvas config
+        cfg = scene.canvas_config
+        cfg_node = QtWidgets.QTreeWidgetItem(self._tree,
+            ["canvas_config", f"mode={cfg.plot_mode}"])
+        for attr, val in [
+            ("title",          cfg.title or "—"),
+            ("x_label",        cfg.x_label or "—"),
+            ("y_label",        cfg.y_label or "—"),
+            ("plot_mode",      cfg.plot_mode),
+            ("offset",         str(cfg.offset)),
+            ("colormap",       cfg.colormap),
+            ("show_grid",      str(cfg.show_grid)),
+            ("legend_visible", str(cfg.legend_visible)),
+            ("x_range",        f"{cfg.x_min} … {cfg.x_max}"),
+            ("y_range",        f"{cfg.y_min} … {cfg.y_max}"),
+        ]:
+            QtWidgets.QTreeWidgetItem(cfg_node, [attr, val])
+
+        # entries
+        entries_node = QtWidgets.QTreeWidgetItem(self._tree,
+            ["entries", f"{len(scene.entries)} curve(s)"])
+        for i, entry in enumerate(scene.entries):
+            uds   = entry.data
+            style = entry.style
+            shape_str = str(uds.data.shape) if uds.data is not None else "—"
+            e_node = QtWidgets.QTreeWidgetItem(entries_node,
+                [f"[{i}]  {uds.name}", shape_str])
+
+            # data array node
+            if uds.data is not None:
+                self._make_array_node(e_node, "data", uds.data)
+                has_array = True
+
+            # axes
+            if uds.axes:
+                for j, ax in enumerate(uds.axes):
+                    rng = (f"{ax.values[0]:.4g} … {ax.values[-1]:.4g}"
+                           if len(ax.values) > 0 else "empty")
+                    ax_node = QtWidgets.QTreeWidgetItem(e_node,
+                        [f"axis[{j}]  {ax.label}", f"{len(ax.values)} pts  {rng}  {ax.units}"])
+                    self._make_array_node(ax_node, "values", ax.values)
+                    has_array = True
+
+            # style
+            sty_node = QtWidgets.QTreeWidgetItem(e_node, ["style", ""])
+            for sattr in ("color", "linewidth", "linestyle", "marker",
+                          "alpha", "label", "visible"):
+                QtWidgets.QTreeWidgetItem(sty_node,
+                    [sattr, str(getattr(style, sattr))])
 
         return has_array
 

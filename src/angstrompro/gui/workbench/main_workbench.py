@@ -7,10 +7,8 @@ Created on Tue Jun 16 15:30:33 2026
 
 import copy
 import logging
-import numpy as np
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
 from angstrompro.app.context import AppContext
-from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
@@ -67,7 +65,6 @@ class MainWorkbench(AGuiModule):
 
     def __init__(self, context: AppContext, parent=None) -> None:
         super().__init__(context, parent)
-        self._counter = 0
         self.resize(1000, 600)
         self._set_app_icon()
         self._restore_geometry()
@@ -210,12 +207,6 @@ class MainWorkbench(AGuiModule):
 
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         pass
-
-    def on_add_item(self) -> None:
-        self._counter += 1
-        name = f"main_item_{self._counter}"
-        payload = UdsDataStru.from_array(np.zeros(10), name)
-        self.workspace.add_item(name=name, payload=payload)
 
     # ------------------------------------------------------------------
 

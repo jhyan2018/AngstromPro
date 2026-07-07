@@ -74,6 +74,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # Short badge labels shown next to staged items in the workspace panel.
     # Index matches process_inputs order.  e.g. ["M", "A"] for ImageStackViewer.
     staged_labels: list[str] = []
+    # Indices of slots that show a ✕ clear button in the Active Slots panel.
+    # Slot 0 (Input) is never clearable regardless. Default: all non-zero slots.
+    clearable_slots: set[int] | None = None  # None → {1, 2, ...} (all non-zero)
 
     # ── process_inputs property ──────────────────────────────────────────
     # Wraps the plain list from ModuleMixin so the workspace panel refreshes
@@ -164,19 +167,20 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         # item action buttons
         btn_row = QtWidgets.QHBoxLayout()
-        btn_add    = QtWidgets.QPushButton("Add")
         btn_remove = QtWidgets.QPushButton("Remove")
         btn_send   = QtWidgets.QPushButton("Send…")
         self._send_default_cb = QtWidgets.QCheckBox("Default")
-        btn_add.clicked.connect(self._on_add_item)
         btn_remove.clicked.connect(self._on_remove_item)
         btn_send.clicked.connect(self._on_send_item)
         self._send_default_cb.toggled.connect(self._on_default_toggled)
-        btn_row.addWidget(btn_add)
         btn_row.addWidget(btn_remove)
         btn_row.addWidget(btn_send)
         btn_row.addWidget(self._send_default_cb)
         vbox.addLayout(btn_row)
+
+        # active slots panel — shown below action buttons whenever staged_labels is defined
+        if self.staged_labels:
+            vbox.addWidget(self._build_active_slots_panel())
 
         dock.setWidget(container)
         self.addDockWidget(_DockArea, dock)
@@ -450,38 +454,115 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             return f"{ann.p1} → {ann.p2}"
         return str(ann)
 
-    # Badge colours for staged_labels — cycles if more labels than colours
-    _BADGE_COLORS = ["#2196F3", "#FF9800", "#4CAF50", "#9C27B0", "#F44336"]
+    def _build_active_slots_panel(self) -> QtWidgets.QWidget:
+        """Build the Active Slots panel from staged_labels. Called by base class."""
+        panel = QtWidgets.QWidget()
+        panel.setObjectName("active_slots_panel")
+        panel.setStyleSheet(
+            "QWidget#active_slots_panel { border-top: 1px solid palette(mid); }")
+        vl = QtWidgets.QVBoxLayout(panel)
+        vl.setContentsMargins(4, 6, 4, 2)
+        vl.setSpacing(2)
+
+        title = QtWidgets.QLabel("Active Slots")
+        font = title.font()
+        font.setBold(True)
+        title.setFont(font)
+        vl.addWidget(title)
+
+        grid = QtWidgets.QGridLayout()
+        grid.setContentsMargins(0, 2, 0, 0)
+        grid.setSpacing(3)
+        grid.setColumnStretch(1, 1)
+
+        self._slot_labels: list[QtWidgets.QLabel] = []
+        self._slot_clear_btns: list[QtWidgets.QPushButton | None] = []
+
+        for idx, label in enumerate(self.staged_labels):
+            row_lbl = QtWidgets.QLabel(f"[{label}]")
+            val_lbl = QtWidgets.QLabel("—")
+            val_lbl.setStyleSheet("color: gray; font-style: italic;")
+            val_lbl.setSizePolicy(
+                QtWidgets.QSizePolicy.Policy.Ignored,
+                QtWidgets.QSizePolicy.Policy.Preferred)
+            grid.addWidget(row_lbl, idx, 0)
+            grid.addWidget(val_lbl, idx, 1)
+            self._slot_labels.append(val_lbl)
+
+            clearable = (self.clearable_slots is None and idx > 0) or (
+                self.clearable_slots is not None and idx in self.clearable_slots)
+            if not clearable:
+                self._slot_clear_btns.append(None)
+            else:
+                btn = QtWidgets.QPushButton("✕")
+                btn.setFixedWidth(22)
+                btn.setToolTip(f"Clear {label} slot")
+                btn.setEnabled(False)
+                btn.clicked.connect(lambda _checked, i=idx: self._clear_slot(i))
+                grid.addWidget(btn, idx, 2)
+                self._slot_clear_btns.append(btn)
+
+        vl.addLayout(grid)
+        return panel
+
+    def _refresh_slots_panel(self) -> None:
+        """Update Active Slots panel labels from current process_inputs."""
+        if not hasattr(self, "_slot_labels"):
+            return
+        for idx, val_lbl in enumerate(self._slot_labels):
+            item = (self._process_inputs[idx]
+                    if idx < len(self._process_inputs) else None)
+            btn = self._slot_clear_btns[idx]
+            if item is not None:
+                val_lbl.setText(item.name)
+                val_lbl.setStyleSheet("")
+                if btn is not None:
+                    btn.setEnabled(True)
+            else:
+                val_lbl.setText("—")
+                val_lbl.setStyleSheet("color: gray; font-style: italic;")
+                if btn is not None:
+                    btn.setEnabled(False)
+
+    def _clear_slot(self, idx: int) -> None:
+        """Called when the user clicks ✕ on a slot. Override in subclasses."""
+
+    def _get_display_color(self, item_name: str) -> str | None:
+        """Return hex color if item is currently shown in the display, else None.
+        Override in subclasses: blue (#2196F3) for input panel,
+        orange (#FF9800) for reference panel, None if not displayed."""
+        return None
 
     def _refresh_workspace_panel(self) -> None:
         from angstrompro.utils.qt_compat import QtGui
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
 
-        # Build a map: item.name → (label_text, color) for staged items
-        staged_map: dict[str, tuple[str, str]] = {}
+        # Build a map: item.name → badge label for staged (processing) items
+        staged_map: dict[str, str] = {}
         for idx, ws_item in enumerate(self._process_inputs):
             if ws_item is None:
                 continue
             if idx < len(self.staged_labels):
-                label = self.staged_labels[idx]
-                color = self._BADGE_COLORS[idx % len(self._BADGE_COLORS)]
-                staged_map[ws_item.name] = (label, color)
+                staged_map[ws_item.name] = self.staged_labels[idx]
 
         self._ws_list.clear()
         for item in self.workspace.list_items():
             top = QtWidgets.QTreeWidgetItem(self._ws_list)
 
-            # Badge prefix in name column
-            badge_info = staged_map.get(item.name)
-            if badge_info:
-                label, color = badge_info
-                top.setText(0, f"[{label}]  {item.display_name}")
-                top.setForeground(0, QtGui.QBrush(QtGui.QColor(color)))
+            badge = staged_map.get(item.name)
+            display_color = self._get_display_color(item.name)
+
+            # Name text: badge prefix when in a processing slot
+            top.setText(0, f"[{badge}]  {item.display_name}" if badge else item.display_name)
+
+            # Color = display state (always applied when displayed)
+            # Badge = processing slot (bold only, no separate color)
+            if display_color:
+                top.setForeground(0, QtGui.QBrush(QtGui.QColor(display_color)))
+            if badge:
                 font = top.font(0)
                 font.setBold(True)
                 top.setFont(0, font)
-            else:
-                top.setText(0, item.display_name)
 
             top.setData(0, _UserRole, item.name)
 
@@ -512,6 +593,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         return data
 
     def _on_ws_item_double_clicked(self, tree_item: QtWidgets.QTreeWidgetItem, column: int) -> None:
+        _LeftButton = QtCore.Qt.MouseButton.LeftButton if IS_QT6 else QtCore.Qt.LeftButton
+        if not (QtWidgets.QApplication.mouseButtons() & _LeftButton):
+            return
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
         data = tree_item.data(0, _UserRole)
         # Only activate on top-level items (str name), not annotation children
@@ -553,8 +637,6 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self, menu: "QtWidgets.QMenu", item: "WorkspaceItem") -> None:
         """Hook for subclasses to add actions to the workspace item context menu."""
 
-    def _on_add_item(self) -> None:
-        self.on_add_item()
 
     def _on_remove_item(self) -> None:
         name = self._selected_item_name()
@@ -631,6 +713,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         menu.addSeparator()
 
+        act_prefs = menu.addAction("Preferences…")
+        act_prefs.setShortcut("Ctrl+,")
+        act_prefs.triggered.connect(self._on_preferences)
+
+        menu.addSeparator()
+
         act_close = menu.addAction("Close Window")
         act_close.setShortcut("Ctrl+W")
         act_close.triggered.connect(self.hide)
@@ -640,10 +728,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
 
     def _build_edit_menu(self) -> None:
-        menu = self.menuBar().addMenu("Edit")
-        act_prefs = menu.addAction("Preferences…")
-        act_prefs.setShortcut("Ctrl+,")
-        act_prefs.triggered.connect(self._on_preferences)
+        pass  # subclasses may populate Edit with content-level actions
 
     def build_preferences_widget(self, parent: QtWidgets.QWidget,
                                     on_apply, on_save_as_default
@@ -957,9 +1042,6 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     @abstractmethod
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         """Called when a workspace item is double-clicked / activated."""
-
-    def on_add_item(self) -> None:
-        """Called when the Add button is clicked. Override to add module-specific items."""
 
     def on_workspace_changed(self) -> None:
         """Called after any workspace mutation. Override for extra refresh logic."""

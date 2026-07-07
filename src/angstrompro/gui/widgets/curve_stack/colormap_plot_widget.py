@@ -111,34 +111,43 @@ class ColormapPlotWidget(BasePlotWidget):
         self._ax.clear()
 
         # collect visible rows across all datasets
-        rows:    list[np.ndarray] = []
-        x_arr:   np.ndarray | None = None
-        x_label  = ""
-        y_label  = ""
-        row_labels: list[str] = []
+        rows:       list[np.ndarray] = []
+        row_vals:   list[float] = []        # physical row positions when available
+        x_arr:      np.ndarray | None = None
+        x_label     = ""
+        y_label     = ""
+        row_label   = ""
+        has_row_axis = True   # stays True only when every entry has matching row_values
 
         for name, entry in self._datasets.items():
-            y_data  = entry["y"]
-            x_data  = entry["x"]
-            checked = self._checked.get(name, [True] * y_data.shape[0])
-            n       = y_data.shape[0]
+            y_data   = entry["y"]
+            x_data   = entry["x"]
+            rv       = entry.get("row_values")   # np.ndarray or None
+            checked  = self._checked.get(name, [True] * y_data.shape[0])
+            n        = y_data.shape[0]
 
             for i, visible in enumerate(checked):
                 if not visible:
                     continue
                 rows.append(y_data[i])
-                row_labels.append(f"{name} / Line {i}" if n > 1 else name)
+                if rv is not None and i < len(rv):
+                    row_vals.append(float(rv[i]))
+                else:
+                    has_row_axis = False
 
             if x_arr is None:
                 x_arr = x_data
-            x_label = entry.get("x_label", "")
-            y_label = entry.get("y_label", "")
+            x_label   = entry.get("x_label", "")
+            y_label   = entry.get("y_label", "")
+            if not row_label:
+                row_label = entry.get("row_label", "")
 
         if not rows or x_arr is None:
             self._canvas.draw_idle()
             return
 
-        z = np.vstack([r[np.newaxis, :] for r in rows])   # (n_rows, n_pts)
+        z      = np.vstack([r[np.newaxis, :] for r in rows])  # (n_rows, n_pts)
+        n_rows = z.shape[0]
 
         cmap = self._cmap_combo.currentText()
         if self._sym_check.isChecked():
@@ -148,17 +157,23 @@ class ColormapPlotWidget(BasePlotWidget):
             vmin = float(np.nanmin(z))
             vmax = float(np.nanmax(z))
 
-        # pcolormesh needs cell edges — append one extra x value
+        # x cell edges
         x_edges = np.empty(len(x_arr) + 1)
-        if len(x_arr) > 1:
-            dx = x_arr[1] - x_arr[0]
-        else:
-            dx = 1.0
+        dx = (x_arr[1] - x_arr[0]) if len(x_arr) > 1 else 1.0
         x_edges[:-1] = x_arr - dx / 2
         x_edges[-1]  = x_arr[-1] + dx / 2
 
-        n_rows   = z.shape[0]
-        y_edges  = np.arange(n_rows + 1) - 0.5
+        # y cell edges — use physical values when all rows have them
+        if has_row_axis and len(row_vals) == n_rows:
+            rv_arr  = np.array(row_vals)
+            dy      = (rv_arr[1] - rv_arr[0]) if n_rows > 1 else 1.0
+            y_edges = np.empty(n_rows + 1)
+            y_edges[:-1] = rv_arr - dy / 2
+            y_edges[-1]  = rv_arr[-1] + dy / 2
+            y_axis_label = row_label
+        else:
+            y_edges      = np.arange(n_rows + 1) - 0.5
+            y_axis_label = ""   # plain index, no label
 
         mesh = self._ax.pcolormesh(
             x_edges, y_edges, z,
@@ -168,9 +183,8 @@ class ColormapPlotWidget(BasePlotWidget):
         self._colorbar.set_label(y_label)
 
         self._ax.set_xlabel(x_label)
-        self._ax.set_ylabel("Curve index")
-        self._ax.set_yticks(range(n_rows))
-        self._ax.set_yticklabels(row_labels, fontsize=7)
+        self._ax.set_ylabel(y_axis_label)
+        # let matplotlib auto-tick the y-axis — no forced per-row labels
 
         self._ax.minorticks_on()
         self._ax.tick_params(axis="both", which="both", direction="in")

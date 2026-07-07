@@ -26,7 +26,7 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
@@ -260,9 +260,9 @@ class ProcessMenuConfigDialog(QtWidgets.QDialog):
             if entry.name in developer_set:
                 item.setForeground(
                     QtWidgets.QApplication.palette().color(
-                        QtWidgets.QPalette.ColorRole.Mid
-                        if hasattr(QtWidgets.QPalette.ColorRole, "Mid")
-                        else QtWidgets.QPalette.Mid
+                        QtGui.QPalette.ColorRole.Mid
+                        if hasattr(QtGui.QPalette.ColorRole, "Mid")
+                        else QtGui.QPalette.Mid
                     )
                 )
             if not compatible:

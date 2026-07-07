@@ -5,7 +5,7 @@ Created on Sun Jun 29 2026
 @author: jiahaoYan
 
 ImageStackViewer — module for visualizing and processing ndim=3 UDS data
-as a stack of 2D images (Main + Auxiliary panels).
+as a stack of 2D images (Input + Reference panels).
 
 Each panel is an ImageStackViewerWidget which provides:
   - matplotlib canvas with pan / zoom / pick-points interactions
@@ -15,12 +15,12 @@ Each panel is an ImageStackViewerWidget which provides:
   - Colormap selector + real-time ColorMapEditorWidget
 
 Sync options (View menu):
-  - Sync Layer      : Auxiliary follows Main layer
+  - Sync Layer      : Reference follows Input layer
   - Sync Colormap   : not wired here — use individual panel controls
 
 on_item_loaded strategy:
-  - Double-click workspace item → loads into Main, stages [item]
-  - "Load selected → Aux" button → loads into Auxiliary, stages [main, aux]
+  - Double-click workspace item → loads into Input, stages [item]
+  - "Load selected → Reference" button → loads into Reference, stages [input, reference]
 """
 
 from __future__ import annotations
@@ -122,14 +122,15 @@ class ImageStackViewer(AGuiModule):
     accepted_types = ['uds']
     accepted_ndim = 3
 
-    staged_labels = ["M", "A"]
+    staged_labels     = ["I", "R"]
+    clearable_slots   = set()       # Reference is managed by the module, not user-clearable
 
     preferences_schema = [
         PrefSection("Color map", "palette", [
             PrefItem("colormap.cmap_palette_list", "", "colormap_picker", full_width=True),
         ]),
         PrefSection("Sync", "arrows-exchange", [
-            PrefItem("sync.layer",            "Sync layer",       "checkbox", "Auxiliary follows main layer"),
+            PrefItem("sync.layer",            "Sync layer",       "checkbox", "Reference follows Input layer"),
             PrefItem("sync.picked_points",    "Sync pick points", "checkbox", "Mirror pick-point coordinates"),
             PrefItem("sync.real_time_cursor", "Sync cursor",      "checkbox", "Show cursor position on both panels"),
             PrefItem("sync.canvas_view_zoom", "Sync FOV zoom",    "checkbox", "Pan and zoom together"),
@@ -192,11 +193,11 @@ class ImageStackViewer(AGuiModule):
         register_all()
 
         self._panel_main = ImageStackViewerWidget()
-        self._panel_main.ui_lb_widget_name.setText("<b>— MAIN —</b>")
+        self._panel_main.ui_lb_widget_name.setText("<b>— INPUT —</b>")
         self._panel_main.sendMsgSignal.connect(self._on_msg_from_main)
 
         self._panel_aux = ImageStackViewerWidget()
-        self._panel_aux.ui_lb_widget_name.setText("<b>— AUXILIARY —</b>")
+        self._panel_aux.ui_lb_widget_name.setText("<b>— REFERENCE —</b>")
         self._panel_aux.sendMsgSignal.connect(self._on_msg_from_aux)
 
         self._apply_config_to_panels(self._config)
@@ -226,6 +227,13 @@ class ImageStackViewer(AGuiModule):
             half = self._splitter.width() // 2
             self._splitter.setSizes([half, half])
 
+    def _get_display_color(self, item_name: str) -> str | None:
+        if self._main_item is not None and self._main_item.name == item_name:
+            return "#2196F3"   # blue — Input panel
+        if self._aux_item is not None and self._aux_item.name == item_name:
+            return "#FF9800"   # orange — Reference panel
+        return None
+
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         if not self._check_ndim3(item):
             return
@@ -234,8 +242,10 @@ class ImageStackViewer(AGuiModule):
         self.process_inputs = [item]
         self._panel_main.setUdsData(item.payload)
         self._panel_main.setEnabled(True)
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
         self.statusBar().showMessage(
-            f"Main: {item.name}  shape={item.payload.data.shape}", 4000)
+            f"Input: {item.name}  shape={item.payload.data.shape}", 4000)
 
         if not item.name.endswith("_fft"):
             self._auto_fft(item)
@@ -272,8 +282,10 @@ class ImageStackViewer(AGuiModule):
         if self._config.get("sync", {}).get("layer", False):
             self._panel_aux.ui_sb_image_layers.setValue(
                 self._panel_main.img_current_layer)
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
         self.statusBar().showMessage(
-            f"Aux (auto FFT): {fft_item.name}", 4000)
+            f"Reference (auto FFT): {fft_item.name}", 4000)
 
     # ------------------------------------------------------------------
     # Message routing between panels
@@ -352,8 +364,10 @@ class ImageStackViewer(AGuiModule):
         if self._config.get("sync", {}).get("layer", False):
             self._panel_aux.ui_sb_image_layers.setValue(
                 self._panel_main.img_current_layer)
+        self._refresh_workspace_panel()
+        self._refresh_slots_panel()
         self.statusBar().showMessage(
-            f"Aux: {item.name}  shape={item.payload.data.shape}", 4000)
+            f"Reference: {item.name}  shape={item.payload.data.shape}", 4000)
 
     # ------------------------------------------------------------------
     # RT-ColorMap actions in View menu
@@ -368,21 +382,21 @@ class ImageStackViewer(AGuiModule):
         if view_menu is None:
             return
         view_menu.addSeparator()
-        view_menu.addAction("RT-ColorMap  (Main)").triggered.connect(
+        view_menu.addAction("RT-ColorMap  (Input)").triggered.connect(
             self._show_rt_cmp_main)
-        view_menu.addAction("RT-ColorMap  (Aux)").triggered.connect(
+        view_menu.addAction("RT-ColorMap  (Reference)").triggered.connect(
             self._show_rt_cmp_aux)
 
     def _show_rt_cmp_main(self) -> None:
         w = self._panel_main.ui_rt_cmp
-        w.setWidgetTitle("RT-CMP  Main")
+        w.setWidgetTitle("RT-CMP  Input")
         w.show()
         w.raise_()
         w.activateWindow()
 
     def _show_rt_cmp_aux(self) -> None:
         w = self._panel_aux.ui_rt_cmp
-        w.setWidgetTitle("RT-CMP  Aux")
+        w.setWidgetTitle("RT-CMP  Reference")
         w.show()
         w.raise_()
         w.activateWindow()
@@ -398,25 +412,25 @@ class ImageStackViewer(AGuiModule):
     def _build_annotate_menu(self) -> None:
         menu = self.menuBar().addMenu("Points")
 
-        menu.addAction("Set Interest Region from Main").triggered.connect(
+        menu.addAction("Set Interest Region from Input").triggered.connect(
             self._set_interest_region_main)
-        menu.addAction("Set Mask Center from Main").triggered.connect(
+        menu.addAction("Set Mask Center from Input").triggered.connect(
             self._set_mask_center_main)
-        menu.addAction("Set Bragg Peaks from Aux").triggered.connect(
+        menu.addAction("Set Bragg Peaks from Reference").triggered.connect(
             self._set_bragg_peaks_aux)
-        menu.addAction("Set Filter Points from Aux").triggered.connect(
+        menu.addAction("Set Filter Points from Reference").triggered.connect(
             self._set_filter_points_from_aux)
-        menu.addAction("Set Lock-in Peak from Aux").triggered.connect(
+        menu.addAction("Set Lock-in Peak from Reference").triggered.connect(
             self._set_lockin_peak_aux)
         cut_menu = menu.addMenu("Cut")
-        cut_menu.addAction("Set Line Cut from Main").triggered.connect(
+        cut_menu.addAction("Set Line Cut from Input").triggered.connect(
             self._set_line_cut_main)
-        cut_menu.addAction("Set Circle Cut from Main").triggered.connect(
+        cut_menu.addAction("Set Circle Cut from Input").triggered.connect(
             self._set_circle_cut_points_main)
         register_menu = menu.addMenu("Register")
-        register_menu.addAction("Set Src Points from Main").triggered.connect(
+        register_menu.addAction("Set Src Points from Input").triggered.connect(
             self._set_register_points_main)
-        register_menu.addAction("Set Ref Points from Aux").triggered.connect(
+        register_menu.addAction("Set Ref Points from Reference").triggered.connect(
             self._set_register_ref_points_aux)
 
         menu.addSeparator()
@@ -456,12 +470,8 @@ class ImageStackViewer(AGuiModule):
         if file_menu is None:
             return
 
-        # Insert Export Image… before the Close action
-        close_action = None
-        for act in file_menu.actions():
-            if act.text() == "Close Window":
-                close_action = act
-                break
+        prefs_action = next(
+            (a for a in file_menu.actions() if a.text() == "Preferences…"), None)
 
         export_img_action = Action("Export Image…", self)
         export_img_action.setShortcut("Ctrl+E")
@@ -471,10 +481,10 @@ class ImageStackViewer(AGuiModule):
         export_vid_action.setShortcut("Ctrl+Shift+E")
         export_vid_action.triggered.connect(self._on_export_video)
 
-        if close_action is not None:
-            file_menu.insertAction(close_action, export_img_action)
-            file_menu.insertAction(close_action, export_vid_action)
-            file_menu.insertSeparator(close_action)
+        if prefs_action is not None:
+            sep = file_menu.insertSeparator(prefs_action)
+            file_menu.insertAction(sep, export_img_action)
+            file_menu.insertAction(sep, export_vid_action)
         else:
             file_menu.addSeparator()
             file_menu.addAction(export_img_action)
@@ -518,7 +528,7 @@ class ImageStackViewer(AGuiModule):
         if dlg is None:
             return
 
-        panel = self._panel_main if dlg.panel == "Main" else self._panel_aux
+        panel = self._panel_main if dlg.panel == "Input" else self._panel_aux
         pixmap = panel._pixmap_item.pixmap()
         if pixmap.isNull():
             QtWidgets.QMessageBox.information(
@@ -558,7 +568,7 @@ class ImageStackViewer(AGuiModule):
         if dlg is None:
             return
 
-        panel = self._panel_main if dlg.panel == "Main" else self._panel_aux
+        panel = self._panel_main if dlg.panel == "Input" else self._panel_aux
         if panel._pixmap_item.pixmap().isNull():
             QtWidgets.QMessageBox.information(
                 self, "Nothing to export", "No image is loaded in this panel.")
@@ -719,8 +729,8 @@ class ImageStackViewer(AGuiModule):
         """Pick points from aux panel, store on the corresponding real-space item."""
         from angstrompro.core.data.annotation_data import PointSetData
         if self._aux_item is None:
-            QtWidgets.QMessageBox.information(self, "No aux item",
-                                              "Load an item into the Auxiliary panel first.")
+            QtWidgets.QMessageBox.information(self, "No reference item",
+                                              "Load an item into the Reference panel first.")
             return
         coords = self._get_picked_coords(self._panel_aux)
         if coords is None or len(coords) == 0:
@@ -747,7 +757,7 @@ class ImageStackViewer(AGuiModule):
         from angstrompro.core.data.annotation_data import PointSetData
         if self._main_item is None:
             QtWidgets.QMessageBox.information(
-                self, "No main item", "Load an item into the Main panel first.")
+                self, "No input item", "Load an item into the Input panel first.")
             return
         coords = self._get_picked_coords(self._panel_aux)
         if coords is None or len(coords) == 0:
@@ -771,7 +781,7 @@ class ImageStackViewer(AGuiModule):
         from angstrompro.core.data.annotation_data import PointSetData
         if self._main_item is None:
             QtWidgets.QMessageBox.information(
-                self, "No main item", "Load an item into the Main panel first.")
+                self, "No input item", "Load an item into the Input panel first.")
             return
         coords = self._get_picked_coords(self._panel_main)
         if coords is None or len(coords) == 0:
@@ -789,7 +799,7 @@ class ImageStackViewer(AGuiModule):
         from angstrompro.core.data.annotation_data import PointSetData
         if self._main_item is None:
             QtWidgets.QMessageBox.information(
-                self, "No main item", "Load an item into the Main panel first.")
+                self, "No input item", "Load an item into the Input panel first.")
             return
         coords = self._get_picked_coords(self._panel_aux)
         if coords is None or len(coords) == 0:
@@ -807,7 +817,7 @@ class ImageStackViewer(AGuiModule):
         from angstrompro.core.data.annotation_data import PointSetData
         if self._main_item is None:
             QtWidgets.QMessageBox.information(
-                self, "No main item", "Load an item into the Main panel first.")
+                self, "No input item", "Load an item into the Input panel first.")
             return
         coords = self._get_picked_coords(self._panel_main)
         if coords is None or len(coords) < 2:
@@ -860,7 +870,7 @@ class ImageStackViewer(AGuiModule):
         self._panel_aux.ui_lw_img_picked_points.setCurrentRow(len(entries) - 1)
         self._panel_aux.updateImage()
         self.statusBar().showMessage(
-            f"Restored {len(entries)} Bragg peaks → Aux picked points", 3000)
+            f"Restored {len(entries)} Bragg peaks → Reference picked points", 3000)
 
     def _set_interest_region_main(self) -> None:
         from angstrompro.core.data.annotation_data import RegionData
@@ -905,8 +915,8 @@ class ImageStackViewer(AGuiModule):
         from angstrompro.core.data.annotation_data import PointSetData
         import numpy as np
         if self._main_item is None:
-            QtWidgets.QMessageBox.information(self, "No main item",
-                                              "Load an item into the Main panel first.")
+            QtWidgets.QMessageBox.information(self, "No input item",
+                                              "Load an item into the Input panel first.")
             return
         coords = self._get_picked_coords(self._panel_aux)
         if coords is None or len(coords) < 1:
@@ -925,8 +935,8 @@ class ImageStackViewer(AGuiModule):
     def _set_interest_region_aux(self) -> None:
         from angstrompro.core.data.annotation_data import RegionData
         if self._aux_item is None:
-            QtWidgets.QMessageBox.information(self, "No aux item",
-                                              "Load an item into the Auxiliary panel first.")
+            QtWidgets.QMessageBox.information(self, "No reference item",
+                                              "Load an item into the Reference panel first.")
             return
         coords = self._get_picked_coords(self._panel_aux)
         if coords is None or len(coords) < 2:
@@ -964,8 +974,8 @@ class ImageStackViewer(AGuiModule):
     def _set_line_cut_aux(self) -> None:
         from angstrompro.core.data.annotation_data import LineData
         if self._aux_item is None:
-            QtWidgets.QMessageBox.information(self, "No aux item",
-                                              "Load an item into the Auxiliary panel first.")
+            QtWidgets.QMessageBox.information(self, "No reference item",
+                                              "Load an item into the Reference panel first.")
             return
         coords = self._get_picked_coords(self._panel_aux)
         if coords is None or len(coords) < 2:

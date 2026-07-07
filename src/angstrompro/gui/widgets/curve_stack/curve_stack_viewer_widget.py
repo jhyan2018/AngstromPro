@@ -61,6 +61,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
     """
 
     extract_requested = QtCore.pyqtSignal(list)   # list[(str, UdsDataStru)]
+    cleared           = QtCore.pyqtSignal()        # emitted when Clear All is pressed
 
     def __init__(self, config: dict | None = None, parent=None) -> None:
         super().__init__(parent)
@@ -147,25 +148,10 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         bar.addWidget(self._mode_combo)
 
         btn_clear = QtWidgets.QPushButton("Clear All")
-        btn_clear.clicked.connect(self.clear)
+        btn_clear.clicked.connect(self._on_clear_all)
         bar.addWidget(btn_clear)
 
         bar.addStretch()
-
-        # ── template buttons ──────────────────────────────────────────────
-        self._tpl_load_btn = QtWidgets.QToolButton()
-        self._tpl_load_btn.setText("Load Template")
-        self._tpl_load_btn.setPopupMode(
-            QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
-        self._tpl_load_menu = QtWidgets.QMenu(self._tpl_load_btn)
-        self._tpl_load_btn.setMenu(self._tpl_load_menu)
-        self._tpl_load_menu.aboutToShow.connect(self._refresh_template_menu)
-        bar.addWidget(self._tpl_load_btn)
-
-        btn_save_tpl = QtWidgets.QPushButton("Save Template…")
-        btn_save_tpl.setToolTip("Save current style as a reusable template")
-        btn_save_tpl.clicked.connect(self._on_save_template)
-        bar.addWidget(btn_save_tpl)
 
         return bar
 
@@ -270,6 +256,10 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._checked.clear()
         self._tree.clear()
         self._plot_widget.clear()
+
+    def _on_clear_all(self) -> None:
+        self.clear()
+        self.cleared.emit()
 
     def apply_config(self, config: dict) -> None:
         self._config = config

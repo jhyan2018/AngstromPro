@@ -78,16 +78,14 @@ def load(path: Path, channel_index: int = 0,
 
         data2D = raw.astype(np.float32).reshape(-1, stride)
 
-        # Build 3D volume: (stride, y_pixels, x_pixels)
+        # Build 3D volume: (stride, x_pixels, y_pixels)
+        data3D = np.zeros((stride, x_pixels, y_pixels), dtype=np.float32)
         if y_pixels == 1:
-            data3D = data2D.T[:, :, np.newaxis]
-            data3D = np.broadcast_to(
-                data3D, (stride, x_pixels, y_pixels)
-            ).copy()
+            # data2D rows are the x_pixels spectra; columns are stride values
+            data3D[:, :, 0] = data2D[:x_pixels, :].T
         else:
             rows_per_line = data2D.shape[0] // x_pixels
             last = data2D.shape[0] % x_pixels
-            data3D = np.zeros((stride, x_pixels, y_pixels), dtype=np.float32)
             for i in range(stride):
                 for j in range(rows_per_line):
                     data3D[i, j, :] = data2D[j * x_pixels:(j + 1) * x_pixels, i]
@@ -148,12 +146,19 @@ def load(path: Path, channel_index: int = 0,
         def _extract(ch_idx: int) -> UdsDataStru:
             ci = max(0, min(ch_idx, n_channels - 1))
             start = par_num + ci * n_points
-            ch_data = data3D[start:start + n_points, :, :]
+            ch_data = data3D[start:start + n_points, :, :]   # (n_pts, x, y)
             info = {**base_info, "channel_loaded": channels[ci], "channel_index": ci}
+            # Line-cut special case: y_pixels=1 means a single spatial line.
+            # Squeeze the degenerate y-axis → 2D (n_pts, x_pixels) for CurveStackViewer.
+            if y_pixels == 1:
+                ch_data = ch_data[:, :, 0].T   # (n_pts, x_pixels) → (x_pixels, n_pts)
+                axes = [ax_x, ax_bias]
+            else:
+                axes = [ax_bias, ax_x, ax_y]
             return UdsDataStru(
                 name=f"{path.stem}_{channels[ci]}",
                 data=ch_data.astype(np.float64),
-                axes=[ax_bias, ax_x, ax_y],
+                axes=axes,
                 info=info,
                 proc_history=[],
                 landmarks={},
