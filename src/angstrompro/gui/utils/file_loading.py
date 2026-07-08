@@ -13,6 +13,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
     from PyQt6 import QtWidgets
@@ -143,8 +145,10 @@ def load_with_channel_picker(path: Path, context: "AppContext",
 # ---------------------------------------------------------------------------
 
 def _accepted():
-    from PyQt6.QtWidgets import QDialog
-    return QDialog.DialogCode.Accepted
+    from angstrompro.utils.qt_compat import QtWidgets, IS_QT6
+    if IS_QT6:
+        return QtWidgets.QDialog.DialogCode.Accepted
+    return QtWidgets.QDialog.Accepted
 
 
 def _resolve_auto_load(fmt_cfg, resolved, file_channels, context: "AppContext",
@@ -209,21 +213,37 @@ def _extract_dat_channels(full_uds, column_names: list[str],
                            pairs: list, stem: str,
                            idx_to_display: dict | None = None) -> list:
     """
-    Split a fully-loaded .dat UDS into one 1D UdsDataStru per selected column.
+    Split a fully-loaded .dat UDS into one ndim=2 UdsDataStru per selected channel.
 
-    Column 0 is always the x-axis (Bias).  ``pairs`` contains
-    (cc_or_None, col_index_in_full_array) with col_index >= 1.
+    Shape is always (1, n_points): axis[0] = spatial position (size 1),
+    axis[1] = sweep (Bias, Z, etc.).  Column 0 of the raw matrix is the sweep axis.
+    ``pairs`` contains (cc_or_None, col_index_in_full_array) with col_index >= 1.
     """
     import re
-    from angstrompro.core.data.uds_data import Axis, UdsDataStru
+    from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
+    from angstrompro.io.formats.nanonis_dat import _infer_sweep_axis_type
 
-    data_2d  = full_uds.data
+    data_2d  = full_uds.data          # shape (n_points, n_cols)
     x_values = data_2d[:, 0]
     raw_x_label = column_names[0] if column_names else "Bias"
-    # split "Bias calc (V)" → label="Bias calc", units="V"
     _m = re.match(r"^(.*?)\s*\(([^)]+)\)\s*$", raw_x_label)
-    x_label = _m.group(1) if _m else raw_x_label
-    x_units = _m.group(2) if _m else ""
+    x_label   = _m.group(1).strip() if _m else raw_x_label
+    x_units   = _m.group(2).strip() if _m else ""
+    x_ax_type = _infer_sweep_axis_type(raw_x_label)
+
+    ax_position = Axis(
+        values    = np.array([0.0]),
+        label     = "Position",
+        units     = "",
+        axis_type = AxisType.SPATIAL_X,
+    )
+    ax_sweep = Axis(
+        values    = x_values.copy(),
+        label     = x_label,
+        units     = x_units,
+        axis_type = x_ax_type,
+    )
+
     base_info = {k: v for k, v in full_uds.info.items() if k not in ("column_names",)}
 
     results = []
@@ -238,12 +258,13 @@ def _extract_dat_channels(full_uds, column_names: list[str],
             display = (column_names[col_idx]
                        if col_idx < len(column_names) else f"col{col_idx}")
 
-        y_values = data_2d[:, col_idx].copy()
+        # ndim=2: shape (1, n_points) — single curve, always a curve stack
+        ch_data = data_2d[:, col_idx].copy().reshape(1, -1)
 
         uds = UdsDataStru(
             name=f"{stem}_{display}",
-            data=y_values,
-            axes=[Axis(values=x_values.copy(), label=x_label, units=x_units)],
+            data=ch_data,
+            axes=[ax_position, ax_sweep],
             info={**base_info,
                   "channel_display_name": display,
                   "column_name": column_names[col_idx]

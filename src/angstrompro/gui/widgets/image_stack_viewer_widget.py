@@ -173,9 +173,17 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         self.setDragMode(_NO_DRAG)
         self.setRenderHint(SmoothPixmapTransform, False)
         self.setMouseTracking(True)
-        self.setSizePolicy(_SP_EXPAND, _SP_EXPAND)
+        sp = QtWidgets.QSizePolicy(_SP_EXPAND, _SP_EXPAND)
+        sp.setHeightForWidth(True)
+        self.setSizePolicy(sp)
         self._panning   = False
         self._pan_start = QtCore.QPoint()
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return width
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
@@ -297,6 +305,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             self.imageMarkerColorChanged)
 
         self.ui_cb_img_pk_pts_mode = QtWidgets.QComboBox()
+        self.ui_cb_img_pk_pts_mode.setMinimumWidth(90)
         self.ui_cb_img_pk_pts_mode.addItems(["Points", "Lines", "Circle", "Region"])
         self.ui_cb_img_pk_pts_mode.currentIndexChanged.connect(
             self._update_annotation_overlay)
@@ -378,10 +387,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         grid.addLayout(vlay, 0, 0)
         grid.setContentsMargins(0, 0, 0, 0)
         self.setLayout(grid)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._view.setFixedHeight(self._view.width())
 
     def initNonUiMembers(self):
         self.uds_variable            = 0

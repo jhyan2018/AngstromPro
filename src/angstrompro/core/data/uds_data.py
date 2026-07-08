@@ -7,6 +7,7 @@ Created on Mon Jun 22 23:50:31 2026
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import ClassVar
 
 import numpy as np
@@ -14,11 +15,25 @@ import numpy as np
 from .base import WorkspaceData
 
 
+class AxisType(Enum):
+    SPATIAL_X  = "spatial_x"
+    SPATIAL_Y  = "spatial_y"
+    SPATIAL_Z  = "spatial_z"
+    BIAS       = "bias"
+    ENERGY     = "energy"
+    FIELD      = "field"
+    FREQUENCY  = "frequency"
+    TIME       = "time"
+    INDEX      = "index"      # generic integer index, no physical meaning
+    UNKNOWN    = "unknown"    # physical meaning exists but not yet identified
+
+
 @dataclass
 class Axis:
     values: np.ndarray          # exact float64 array — no precision loss
     label: str = "? (?)"        # e.g. "Bias (V)"
     units: str = ""             # e.g. "V"
+    axis_type: AxisType = AxisType.UNKNOWN
     ticks: dict[float, str] = field(default_factory=dict)
     # named positions on this axis, e.g. {0.0: "Γ", 1.23: "X", 2.45: "M"}
     # used for band structure high-symmetry points, phase labels, etc.
@@ -51,7 +66,7 @@ class UdsDataStru(WorkspaceData):
 
     def display_type(self) -> str:
         ndim = self.data.ndim
-        kind = {1: "1D Spectrum", 2: "2D Map", 3: "Spectroscopy Stack"}.get(ndim, f"{ndim}D Array")
+        kind = {2: "Curve Stack", 3: "Image Stack"}.get(ndim, f"{ndim}D Array")
         return kind
 
     def summary(self) -> dict[str, str]:
@@ -69,12 +84,11 @@ class UdsDataStru(WorkspaceData):
 
     @staticmethod
     def from_array(data: np.ndarray, name: str) -> "UdsDataStru":
-        """Create with default pixel-index axes, matching old UdsDataStru.__init__."""
+        """Legacy fallback: create from raw array with UNKNOWN axes."""
         axes = [
-            Axis(values=np.arange(data.shape[i], dtype=float))
+            Axis(values=np.arange(data.shape[i], dtype=float),
+                 axis_type=AxisType.UNKNOWN)
             for i in range(data.ndim)
         ]
-        #info?
-        
         return UdsDataStru(name=name, data=np.copy(data), axes=axes)
 

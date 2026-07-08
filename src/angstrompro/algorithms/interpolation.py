@@ -21,6 +21,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ProcessSchema,
     register_process,
 )
@@ -48,11 +49,15 @@ def _interpolate_2x(data3d: np.ndarray) -> np.ndarray:
     return out
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spatial.interpolate",
-    label       = "Interpolate 2x",
+    name        = "spatial.interpolate_2d",
+    label       = "Interpolate 2D (2x)",
     category    = "Spatial",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",

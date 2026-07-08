@@ -19,16 +19,21 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ProcessSchema,
     register_process,
 )
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spectral.normalize",
-    label       = "Normalize (per layer)",
+    name        = "spectral.normalize_2d",
+    label       = "Normalize 2D (per layer)",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -56,7 +61,7 @@ def normalize(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
     zero_mask = layer_sums == 0
     if zero_mask.any():
         raise ValueError(
-            "spectral.normalize: one or more layers have a zero pixel sum "
+            "spectral.normalize_2d: one or more layers have a zero pixel sum "
             "and cannot be normalised."
         )
 

@@ -34,6 +34,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -156,6 +157,8 @@ _FILTER_ANNOTATION = AnnotationSpec(
     required = True,
 )
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _INPUT_SPEC = InputSpec(
     name        = "data",
     type_id     = "uds",
@@ -169,10 +172,11 @@ _INPUT_SPEC = InputSpec(
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spectral.fft_filter_isolate",
-    label       = "FFT Filter — Isolate",
+    name        = "spectral.fft_filter_isolate_2d",
+    label       = "FFT Filter — Isolate 2D",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs      = [_INPUT_SPEC],
         params      = _SHARED_PARAMS,
         annotations = [_FILTER_ANNOTATION],
@@ -185,7 +189,7 @@ def fft_filter_isolate(inputs: dict, params: dict,
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
         raise ValueError(
-            f"spectral.fft_filter_isolate requires ndim=3; got {src.data.shape}.")
+            f"spectral.fft_filter_isolate_2d requires ndim=3; got {src.data.shape}.")
 
     filter_points = _get_filter_points(annotations or {})
     window_type   = params["window_type"]
@@ -211,10 +215,11 @@ def fft_filter_isolate(inputs: dict, params: dict,
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spectral.fft_filter_out",
-    label       = "FFT Filter — Notch Out",
+    name        = "spectral.fft_filter_out_2d",
+    label       = "FFT Filter — Notch Out 2D",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs      = [_INPUT_SPEC],
         params      = _SHARED_PARAMS,
         annotations = [_FILTER_ANNOTATION],
@@ -227,7 +232,7 @@ def fft_filter_out(inputs: dict, params: dict,
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
         raise ValueError(
-            f"spectral.fft_filter_out requires ndim=3; got {src.data.shape}.")
+            f"spectral.fft_filter_out_2d requires ndim=3; got {src.data.shape}.")
 
     filter_points = _get_filter_points(annotations or {})
     window_type   = params["window_type"]

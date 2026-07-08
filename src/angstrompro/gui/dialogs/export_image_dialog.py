@@ -42,7 +42,7 @@ class ExportImageDialog(QtWidgets.QDialog):
 
         # Panel
         self._panel_cb = QtWidgets.QComboBox()
-        self._panel_cb.addItems(["Input", "Reference"])
+        self._panel_cb.addItems(["Primary", "Reference"])
         if not self._has_aux:
             self._panel_cb.model().item(1).setEnabled(False)
         layout.addRow("Panel:", self._panel_cb)
@@ -96,7 +96,7 @@ class ExportImageDialog(QtWidgets.QDialog):
             from angstrompro.app.user_data_folder import get_qsettings
             s = get_qsettings()
             s.beginGroup(_SETTINGS_KEY)
-            panel = s.value("panel", "Input")
+            panel = s.value("panel", "Primary")
             overlay = s.value("overlay", True, type=bool)
             dest = s.value("destination", "Clipboard")
             fmt = s.value("format", "PNG")

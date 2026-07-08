@@ -21,19 +21,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.gui.dialogs.persistent_dialog import PersistentDialog
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
     from angstrompro.core.processes.process_entry import ProcessEntry
 
 
-class ProcessBrowserDialog(QtWidgets.QDialog):
+class ProcessBrowserDialog(PersistentDialog):
+
+    _settings_key = "ProcessBrowserDialog"
 
     def __init__(self, context: "AppContext", parent=None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, default_size=(820, 560))
         self._context = context
         self.setWindowTitle("Process Browser")
-        self.resize(820, 520)
         self._setup_ui()
         self._populate()
 
@@ -46,6 +48,18 @@ class ProcessBrowserDialog(QtWidgets.QDialog):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
 
+        # --- convention notice ---
+        notice = QtWidgets.QLabel(
+            "<b>Naming convention:</b>  "
+            "<code>_1D</code> processes operate on ndim=2 data (curve stacks) · "
+            "<code>_2D</code> processes operate on ndim=3 data (image stacks).  "
+            "Check the inspector to verify axis orientation before running."
+        )
+        notice.setWordWrap(True)
+        notice.setStyleSheet(
+            "background: palette(mid); border-radius: 4px; padding: 6px;")
+        root.addWidget(notice, 0)
+
         # --- search bar ---
         search_row = QtWidgets.QHBoxLayout()
         search_row.addWidget(QtWidgets.QLabel("Search:"))
@@ -54,7 +68,7 @@ class ProcessBrowserDialog(QtWidgets.QDialog):
         self._search.setClearButtonEnabled(True)
         self._search.textChanged.connect(self._on_filter_changed)
         search_row.addWidget(self._search)
-        root.addLayout(search_row)
+        root.addLayout(search_row, 0)
 
         # --- splitter: tree | detail ---
         splitter = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal
@@ -69,10 +83,11 @@ class ProcessBrowserDialog(QtWidgets.QDialog):
         self._tree.currentItemChanged.connect(self._on_selection_changed)
         splitter.addWidget(self._tree)
 
-        # right: detail panel
-        detail_widget = QtWidgets.QWidget()
-        detail_layout = QtWidgets.QVBoxLayout(detail_widget)
-        detail_layout.setContentsMargins(8, 0, 0, 0)
+        # right: detail panel inside a scroll area
+        detail_inner = QtWidgets.QWidget()
+        detail_inner.setMinimumWidth(480)   # triggers horizontal scrollbar when panel is narrow
+        detail_layout = QtWidgets.QVBoxLayout(detail_inner)
+        detail_layout.setContentsMargins(8, 4, 8, 8)
         detail_layout.setSpacing(8)
 
         # name + id row
@@ -92,54 +107,70 @@ class ProcessBrowserDialog(QtWidgets.QDialog):
         name_form.addRow("Category:", self._lbl_category)
         detail_layout.addLayout(name_form)
 
-        # description
+        # description — word-wrapping label, auto-heights to content
         detail_layout.addWidget(QtWidgets.QLabel("Description:"))
-        self._txt_description = QtWidgets.QTextEdit()
-        self._txt_description.setReadOnly(True)
-        self._txt_description.setMaximumHeight(72)
-        self._txt_description.setPlaceholderText("No description.")
+        self._txt_description = QtWidgets.QLabel()
+        self._txt_description.setWordWrap(True)
+        self._txt_description.setAlignment(
+            QtCore.Qt.AlignmentFlag.AlignTop | QtCore.Qt.AlignmentFlag.AlignLeft
+            if hasattr(QtCore.Qt.AlignmentFlag, "AlignTop")
+            else QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
+        self._txt_description.setTextInteractionFlags(
+            QtCore.Qt.TextInteractionFlag.TextSelectableByMouse
+            if hasattr(QtCore.Qt.TextInteractionFlag, "TextSelectableByMouse")
+            else QtCore.Qt.TextSelectableByMouse)
+        self._txt_description.setStyleSheet(
+            "QLabel { border: 1px solid palette(mid); border-radius: 3px;"
+            " padding: 4px; background: palette(base); }")
         detail_layout.addWidget(self._txt_description)
 
         # inputs table
         detail_layout.addWidget(QtWidgets.QLabel("Input Ports:"))
-        self._tbl_inputs = QtWidgets.QTableWidget(0, 3)
-        self._tbl_inputs.setHorizontalHeaderLabels(["Name", "Type", "Description"])
-        self._tbl_inputs.horizontalHeader().setStretchLastSection(True)
-        self._tbl_inputs.verticalHeader().setVisible(False)
-        self._tbl_inputs.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._tbl_inputs.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self._tbl_inputs.setAlternatingRowColors(True)
-        self._tbl_inputs.setMaximumHeight(110)
+        self._tbl_inputs = _AutoHeightTable(5)
+        self._tbl_inputs.setHorizontalHeaderLabels(
+            ["Name", "Type", "ndim", "Axis requirements", "Description"])
+        _setup_table(self._tbl_inputs)
         detail_layout.addWidget(self._tbl_inputs)
+
+        # outputs table
+        detail_layout.addWidget(QtWidgets.QLabel("Output Ports:"))
+        self._tbl_outputs = _AutoHeightTable(3)
+        self._tbl_outputs.setHorizontalHeaderLabels(["Type", "ndim", "Description"])
+        _setup_table(self._tbl_outputs)
+        detail_layout.addWidget(self._tbl_outputs)
 
         # params table
         detail_layout.addWidget(QtWidgets.QLabel("Parameters:"))
-        self._tbl_params = QtWidgets.QTableWidget(0, 6)
+        self._tbl_params = _AutoHeightTable(6)
         self._tbl_params.setHorizontalHeaderLabels(
             ["Name", "Type", "Default", "Range", "Units", "Description"])
-        self._tbl_params.horizontalHeader().setStretchLastSection(True)
-        self._tbl_params.verticalHeader().setVisible(False)
-        self._tbl_params.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self._tbl_params.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self._tbl_params.setAlternatingRowColors(True)
+        _setup_table(self._tbl_params)
         detail_layout.addWidget(self._tbl_params)
 
-        splitter.addWidget(detail_widget)
-        splitter.setSizes([240, 560])
-        root.addWidget(splitter)
+        detail_layout.addStretch()
 
-        # --- close button ---
+        detail_scroll = QtWidgets.QScrollArea()
+        detail_scroll.setWidgetResizable(True)
+        detail_scroll.setWidget(detail_inner)
+        detail_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame
+                                    if hasattr(QtWidgets.QFrame.Shape, "NoFrame")
+                                    else QtWidgets.QFrame.NoFrame)
+
+        splitter.addWidget(detail_scroll)
+        splitter.setSizes([240, 560])
+        root.addWidget(splitter, 1)
+
+        # --- close button + hint on same row ---
+        bottom_row = QtWidgets.QHBoxLayout()
+        self._hint = QtWidgets.QLabel("")
+        self._hint.setStyleSheet("color: palette(mid-light);")
+        bottom_row.addWidget(self._hint)
+        bottom_row.addStretch()
         btn_box = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.StandardButton.Close)
         btn_box.rejected.connect(self.reject)
-        root.addWidget(btn_box)
-
-        # hint label at bottom
-        self._hint = QtWidgets.QLabel("")
-        self._hint.setStyleSheet("color: grey; font-size: 10px;")
-        root.addWidget(self._hint)
+        bottom_row.addWidget(btn_box)
+        root.addLayout(bottom_row)
 
     # ------------------------------------------------------------------
     # Populate
@@ -222,28 +253,53 @@ class ProcessBrowserDialog(QtWidgets.QDialog):
         self._lbl_label.setText("—")
         self._lbl_name.setText("—")
         self._lbl_category.setText("—")
-        self._txt_description.setPlainText("")
+        self._txt_description.setText("")
         self._tbl_inputs.setRowCount(0)
+        self._tbl_outputs.setRowCount(0)
         self._tbl_params.setRowCount(0)
+        QtCore.QTimer.singleShot(0, self._refit_table_rows)
+
+    def _refit_table_rows(self) -> None:
+        for tbl in (self._tbl_inputs, self._tbl_outputs, self._tbl_params):
+            tbl.resizeRowsToContents()
+            tbl.updateGeometry()
 
     def _show_entry(self, entry: "ProcessEntry") -> None:
         self._lbl_label.setText(entry.label)
         self._lbl_name.setText(entry.name)
         self._lbl_category.setText(entry.category)
-        self._txt_description.setPlainText(entry.description or "")
+        self._txt_description.setText(entry.description or "")
 
         # inputs
         self._tbl_inputs.setRowCount(0)
         for spec in entry.schema.inputs:
             row = self._tbl_inputs.rowCount()
             self._tbl_inputs.insertRow(row)
+            ndim_str = str(spec.ndim) if spec.ndim is not None else "any"
+            axis_str = _format_axis_types(spec.axis_types)
             self._tbl_inputs.setItem(row, 0, _ro_item(spec.name))
             self._tbl_inputs.setItem(row, 1, _ro_item(spec.type_id or "any"))
-            self._tbl_inputs.setItem(row, 2, _ro_item(spec.description or spec.label))
-        self._tbl_inputs.resizeColumnsToContents()
+            self._tbl_inputs.setItem(row, 2, _ro_item(ndim_str))
+            self._tbl_inputs.setItem(row, 3, _ro_item(axis_str))
+            self._tbl_inputs.setItem(row, 4, _ro_item(spec.description or spec.label))
+        _resize_non_last_cols(self._tbl_inputs)
         if not entry.schema.inputs:
             self._tbl_inputs.setRowCount(1)
             self._tbl_inputs.setItem(0, 0, _ro_item("(none)"))
+
+        # outputs
+        self._tbl_outputs.setRowCount(0)
+        for spec in entry.schema.outputs:
+            row = self._tbl_outputs.rowCount()
+            self._tbl_outputs.insertRow(row)
+            ndim_str = str(spec.ndim) if spec.ndim is not None else "any"
+            self._tbl_outputs.setItem(row, 0, _ro_item(spec.type_id or "any"))
+            self._tbl_outputs.setItem(row, 1, _ro_item(ndim_str))
+            self._tbl_outputs.setItem(row, 2, _ro_item(spec.description or spec.label))
+        _resize_non_last_cols(self._tbl_outputs)
+        if not entry.schema.outputs:
+            self._tbl_outputs.setRowCount(1)
+            self._tbl_outputs.setItem(0, 0, _ro_item("(inferred)"))
 
         # params
         self._tbl_params.setRowCount(0)
@@ -259,15 +315,99 @@ class ProcessBrowserDialog(QtWidgets.QDialog):
             self._tbl_params.setItem(row, 3, _ro_item(rng))
             self._tbl_params.setItem(row, 4, _ro_item(spec.units or "—"))
             self._tbl_params.setItem(row, 5, _ro_item(spec.description or spec.label))
-        self._tbl_params.resizeColumnsToContents()
+        _resize_non_last_cols(self._tbl_params)
         if not entry.schema.params:
             self._tbl_params.setRowCount(1)
             self._tbl_params.setItem(0, 0, _ro_item("(none)"))
 
+        # Defer row-height recalculation until after the layout engine has
+        # finalized the stretch column widths, then re-notify the scroll area.
+        QtCore.QTimer.singleShot(0, self._refit_table_rows)
+
 
 # ---------------------------------------------------------------------------
-# Helper
+# Helpers
 # ---------------------------------------------------------------------------
+
+class _AutoHeightTable(QtWidgets.QTableWidget):
+    """QTableWidget that sizes itself to show all rows without an internal scrollbar.
+
+    Word-wrap is on, so row heights depend on column widths. resizeEvent
+    recalculates row heights and notifies the parent layout whenever the
+    table is resized (e.g. when the splitter or dialog is dragged).
+    """
+
+    def __init__(self, cols: int, parent=None):
+        super().__init__(0, cols, parent)
+
+    def sizeHint(self) -> QtCore.QSize:
+        frame = self.frameWidth() * 2
+        h = self.horizontalHeader().height() + frame
+        for i in range(self.rowCount()):
+            h += self.rowHeight(i)
+        return QtCore.QSize(super().sizeHint().width(), h)
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return self.sizeHint()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        # Recompute wrap heights after column widths change (e.g. splitter drag).
+        QtCore.QTimer.singleShot(0, lambda: (self.resizeRowsToContents(), self.updateGeometry()))
+
+
+# Minimum widths for the first two columns (Name, Type) and all others.
+_MIN_COL_WIDTHS = {0: 140, 1: 80}
+_MIN_COL_WIDTH_DEFAULT = 70
+
+
+def _resize_non_last_cols(tbl: QtWidgets.QTableWidget) -> None:
+    """Auto-size every column except the last (Description), which stretches."""
+    for col in range(tbl.columnCount() - 1):
+        tbl.resizeColumnToContents(col)
+        minimum = _MIN_COL_WIDTHS.get(col, _MIN_COL_WIDTH_DEFAULT)
+        if tbl.columnWidth(col) < minimum:
+            tbl.setColumnWidth(col, minimum)
+
+
+def _setup_table(tbl: QtWidgets.QTableWidget) -> None:
+    tbl.horizontalHeader().setStretchLastSection(True)
+    tbl.horizontalHeader().setDefaultAlignment(
+        QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter
+        if hasattr(QtCore.Qt.AlignmentFlag, "AlignLeft")
+        else QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+    tbl.verticalHeader().setVisible(False)
+    tbl.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+    tbl.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+    tbl.setAlternatingRowColors(True)
+    tbl.setWordWrap(True)
+    tbl.setStyleSheet(
+        "QTableWidget { border: 1px solid palette(mid); }"
+        "QTableWidget::item { padding: 4px 8px; }"
+        "QHeaderView::section { padding: 4px 8px; }"
+        "QScrollBar:vertical { width: 0px; }"
+        "QScrollBar:horizontal { height: 0px; }"
+    )
+    tbl.setVerticalScrollBarPolicy(
+        QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        if hasattr(QtCore.Qt.ScrollBarPolicy, "ScrollBarAlwaysOff")
+        else QtCore.Qt.ScrollBarAlwaysOff)
+    tbl.setHorizontalScrollBarPolicy(
+        QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        if hasattr(QtCore.Qt.ScrollBarPolicy, "ScrollBarAlwaysOff")
+        else QtCore.Qt.ScrollBarAlwaysOff)
+
+
+def _format_axis_types(axis_types: dict | None) -> str:
+    """Format axis_types dict as e.g. 'axis[-1]: bias · axis[-2]: spatial_y'."""
+    if not axis_types:
+        return "—"
+    parts = []
+    for idx in sorted(axis_types.keys()):
+        atype = axis_types[idx]
+        parts.append(f"axis[{idx}]: {atype.value}")
+    return " · ".join(parts)
+
 
 def _ro_item(text: str) -> QtWidgets.QTableWidgetItem:
     item = QtWidgets.QTableWidgetItem(text)

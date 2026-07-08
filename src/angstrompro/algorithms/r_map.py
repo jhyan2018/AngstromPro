@@ -19,6 +19,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -52,11 +53,15 @@ def _find_pairs(energies: np.ndarray, tolerance: float) -> list[tuple[int, int, 
     return pairs
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spectral.r_map",
-    label       = "R-map",
+    name        = "spectral.r_map_2d",
+    label       = "R-map 2D",
     category    = "Spatial",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -95,7 +100,7 @@ def r_map(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 
     if not pairs:
         raise ValueError(
-            "spectral.r_map: no matching ±E pairs found within the given tolerance "
+            "spectral.r_map_2d: no matching ±E pairs found within the given tolerance "
             f"({tolerance}). Try increasing the energy tolerance parameter."
         )
 

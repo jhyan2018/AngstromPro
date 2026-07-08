@@ -19,17 +19,22 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spectral.extract_layer",
-    label       = "Extract Layer",
+    name        = "spectral.extract_layer_2d",
+    label       = "Extract Layer 2D",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -59,7 +64,7 @@ def extract_layer(inputs: dict, params: dict, *, annotations=None) -> UdsDataStr
     n_layers = src.data.shape[0]
     if idx >= n_layers or idx < 0:
         raise ValueError(
-            f"spectral.extract_layer: layer_index {idx} is out of range "
+            f"spectral.extract_layer_2d: layer_index {idx} is out of range "
             f"for a stack with {n_layers} layers."
         )
 

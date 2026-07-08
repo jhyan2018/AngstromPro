@@ -27,6 +27,7 @@ from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.data.annotation_data import RegionData
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ProcessSchema,
     register_process,
 )
@@ -36,6 +37,8 @@ from angstrompro.core.processes.param_schema import AnnotationSpec
 # Shared schema
 # ---------------------------------------------------------------------------
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _ANNOTATION = AnnotationSpec(
     name     = "interest_region",
     role     = "interest_region",
@@ -44,6 +47,7 @@ _ANNOTATION = AnnotationSpec(
 )
 
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -91,7 +95,7 @@ def _do_crop(src: UdsDataStru, r0: int, r1: int, c0: int, c1: int) -> UdsDataStr
 def _read_region(annotations: dict | None) -> RegionData:
     if not annotations or "interest_region" not in annotations:
         raise ValueError(
-            "spatial.crop2d requires a 'interest_region' annotation on the input item. "
+            "spatial.crop_2d requires a 'interest_region' annotation on the input item. "
             "Use Points → 'Set Crop Region from Main' to define it first."
         )
     return annotations["interest_region"]
@@ -111,7 +115,7 @@ def _read_region(annotations: dict | None) -> RegionData:
 def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.crop2d requires ndim=3; got shape {src.data.shape}.")
+        raise ValueError(f"spatial.crop_2d requires ndim=3; got shape {src.data.shape}.")
     region = _read_region(annotations)
     return _do_crop(src, region.row_min, region.row_max, region.col_min, region.col_max)
 
@@ -121,8 +125,8 @@ def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> Ud
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spatial.crop2d_square",
-    label       = "Crop 2D (Square)",
+    name        = "spatial.crop_square_2d",
+    label       = "Crop Square 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
     description = "Crop a 3-D stack to a square region with an even side length, "
@@ -131,7 +135,7 @@ def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> Ud
 def crop2d_square(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.crop2d_square requires ndim=3; got shape {src.data.shape}.")
+        raise ValueError(f"spatial.crop_square_2d requires ndim=3; got shape {src.data.shape}.")
 
     region = _read_region(annotations)
     r0, r1 = region.row_min, region.row_max

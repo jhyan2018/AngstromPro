@@ -30,20 +30,24 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
+
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
 
 # ---------------------------------------------------------------------------
 # math.two_stacks
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "math.two_stacks",
-    label       = "Two Stacks Math",
+    name        = "math.two_stacks_2d",
+    label       = "Two Stacks Math 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data_a",
@@ -87,7 +91,7 @@ def two_stacks(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
     elif op == "/":
         out = a.data / b.data
     else:
-        raise ValueError(f"math.two_stacks: unrecognised operator {op!r}.")
+        raise ValueError(f"math.two_stacks_2d: unrecognised operator {op!r}.")
 
     return UdsDataStru(
         name         = a.name + "_mat",
@@ -103,10 +107,11 @@ def two_stacks(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "math.multiply_const",
-    label       = "Multiply by Constant",
+    name        = "math.multiply_const_2d",
+    label       = "Multiply by Constant 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name    = "data",
@@ -144,10 +149,11 @@ def multiply_const(inputs: dict, params: dict, *, annotations=None) -> UdsDataSt
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "math.divide_by_const",
-    label       = "Divide by Constant",
+    name        = "math.divide_by_const_2d",
+    label       = "Divide by Constant 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name    = "data",
@@ -185,10 +191,11 @@ def divide_by_const(inputs: dict, params: dict, *, annotations=None) -> UdsDataS
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "math.const_divide",
-    label       = "Constant Divide by Stack",
+    name        = "math.const_divide_2d",
+    label       = "Constant Divide by Stack 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name    = "data",
@@ -226,10 +233,11 @@ def const_divide(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "math.complex_abs",
-    label       = "Complex Abs",
+    name        = "math.complex_abs_2d",
+    label       = "Complex Abs 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",

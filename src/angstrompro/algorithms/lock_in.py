@@ -35,6 +35,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -165,7 +166,10 @@ def _lattice_constant_px(coords: np.ndarray, N: int) -> float:
 
 # ─── registered process ───────────────────────────────────────────────────────
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",

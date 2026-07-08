@@ -38,10 +38,15 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
+
+_OUTPUT_2D = [OutputSpec(type_id="uds", ndim=3,
+                         label="Image Stack",
+                         description="ndim=3 UDS (1 layer × rows × cols).")]
 
 # ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -199,7 +204,7 @@ _LATTICE_PARAMS = [
     name="simulate.heaviside2d",
     label="Heaviside Step Edge 2D",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
             _SIZE_PARAM,
@@ -236,7 +241,7 @@ def heaviside2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
     name="simulate.circle2d",
     label="Circle 2D",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
             _SIZE_PARAM,
@@ -262,7 +267,7 @@ def circle2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
     name="simulate.gaussian2d",
     label="Gaussian Peak 2D",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
             _SIZE_PARAM,
@@ -288,7 +293,7 @@ def gaussian2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
     name="simulate.sinusoidal2d",
     label="Sinusoidal Waves 2D",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
             _SIZE_PARAM,
@@ -335,7 +340,7 @@ def sinusoidal2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru
     name="simulate.perfect_lattice2d",
     label="Perfect Lattice 2D",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=_LATTICE_PARAMS + [
             ParameterSpec(name="p1", type=float, default=1.0, label="Phase mod p1",
@@ -364,7 +369,7 @@ def perfect_lattice2d(inputs: dict, params: dict, *, annotations=None) -> UdsDat
     name="simulate.lattice2d_line_domain_wall",
     label="Lattice 2D — Line Domain Wall",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=_LATTICE_PARAMS + [
             ParameterSpec(name="shift_distance", type=float, default=0.25,
@@ -398,7 +403,7 @@ def lattice2d_line_domain_wall(inputs: dict, params: dict, *, annotations=None) 
     name="simulate.lattice2d_periodic_distortion",
     label="Lattice 2D — Periodic Distortion",
     category="Simulate",
-    schema=ProcessSchema(
+    schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=_LATTICE_PARAMS + [
             ParameterSpec(name="d1x",   type=float, default=200.0, label="d1x (px)",

@@ -22,6 +22,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -62,7 +63,10 @@ _WINDOW_FN = {
 # Schema
 # ---------------------------------------------------------------------------
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -106,8 +110,8 @@ _SCHEMA = ProcessSchema(
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spatial.mask2d",
-    label       = "Spatial Window Mask",
+    name        = "spatial.mask_2d",
+    label       = "Spatial Window Mask 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
     description = "Multiply each layer of a real-space 3-D stack by a 2-D apodization window "
@@ -116,11 +120,11 @@ _SCHEMA = ProcessSchema(
 def mask2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.mask2d requires ndim=3; got shape {src.data.shape}.")
+        raise ValueError(f"spatial.mask_2d requires ndim=3; got shape {src.data.shape}.")
 
     if not annotations or "mask_center" not in annotations:
         raise ValueError(
-            "spatial.mask2d requires a 'mask_center' annotation. "
+            "spatial.mask_2d requires a 'mask_center' annotation. "
             "Use Points → 'Set Mask Center from Main' to define it first."
         )
 

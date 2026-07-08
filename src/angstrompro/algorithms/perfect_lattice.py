@@ -30,6 +30,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -48,7 +49,10 @@ _ANNOTATION = AnnotationSpec(
     required = True,
 )
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -220,8 +224,8 @@ def _perfect_lattice_hexagonal(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2,
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spatial.perfect_lattice_square",
-    label       = "Perfect Lattice (Square)",
+    name        = "spatial.perfect_lattice_square_2d",
+    label       = "Perfect Lattice Square 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
     description = "Correct a square-lattice distortion using two Bragg peaks from the "
@@ -231,15 +235,15 @@ def perfect_lattice_square(inputs: dict, params: dict,
                             *, annotations: dict | None = None) -> UdsDataStru:
     src = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.perfect_lattice_square requires ndim=3; got {src.data.shape}.")
+        raise ValueError(f"spatial.perfect_lattice_square_2d requires ndim=3; got {src.data.shape}.")
     bPx1, bPy1, bPx2, bPy2 = _read_bragg_peaks(annotations)
     return _perfect_lattice_square(src, bPx1, bPy1, bPx2, bPy2,
                                    params["interpolate_method"], params["pad_method"])
 
 
 @register_process(
-    name        = "spatial.perfect_lattice_hexagonal",
-    label       = "Perfect Lattice (Hexagonal)",
+    name        = "spatial.perfect_lattice_hexagonal_2d",
+    label       = "Perfect Lattice Hexagonal 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
     description = "Correct a hexagonal-lattice distortion using two Bragg peaks from the "
@@ -249,7 +253,7 @@ def perfect_lattice_hexagonal(inputs: dict, params: dict,
                                *, annotations: dict | None = None) -> UdsDataStru:
     src = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.perfect_lattice_hexagonal requires ndim=3; got {src.data.shape}.")
+        raise ValueError(f"spatial.perfect_lattice_hexagonal_2d requires ndim=3; got {src.data.shape}.")
     bPx1, bPy1, bPx2, bPy2 = _read_bragg_peaks(annotations)
     return _perfect_lattice_hexagonal(src, bPx1, bPy1, bPx2, bPy2,
                                       params["interpolate_method"], params["pad_method"])

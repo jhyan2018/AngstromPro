@@ -18,6 +18,7 @@ from scipy.signal.windows import tukey, blackman, blackmanharris
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -29,7 +30,10 @@ from angstrompro.core.processes import (
 
 _WINDOW_CHOICES = ["none", "hann", "hamming", "tukey", "blackman", "blackman-harris"]
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _SCHEMA_FFT2D = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -121,8 +125,8 @@ def _reciprocal_axis(spatial_axis: Axis) -> Axis:
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spectral.fft2d",
-    label       = "FFT 2D (stack)",
+    name        = "spectral.fft_2d",
+    label       = "FFT 2D",
     category    = "Spectral",
     schema      = _SCHEMA_FFT2D,
     description = "Apply 2-D FFT to every layer of a 3-D bias/energy stack.",
@@ -144,12 +148,12 @@ def fft2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> Uds
 
     if src.data.ndim != 3:
         raise ValueError(
-            f"spectral.fft2d requires a 3-D array (layers × rows × cols); "
+            f"spectral.fft_2d requires a 3-D array (layers × rows × cols); "
             f"got shape {src.data.shape}."
         )
     if len(src.axes) < 3:
         raise ValueError(
-            f"spectral.fft2d requires at least 3 axes; got {len(src.axes)}."
+            f"spectral.fft_2d requires at least 3 axes; got {len(src.axes)}."
         )
 
     window_name  = params["window"]

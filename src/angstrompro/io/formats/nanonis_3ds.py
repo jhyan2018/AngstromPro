@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -119,9 +119,12 @@ def load(path: Path, channel_index: int = 0,
             sweep_vals = np.linspace(sweep_start, sweep_end, n_points)
 
         sweep_units = sweep_signal.split("(")[-1].rstrip(")").strip() if "(" in sweep_signal else ""
-        ax_bias = Axis(values=sweep_vals, label=sweep_signal, units=sweep_units)
-        ax_y = Axis(values=np.linspace(0.0, y_range, y_pixels), label="Y (m)", units="m")
-        ax_x = Axis(values=np.linspace(0.0, x_range, x_pixels), label="X (m)", units="m")
+        ax_bias = Axis(values=sweep_vals, label=sweep_signal, units=sweep_units,
+                       axis_type=AxisType.BIAS)
+        ax_y = Axis(values=np.linspace(0.0, y_range, y_pixels), label="Y (m)", units="m",
+                    axis_type=AxisType.SPATIAL_Y)
+        ax_x = Axis(values=np.linspace(0.0, x_range, x_pixels), label="X (m)", units="m",
+                    axis_type=AxisType.SPATIAL_X)
 
         base_info: dict = {
             "source_format":  "nanonis_3ds",

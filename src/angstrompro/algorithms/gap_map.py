@@ -20,10 +20,17 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
+
+
+_OUT_GAP = [
+    OutputSpec(type_id="uds", ndim=3, label="Gap Map", description="Gap energy map (1 × H × W)."),
+    OutputSpec(type_id="uds", ndim=3, label="Peak Map", description="Peak amplitude map (1 × H × W)."),
+]
 
 
 def _gap_map_core(data3d: np.ndarray, energies: np.ndarray,
@@ -77,10 +84,11 @@ def _gap_map_core(data3d: np.ndarray, energies: np.ndarray,
 
 
 @register_process(
-    name        = "spectral.gap_map",
-    label       = "Gap Map",
+    name        = "spectral.gap_map_2d",
+    label       = "Gap Map 2D",
     category    = "Spatial",
     schema      = ProcessSchema(
+        outputs=_OUT_GAP,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -130,7 +138,7 @@ def gap_map(inputs: dict, params: dict, *, annotations=None) -> list:
     energies = src.axes[0].values.astype(np.float64)
 
     if len(energies) == 0:
-        raise ValueError("spectral.gap_map: layer axis has no energy values.")
+        raise ValueError("spectral.gap_map_2d: layer axis has no energy values.")
 
     gm_data, r2_data = _gap_map_core(
         src.data, energies,

@@ -44,7 +44,7 @@ class CurveStackViewer(AGuiModule):
 
     accepted_types = {"uds", "scene"}
     accepted_ndim  = 2          # accepts 1D and 2D
-    staged_labels  = ["I", "R"]
+    staged_labels  = ["P", "R"]
 
     preferences_schema = [
         PrefSection("Display", "chart-line", [

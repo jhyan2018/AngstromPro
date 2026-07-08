@@ -25,6 +25,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -68,11 +69,15 @@ def _register(data3d: np.ndarray,
     return out
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spatial.register",
-    label       = "Register",
+    name        = "spatial.register_2d",
+    label       = "Register 2D",
     category    = "Spatial",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -144,10 +149,10 @@ def register(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 
     if src_ann is None or not hasattr(src_ann, "coords"):
         raise ValueError(
-            "spatial.register: 'register_points' annotation is missing or invalid.")
+            "spatial.register_2d: 'register_points' annotation is missing or invalid.")
     if tgt_ann is None or not hasattr(tgt_ann, "coords"):
         raise ValueError(
-            "spatial.register: 'register_reference_points' annotation is missing or invalid.")
+            "spatial.register_2d: 'register_reference_points' annotation is missing or invalid.")
 
     src_pts = src_ann.coords
     tgt_pts = tgt_ann.coords
@@ -156,7 +161,7 @@ def register(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
                       ("register_reference_points", tgt_pts)):
         if pts.shape[0] < 3:
             raise ValueError(
-                f"spatial.register: '{name}' requires exactly 3 points; "
+                f"spatial.register_2d: '{name}' requires exactly 3 points; "
                 f"got {pts.shape[0]}."
             )
 

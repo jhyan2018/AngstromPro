@@ -27,6 +27,7 @@ import copy
 from typing import TYPE_CHECKING
 
 from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets
+from angstrompro.gui.dialogs.persistent_dialog import PersistentDialog
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
@@ -35,7 +36,9 @@ _ROLE = QtCore.Qt.ItemDataRole.UserRole if hasattr(
     QtCore.Qt.ItemDataRole, "UserRole") else QtCore.Qt.UserRole
 
 
-class ProcessMenuConfigDialog(QtWidgets.QDialog):
+class ProcessMenuConfigDialog(PersistentDialog):
+
+    _settings_key = "ProcessMenuConfigDialog"
 
     def __init__(
         self,
@@ -43,7 +46,7 @@ class ProcessMenuConfigDialog(QtWidgets.QDialog):
         initial_module_id: str  = "",
         parent:            QtWidgets.QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__(parent, default_size=(700, 480))
         self._context = context
         self._initial_module_id = initial_module_id
 
@@ -52,7 +55,6 @@ class ProcessMenuConfigDialog(QtWidgets.QDialog):
         self._user_menus: dict[str, list[str]] = copy.deepcopy(raw)
 
         self.setWindowTitle("Configure Process Menu")
-        self.resize(700, 480)
         self._setup_ui()
         self._populate_module_selector()
 
@@ -234,9 +236,10 @@ class ProcessMenuConfigDialog(QtWidgets.QDialog):
             if entry.name in already_added:
                 continue
 
-            # compatibility check
+            # compatibility check — use inputs if present, else fall back to outputs
             compatible = True
-            for spec in entry.schema.inputs:
+            check_specs = entry.schema.inputs if entry.schema.inputs else entry.schema.outputs
+            for spec in check_specs:
                 if accepted_types and spec.type_id and spec.type_id not in accepted_types:
                     compatible = False
                     break

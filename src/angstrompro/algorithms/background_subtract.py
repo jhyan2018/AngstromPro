@@ -27,10 +27,13 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
+
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
 
 # ---------------------------------------------------------------------------
 # Core algorithms (ported from BackgroundSubtract.py)
@@ -91,6 +94,7 @@ def _bg_subtract_per_line(data2D: np.ndarray, order: int) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -129,8 +133,8 @@ _SCHEMA = ProcessSchema(
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spatial.bg_subtract",
-    label       = "Background Subtract",
+    name        = "spatial.bg_subtract_2d",
+    label       = "Background Subtract 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
     description = "Subtract a polynomial background from every layer of a 3-D stack.",
@@ -140,7 +144,7 @@ def bg_subtract(inputs: dict, params: dict,
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
         raise ValueError(
-            f"spatial.bg_subtract requires ndim=3; got {src.data.shape}.")
+            f"spatial.bg_subtract_2d requires ndim=3; got {src.data.shape}.")
 
     method: str = params["method"]
     order: int  = int(params["order"])

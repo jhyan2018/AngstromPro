@@ -15,7 +15,7 @@ caller — this dialog only owns parameter collection.
 
 Usage
 -----
-    entry = context.processes.get("spatial.crop2d")
+    entry = context.processes.get("spatial.crop_square_2d")
     dlg   = ProcessParamDialog(entry, context, parent=self)
     if dlg.exec():
         params = dlg.params()

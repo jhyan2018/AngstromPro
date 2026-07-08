@@ -100,9 +100,9 @@ class ProcessRunner:
         Submit a pipeline of processes as one background task.
 
         steps = [
-            ("spectral.normalize", [item],  {"method": "minmax"}),
+            ("spectral.normalize_2d", [item],  {"method": "minmax"}),
             ("spectral.fft",       [],      {"shift": True}),
-            ("spatial.register",   [item],  {"ratio": 2.0}),
+            ("spatial.register_2d",   [item],  {"ratio": 2.0}),
         ]
 
         Steps with an empty item list receive the previous result as

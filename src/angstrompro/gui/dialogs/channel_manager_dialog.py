@@ -17,16 +17,19 @@ from typing import TYPE_CHECKING
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
 from angstrompro.io.channel_manager import ChannelConfig
+from angstrompro.gui.dialogs.persistent_dialog import PersistentDialog
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
 
 
-class ChannelManagerDialog(QtWidgets.QDialog):
+class ChannelManagerDialog(PersistentDialog):
+
+    _settings_key = "ChannelManagerDialog"
+
     def __init__(self, context: "AppContext", parent=None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, default_size=(760, 480))
         self.setWindowTitle("Channel Manager")
-        self.resize(760, 480)
         self._cm = context.channel_manager
         self._dirty = False
 

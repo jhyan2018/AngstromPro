@@ -44,7 +44,7 @@ Usage
     # Pipeline — chain of steps in one background task
     handle = registry.submit_pipeline(
         steps=[
-            ("spectral.normalize", {"data": uds}, {"method": "minmax"}),
+            ("spectral.normalize_2d", {"data": uds}, {"method": "minmax"}),
             ("spectral.fft",       {},            {"shift": True}),
         ],
         source_id="image2u3_1",
@@ -176,6 +176,40 @@ def _record_history(
 
 
 # ---------------------------------------------------------------------------
+# Axis-type warning check
+# ---------------------------------------------------------------------------
+
+def _check_axis_types(entry: "ProcessEntry", inputs: dict) -> None:
+    """Log warnings if input UDS axes don't match InputSpec.axis_types declarations."""
+    from angstrompro.core.data.uds_data import UdsDataStru
+    for spec in entry.schema.inputs:
+        if not spec.axis_types:
+            continue
+        uds = inputs.get(spec.name)
+        if not isinstance(uds, UdsDataStru):
+            continue
+        ndim = uds.data.ndim
+        for idx, required_type in spec.axis_types.items():
+            # resolve negative index
+            resolved = idx if idx >= 0 else ndim + idx
+            if resolved < 0 or resolved >= ndim or resolved >= len(uds.axes):
+                log.warning(
+                    "Process %r: input %r — axis[%d] out of range for ndim=%d",
+                    entry.name, spec.name, idx, ndim,
+                )
+                continue
+            actual_type = uds.axes[resolved].axis_type
+            if actual_type != required_type:
+                log.warning(
+                    "Process %r: input %r — axis[%d] expected %s but got %s "
+                    "(label: %r). Check axis orientation in the inspector.",
+                    entry.name, spec.name, idx,
+                    required_type.value, actual_type.value,
+                    uds.axes[resolved].label,
+                )
+
+
+# ---------------------------------------------------------------------------
 # ProcessRegistry
 # ---------------------------------------------------------------------------
 
@@ -256,6 +290,7 @@ class ProcessRegistry:
             annotations: dict | None = None) -> Any:
         """Direct synchronous call — no threading, no progress."""
         entry       = self.get(name)
+        _check_axis_types(entry, inputs)
         full_params = {**entry.schema.defaults(), **params}
         result      = entry.func(inputs, full_params, annotations=annotations or {})
         return _record_history(result, name, full_params, inputs, annotations)
@@ -283,6 +318,7 @@ class ProcessRegistry:
         resolved_annotations = annotations or {}
 
         def _task_func():
+            _check_axis_types(entry, inputs)
             result = entry.func(inputs, full_params, annotations=resolved_annotations)
             return _record_history(result, process_name, full_params, inputs, resolved_annotations)
 
@@ -306,9 +342,9 @@ class ProcessRegistry:
         Run a sequence of processes as one background task.
 
         steps = [
-            ("spectral.normalize", {"data": uds}, {"method": "minmax"}, None),
+            ("spectral.normalize_2d", {"data": uds}, {"method": "minmax"}, None),
             ("spectral.fft",       {},            {"shift": True},       None),
-            ("spatial.register",   {},            {"ratio": 2.0},        {"register_points": ann}),
+            ("spatial.register_2d",   {},            {"ratio": 2.0},        {"register_points": ann}),
         ]
 
         Each step is a 4-tuple: (process_name, inputs, params, annotations).

@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from angstrompro.core.data.uds_data import AxisType
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
 
 if TYPE_CHECKING:
@@ -22,6 +23,9 @@ _ARRAY_ROLE = QtCore.Qt.ItemDataRole.UserRole if hasattr(
 
 _LABEL_ROLE = QtCore.Qt.ItemDataRole.UserRole + 1 if hasattr(
     QtCore.Qt.ItemDataRole, "UserRole") else QtCore.Qt.UserRole + 1
+
+_AXIS_ROLE = QtCore.Qt.ItemDataRole.UserRole + 2 if hasattr(
+    QtCore.Qt.ItemDataRole, "UserRole") else QtCore.Qt.UserRole + 2
 
 
 class WorkspaceItemInspector(QtWidgets.QWidget):
@@ -73,6 +77,11 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         self._tree.setAlternatingRowColors(True)
         self._tree.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self._tree.itemDoubleClicked.connect(self._on_tree_double_clicked)
+        self._tree.setContextMenuPolicy(
+            QtCore.Qt.ContextMenuPolicy.CustomContextMenu if
+            hasattr(QtCore.Qt.ContextMenuPolicy, "CustomContextMenu")
+            else QtCore.Qt.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._on_tree_context_menu)
         root.addWidget(self._tree)
 
         # hint label
@@ -148,8 +157,14 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         for i, ax in enumerate(uds.axes):
             rng = (f"{ax.values[0]:.4g} … {ax.values[-1]:.4g}"
                    if len(ax.values) > 0 else "empty")
+            type_tag = f"[{ax.axis_type.value}]"
             ax_node = QtWidgets.QTreeWidgetItem(axes_node,
-                [f"[{i}]  {ax.label}", f"{len(ax.values)} pts   {rng}  {ax.units}"])
+                [f"[{i}]  {type_tag}  {ax.label}",
+                 f"{len(ax.values)} pts   {rng}  {ax.units}"])
+            ax_node.setData(0, _AXIS_ROLE, ax)   # store axis ref for edit dialog
+            type_node = QtWidgets.QTreeWidgetItem(ax_node,
+                ["axis_type", ax.axis_type.value])
+            type_node.setData(0, _AXIS_ROLE, ax)
             self._make_array_node(ax_node, "values", ax.values)
             has_array = True
             if ax.ticks:
@@ -270,6 +285,34 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         from angstrompro.gui.widgets.ndarray_editor_dialog import NdarrayEditorDialog
         dlg = NdarrayEditorDialog(array, label=label, parent=self)
         if dlg.exec():
-            # array edited in-place — refresh inspector to show updated summary
             if self._current_item is not None:
                 self.set_item(self._current_item)
+
+    def _on_tree_context_menu(self, pos: QtCore.QPoint) -> None:
+        item = self._tree.itemAt(pos)
+        if item is None:
+            return
+        ax = item.data(0, _AXIS_ROLE)
+        if ax is None:
+            return
+        menu = QtWidgets.QMenu(self)
+        act = menu.addAction("Edit axis type…")
+        if menu.exec(self._tree.viewport().mapToGlobal(pos)) == act:
+            self._edit_axis_type(ax)
+
+    def _edit_axis_type(self, ax) -> None:
+        """Pop a dialog to let the user assign an AxisType to an axis."""
+        type_names = [t.value for t in AxisType]
+        current    = ax.axis_type.value
+        current_idx = type_names.index(current) if current in type_names else 0
+
+        chosen, ok = QtWidgets.QInputDialog.getItem(
+            self, "Edit Axis Type",
+            f"Axis:  {ax.label}\nSelect type:",
+            type_names, current_idx, editable=False,
+        )
+        if not ok:
+            return
+        ax.axis_type = AxisType(chosen)
+        if self._current_item is not None:
+            self.set_item(self._current_item)

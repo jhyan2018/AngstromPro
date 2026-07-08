@@ -16,13 +16,17 @@ import copy
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
 from .geometric_operation import rotate2d
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -63,7 +67,7 @@ _SCHEMA = ProcessSchema(
 
 
 @register_process(
-    name        = "spatial.rotate2d",
+    name        = "spatial.rotate_2d",
     label       = "Rotate 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
@@ -72,7 +76,7 @@ _SCHEMA = ProcessSchema(
 def rotate2d_process(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.rotate2d requires ndim=3; got shape {src.data.shape}.")
+        raise ValueError(f"spatial.rotate_2d requires ndim=3; got shape {src.data.shape}.")
 
     out = rotate2d(src.data, params["theta"],
                    params["interpolate_method"], params["pad_method"])

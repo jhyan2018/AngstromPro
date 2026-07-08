@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -35,7 +35,22 @@ def _parse_header(path: Path) -> tuple[dict, list[str], int]:
     return header, column_names, data_offset
 
 
+def _infer_sweep_axis_type(col_name: str) -> AxisType:
+    """Infer AxisType from the sweep column name."""
+    name_lower = col_name.lower()
+    if "bias" in name_lower:
+        return AxisType.BIAS
+    if "z" in name_lower:
+        return AxisType.SPATIAL_Z
+    return AxisType.UNKNOWN
+
+
 def load(path: Path) -> UdsDataStru:
+    """Return a single UdsDataStru with the full raw data matrix (n_points × n_cols).
+
+    Column splitting per channel-manager config is handled by
+    file_loading._extract_dat_channels; this function just loads the raw table.
+    """
     path = Path(path)
     try:
         header, column_names, data_offset = _parse_header(path)
@@ -52,25 +67,30 @@ def load(path: Path) -> UdsDataStru:
     if data.ndim == 1:
         data = data.reshape(1, -1)
 
-    n_rows, n_cols = data.shape
+    sweep_col  = column_names[0] if column_names else "sweep"
+    sweep_type = _infer_sweep_axis_type(sweep_col)
 
-    ax_row = Axis(values=np.arange(n_rows, dtype=float), label="index")
-    ax_col = Axis(values=np.arange(n_cols, dtype=float), label="channel index")
-
-    info: dict = {
-        "source_format": "nanonis_dat",
-        "column_names": column_names,
-    }
-    for k, v in header.items():
-        info[k] = v
+    # Axes: one per column — sweep axis is axis 0, channels follow
+    axes = [
+        Axis(values=data[:, i].copy(),
+             label=column_names[i] if i < len(column_names) else f"col{i}",
+             units="",
+             axis_type=sweep_type if i == 0 else AxisType.UNKNOWN)
+        for i in range(data.shape[1])
+    ]
 
     return UdsDataStru(
-        name=path.stem,
-        data=data,
-        axes=[ax_row, ax_col],
-        info=info,
-        proc_history=[],
-        landmarks={},
+        name         = path.stem,
+        data         = data,          # shape (n_points, n_cols) — sliced by _extract_dat_channels
+        axes         = axes,
+        info         = {
+            "source_format": "nanonis_dat",
+            "column_names":  column_names,
+            "sweep_column":  sweep_col,
+            **{k: v for k, v in header.items()},
+        },
+        proc_history = [],
+        landmarks    = {},
     )
 
 

@@ -21,6 +21,7 @@ from scipy.ndimage import rotate
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -43,11 +44,15 @@ def _build_name(src_name: str, n_fold: int) -> str:
     return src_name + suffix
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spatial.symmetrize",
-    label       = "N-fold Symmetrize",
+    name        = "spatial.symmetrize_2d",
+    label       = "N-fold Symmetrize 2D",
     category    = "Spatial",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",

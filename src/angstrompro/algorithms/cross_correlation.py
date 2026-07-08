@@ -28,10 +28,13 @@ from scipy.signal import correlate
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
+
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
 
 _TWO_STACK_INPUTS = [
     InputSpec(
@@ -65,10 +68,11 @@ _LAYER_PARAM = ParameterSpec(
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "math.cross_correlation",
-    label       = "Cross Correlation",
+    name        = "math.cross_correlation_2d",
+    label       = "Cross Correlation 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs = _TWO_STACK_INPUTS,
         params = [_LAYER_PARAM],
     ),
@@ -141,10 +145,11 @@ def _statistic_cross_correlation(da: np.ndarray, db: np.ndarray,
 
 
 @register_process(
-    name        = "math.statistic_cross_correlation",
-    label       = "Statistic Cross Correlation",
+    name        = "math.statistic_cross_correlation_2d",
+    label       = "Statistic Cross Correlation 2D",
     category    = "Math",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs = _TWO_STACK_INPUTS,
         params = [
             _LAYER_PARAM,

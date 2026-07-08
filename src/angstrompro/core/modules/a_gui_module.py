@@ -464,7 +464,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         vl.setContentsMargins(4, 6, 4, 2)
         vl.setSpacing(2)
 
-        title = QtWidgets.QLabel("Active Slots")
+        title = QtWidgets.QLabel("Active Processing Slots")
         font = title.font()
         font.setBold(True)
         title.setFont(font)

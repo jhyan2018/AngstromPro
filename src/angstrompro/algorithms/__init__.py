@@ -8,16 +8,16 @@ Importing this package triggers all @register_process decorators so that
 ProcessRegistry.__init__ can snapshot _PENDING.
 """
 
-from . import crop2d
+from . import crop
 from . import simulate
 from . import extend_region
 from . import fft
 from . import fft_filter
 from . import spatial_mask
 from . import background_subtract
-from . import rotate2d
+from . import rotate
 from . import perfect_lattice
-from . import lock_in_2d
+from . import lock_in
 from . import lf_correction
 from . import math_ops
 from . import r_map
@@ -30,4 +30,5 @@ from . import normalization
 from . import line_circle_cut
 from . import interpolation
 from . import symmetrize
-from . import smooth1d
+from . import smooth
+from . import transpose

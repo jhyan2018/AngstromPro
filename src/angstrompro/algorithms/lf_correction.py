@@ -32,12 +32,13 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
 from angstrompro.core.processes.param_schema import AnnotationSpec
-from .lock_in_2d import _lock_in_layer, _unwrap_phase
+from .lock_in import _lock_in_layer, _unwrap_phase
 from .pixel_interpolation import PixelInterpolation
 
 
@@ -96,9 +97,12 @@ def _compute_displacement_field(data2d: np.ndarray,
     return df
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 # ── spatial.lf_displacement_field ─────────────────────────────────────────────
 
 _SCHEMA_DF = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -149,8 +153,8 @@ _SCHEMA_DF = ProcessSchema(
 
 
 @register_process(
-    name        = "spatial.lf_displacement_field",
-    label       = "LF Displacement Field",
+    name        = "spatial.lf_displacement_field_2d",
+    label       = "LF Displacement Field 2D",
     category    = "Spatial",
     schema      = _SCHEMA_DF,
     description = "Compute the lattice-distortion displacement field (ux, uy) "
@@ -162,12 +166,12 @@ def lf_displacement_field(inputs: dict, params: dict,
     src    = inputs["data"]
     coords = (annotations or {}).get("bragg_peaks")
     if coords is None or not hasattr(coords, "coords"):
-        raise ValueError("spatial.lf_displacement_field requires a 'bragg_peaks' annotation.")
+        raise ValueError("spatial.lf_displacement_field_2d requires a 'bragg_peaks' annotation.")
 
     pts = coords.coords   # (N, 2) [row, col]
     if pts.shape[0] < 2:
         raise ValueError(
-            "spatial.lf_displacement_field requires at least 2 Bragg peaks "
+            "spatial.lf_displacement_field_2d requires at least 2 Bragg peaks "
             f"(Q1 and Q2); got {pts.shape[0]}.")
 
     N        = src.data.shape[-1]
@@ -195,6 +199,7 @@ def lf_displacement_field(inputs: dict, params: dict,
 # ── spatial.lf_correction ─────────────────────────────────────────────────────
 
 _SCHEMA_LF = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -235,8 +240,8 @@ _SCHEMA_LF = ProcessSchema(
 
 
 @register_process(
-    name        = "spatial.lf_correction",
-    label       = "LF Correction",
+    name        = "spatial.lf_correction_2d",
+    label       = "LF Correction 2D",
     category    = "Spatial",
     schema      = _SCHEMA_LF,
     description = "Apply a pre-computed lattice-distortion displacement field to every "

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -116,23 +116,26 @@ def load(path: Path,
         data_fwd = data_all[fwd_indices, :, :]  # shape (n_channels, y, x)
         n_ch = len(channel_names)
 
-        # Build axes
-        ax_ch = Axis(
-            values=np.arange(n_ch, dtype=float),
-            label="Channel",
-            units="",
+        # Build axes — each channel loaded as (1, y, x): axis[0]=bias, axis[1]=y, axis[2]=x
+        bias_v = float(info.get("bias_v", 0.0))
+        ax_bias = Axis(
+            values=np.array([bias_v]),
+            label="Bias (V)",
+            units="V",
+            axis_type=AxisType.BIAS,
         )
         ax_y = Axis(
             values=np.linspace(0.0, y_range, y_pixels),
             label="Y (m)",
             units="m",
+            axis_type=AxisType.SPATIAL_Y,
         )
         ax_x = Axis(
             values=np.linspace(0.0, x_range, x_pixels),
             label="X (m)",
             units="m",
+            axis_type=AxisType.SPATIAL_X,
         )
-        # axes order matches data shape: (n_channels, y, x)
 
         # Metadata
         info: dict = {
@@ -172,7 +175,7 @@ def load(path: Path,
         return UdsDataStru(
             name=f"{path.stem}_{channel_names[ci]}",
             data=single.astype(np.float64),
-            axes=[ax_ch, ax_y, ax_x],
+            axes=[ax_bias, ax_y, ax_x],
             info=ch_info,
             proc_history=[],
             landmarks={},
@@ -186,7 +189,7 @@ def load(path: Path,
     return UdsDataStru(
         name=path.stem,
         data=data_fwd.astype(np.float64),
-        axes=[ax_ch, ax_y, ax_x],
+        axes=[ax_bias, ax_y, ax_x],
         info=info,
         proc_history=[],
         landmarks={},

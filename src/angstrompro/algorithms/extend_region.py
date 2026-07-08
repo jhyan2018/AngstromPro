@@ -24,6 +24,7 @@ import numpy as np
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -149,7 +150,10 @@ def _extend_region_2d(img: np.ndarray, a1, a2, roi) -> np.ndarray:
 # Schema
 # ---------------------------------------------------------------------------
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
 _SCHEMA = ProcessSchema(
+    outputs=_OUT_3D,
     inputs=[
         InputSpec(
             name        = "data",
@@ -210,8 +214,8 @@ _SCHEMA = ProcessSchema(
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spatial.extend_region",
-    label       = "Extend Region",
+    name        = "spatial.extend_region_2d",
+    label       = "Extend Region 2D",
     category    = "Spatial",
     schema      = _SCHEMA,
     description = "Tile the interest_region annotation over the full FOV "
@@ -220,11 +224,11 @@ _SCHEMA = ProcessSchema(
 def extend_region(inputs: dict, params: dict, *, annotations: dict | None = None) -> UdsDataStru:
     src: UdsDataStru = inputs["data"]
     if src.data.ndim != 3:
-        raise ValueError(f"spatial.extend_region requires ndim=3; got shape {src.data.shape}.")
+        raise ValueError(f"spatial.extend_region_2d requires ndim=3; got shape {src.data.shape}.")
 
     if not annotations or "interest_region" not in annotations:
         raise ValueError(
-            "spatial.extend_region requires an 'interest_region' annotation. "
+            "spatial.extend_region_2d requires an 'interest_region' annotation. "
             "Use Points → 'Set Interest Region from Main' to define it first."
         )
 

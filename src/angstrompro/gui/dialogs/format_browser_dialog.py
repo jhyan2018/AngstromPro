@@ -10,6 +10,7 @@ loading and/or saving.  Opened from Help → Supported Formats…
 from __future__ import annotations
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.gui.dialogs.persistent_dialog import PersistentDialog
 
 
 def show_format_browser(parent=None) -> None:
@@ -20,13 +21,14 @@ def show_format_browser(parent=None) -> None:
     dlg.raise_()
 
 
-class FormatBrowserDialog(QtWidgets.QDialog):
+class FormatBrowserDialog(PersistentDialog):
+
+    _settings_key = "FormatBrowserDialog"
 
     def __init__(self, parent=None) -> None:
-        super().__init__(parent)
+        super().__init__(parent, default_size=(820, 500))
         self.setWindowTitle("Supported File Formats")
         self.setWindowModality(QtCore.Qt.WindowModality.NonModal)
-        self.resize(820, 500)
         self._build_ui()
         self._populate()
 

@@ -19,17 +19,22 @@ import numpy as np
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
 )
 
 
+_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+
+
 @register_process(
-    name        = "spectral.integral",
-    label       = "Layer Integral",
+    name        = "spectral.integral_2d",
+    label       = "Layer Integral 2D",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_3D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -74,12 +79,12 @@ def integral(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 
     if start < 0 or start >= n_layers:
         raise ValueError(
-            f"spectral.integral: layer_start {start} out of range "
+            f"spectral.integral_2d: layer_start {start} out of range "
             f"for a stack with {n_layers} layers."
         )
     if end < start or end >= n_layers:
         raise ValueError(
-            f"spectral.integral: layer_end {end} out of range or less than "
+            f"spectral.integral_2d: layer_end {end} out of range or less than "
             f"layer_start {start} (stack has {n_layers} layers)."
         )
 

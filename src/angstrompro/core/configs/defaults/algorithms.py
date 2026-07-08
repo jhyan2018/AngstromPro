@@ -4,10 +4,7 @@ DEFAULTS = {
     # Add entries here when you register a new built-in process.
     "process_menus": {
         "image_stack_viewer": [],
-        "curve_stack_viewer": [
-            "curve.smooth_savgol",
-            "curve.smooth_gaussian",
-        ],
+        "curve_stack_viewer": [],
     },
 
     # User additions to process menus per module_id.

@@ -32,6 +32,7 @@ from scipy.ndimage import map_coordinates
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
+    OutputSpec,
     ParameterSpec,
     ProcessSchema,
     register_process,
@@ -150,15 +151,18 @@ class _CircleCut:
         return averaged  # (L, N)
 
 
+_OUT_2D = [OutputSpec(type_id="uds", ndim=2, label="Curve Stack", description="ndim=2 UDS (curves × points).")]
+
 # ---------------------------------------------------------------------------
 # Registered process: spectral.line_cut
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spectral.line_cut",
-    label       = "Line Cut",
+    name        = "spectral.line_cut_2d",
+    label       = "Line Cut 2D",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_2D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -238,7 +242,7 @@ def line_cut(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 
     if ann is None or not (hasattr(ann, "p1") and hasattr(ann, "p2")):
         raise ValueError(
-            "spectral.line_cut: 'line_cut' annotation is missing or invalid. "
+            "spectral.line_cut_2d: 'line_cut' annotation is missing or invalid. "
             "Set a line annotation on the item first."
         )
 
@@ -293,10 +297,11 @@ def line_cut(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 # ---------------------------------------------------------------------------
 
 @register_process(
-    name        = "spectral.circle_cut",
-    label       = "Circle Cut",
+    name        = "spectral.circle_cut_2d",
+    label       = "Circle Cut 2D",
     category    = "Spectral",
     schema      = ProcessSchema(
+        outputs=_OUT_2D,
         inputs=[
             InputSpec(
                 name        = "data",
@@ -366,12 +371,12 @@ def circle_cut(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 
     if ann is None or not hasattr(ann, "coords"):
         raise ValueError(
-            "spectral.circle_cut: 'circle_cut_points' annotation is missing or invalid. "
+            "spectral.circle_cut_2d: 'circle_cut_points' annotation is missing or invalid. "
             "Set two points (centre + edge) on the item first."
         )
     if ann.coords.shape[0] < 2:
         raise ValueError(
-            f"spectral.circle_cut: need exactly 2 points (centre + edge); "
+            f"spectral.circle_cut_2d: need exactly 2 points (centre + edge); "
             f"got {ann.coords.shape[0]}."
         )
 
