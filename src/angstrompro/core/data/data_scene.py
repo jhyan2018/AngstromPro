@@ -65,3 +65,63 @@ class DataScene(WorkspaceData):
         if self.canvas_config.y_label:
             d["Y"] = self.canvas_config.y_label
         return d
+
+    def inspect_fields(self) -> list:
+        cfg = self.canvas_config
+        cfg_children = [
+            {"kind": "value", "label": attr, "value": str(val)}
+            for attr, val in [
+                ("title",          cfg.title or "—"),
+                ("x_label",        cfg.x_label or "—"),
+                ("y_label",        cfg.y_label or "—"),
+                ("plot_mode",      cfg.plot_mode),
+                ("offset",         str(cfg.offset)),
+                ("colormap",       cfg.colormap),
+                ("show_grid",      str(cfg.show_grid)),
+                ("legend_visible", str(cfg.legend_visible)),
+                ("x_range",        f"{cfg.x_min} … {cfg.x_max}"),
+                ("y_range",        f"{cfg.y_min} … {cfg.y_max}"),
+            ]
+        ]
+
+        entry_children = []
+        for i, entry in enumerate(self.entries):
+            uds = entry.data
+            style = entry.style
+            shape_str = str(uds.data.shape) if uds.data is not None else "—"
+            ch = []
+            if uds.data is not None:
+                ch.append({"kind": "array", "label": "data", "array": uds.data})
+            for j, ax in enumerate(uds.axes):
+                rng = (f"{ax.values[0]:.4g} … {ax.values[-1]:.4g}"
+                       if len(ax.values) > 0 else "empty")
+                ch.append({
+                    "kind": "group",
+                    "label": f"axis[{j}]  {ax.label}",
+                    "summary": f"{len(ax.values)} pts  {rng}  {ax.units}",
+                    "children": [
+                        {"kind": "array", "label": "values", "array": ax.values},
+                    ],
+                })
+            ch.append({
+                "kind": "group", "label": "style", "summary": "",
+                "children": [
+                    {"kind": "value", "label": sattr,
+                     "value": str(getattr(style, sattr))}
+                    for sattr in ("color", "linewidth", "linestyle",
+                                  "marker", "alpha", "label", "visible")
+                ],
+            })
+            entry_children.append({
+                "kind": "group",
+                "label": f"[{i}]  {uds.name}",
+                "summary": shape_str,
+                "children": ch,
+            })
+
+        return [
+            {"kind": "group", "label": "canvas_config",
+             "summary": f"mode={cfg.plot_mode}", "children": cfg_children},
+            {"kind": "group", "label": "entries",
+             "summary": f"{len(self.entries)} curve(s)", "children": entry_children},
+        ]

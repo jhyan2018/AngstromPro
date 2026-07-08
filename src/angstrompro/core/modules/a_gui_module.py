@@ -987,20 +987,24 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if on_error is not None:
             handle.error.connect(on_error)
 
-        # Status bar feedback wired to this handle's lifecycle
+        # Status bar feedback wired to this handle's lifecycle.
+        # Explicit QueuedConnection: handle signals may be emitted from the worker
+        # thread (if any upstream slot runs there); QueuedConnection ensures the
+        # status-bar update always executes on the GUI thread.
+        _Q = QtCore.Qt.ConnectionType.QueuedConnection
         sb = self.statusBar()
         sb.showMessage(f"{label}: submitted…")
         handle.started.connect(
-            lambda _tid, l=label: sb.showMessage(f"{l}: running…"))
+            lambda _tid, l=label: sb.showMessage(f"{l}: running…"), _Q)
         handle.progress.connect(
             lambda _tid, cur, tot, l=label:
-                sb.showMessage(f"{l}: {cur}/{tot}"))
+                sb.showMessage(f"{l}: {cur}/{tot}"), _Q)
         handle.result.connect(
-            lambda _tid, _res, l=label: sb.showMessage(f"{l}: done.", 5000))
+            lambda _tid, _res, l=label: sb.showMessage(f"{l}: done.", 5000), _Q)
         handle.error.connect(
-            lambda _tid, _err, l=label: sb.showMessage(f"{l}: failed.", 8000))
+            lambda _tid, _err, l=label: sb.showMessage(f"{l}: failed.", 8000), _Q)
         handle.cancelled.connect(
-            lambda _tid, l=label: sb.showMessage(f"{l}: cancelled.", 5000))
+            lambda _tid, l=label: sb.showMessage(f"{l}: cancelled.", 5000), _Q)
 
         return handle
 

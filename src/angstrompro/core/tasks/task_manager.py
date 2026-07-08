@@ -9,6 +9,8 @@ import logging
 from angstrompro.utils.qt_compat import QtCore
 
 from angstrompro.utils.qt_compat import Signal
+
+_Q = QtCore.Qt.ConnectionType.QueuedConnection
 from .task_dispatcher import TaskDispatcher
 from .task_handle import TaskHandle
 from .task_request import TaskRequest
@@ -74,11 +76,20 @@ class TaskManager(QtCore.QObject):
         tid = request.task_id
 
         if first:
-            signals.started.connect(lambda t=tid: handle.started.emit(t))
+            # _sig= captures keep `signals` (a _RunSignals QObject) alive via a
+            # Python reference inside each lambda closure.  This prevents the
+            # _RunSignals C++ object from being destroyed (via Python GC) before
+            # Qt delivers the QueuedConnection events on the main thread — Qt
+            # cancels pending queued events when the sender is destroyed.
+            signals.started.connect(
+                lambda t=tid, _sig=signals: handle.started.emit(t), _Q)
 
-        signals.result.connect(   lambda r, t=tid:                   self._on_result(t, r))
-        signals.error.connect(    lambda e, t=tid, rl=retries_left:  self._on_error(t, e, rl))
-        signals.cancelled.connect(lambda    t=tid:                   self._on_cancelled(t))
+        signals.result.connect(
+            lambda r, t=tid, _sig=signals: self._on_result(t, r), _Q)
+        signals.error.connect(
+            lambda e, t=tid, rl=retries_left, _sig=signals: self._on_error(t, e, rl), _Q)
+        signals.cancelled.connect(
+            lambda t=tid, _sig=signals: self._on_cancelled(t), _Q)
 
         if request.timeout_s is not None:
             timer = QtCore.QTimer(self)
@@ -86,8 +97,11 @@ class TaskManager(QtCore.QObject):
             timer.timeout.connect(lambda t=tid: self._on_timeout(t))
             self._timers[tid] = timer
             signals.started.connect(
-                lambda t=tid: self._timers[t].start(int(request.timeout_s * 1000))
-                if t in self._timers else None
+                lambda t=tid, _sig=signals: (
+                    self._timers[t].start(int(request.timeout_s * 1000))
+                    if t in self._timers else None
+                ),
+                _Q,
             )
 
     def _on_result(self, task_id: str, result_obj) -> None:

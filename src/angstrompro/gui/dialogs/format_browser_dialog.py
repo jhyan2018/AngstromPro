@@ -42,10 +42,16 @@ class FormatBrowserDialog(PersistentDialog):
         # summary label — filled after populate
         self._summary = QtWidgets.QLabel()
         self._summary.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self._summary)
+        layout.addWidget(self._summary, 0)
 
-        # table
-        self._table = QtWidgets.QTableWidget(0, 5)
+        # inner widget for scroll area
+        inner = QtWidgets.QWidget()
+        inner.setMinimumWidth(600)
+        inner_layout = QtWidgets.QVBoxLayout(inner)
+        inner_layout.setContentsMargins(0, 0, 0, 0)
+        inner_layout.setSpacing(0)
+
+        self._table = _AutoHeightTable(5)
         self._table.setHorizontalHeaderLabels(
             ["Format name", "Extension", "Load", "Save", "Description"])
         hh = self._table.horizontalHeader()
@@ -54,13 +60,42 @@ class FormatBrowserDialog(PersistentDialog):
         hh.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         hh.setSectionResizeMode(4, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        hh.setDefaultAlignment(
+            QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter
+            if hasattr(QtCore.Qt.AlignmentFlag, "AlignLeft")
+            else QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
         self._table.verticalHeader().setVisible(False)
         self._table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.setEditTriggers(
             QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.setAlternatingRowColors(True)
-        layout.addWidget(self._table)
+        self._table.setWordWrap(True)
+        self._table.setStyleSheet(
+            "QTableWidget { border: 1px solid palette(mid); }"
+            "QTableWidget::item { padding: 4px 8px; }"
+            "QHeaderView::section { padding: 4px 8px; }"
+            "QScrollBar:vertical { width: 0px; }"
+            "QScrollBar:horizontal { height: 0px; }"
+        )
+        self._table.setVerticalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            if hasattr(QtCore.Qt.ScrollBarPolicy, "ScrollBarAlwaysOff")
+            else QtCore.Qt.ScrollBarAlwaysOff)
+        self._table.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+            if hasattr(QtCore.Qt.ScrollBarPolicy, "ScrollBarAlwaysOff")
+            else QtCore.Qt.ScrollBarAlwaysOff)
+        inner_layout.addWidget(self._table)
+        inner_layout.addStretch()
+
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(inner)
+        scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame
+                             if hasattr(QtWidgets.QFrame.Shape, "NoFrame")
+                             else QtWidgets.QFrame.NoFrame)
+        layout.addWidget(scroll, 1)
 
         btn_close = QtWidgets.QPushButton("Close")
         btn_close.setFixedWidth(80)
@@ -68,13 +103,13 @@ class FormatBrowserDialog(PersistentDialog):
         row = QtWidgets.QHBoxLayout()
         row.addStretch()
         row.addWidget(btn_close)
-        layout.addLayout(row)
+        layout.addLayout(row, 0)
 
     def _populate(self) -> None:
         from angstrompro.io.angstrom_io import registered_formats, registered_ext_loaders
-        from angstrompro.io import formats as _   # noqa: F401 — registers raw-ext readers
-        from angstrompro.io import uds_io as _u  # noqa: F401 — registers uds r/w
-        from angstrompro.io import scene_io as _s  # noqa: F401 — registers scene r/w
+        from angstrompro.io import formats as _    # noqa: F401
+        from angstrompro.io import uds_io as _u   # noqa: F401
+        from angstrompro.io import scene_io as _s  # noqa: F401
 
         formats = registered_formats() + registered_ext_loaders()
 
@@ -95,9 +130,41 @@ class FormatBrowserDialog(PersistentDialog):
             f"{len(formats)} format(s) registered  ·  "
             f"{n_load} loadable  ·  {n_save} saveable"
         )
+        QtCore.QTimer.singleShot(0, self._refit_rows)
+
+    def _refit_rows(self) -> None:
+        self._table.resizeRowsToContents()
+        self._table.updateGeometry()
 
 
-# helpers
+# ---------------------------------------------------------------------------
+# Auto-height table — expands to show all rows, word-wraps description column
+# ---------------------------------------------------------------------------
+
+class _AutoHeightTable(QtWidgets.QTableWidget):
+
+    def __init__(self, cols: int, parent=None):
+        super().__init__(0, cols, parent)
+
+    def sizeHint(self) -> QtCore.QSize:
+        frame = self.frameWidth() * 2
+        h = self.horizontalHeader().height() + frame
+        for i in range(self.rowCount()):
+            h += self.rowHeight(i)
+        return QtCore.QSize(super().sizeHint().width(), h)
+
+    def minimumSizeHint(self) -> QtCore.QSize:
+        return self.sizeHint()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        QtCore.QTimer.singleShot(0, lambda: (
+            self.resizeRowsToContents(), self.updateGeometry()))
+
+
+# ---------------------------------------------------------------------------
+# Cell helpers
+# ---------------------------------------------------------------------------
 
 def _cell(text: str) -> QtWidgets.QTableWidgetItem:
     item = QtWidgets.QTableWidgetItem(text)
@@ -108,6 +175,5 @@ def _cell(text: str) -> QtWidgets.QTableWidgetItem:
 
 def _check_cell(flag: bool) -> QtWidgets.QTableWidgetItem:
     item = QtWidgets.QTableWidgetItem("✓" if flag else "—")
-    item.setTextAlignment(
-        QtCore.Qt.AlignmentFlag.AlignCenter)
+    item.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
     return item

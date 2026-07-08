@@ -24,6 +24,7 @@ class _RunSignals(QtCore.QObject):
 class _Runnable(QtCore.QRunnable):
     def __init__(self, task_func, task_kwargs, cancel_token=None) -> None:
         super().__init__()
+        self.setAutoDelete(False)
         self.task_func    = task_func
         self.task_kwargs  = task_kwargs
         self.cancel_token = cancel_token
@@ -55,13 +56,30 @@ class PoolExecutor(QtCore.QObject):
 
         runnable = _Runnable(request.task_func, kwargs, cancel_token=cancel_token)
         tid = request.task_id
-        runnable.signals.result.connect(   lambda r, t=tid: self._cleanup(t))
-        runnable.signals.error.connect(    lambda e, t=tid: self._cleanup(t))
-        runnable.signals.cancelled.connect(lambda    t=tid: self._cleanup(t))
+
+        # DirectConnection is intentional here: cleanup runs on the WORKER THREAD
+        # while _Runnable.run() is still on the call stack, so `runnable`/`signals`
+        # are guaranteed alive.  The lambda connections in task_manager use
+        # QueuedConnection (with _sig= capture) for thread-safe main-thread delivery.
+        runnable.signals.result.connect(   self._make_cleanup(tid))
+        runnable.signals.error.connect(    self._make_cleanup(tid))
+        runnable.signals.cancelled.connect(self._make_cleanup(tid))
 
         self._runnables[tid] = runnable
-        self._pool.start(runnable, _PRIORITY_MAP.get(request.priority, 0))
+        priority = _PRIORITY_MAP.get(request.priority, 0)
+        # Defer the actual thread start to the next event-loop iteration.
+        # task_manager connects its listeners to `signals` AFTER submit() returns,
+        # so starting the thread immediately creates a race: fast tasks (e.g.
+        # sub-millisecond computations) can emit signals.result BEFORE
+        # task_manager has connected _on_result, silently dropping the event.
+        QtCore.QTimer.singleShot(0, lambda rn=runnable, p=priority: self._pool.start(rn, p))
         return runnable.signals
+
+    def _make_cleanup(self, task_id: str):
+        """Return a bound slot callable for cleanup — avoids lambda/DirectConnection pitfall."""
+        def _slot(*_args):
+            self._runnables.pop(task_id, None)
+        return _slot
 
     def _cleanup(self, task_id: str) -> None:
         self._runnables.pop(task_id, None)

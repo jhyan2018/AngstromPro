@@ -26,6 +26,8 @@ class MainWorkbench(AGuiModule):
     display_name    = "AngstromPro Main Workbench"
     category        = "Main Workbench"
     config_sections = None
+    staged_labels   = ["[0]", "[1]"]
+    clearable_slots = {0, 1}
 
     _global_preferences_schema = [
         PrefSection("General", "settings", [
@@ -206,7 +208,22 @@ class MainWorkbench(AGuiModule):
             self._dock_config.setVisible(not self._dock_config.isVisible())
 
     def on_item_loaded(self, item: WorkspaceItem) -> None:
-        pass
+        inputs = list(self.process_inputs)
+        if not inputs:
+            inputs = [item]
+        else:
+            inputs[0] = item
+        self.process_inputs = inputs
+        self._refresh_slots_panel()
+        self._refresh_workspace_panel()
+
+    def _clear_slot(self, idx: int) -> None:
+        inputs = list(self.process_inputs)
+        if idx < len(inputs):
+            inputs[idx] = None
+        self.process_inputs = inputs
+        self._refresh_slots_panel()
+        self._refresh_workspace_panel()
 
     # ------------------------------------------------------------------
 

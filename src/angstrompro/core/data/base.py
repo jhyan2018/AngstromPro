@@ -17,7 +17,7 @@ Data classes are pure data containers — no IO code lives here.
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 
 class WorkspaceData:
@@ -51,6 +51,33 @@ class WorkspaceData:
     # ------------------------------------------------------------------
     # Dunder helpers
     # ------------------------------------------------------------------
+
+    def inspect_fields(self) -> list[dict[str, Any]]:
+        """Return a structured description of this object's fields for the inspector.
+
+        Each entry is a dict with a ``kind`` key:
+          {"kind": "value",  "label": str, "value": str}
+          {"kind": "array",  "label": str, "array": np.ndarray}
+          {"kind": "group",  "label": str, "summary": str, "children": list}
+          {"kind": "axis",   "label": str, "summary": str,
+                             "axis": Axis, "children": list}
+
+        The default implementation reflects all public non-callable attributes.
+        Override in concrete subclasses to give a curated, ordered view.
+        """
+        import numpy as np
+        nodes: list[dict[str, Any]] = []
+        for attr in vars(self):
+            if attr.startswith("_"):
+                continue
+            val = getattr(self, attr)
+            if callable(val):
+                continue
+            if isinstance(val, np.ndarray):
+                nodes.append({"kind": "array", "label": attr, "array": val})
+            else:
+                nodes.append({"kind": "value", "label": attr, "value": repr(val)})
+        return nodes
 
     def __repr__(self) -> str:
         s = self.summary()

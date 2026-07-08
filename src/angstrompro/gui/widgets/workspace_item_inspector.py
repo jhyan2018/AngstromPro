@@ -4,6 +4,9 @@ WorkspaceItemInspector — read-only view of a WorkspaceItem's attributes.
 Call set_item(item) to populate; set_item(None) to clear.
 Double-clicking any ndarray node opens NdarrayEditorDialog for in-place editing.
 Designed to live inside a dock widget in AGuiModule.
+
+Each data type controls what is shown by implementing inspect_fields() on its
+WorkspaceData subclass — the inspector is a pure generic renderer.
 """
 
 from __future__ import annotations
@@ -34,7 +37,6 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         super().__init__(parent)
         self._current_item = None
         self._setup_ui()
-        # Prevent content width from propagating as window minimum size
         self.setMinimumSize(QtCore.QSize(0, 0))
 
     def minimumSizeHint(self) -> QtCore.QSize:
@@ -49,7 +51,6 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         root.setContentsMargins(4, 4, 4, 4)
         root.setSpacing(4)
 
-        # -- metadata form --
         form_widget = QtWidgets.QWidget()
         form = QtWidgets.QFormLayout(form_widget)
         form.setContentsMargins(0, 0, 0, 0)
@@ -69,7 +70,6 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         form.addRow("Source:", self._lbl_source)
         root.addWidget(form_widget)
 
-        # -- payload tree --
         self._tree = QtWidgets.QTreeWidget()
         self._tree.setColumnCount(2)
         self._tree.setHeaderLabels(["Attribute", "Value"])
@@ -84,7 +84,6 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         self._tree.customContextMenuRequested.connect(self._on_tree_context_menu)
         root.addWidget(self._tree)
 
-        # hint label
         self._hint = QtWidgets.QLabel("Double-click an array node to view/edit values.")
         self._hint.setStyleSheet("color: grey; font-size: 10px;")
         self._hint.hide()
@@ -103,177 +102,66 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         self._lbl_type.setText(item.type_id)
         self._lbl_source.setText(str(item.source_path) if item.source_path else "—")
         self._tree.clear()
-        has_array = self._populate_payload(item.payload)
+        has_array = self._render(item.payload)
         self._tree.expandToDepth(1)
         self._hint.setVisible(has_array)
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Generic renderer
     # ------------------------------------------------------------------
 
-    def _clear(self) -> None:
-        self._lbl_name.setText("—")
-        self._lbl_type.setText("—")
-        self._lbl_source.setText("—")
-        self._tree.clear()
-        self._hint.hide()
-
-    def _populate_payload(self, payload) -> bool:
-        """Populate the tree. Returns True if any ndarray nodes were added."""
-        if payload.type_id == "uds":
-            return self._populate_uds(payload)
-        if payload.type_id == "scene":
-            return self._populate_scene(payload)
-        return self._populate_generic(payload)
-
-    def _make_array_node(self, parent, label: str, array: np.ndarray) -> QtWidgets.QTreeWidgetItem:
-        """Create a tree node for an ndarray, storing the array ref for double-click editing."""
-        summary = f"ndarray  shape={array.shape}  dtype={array.dtype}  ✎"
-        node = QtWidgets.QTreeWidgetItem(parent, [label, summary])
-        node.setData(0, _ARRAY_ROLE, array)
-        node.setData(0, _LABEL_ROLE, label)
-        # italic hint that it's editable
-        font = node.font(1)
-        font.setItalic(True)
-        node.setFont(1, font)
-        return node
-
-    def _populate_uds(self, uds) -> bool:
+    def _render(self, payload) -> bool:
+        """Render inspect_fields() output into the tree. Returns True if any arrays."""
+        fields = payload.inspect_fields()
         has_array = False
-
-        # main data array
-        self._make_array_node(self._tree, "data", uds.data)
-        has_array = True
-
-        # shape / dtype / ndim as plain children under data
-        data_node = self._tree.topLevelItem(0)
-        QtWidgets.QTreeWidgetItem(data_node, ["shape", str(uds.data.shape)])
-        QtWidgets.QTreeWidgetItem(data_node, ["dtype", str(uds.data.dtype)])
-        QtWidgets.QTreeWidgetItem(data_node, ["ndim",  str(uds.data.ndim)])
-
-        # axes
-        axes_node = QtWidgets.QTreeWidgetItem(self._tree,
-            ["axes", f"{len(uds.axes)} axis/axes"])
-        for i, ax in enumerate(uds.axes):
-            rng = (f"{ax.values[0]:.4g} … {ax.values[-1]:.4g}"
-                   if len(ax.values) > 0 else "empty")
-            type_tag = f"[{ax.axis_type.value}]"
-            ax_node = QtWidgets.QTreeWidgetItem(axes_node,
-                [f"[{i}]  {type_tag}  {ax.label}",
-                 f"{len(ax.values)} pts   {rng}  {ax.units}"])
-            ax_node.setData(0, _AXIS_ROLE, ax)   # store axis ref for edit dialog
-            type_node = QtWidgets.QTreeWidgetItem(ax_node,
-                ["axis_type", ax.axis_type.value])
-            type_node.setData(0, _AXIS_ROLE, ax)
-            self._make_array_node(ax_node, "values", ax.values)
-            has_array = True
-            if ax.ticks:
-                ticks_node = QtWidgets.QTreeWidgetItem(ax_node,
-                    ["ticks", f"{len(ax.ticks)}"])
-                for pos, lbl in ax.ticks.items():
-                    QtWidgets.QTreeWidgetItem(ticks_node, [f"{pos:.4g}", lbl])
-
-        # info dict
-        info_node = QtWidgets.QTreeWidgetItem(self._tree,
-            ["info", f"{len(uds.info)} entries"])
-        for k, v in uds.info.items():
-            QtWidgets.QTreeWidgetItem(info_node, [str(k), str(v)])
-
-        # proc_history
-        ph_node = QtWidgets.QTreeWidgetItem(self._tree,
-            ["proc_history", f"{len(uds.proc_history)} steps"])
-        for i, rec in enumerate(uds.proc_history):
-            step_node = QtWidgets.QTreeWidgetItem(ph_node, [f"[{i}]", rec.step])
-            if rec.params:
-                for k, v in rec.params.items():
-                    QtWidgets.QTreeWidgetItem(step_node, [str(k), str(v)])
-            if rec.input_item_names:
-                QtWidgets.QTreeWidgetItem(step_node,
-                    ["inputs", ", ".join(rec.input_item_names)])
-
-        # landmarks
-        if uds.landmarks:
-            lm_node = QtWidgets.QTreeWidgetItem(self._tree,
-                ["landmarks", f"{len(uds.landmarks)} points"])
-            for coords, lbl in uds.landmarks.items():
-                key = "(" + ", ".join(f"{c:.4g}" for c in coords) + ")"
-                QtWidgets.QTreeWidgetItem(lm_node, [key, lbl])
-
+        for node_dict in fields:
+            item, arr = self._build_tree_item(self._tree, node_dict)
+            if arr:
+                has_array = True
         return has_array
 
-    def _populate_scene(self, scene) -> bool:
+    def _build_tree_item(self, parent, node: dict) -> tuple[QtWidgets.QTreeWidgetItem, bool]:
+        """Recursively build one QTreeWidgetItem from a node dict.
+        Returns (item, has_array)."""
+        kind = node.get("kind", "value")
+        label = node.get("label", "")
         has_array = False
 
-        # canvas config
-        cfg = scene.canvas_config
-        cfg_node = QtWidgets.QTreeWidgetItem(self._tree,
-            ["canvas_config", f"mode={cfg.plot_mode}"])
-        for attr, val in [
-            ("title",          cfg.title or "—"),
-            ("x_label",        cfg.x_label or "—"),
-            ("y_label",        cfg.y_label or "—"),
-            ("plot_mode",      cfg.plot_mode),
-            ("offset",         str(cfg.offset)),
-            ("colormap",       cfg.colormap),
-            ("show_grid",      str(cfg.show_grid)),
-            ("legend_visible", str(cfg.legend_visible)),
-            ("x_range",        f"{cfg.x_min} … {cfg.x_max}"),
-            ("y_range",        f"{cfg.y_min} … {cfg.y_max}"),
-        ]:
-            QtWidgets.QTreeWidgetItem(cfg_node, [attr, val])
-
-        # entries
-        entries_node = QtWidgets.QTreeWidgetItem(self._tree,
-            ["entries", f"{len(scene.entries)} curve(s)"])
-        for i, entry in enumerate(scene.entries):
-            uds   = entry.data
-            style = entry.style
-            shape_str = str(uds.data.shape) if uds.data is not None else "—"
-            e_node = QtWidgets.QTreeWidgetItem(entries_node,
-                [f"[{i}]  {uds.name}", shape_str])
-
-            # data array node
-            if uds.data is not None:
-                self._make_array_node(e_node, "data", uds.data)
-                has_array = True
-
-            # axes
-            if uds.axes:
-                for j, ax in enumerate(uds.axes):
-                    rng = (f"{ax.values[0]:.4g} … {ax.values[-1]:.4g}"
-                           if len(ax.values) > 0 else "empty")
-                    ax_node = QtWidgets.QTreeWidgetItem(e_node,
-                        [f"axis[{j}]  {ax.label}", f"{len(ax.values)} pts  {rng}  {ax.units}"])
-                    self._make_array_node(ax_node, "values", ax.values)
+        if kind == "array":
+            array = node["array"]
+            summary = f"ndarray  shape={array.shape}  dtype={array.dtype}  ✎"
+            item = QtWidgets.QTreeWidgetItem(parent, [label, summary])
+            item.setData(0, _ARRAY_ROLE, array)
+            item.setData(0, _LABEL_ROLE, label)
+            font = item.font(1)
+            font.setItalic(True)
+            item.setFont(1, font)
+            has_array = True
+            for child_dict in node.get("children", []):
+                _, ch_arr = self._build_tree_item(item, child_dict)
+                if ch_arr:
                     has_array = True
 
-            # style
-            sty_node = QtWidgets.QTreeWidgetItem(e_node, ["style", ""])
-            for sattr in ("color", "linewidth", "linestyle", "marker",
-                          "alpha", "label", "visible"):
-                QtWidgets.QTreeWidgetItem(sty_node,
-                    [sattr, str(getattr(style, sattr))])
+        elif kind in ("group", "axis"):
+            summary = node.get("summary", "")
+            item = QtWidgets.QTreeWidgetItem(parent, [label, summary])
+            if kind == "axis":
+                ax = node.get("axis")
+                if ax is not None:
+                    item.setData(0, _AXIS_ROLE, ax)
+            for child_dict in node.get("children", []):
+                _, ch_arr = self._build_tree_item(item, child_dict)
+                if ch_arr:
+                    has_array = True
 
-        return has_array
+        else:  # "value"
+            value = node.get("value", "")
+            item = QtWidgets.QTreeWidgetItem(parent, [label, value])
 
-    def _populate_generic(self, payload) -> bool:
-        """Fallback: show all public non-callable attributes."""
-        has_array = False
-        for attr in vars(payload):
-            if attr.startswith("_"):
-                continue
-            val = getattr(payload, attr)
-            if callable(val):
-                continue
-            if isinstance(val, np.ndarray):
-                self._make_array_node(self._tree, attr, val)
-                has_array = True
-            else:
-                QtWidgets.QTreeWidgetItem(self._tree, [attr, repr(val)])
-        return has_array
+        return item, has_array
 
     # ------------------------------------------------------------------
-    # Double-click → editor
+    # Double-click → ndarray editor
     # ------------------------------------------------------------------
 
     def _on_tree_double_clicked(self, tree_item: QtWidgets.QTreeWidgetItem,
@@ -288,6 +176,10 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
             if self._current_item is not None:
                 self.set_item(self._current_item)
 
+    # ------------------------------------------------------------------
+    # Right-click → axis type editor
+    # ------------------------------------------------------------------
+
     def _on_tree_context_menu(self, pos: QtCore.QPoint) -> None:
         item = self._tree.itemAt(pos)
         if item is None:
@@ -301,11 +193,9 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
             self._edit_axis_type(ax)
 
     def _edit_axis_type(self, ax) -> None:
-        """Pop a dialog to let the user assign an AxisType to an axis."""
         type_names = [t.value for t in AxisType]
         current    = ax.axis_type.value
         current_idx = type_names.index(current) if current in type_names else 0
-
         chosen, ok = QtWidgets.QInputDialog.getItem(
             self, "Edit Axis Type",
             f"Axis:  {ax.label}\nSelect type:",
@@ -316,3 +206,12 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         ax.axis_type = AxisType(chosen)
         if self._current_item is not None:
             self.set_item(self._current_item)
+
+    # ------------------------------------------------------------------
+
+    def _clear(self) -> None:
+        self._lbl_name.setText("—")
+        self._lbl_type.setText("—")
+        self._lbl_source.setText("—")
+        self._tree.clear()
+        self._hint.hide()

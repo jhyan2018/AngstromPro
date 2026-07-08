@@ -82,6 +82,74 @@ class UdsDataStru(WorkspaceData):
             d["History"] = f"{len(self.proc_history)} step(s)"
         return d
 
+    def inspect_fields(self) -> list:
+        nodes = []
+
+        # main data array
+        nodes.append({"kind": "array", "label": "data", "array": self.data,
+                       "children": [
+                           {"kind": "value", "label": "shape", "value": str(self.data.shape)},
+                           {"kind": "value", "label": "dtype", "value": str(self.data.dtype)},
+                           {"kind": "value", "label": "ndim",  "value": str(self.data.ndim)},
+                       ]})
+
+        # axes
+        ax_children = []
+        for i, ax in enumerate(self.axes):
+            rng = (f"{ax.values[0]:.4g} … {ax.values[-1]:.4g}"
+                   if len(ax.values) > 0 else "empty")
+            summary = f"{len(ax.values)} pts   {rng}  {ax.units}"
+            ax_children.append({
+                "kind": "axis",
+                "label": f"[{i}]  [{ax.axis_type.value}]  {ax.label}",
+                "summary": summary,
+                "axis": ax,
+                "children": [
+                    {"kind": "value", "label": "axis_type", "value": ax.axis_type.value},
+                    {"kind": "array", "label": "values", "array": ax.values},
+                    *([{"kind": "group", "label": "ticks",
+                        "summary": str(len(ax.ticks)),
+                        "children": [{"kind": "value", "label": f"{pos:.4g}", "value": lbl}
+                                     for pos, lbl in ax.ticks.items()]}]
+                      if ax.ticks else []),
+                ],
+            })
+        nodes.append({"kind": "group", "label": "axes",
+                      "summary": f"{len(self.axes)} axis/axes",
+                      "children": ax_children})
+
+        # info
+        nodes.append({"kind": "group", "label": "info",
+                      "summary": f"{len(self.info)} entries",
+                      "children": [{"kind": "value", "label": str(k), "value": str(v)}
+                                   for k, v in self.info.items()]})
+
+        # proc_history
+        ph_children = []
+        for i, rec in enumerate(self.proc_history):
+            ch = [{"kind": "value", "label": str(k), "value": str(v)}
+                  for k, v in rec.params.items()]
+            if rec.input_item_names:
+                ch.append({"kind": "value", "label": "inputs",
+                           "value": ", ".join(rec.input_item_names)})
+            ph_children.append({"kind": "group", "label": f"[{i}]",
+                                 "summary": rec.step, "children": ch})
+        nodes.append({"kind": "group", "label": "proc_history",
+                      "summary": f"{len(self.proc_history)} steps",
+                      "children": ph_children})
+
+        # landmarks
+        if self.landmarks:
+            lm_children = []
+            for coords, lbl in self.landmarks.items():
+                key = "(" + ", ".join(f"{c:.4g}" for c in coords) + ")"
+                lm_children.append({"kind": "value", "label": key, "value": lbl})
+            nodes.append({"kind": "group", "label": "landmarks",
+                          "summary": f"{len(self.landmarks)} points",
+                          "children": lm_children})
+
+        return nodes
+
     @staticmethod
     def from_array(data: np.ndarray, name: str) -> "UdsDataStru":
         """Legacy fallback: create from raw array with UNKNOWN axes."""
