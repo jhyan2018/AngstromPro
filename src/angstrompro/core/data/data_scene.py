@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import ClassVar
 
-from .base import WorkspaceData
+from .base import WorkspaceData, ProcRecord
 from .uds_data import UdsDataStru
 
 
@@ -46,9 +46,10 @@ class DataScene(WorkspaceData):
     """Multi-curve canvas: several UdsDataStru objects with their plot styles."""
     type_id: ClassVar[str] = "scene"
 
-    name: str
-    entries: list[SceneEntry]   = field(default_factory=list)
-    canvas_config: CanvasConfig = field(default_factory=CanvasConfig)
+    name:         str              = ""
+    entries: list[SceneEntry]      = field(default_factory=list)
+    canvas_config: CanvasConfig    = field(default_factory=CanvasConfig)
+    proc_history: list[ProcRecord]  = field(default_factory=list)
 
     def display_type(self) -> str:
         return "Plot Scene"

@@ -85,7 +85,7 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         root.addWidget(self._tree)
 
         self._hint = QtWidgets.QLabel("Double-click an array node to view/edit values.")
-        self._hint.setStyleSheet("color: grey; font-size: 10px;")
+        self._hint.setEnabled(False)
         self._hint.hide()
         root.addWidget(self._hint)
 

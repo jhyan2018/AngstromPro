@@ -298,6 +298,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_cb_img_rt_cmp              = QtWidgets.QCheckBox("RT-ColorMap")
         self.ui_cb_img_rt_cmp.clicked.connect(self.imageIsRtCmpOnChanged)
 
+        self.ui_cb_show_isolines = QtWidgets.QCheckBox("Show isolines")
+        self.ui_cb_show_isolines.setChecked(True)
+        self.ui_cb_show_isolines.toggled.connect(self._update_isoline_overlay)
+
         self.ui_lb_img_picked_points       = QtWidgets.QLabel("Picked Points: ")
         self.ui_cb_img_pk_pts_palette_list = QtWidgets.QComboBox()
         self.ui_cb_img_pk_pts_palette_list.addItems(self.img_marker_cn_list)
@@ -333,6 +337,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         right_top.addWidget(self.ui_lb_img_palette)
         right_top.addWidget(self.ui_cb_img_palette_list)
         right_top.addWidget(self.ui_cb_img_rt_cmp)
+        right_top.addWidget(self.ui_cb_show_isolines)
         right_top.addWidget(self.ui_lb_img_picked_points)
         pk_row = QtWidgets.QHBoxLayout()
         pk_row.addWidget(self.ui_cb_img_pk_pts_palette_list)
@@ -417,6 +422,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._rt_cursor_item        = None
         self._bias_text_item        = None
         self._bias_text_color       = '#ff0000'
+        self._iso_items             = []   # QGraphicsPathItems for isoline overlay
 
         self.img_current_layer = 0
         self.sync_rt_points    = False
@@ -662,6 +668,84 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._scene.addItem(lbl)
         return lbl
 
+    # ── isoline overlay ──────────────────────────────────────────────────
+
+    # Palette: distinct colors cycling for multiple iso-levels
+    _ISO_COLORS = ['#ff4444', '#44aaff', '#44dd44', '#ffaa00',
+                   '#dd44ff', '#00ddcc', '#ff88cc', '#aaff44']
+
+    def _clear_iso_items(self):
+        for item in self._iso_items:
+            self._scene.removeItem(item)
+        self._iso_items.clear()
+
+    def _update_isoline_overlay(self):
+        self._clear_iso_items()
+        if not self.ui_cb_show_isolines.isChecked():
+            return
+        uds = self.uds_variable
+        if not hasattr(uds, 'isocontours') or not uds.isocontours:
+            return
+
+        from angstrompro.core.data.isocontour_data import IsolineResult
+        layer = self.img_current_layer
+
+        # collect IsolineResults for the current layer
+        results = [r for r in uds.isocontours
+                   if isinstance(r, IsolineResult) and r.layer_index == layer]
+        if not results:
+            return
+
+        # axis arrays for coordinate conversion (axis-units → pixel index)
+        axes = getattr(uds, 'axes', [])
+        ax_row = axes[1].values if len(axes) > 1 else None  # y axis (rows)
+        ax_col = axes[2].values if len(axes) > 2 else None  # x axis (cols)
+        n_rows = uds.data.shape[-2]
+        n_cols = uds.data.shape[-1]
+        row_px_range = np.arange(n_rows, dtype=np.float64)
+        col_px_range = np.arange(n_cols, dtype=np.float64)
+
+        # assign one color per unique level value
+        unique_levels = list(dict.fromkeys(r.level for r in results))
+        level_color = {
+            lv: self._ISO_COLORS[i % len(self._ISO_COLORS)]
+            for i, lv in enumerate(unique_levels)
+        }
+
+        pen_width = 1.5
+
+        for result in results:
+            color_hex = level_color[result.level]
+            pen = QtGui.QPen(QtGui.QColor(color_hex))
+            pen.setCosmetic(True)
+            pen.setWidthF(pen_width)
+
+            for contour in result.contours:
+                # contour is (N, 2): col_axis_val, row_axis_val
+                if len(contour) < 2:
+                    continue
+
+                # convert axis units → fractional pixel index
+                if ax_col is not None:
+                    xs = np.interp(contour[:, 0], ax_col, col_px_range)
+                else:
+                    xs = contour[:, 0]
+                if ax_row is not None:
+                    ys = np.interp(contour[:, 1], ax_row, row_px_range)
+                else:
+                    ys = contour[:, 1]
+
+                path = QtGui.QPainterPath()
+                path.moveTo(xs[0], ys[0])
+                for x, y in zip(xs[1:], ys[1:]):
+                    path.lineTo(x, y)
+
+                path_item = QtWidgets.QGraphicsPathItem(path)
+                path_item.setPen(pen)
+                path_item.setZValue(8)   # above image (0), below picked points (10)
+                self._scene.addItem(path_item)
+                self._iso_items.append(path_item)
+
     # ── real-time cursor ──────────────────────────────────────────────────
 
     def _update_rt_cursor(self):
@@ -905,6 +989,8 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         w, h   = pixmap.width(), pixmap.height()
         margin = max(w, h) * 4
         self._scene.setSceneRect(-margin, -margin, w + 2 * margin, h + 2 * margin)
+
+        self._update_isoline_overlay()
 
         if self.bias_text_shown:
             txt = self.ui_le_layer_value.text() + self.ui_lb_layer_unit.text()

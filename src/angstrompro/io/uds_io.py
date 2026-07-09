@@ -16,7 +16,12 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, ProcRecord, UdsDataStru
+from angstrompro.core.data.base import ProcRecord
+from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.isocontour_data import (
+    IsocontourResult, IsopointResult, IsolineResult, IsosurfaceResult,
+    ISOCONTOUR_KIND_MAP,
+)
 from angstrompro.io.angstrom_io import register_io
 from angstrompro.io.migration import apply_migrations
 
@@ -68,6 +73,13 @@ def _dict_to_uds(d: dict) -> UdsDataStru:
         tuple(float(x) for x in json.loads(k)): v
         for k, v in d.get("landmarks", {}).items()
     }
+    isocontours = []
+    isog = d.get("isocontours")   # h5py group or None
+    if isog is not None:
+        count = int(isog.attrs.get("count", 0))
+        for i in range(count):
+            if str(i) in isog:
+                isocontours.append(_isocontour_from_group(isog[str(i)]))
     return UdsDataStru(
         name         = d["name"],
         data         = d["data"],
@@ -75,7 +87,76 @@ def _dict_to_uds(d: dict) -> UdsDataStru:
         info         = d.get("info", {}),
         proc_history = proc_history,
         landmarks    = landmarks,
+        isocontours  = isocontours,
     )
+
+
+# ------------------------------------------------------------------
+# Isocontour serialization helpers
+# ------------------------------------------------------------------
+
+def _isocontour_to_group(ig, result: IsocontourResult) -> None:
+    """Write one IsocontourResult into an h5py group."""
+    ig.attrs["kind"]         = result.kind
+    ig.attrs["level"]        = result.level
+    ig.attrs["method"]       = result.method
+    ig.attrs["source_axes"]  = json.dumps(list(result.source_axes))
+    ig.attrs["layer_index"]  = result.layer_index
+    ig.attrs["notes"]        = result.notes
+
+    if isinstance(result, IsopointResult):
+        ig.create_dataset("points", data=result.points)
+
+    elif isinstance(result, IsolineResult):
+        cg = ig.create_group("contours")
+        for j, c in enumerate(result.contours):
+            cg.create_dataset(str(j), data=c)
+        cg.attrs["count"] = len(result.contours)
+
+    elif isinstance(result, IsosurfaceResult):
+        ig.create_dataset("vertices", data=result.vertices, compression="gzip")
+        ig.create_dataset("faces",    data=result.faces,    compression="gzip")
+        ig.create_dataset("normals",  data=result.normals,  compression="gzip")
+
+
+def _isocontour_from_group(ig) -> IsocontourResult:
+    """Read one IsocontourResult from an h5py group."""
+    kind        = str(ig.attrs.get("kind", ""))
+    level       = float(ig.attrs.get("level", 0.0))
+    method      = str(ig.attrs.get("method", ""))
+    source_axes = tuple(json.loads(ig.attrs.get("source_axes", "[]")))
+    layer_index = int(ig.attrs.get("layer_index", 0))
+    notes       = str(ig.attrs.get("notes", ""))
+
+    base_kwargs = dict(kind=kind, level=level, method=method,
+                       source_axes=source_axes, layer_index=layer_index, notes=notes)
+
+    if kind == "isopoint":
+        return IsopointResult(
+            **base_kwargs,
+            points=ig["points"][()] if "points" in ig else np.array([], dtype=np.float64),
+        )
+    elif kind == "isoline":
+        contours = []
+        if "contours" in ig:
+            cg    = ig["contours"]
+            count = int(cg.attrs.get("count", 0))
+            for j in range(count):
+                contours.append(cg[str(j)][()])
+        return IsolineResult(**base_kwargs, contours=contours)
+
+    elif kind == "isosurface":
+        return IsosurfaceResult(
+            **base_kwargs,
+            vertices=ig["vertices"][()] if "vertices" in ig else np.zeros((0, 3), dtype=np.float64),
+            faces   =ig["faces"][()]    if "faces"    in ig else np.zeros((0, 3), dtype=np.int32),
+            normals =ig["normals"][()]  if "normals"  in ig else np.zeros((0, 3), dtype=np.float64),
+        )
+    else:
+        # unknown kind — return base with kind tag intact
+        cls = ISOCONTOUR_KIND_MAP.get(kind, IsocontourResult)
+        return cls(**{k: v for k, v in base_kwargs.items()
+                      if k in IsocontourResult.__dataclass_fields__})
 
 
 # ------------------------------------------------------------------
@@ -104,6 +185,11 @@ def _write_to_group(g, uds: UdsDataStru) -> None:
     g.attrs["landmarks"] = json.dumps(
         {json.dumps(list(k)): v for k, v in uds.landmarks.items()}
     )
+    if uds.isocontours:
+        isog = g.create_group("isocontours")
+        isog.attrs["count"] = len(uds.isocontours)
+        for i, result in enumerate(uds.isocontours):
+            _isocontour_to_group(isog.create_group(str(i)), result)
 
 
 def _read_from_group(g) -> dict:
@@ -125,6 +211,7 @@ def _read_from_group(g) -> dict:
         "info":         json.loads(g.attrs.get("info", "{}")),
         "proc_history": json.loads(g.attrs.get("proc_history", "[]")),
         "landmarks":    json.loads(g.attrs.get("landmarks", "{}")),
+        "isocontours":  g.get("isocontours"),   # h5py group or None
     }
 
 

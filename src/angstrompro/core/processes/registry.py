@@ -150,10 +150,10 @@ def _record_history(
     inputs:       dict,
     annotations:  dict | None = None,
 ) -> Any:
-    """Append a ProcRecord to the result if it is a UdsDataStru."""
-    from angstrompro.core.data.uds_data import UdsDataStru, ProcRecord
+    """Append a ProcRecord to the result if it is a WorkspaceData with proc_history."""
+    from angstrompro.core.data.base import ProcRecord, WorkspaceData
     from angstrompro.core.data.annotation_data import serialize_annotation
-    if isinstance(result, UdsDataStru):
+    if isinstance(result, WorkspaceData) and hasattr(result, "proc_history"):
         input_item_names = [
             getattr(v, "name", "")
             for v in inputs.values()
@@ -165,7 +165,7 @@ def _record_history(
                 try:
                     serialized_annotations[role] = serialize_annotation(ann)
                 except TypeError:
-                    pass   # unknown type — skip rather than crash
+                    pass
         result.proc_history.append(ProcRecord(
             step             = process_name,
             params           = dict(params),

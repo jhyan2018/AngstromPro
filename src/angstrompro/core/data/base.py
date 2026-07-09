@@ -17,7 +17,17 @@ Data classes are pure data containers — no IO code lives here.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import Any, ClassVar
+
+
+@dataclass
+class ProcRecord:
+    """One processing step recorded in a WorkspaceData proc_history."""
+    step:             str                = ""
+    params:           dict               = field(default_factory=dict)
+    input_item_names: list[str]          = field(default_factory=list)
+    annotations:      dict               = field(default_factory=dict)
 
 
 class WorkspaceData:

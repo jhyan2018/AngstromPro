@@ -12,7 +12,8 @@ from typing import ClassVar
 
 import numpy as np
 
-from .base import WorkspaceData
+from .base import WorkspaceData, ProcRecord
+from .isocontour_data import IsocontourResult
 
 
 class AxisType(Enum):
@@ -39,27 +40,18 @@ class Axis:
     # used for band structure high-symmetry points, phase labels, etc.
 
 
-@dataclass
-class ProcRecord:
-    step: str                          # process name, e.g. "crop.1d"
-    params: dict      = field(default_factory=dict)   # exact params used
-    input_item_names: list[str] = field(default_factory=list)
-    # WorkspaceItem names of every input fed to this step, in schema order
-    annotations: dict = field(default_factory=dict)
-    # role → serialized annotation snapshot (plain dicts, JSON-safe)
-    # populated by registry._record_history via serialize_annotation()
-
 
 @dataclass
 class UdsDataStru(WorkspaceData):
     type_id: ClassVar[str] = "uds"
 
-    name: str
-    data: np.ndarray
+    name:         str                          = ""
+    data: np.ndarray                          = field(default_factory=lambda: np.array([]))
     axes: list[Axis]                          = field(default_factory=list)
     info: dict                                = field(default_factory=dict)
-    proc_history: list[ProcRecord]            = field(default_factory=list)
-    landmarks: dict[tuple[float, ...], str]   = field(default_factory=dict)
+    landmarks:   dict[tuple[float, ...], str]  = field(default_factory=dict)
+    isocontours: list[IsocontourResult]        = field(default_factory=list)
+    proc_history: list[ProcRecord]             = field(default_factory=list)
     # named points in N-dimensional data space, e.g.:
     # 1D k-path  — handled by Axis.ticks
     # 2D BZ map  — {(0.0, 0.0): "Γ", (0.5, 0.5): "K", (1.0, 0.0): "M"}
@@ -137,6 +129,47 @@ class UdsDataStru(WorkspaceData):
         nodes.append({"kind": "group", "label": "proc_history",
                       "summary": f"{len(self.proc_history)} steps",
                       "children": ph_children})
+
+        # isocontours
+        if self.isocontours:
+            iso_children = []
+            for i, r in enumerate(self.isocontours):
+                ch = [
+                    {"kind": "value", "label": "kind",        "value": r.kind},
+                    {"kind": "value", "label": "level",       "value": str(r.level)},
+                    {"kind": "value", "label": "method",      "value": r.method},
+                    {"kind": "value", "label": "layer_index", "value": str(r.layer_index)},
+                    {"kind": "value", "label": "source_axes", "value": str(r.source_axes)},
+                ]
+                from angstrompro.core.data.isocontour_data import (
+                    IsopointResult, IsolineResult, IsosurfaceResult)
+                if isinstance(r, IsopointResult):
+                    ch.append({"kind": "array", "label": "points", "array": r.points,
+                               "children": [{"kind": "value", "label": "count",
+                                             "value": str(len(r.points))}]})
+                elif isinstance(r, IsolineResult):
+                    loop_children = [
+                        {"kind": "array", "label": f"[{j}]", "array": c,
+                         "children": [{"kind": "value", "label": "points",
+                                       "value": str(len(c))}]}
+                        for j, c in enumerate(r.contours)
+                    ]
+                    ch.append({"kind": "group", "label": "contours",
+                               "summary": f"{len(r.contours)} loop(s)",
+                               "children": loop_children})
+                elif isinstance(r, IsosurfaceResult):
+                    ch.append({"kind": "value", "label": "vertices",
+                               "value": str(r.vertices.shape)})
+                    ch.append({"kind": "value", "label": "faces",
+                               "value": str(r.faces.shape)})
+                if r.notes:
+                    ch.append({"kind": "value", "label": "notes", "value": r.notes})
+                label = f"[{i}]  {r.kind}  layer={r.layer_index}  level={r.level:g}"
+                iso_children.append({"kind": "group", "label": label,
+                                     "summary": r.kind, "children": ch})
+            nodes.append({"kind": "group", "label": "isocontours",
+                          "summary": f"{len(self.isocontours)} result(s)",
+                          "children": iso_children})
 
         # landmarks
         if self.landmarks:

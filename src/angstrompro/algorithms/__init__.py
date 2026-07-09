@@ -32,3 +32,4 @@ from . import interpolation
 from . import symmetrize
 from . import smooth
 from . import transpose
+from . import isocontour

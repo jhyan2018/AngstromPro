@@ -847,10 +847,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             return
         payloads = result if isinstance(result, list) else [result]
         for payload in payloads:
-            name = self.workspace.suggest_name(
-                getattr(payload, "name", None) or p.stem
-            )
-            self.workspace.add_item(name=name, payload=payload)
+            if not payload.name:
+                payload.name = p.stem
+            self.workspace.add_item(payload=payload)
 
     def _load_with_channel_picker(self, p):
         """Deprecated: use angstrompro.gui.utils.file_loading.load_with_channel_picker."""
@@ -1028,9 +1027,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     type(item).__name__,
                 )
                 continue
-            raw_name = getattr(item, "name", None) or "result"
-            name     = self.workspace.suggest_name(raw_name)
-            self.workspace.add_item(name=name, payload=item)
+            if not item.name:
+                item.name = "result"
+            self.workspace.add_item(payload=item)
 
     def _on_process_error(self, task_id: str, error_text: str) -> None:
         log.error("Process error [%s]: %s", task_id, error_text)

@@ -260,10 +260,10 @@ class ImageStackViewer(AGuiModule):
 
         if self._context.processes.get("spectral.fft_2d") is None:
             return
-        fft_name = self.workspace.suggest_name(expected_fft_name)
-
         def _on_result(_tid, result):
-            fft_item = self.workspace.add_item(name=fft_name, payload=result)
+            if not result.name:
+                result.name = expected_fft_name
+            fft_item = self.workspace.add_item(payload=result)
             self._load_fft_aux(fft_item)
 
         self.submit_process(

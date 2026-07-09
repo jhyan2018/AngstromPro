@@ -41,17 +41,22 @@ class Workspace(QtCore.QObject):
 
     def add_item(
         self,
-        name:        str,
         payload:     WorkspaceData,
         source_path: Path | None = None,
     ) -> WorkspaceItem:
+        # Deduplicate by modifying payload.name directly
+        base = payload.name or "item"
+        if base in self._items:
+            i = 2
+            while f"{base}_{i}" in self._items:
+                i += 1
+            payload.name = f"{base}_{i}"
+        name = payload.name
         item = WorkspaceItem(
-            name=name,
             payload=payload,
             source_path=source_path,
         )
-        if name not in self._items:
-            self._item_order.append(name)
+        self._item_order.append(name)
         self._items[name] = item
         self.item_added.emit(name)
         return item
@@ -68,7 +73,7 @@ class Workspace(QtCore.QObject):
         if new_name in self._items:
             raise ValueError(f"Name {new_name!r} is already taken")
         item = self._items.pop(old_name)
-        item.name = new_name
+        item.payload.name = new_name
         self._items[new_name] = item
         idx = self._item_order.index(old_name)
         self._item_order[idx] = new_name
@@ -107,15 +112,6 @@ class Workspace(QtCore.QObject):
 
     def count(self) -> int:
         return len(self._items)
-
-    def suggest_name(self, base: str) -> str:
-        """Return base if unused, otherwise base_2, base_3, ..."""
-        if base not in self._items:
-            return base
-        i = 2
-        while f"{base}_{i}" in self._items:
-            i += 1
-        return f"{base}_{i}"
 
     def by_type(self, type_id: str) -> list[WorkspaceItem]:
         return [i for i in self._items.values() if i.type_id == type_id]

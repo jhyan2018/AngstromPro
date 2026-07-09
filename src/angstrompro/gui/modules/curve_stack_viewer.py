@@ -129,8 +129,8 @@ class CurveStackViewer(AGuiModule):
         if dlg.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
         for name, uds in dlg.result_pairs():
-            ws_name = self.workspace.suggest_name(name)
-            self.workspace.add_item(name=ws_name, payload=uds)
+            uds.name = name
+            self.workspace.add_item(payload=uds)
 
     def _on_save_scene(self) -> None:
         name, ok = QtWidgets.QInputDialog.getText(
@@ -140,8 +140,7 @@ class CurveStackViewer(AGuiModule):
             return
         name = name.strip()
         scene = self._viewer.save_scene(name)
-        ws_name = self.workspace.suggest_name(name)
-        self.workspace.add_item(name=ws_name, payload=scene)
+        self.workspace.add_item(payload=scene)
 
     def _add_to_plot(self, item: WorkspaceItem) -> None:
         """Overlay item on current figure without touching staged list."""
