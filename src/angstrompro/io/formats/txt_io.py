@@ -17,11 +17,17 @@ def load(path: Path) -> UdsDataStru:
     except Exception as exc:
         raise ValueError(f"Cannot load {path.name} as text: {exc}") from exc
 
+    # Normalise to ndim=3: (1, rows, cols)
     if data.ndim == 1:
-        data = data.reshape(1, -1)
+        data = data[np.newaxis, np.newaxis, :]   # (1, 1, N)
+    elif data.ndim == 2:
+        data = data[np.newaxis, :, :]            # (1, rows, cols)
 
-    axes = [Axis(values=np.arange(data.shape[i], dtype=float), label="index")
-            for i in range(data.ndim)]
+    axes = [
+        Axis(values=np.arange(data.shape[0], dtype=float), label="index"),
+        Axis(values=np.arange(data.shape[1], dtype=float), label="row"),
+        Axis(values=np.arange(data.shape[2], dtype=float), label="col"),
+    ]
 
     return UdsDataStru(
         name=path.stem,

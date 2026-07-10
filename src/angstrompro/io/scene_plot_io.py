@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-IO for DataScene — saved as a single self-contained HDF5 file.
+IO for ScenePlot — saved as a single self-contained HDF5 file.
 
 Version history
 ---------------
@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from angstrompro.core.data.uds_data import UdsDataStru
-from angstrompro.core.data.data_scene import CanvasConfig, DataScene, PlotStyle, SceneEntry
+from angstrompro.core.data.scene_plot import CanvasConfig, ScenePlot, PlotStyle, SceneEntry
 from angstrompro.io.angstrom_io import register_io
 from angstrompro.io.migration import apply_migrations
 from angstrompro.io.uds_io import _write_to_group as _write_uds, _read_from_group as _read_uds, _dict_to_uds
@@ -25,10 +25,10 @@ _VERSION = 1
 
 
 # ------------------------------------------------------------------
-# Intermediate dict  ←→  DataScene
+# Intermediate dict  ←→  ScenePlot
 # ------------------------------------------------------------------
 
-def _scene_to_dict(scene: DataScene) -> dict:
+def _scene_to_dict(scene: ScenePlot) -> dict:
     from angstrompro.io.uds_io import _uds_to_dict
     return {
         "name": scene.name,
@@ -64,7 +64,7 @@ def _scene_to_dict(scene: DataScene) -> dict:
     }
 
 
-def _dict_to_scene(d: dict) -> DataScene:
+def _dict_to_scene(d: dict) -> ScenePlot:
     cc = d.get("canvas_config", {})
 
     def _nan_to_none(v):
@@ -100,18 +100,18 @@ def _dict_to_scene(d: dict) -> DataScene:
         )
         entries.append(SceneEntry(data=uds, style=style))
 
-    return DataScene(name=d["name"], entries=entries, canvas_config=canvas_config)
+    return ScenePlot(name=d["name"], entries=entries, canvas_config=canvas_config)
 
 
 # ------------------------------------------------------------------
 # HDF5 file save / load
 # ------------------------------------------------------------------
 
-def save(path: Path, scene: DataScene) -> None:
+def save(path: Path, scene: ScenePlot) -> None:
     import h5py
 
     with h5py.File(path, "w") as f:
-        f.attrs["type_id"] = "scene"
+        f.attrs["type_id"] = "scene_plot"
         f.attrs["version"] = _VERSION
         f.attrs["name"]    = scene.name
 
@@ -142,7 +142,7 @@ def save(path: Path, scene: DataScene) -> None:
             sg.attrs["visible"]   = entry.style.visible
 
 
-def load(path: Path) -> DataScene:
+def load(path: Path) -> ScenePlot:
     import h5py
 
     with h5py.File(path, "r") as f:
@@ -184,14 +184,14 @@ def load(path: Path) -> DataScene:
             })
 
     d = {"name": name, "canvas_config": canvas_config_raw, "entries": entries_raw}
-    d = apply_migrations("scene", file_version, _VERSION, d)
+    d = apply_migrations("scene_plot", file_version, _VERSION, d)
     return _dict_to_scene(d)
 
 
 # ------------------------------------------------------------------
 register_io(
-    "scene", load, save,
-    extension    = ".scene",
+    "scene_plot", load, save,
+    extension    = ".scplot",
     display_name = "Plot Scene",
     description  = "Multi-curve canvas: multiple UDS datasets combined with "
                    "individual plot styles and canvas layout configuration.",

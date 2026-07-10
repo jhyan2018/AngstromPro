@@ -109,7 +109,7 @@ class FormatBrowserDialog(PersistentDialog):
         from angstrompro.io.angstrom_io import registered_formats, registered_ext_loaders
         from angstrompro.io import formats as _    # noqa: F401
         from angstrompro.io import uds_io as _u   # noqa: F401
-        from angstrompro.io import scene_io as _s  # noqa: F401
+        from angstrompro.io import scene_plot_io as _s  # noqa: F401
 
         formats = registered_formats() + registered_ext_loaders()
 

@@ -51,8 +51,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
     remove_dataset(name)     — remove a dataset
     clear()                  — remove all datasets
     apply_config(cfg)        — push new preferences dict down to active plot widget
-    save_scene(name)         — capture current state as DataScene
-    restore_scene(scene)     — restore full state from DataScene
+    save_scene(name)         — capture current state as ScenePlot
+    restore_scene(scene)     — restore full state from ScenePlot
 
     Signals
     -------
@@ -266,9 +266,9 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._plot_widget.apply_config(config)
 
     def save_scene(self, name: str):
-        """Capture current display state as a DataScene (data copies + styles)."""
-        from angstrompro.core.data.data_scene import (
-            CanvasConfig, DataScene, PlotStyle, SceneEntry)
+        """Capture current display state as a ScenePlot (data copies + styles)."""
+        from angstrompro.core.data.scene_plot import (
+            CanvasConfig, ScenePlot, PlotStyle, SceneEntry)
         import copy
 
         mode = self._mode_combo.currentData()
@@ -312,10 +312,10 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             colormap  = colormap,
             show_grid = self._config.get("show_grid", False),
         )
-        return DataScene(name=name, entries=entries, canvas_config=canvas_config)
+        return ScenePlot(name=name, entries=entries, canvas_config=canvas_config)
 
     def restore_scene(self, scene) -> None:
-        """Restore full display state from a DataScene."""
+        """Restore full display state from a ScenePlot."""
         from .stack_plot_widget import StackPlotWidget
 
         self.clear()

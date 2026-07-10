@@ -63,13 +63,19 @@ class MainWorkbench(AGuiModule):
                      "Configure which channels are loaded for each file format",
                      full_width=True, expandable=True),
         ]),
+        PrefSection("Startup", "play", [
+            PrefItem("app.startup_modules", "", "startup_module_list",
+                     "Modules opened automatically at startup. "
+                     "Built-in defaults (🔒) can have their count changed but not removed. "
+                     "Add extra modules with the + button.",
+                     full_width=True),
+        ]),
     ]
 
     def __init__(self, context: AppContext, parent=None) -> None:
         super().__init__(context, parent)
         self.resize(1000, 600)
         self._set_app_icon()
-        self._restore_geometry()
         QtWidgets.QApplication.instance().aboutToQuit.connect(self._save_layout)
 
     # ------------------------------------------------------------------
@@ -109,10 +115,15 @@ class MainWorkbench(AGuiModule):
 
         def _reset() -> None:
             from angstrompro.core.configs.defaults import DEFAULTS
+            from angstrompro.core.configs.config_manager import _merge_startup_modules
             io_defaults = copy.deepcopy(DEFAULTS.get("io", {}))
             io_defaults.pop("channel_manager", None)
+            app_defaults = copy.deepcopy(DEFAULTS.get("app", {}))
+            # reset startup_modules to defaults only (drop user additions)
+            app_defaults["startup_modules"] = copy.deepcopy(
+                DEFAULTS.get("app", {}).get("startup_modules", []))
             _apply({
-                "app":        copy.deepcopy(DEFAULTS.get("app", {})),
+                "app":        app_defaults,
                 "appearance": copy.deepcopy(DEFAULTS.get("appearance", {})),
                 "io":         io_defaults,
                 "plugins":    copy.deepcopy(DEFAULTS.get("plugins", {})),
@@ -236,24 +247,21 @@ class MainWorkbench(AGuiModule):
         self.resizeDocks([self._dock_tasks], [300], QtCore.Qt.Orientation.Vertical)
         self.resizeDocks([self._dock_log],   [150], QtCore.Qt.Orientation.Vertical)
 
-    def _restore_geometry(self) -> None:
+    def _restore_layout(self) -> None:
         from angstrompro.app.user_data_folder import get_qsettings
         qs = get_qsettings()
-        geom = qs.value("workbench/geometry")
+        geom  = qs.value("workbench/geometry")
+        state = qs.value("workbench/layout")
         if geom:
             self.restoreGeometry(geom)
-
-    def _restore_dock_state(self) -> None:
-        from angstrompro.app.user_data_folder import get_qsettings
-        qs = get_qsettings()
-        state = qs.value("workbench/layout")
-        if state and self.restoreState(state):
-            return
-        self._apply_default_layout()
+        if not (state and self.restoreState(state)):
+            self._apply_default_layout()
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        QtCore.QTimer.singleShot(0, self._restore_dock_state)
+        if not hasattr(self, "_layout_restored"):
+            self._layout_restored = True
+            QtCore.QTimer.singleShot(0, self._restore_layout)
 
     def _save_layout(self) -> None:
         from angstrompro.app.user_data_folder import get_qsettings
@@ -264,7 +272,7 @@ class MainWorkbench(AGuiModule):
 
     def closeEvent(self, event) -> None:
         self._save_layout()
-        super().closeEvent(event)   # hides the window, ignores the event
+        event.accept()   # main workbench close = quit; don't suppress like child modules
 
     def _set_app_icon(self) -> None:
         icon = self._context.icons.get("app_logo")

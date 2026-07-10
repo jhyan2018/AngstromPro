@@ -95,6 +95,8 @@ def _make_control(item: PrefItem, value, context=None) -> QtWidgets.QWidget:
     if context is not None and "context" in inspect.signature(cls.__init__).parameters:
         kw["context"] = context
     ctrl = cls(**kw) if kw else cls()
+    if context is not None and hasattr(ctrl, "set_context"):
+        ctrl.set_context(context)
     if hasattr(ctrl, "set_value"):
         ctrl.set_value(value)
     return ctrl

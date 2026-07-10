@@ -1,6 +1,6 @@
 from .base import WorkspaceData, ProcRecord
 from .uds_data import UdsDataStru, Axis, AxisType
-from .data_scene import DataScene
+from .scene_plot import ScenePlot
 
 __all__ = [
     "WorkspaceData",
@@ -8,5 +8,5 @@ __all__ = [
     "UdsDataStru",
     "Axis",
     "AxisType",
-    "DataScene",
+    "ScenePlot",
 ]

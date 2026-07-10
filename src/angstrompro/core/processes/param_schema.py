@@ -33,7 +33,7 @@ class AnnotationSpec:
 class InputSpec:
     """Describes one named data input of a process function."""
     name:        str
-    type_id:     str                        # workspace data type: "uds" | "scene" | … (empty = any)
+    type_id:     str                        # workspace data type: "uds" | "scene_plot" | … (empty = any)
     label:       str                = ""
     description: str                = ""
     ndim:        int | None         = None  # required array dimensionality; None = any

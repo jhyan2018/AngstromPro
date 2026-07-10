@@ -6,7 +6,7 @@ File extensions
 ---------------
 All modern files are HDF5 content regardless of extension:
     scan.uds         — UdsDataStru  (new HDF5)
-    comparison.scene — DataScene
+    comparison.scplot — ScenePlot
     map.sts          — future StsMap
     anything.h5      — generic, type_id read from root attribute
 
@@ -18,9 +18,9 @@ Usage
     from angstrompro.io import load, save
 
     data  = load(Path("scan.uds"))         # auto-detects legacy vs HDF5
-    scene = load(Path("compare.scene"))    # HDF5 DataScene
+    scene = load(Path("compare.scplot"))   # HDF5 ScenePlot
     save(Path("out.uds"),   uds_data)      # writes HDF5 with type_id="uds"
-    save(Path("out.scene"), scene_data)    # writes HDF5 with type_id="scene"
+    save(Path("out.scplot"), scene_data)   # writes HDF5 with type_id="scene_plot"
 
 Extending
 ---------
@@ -148,7 +148,7 @@ def _is_hdf5(path: Path) -> bool:
 
 def _load_hdf5(path: Path) -> WorkspaceData:
     from angstrompro.io import uds_io    # noqa: F401
-    from angstrompro.io import scene_io  # noqa: F401
+    from angstrompro.io import scene_plot_io  # noqa: F401
 
     try:
         import h5py
@@ -212,7 +212,7 @@ def save(path: Path, data: WorkspaceData) -> None:
     type_id = data.type_id
 
     from angstrompro.io import uds_io    # noqa: F401
-    from angstrompro.io import scene_io  # noqa: F401
+    from angstrompro.io import scene_plot_io  # noqa: F401
 
     if type_id not in _WRITERS:
         raise TypeError(

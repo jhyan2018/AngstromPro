@@ -42,9 +42,9 @@ class SceneEntry:
 
 
 @dataclass
-class DataScene(WorkspaceData):
+class ScenePlot(WorkspaceData):
     """Multi-curve canvas: several UdsDataStru objects with their plot styles."""
-    type_id: ClassVar[str] = "scene"
+    type_id: ClassVar[str] = "scene_plot"
 
     name:         str              = ""
     entries: list[SceneEntry]      = field(default_factory=list)

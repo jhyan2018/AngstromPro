@@ -31,11 +31,28 @@ from angstrompro.core.configs.config_validation import validate_and_coerce
 log = logging.getLogger(__name__)
 
 
+def _merge_startup_modules(base: list, user: list) -> list:
+    """
+    Merge startup_modules lists: base (defaults) + user additions.
+    - All default entries are always preserved.
+    - User entries with matching module_id override the default count.
+    - User entries with new module_ids are appended.
+    """
+    result = {entry["module_id"]: copy.deepcopy(entry) for entry in base}
+    for entry in user:
+        mid = entry.get("module_id", "")
+        if mid:
+            result[mid] = copy.deepcopy(entry)
+    return list(result.values())
+
+
 def _deep_merge(base: dict, override: dict) -> dict:
     """Return a new dict: override values layered onto base recursively."""
     result = copy.deepcopy(base)
     for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+        if key == "startup_modules" and isinstance(result.get(key), list) and isinstance(value, list):
+            result[key] = _merge_startup_modules(result[key], value)
+        elif key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = copy.deepcopy(value)

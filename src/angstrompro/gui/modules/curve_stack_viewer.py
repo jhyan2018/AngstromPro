@@ -42,7 +42,7 @@ class CurveStackViewer(AGuiModule):
     display_name = "Curve Stack Viewer"
     category     = "Basic"
 
-    accepted_types = {"uds", "scene"}
+    accepted_types = {"uds", "scene_plot"}
     accepted_ndim  = 2          # accepts 1D and 2D
     staged_labels  = ["P", "R"]
 
@@ -101,7 +101,7 @@ class CurveStackViewer(AGuiModule):
 
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         """Double-click: if uds, clear and reload as Input; if scene, restore display."""
-        if item.type_id == "scene":
+        if item.type_id == "scene_plot":
             self._restore_scene(item)
             return
         if not self._validate_uds(item):

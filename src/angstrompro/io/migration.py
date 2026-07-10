@@ -30,7 +30,7 @@ Intermediate dict shape per type
         "proc_history": [{"step": str, "timestamp": str}],
     }
 
-"scene":
+"scene_plot":
     {
         "name": str,
         "canvas_config": { title, x_label, y_label,

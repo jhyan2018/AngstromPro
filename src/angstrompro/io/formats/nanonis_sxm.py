@@ -117,7 +117,10 @@ def load(path: Path,
         n_ch = len(channel_names)
 
         # Build axes — each channel loaded as (1, y, x): axis[0]=bias, axis[1]=y, axis[2]=x
-        bias_v = float(info.get("bias_v", 0.0))
+        try:
+            bias_v = float(header.get("BIAS", 0.0))
+        except (ValueError, TypeError):
+            bias_v = 0.0
         ax_bias = Axis(
             values=np.array([bias_v]),
             label="Bias (V)",
