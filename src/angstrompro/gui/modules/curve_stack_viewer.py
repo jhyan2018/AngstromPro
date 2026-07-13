@@ -26,9 +26,10 @@ from typing import TYPE_CHECKING
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+from angstrompro.gui.widgets.curve_stack.runtime_scene import RuntimeScene
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
-from angstrompro.utils.qt_compat import QtWidgets, Action
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Action
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
@@ -54,15 +55,21 @@ class CurveStackViewer(AGuiModule):
             PrefItem("show_grid", "Show grid", "checkbox",
                      "Draw a dashed grid on the plot"),
         ]),
+        PrefSection("Color map", "palette", [
+            PrefItem("colormap.cmap_palette_list", "", "colormap_picker", full_width=True),
+        ]),
         PrefSection("Templates", "palette", [
-            PrefItem("default_template", "Default template", "text",
-                     "Name of the scene template to apply when this module opens "
-                     "(leave blank for matplotlib defaults)"),
+            PrefItem("default_template", "Default template", "template_picker",
+                     "Scene template applied when this module opens "
+                     "(select '(none)' for matplotlib defaults)"),
         ]),
     ]
 
     def build_ui(self) -> None:
         from angstrompro.gui.widgets.curve_stack import CurveStackViewerWidget
+
+        # ── runtime scene — single source of truth ────────────────────────
+        self._scene = RuntimeScene()
 
         # ── staged slots (hidden from widget) ─────────────────────────────
         self._primary_item:   WorkspaceItem | None = None
@@ -80,9 +87,86 @@ class CurveStackViewer(AGuiModule):
 
         self._build_scene_menu()
         self.setCentralWidget(self._viewer)
+        self._build_inspector_docks()
 
-        # suppress mpl toolbar save buttons (export handled via File menu)
-        self._remove_mpl_save_actions()
+        # apply saved config (e.g. colormap palette) immediately on startup
+        self._apply_config_to_panels(self._config)
+
+    def _build_inspector_docks(self) -> None:
+        """Right-side docks bound to the viewer's ViewerContext (pull model)."""
+        from angstrompro.gui.widgets.curve_stack.artist_style_panel import ArtistStylePanel
+        from angstrompro.gui.widgets.curve_stack.axes_config_panel import AxesConfigPanel
+
+        ctx = self._viewer.view_context
+        _Right = QtCore.Qt.DockWidgetArea.RightDockWidgetArea
+
+        # Curve Style dock
+        self._style_panel = ArtistStylePanel()
+        self._style_panel.bind_context(ctx)
+        self._style_panel.color_pinned.connect(self._viewer.pin_selected_color)
+        self._style_panel.color_reset.connect(self._viewer.reset_selected_color)
+        self._style_dock = QtWidgets.QDockWidget("Curve Style", self)
+        self._style_dock.setObjectName("curve_style_dock")
+        self._style_dock.setWidget(self._style_panel)
+        self.addDockWidget(_Right, self._style_dock)
+
+        # Axes dock
+        self._axes_panel = AxesConfigPanel()
+        self._axes_panel.bind_context(ctx)
+        self._axes_dock = QtWidgets.QDockWidget("Axes", self)
+        self._axes_dock.setObjectName("axes_config_dock")
+        self._axes_dock.setWidget(self._axes_panel)
+        self.addDockWidget(_Right, self._axes_dock)
+
+        # stack them as tabs; hidden by default — View menu can re-show
+        self.tabifyDockWidget(self._style_dock, self._axes_dock)
+        self._style_dock.hide()
+        self._axes_dock.hide()
+
+        # View-menu toggles
+        vm = getattr(self, "_view_menu", None) or self._find_view_menu()
+        if vm is not None:
+            vm.addSeparator()
+            vm.addAction(self._style_dock.toggleViewAction())
+            vm.addAction(self._axes_dock.toggleViewAction())
+
+    def _find_view_menu(self):
+        for act in self.menuBar().actions():
+            if act.text().replace("&", "") == "View":
+                return act.menu()
+        return None
+
+    # ── Window / dock layout persistence ─────────────────────────────────
+
+    def _layout_qs_prefix(self) -> str:
+        return f"module/{self.module_id}"
+
+    def _restore_layout(self) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+        qs = get_qsettings()
+        geom  = qs.value(f"{self._layout_qs_prefix()}/geometry")
+        state = qs.value(f"{self._layout_qs_prefix()}/layout")
+        if geom:
+            self.restoreGeometry(geom)
+        if state:
+            self.restoreState(state)
+
+    def _save_layout(self) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+        qs = get_qsettings()
+        qs.setValue(f"{self._layout_qs_prefix()}/geometry", self.saveGeometry())
+        qs.setValue(f"{self._layout_qs_prefix()}/layout",   self.saveState())
+        qs.sync()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if not getattr(self, "_layout_restored", False):
+            self._layout_restored = True
+            QtCore.QTimer.singleShot(0, self._restore_layout)
+
+    def closeEvent(self, event) -> None:
+        self._save_layout()
+        super().closeEvent(event)   # AGuiModule hides instead of destroying
 
     # ── Slot hooks ────────────────────────────────────────────────────────
 
@@ -100,7 +184,7 @@ class CurveStackViewer(AGuiModule):
     # ── Item loading ──────────────────────────────────────────────────────
 
     def on_item_loaded(self, item: WorkspaceItem) -> None:
-        """Double-click: if uds, clear and reload as Input; if scene, restore display."""
+        """Double-click: if uds, clear and reload as primary; if scene, restore display."""
         if item.type_id == "scene_plot":
             self._restore_scene(item)
             return
@@ -110,17 +194,32 @@ class CurveStackViewer(AGuiModule):
         self._displayed_names.clear()
         self._displayed_names.add(item.name)
         self._sync_process_inputs()
+        self._scene.clear()
         self._viewer.clear()
         self._viewer.add_dataset(item.name, item.payload)
+        self._scene.mark_dirty()
+        self._update_title()
         self._refresh_workspace_panel()
         self._refresh_slots_panel()
 
     def _restore_scene(self, item: WorkspaceItem) -> None:
+        if self._scene.dirty:
+            ans = QtWidgets.QMessageBox.question(
+                self, "Unsaved changes",
+                "The current scene has unsaved changes.\n"
+                "Load new scene and discard changes?",
+                QtWidgets.QMessageBox.StandardButton.Discard |
+                QtWidgets.QMessageBox.StandardButton.Cancel,
+            )
+            if ans != QtWidgets.QMessageBox.StandardButton.Discard:
+                return
         self._primary_item = None
         self._clear_reference()
         self._displayed_names.clear()
         self._displayed_names.add(item.name)
-        self._viewer.restore_scene(item.payload)
+        self._scene.replace(item.payload)
+        self._viewer.restore_scene(self._scene.scene)
+        self._update_title()
         self._refresh_workspace_panel()
 
     def _on_extract_requested(self, pairs: list) -> None:
@@ -140,6 +239,9 @@ class CurveStackViewer(AGuiModule):
             return
         name = name.strip()
         scene = self._viewer.save_scene(name)
+        self._scene.scene = scene          # keep RuntimeScene in sync
+        self._scene.mark_clean()
+        self._update_title()
         self.workspace.add_item(payload=scene)
 
     def _add_to_plot(self, item: WorkspaceItem) -> None:
@@ -148,6 +250,8 @@ class CurveStackViewer(AGuiModule):
             return
         self._displayed_names.add(item.name)
         self._viewer.add_dataset(item.name, item.payload)
+        self._scene.mark_dirty()
+        self._update_title()
         self._refresh_workspace_panel()
 
     def _set_reference(self, item: WorkspaceItem) -> None:
@@ -204,6 +308,13 @@ class CurveStackViewer(AGuiModule):
         act_save_tpl.triggered.connect(self._on_save_template)
         menu.addAction(act_save_tpl)
 
+        menu.addSeparator()
+
+        act_style = Action("Plot Style…", self)
+        act_style.setToolTip("Edit matplotlib rcParams (font, ticks, line defaults, …)")
+        act_style.triggered.connect(self._on_plot_style)
+        menu.addAction(act_style)
+
     def _refresh_template_menu(self) -> None:
         from angstrompro.gui.widgets.curve_stack import template_manager as tmgr
         self._tpl_load_menu.clear()
@@ -219,6 +330,23 @@ class CurveStackViewer(AGuiModule):
 
     def _on_save_template(self) -> None:
         self._viewer._on_save_template()
+
+    def _on_plot_style(self) -> None:
+        from angstrompro.gui.widgets.curve_stack.rcparams_style_panel import RcParamsStylePanel
+        if not hasattr(self, "_style_dlg") or self._style_dlg is None:
+            self._style_dlg = RcParamsStylePanel(parent=self)
+            self._style_dlg.applied.connect(self._on_style_applied)
+            self._style_dlg.finished.connect(lambda _: setattr(self, "_style_dlg", None))
+        self._style_dlg.show()
+        self._style_dlg.raise_()
+        self._style_dlg.activateWindow()
+
+    def _on_style_applied(self) -> None:
+        """rcParams changed — rebuild the plot to pick up new defaults."""
+        self._viewer._plot_widget.refresh(
+            self._viewer._datasets, self._viewer._checked)
+        self._scene.mark_dirty()
+        self._update_title()
 
     # ── File menu ─────────────────────────────────────────────────────────
 
@@ -244,14 +372,6 @@ class CurveStackViewer(AGuiModule):
         else:
             file_menu.addSeparator()
             file_menu.addAction(export_act)
-
-    def _remove_mpl_save_actions(self) -> None:
-        """Remove the save button from every mpl NavigationToolbar in the viewer."""
-        from matplotlib.backends.backend_qtagg import NavigationToolbar2QT
-        for navbar in self._viewer.findChildren(NavigationToolbar2QT):
-            for action in navbar.actions():
-                if "save" in action.text().lower() or "save" in action.toolTip().lower():
-                    navbar.removeAction(action)
 
     def _on_export_figure(self) -> None:
         from angstrompro.gui.dialogs.export_figure_dialog import ExportFigureDialog
@@ -316,12 +436,36 @@ class CurveStackViewer(AGuiModule):
         self._primary_item = None
         self._reference_item = None
         self._displayed_names.clear()
+        self._scene.clear()
+        self._update_title()
         self._sync_process_inputs()
         self._refresh_workspace_panel()
         self._refresh_slots_panel()
 
     def _apply_config_to_panels(self, cfg: dict) -> None:
         self._viewer.apply_config(cfg)
+        cmap_list = cfg.get("colormap", {}).get("cmap_palette_list", [])
+        if cmap_list:
+            self._viewer.set_cmap_palette(cmap_list)
+        # keep rcParams in sync with the line_width preference
+        import matplotlib as mpl
+        lw = cfg.get("line_width")
+        if lw is not None:
+            mpl.rcParams["lines.linewidth"] = lw
+
+    # ── Title / dirty indicator ───────────────────────────────────────────
+
+    def _update_title(self) -> None:
+        scene_name = self._scene.scene.name or ""
+        if self._scene.dirty:
+            marker = "● "    # filled dot = unsaved changes
+            tip    = "Unsaved changes — use Scene → Save as Scene… to save"
+        else:
+            marker = ""
+            tip    = ""
+        label = f"{marker}{scene_name}" if scene_name else (marker.strip() or "")
+        self.statusBar().showMessage(label, 0)   # 0 = permanent until next update
+        self.statusBar().setToolTip(tip)
 
     # ── Helpers ───────────────────────────────────────────────────────────
 

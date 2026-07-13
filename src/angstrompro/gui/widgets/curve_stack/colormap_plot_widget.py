@@ -16,8 +16,10 @@ A colorbar is created once and removed cleanly on mode switch / clear.
 from __future__ import annotations
 
 import numpy as np
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+
+from .nav_toolbar import NavToolbar
 
 from angstrompro.utils.qt_compat import QtWidgets
 
@@ -54,7 +56,7 @@ class ColormapPlotWidget(BasePlotWidget):
         for name in _CMAPS:
             self._cmap_combo.addItem(name)
         self._cmap_combo.setCurrentText(
-            self._config.get("colormap", "RdBu_r"))
+            self._config.get("default_cmap", "RdBu_r"))
         self._cmap_combo.currentTextChanged.connect(self._on_cmap_changed)
         ctrl.addWidget(self._cmap_combo)
 
@@ -77,12 +79,9 @@ class ColormapPlotWidget(BasePlotWidget):
             QtWidgets.QSizePolicy.Policy.Expanding,
             QtWidgets.QSizePolicy.Policy.Expanding)
         self._canvas.setMinimumSize(1, 1)
-        self._navbar = NavigationToolbar2QT(self._canvas, self)
+        self._navbar = NavToolbar(self._canvas, self)
         layout.addWidget(self._navbar)
         layout.addWidget(self._canvas)
-
-        self._datasets: dict[str, dict] = {}
-        self._checked:  dict[str, list[bool]] = {}
 
     # ── BasePlotWidget interface ──────────────────────────────────────────
 
@@ -99,10 +98,24 @@ class ColormapPlotWidget(BasePlotWidget):
 
     def apply_config(self, config: dict) -> None:
         super().apply_config(config)
-        cmap = config.get("colormap")
-        if cmap and cmap in _CMAPS:
+        cmap = config.get("default_cmap")
+        if cmap and isinstance(cmap, str) \
+                and self._cmap_combo.findText(cmap) >= 0:
             self._cmap_combo.setCurrentText(cmap)
         self._rebuild_plot()
+
+    def set_cmap_palette(self, names: list[str]) -> None:
+        """Repopulate the colormap combo from the user's preference list."""
+        current = self._cmap_combo.currentText()
+        self._cmap_combo.blockSignals(True)
+        self._cmap_combo.clear()
+        self._cmap_combo.addItems(names)
+        idx = self._cmap_combo.findText(current)
+        self._cmap_combo.setCurrentIndex(idx if idx >= 0 else 0)
+        self._cmap_combo.blockSignals(False)
+        # selection may have changed — repaint with the new cmap
+        if self._cmap_combo.currentText() != current:
+            self._rebuild_plot()
 
     # ── Drawing ───────────────────────────────────────────────────────────
 

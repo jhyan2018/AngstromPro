@@ -30,17 +30,36 @@ log = logging.getLogger(__name__)
 _VERSION = 1
 
 
+class _NumpyEncoder(json.JSONEncoder):
+    """JSON encoder that converts numpy scalar types to native Python types."""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
+def _jdumps(obj) -> str:
+    return json.dumps(obj, cls=_NumpyEncoder)
+
+
 # ------------------------------------------------------------------
 # Intermediate dict  ←→  UdsDataStru
 # ------------------------------------------------------------------
 
 def _uds_to_dict(uds: UdsDataStru) -> dict:
+    import numpy as np
+    def _to_list(v):
+        return v.tolist() if isinstance(v, np.ndarray) else v
     return {
         "name": uds.name,
-        "data": uds.data,
+        "data": _to_list(uds.data),
         "axes": [
             {
-                "values": ax.values,
+                "values": _to_list(ax.values),
                 "label":  ax.label,
                 "units":  ax.units,
                 "ticks":  ax.ticks,
@@ -54,7 +73,7 @@ def _uds_to_dict(uds: UdsDataStru) -> dict:
             for r in uds.proc_history
         ],
         # landmarks: tuple keys serialised as JSON arrays
-        "landmarks": {json.dumps(list(k)): v for k, v in uds.landmarks.items()},
+        "landmarks": {_jdumps(list(k)): v for k, v in uds.landmarks.items()},
     }
 
 
@@ -100,7 +119,7 @@ def _isocontour_to_group(ig, result: IsocontourResult) -> None:
     ig.attrs["kind"]         = result.kind
     ig.attrs["level"]        = result.level
     ig.attrs["method"]       = result.method
-    ig.attrs["source_axes"]  = json.dumps(list(result.source_axes))
+    ig.attrs["source_axes"]  = _jdumps(list(result.source_axes))
     ig.attrs["layer_index"]  = result.layer_index
     ig.attrs["notes"]        = result.notes
 
@@ -173,17 +192,17 @@ def _write_to_group(g, uds: UdsDataStru) -> None:
         ag.create_dataset("values", data=ax.values)
         ag.attrs["label"] = ax.label
         ag.attrs["units"] = ax.units
-        ag.attrs["ticks"] = json.dumps(
+        ag.attrs["ticks"] = _jdumps(
             {str(k): v for k, v in ax.ticks.items()}
         )
-    g.attrs["info"]         = json.dumps(uds.info)
-    g.attrs["proc_history"] = json.dumps(
+    g.attrs["info"]         = _jdumps(uds.info)
+    g.attrs["proc_history"] = _jdumps(
         [{"step": r.step, "params": r.params,
           "input_item_names": r.input_item_names, "annotations": r.annotations}
          for r in uds.proc_history]
     )
-    g.attrs["landmarks"] = json.dumps(
-        {json.dumps(list(k)): v for k, v in uds.landmarks.items()}
+    g.attrs["landmarks"] = _jdumps(
+        {_jdumps(list(k)): v for k, v in uds.landmarks.items()}
     )
     if uds.isocontours:
         isog = g.create_group("isocontours")

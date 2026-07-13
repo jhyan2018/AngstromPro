@@ -602,7 +602,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if not isinstance(data, str):
             return
         name = data
-        item = self.workspace.get_item(name)
+        item = self.workspace.find_item(name)
+        if item is None:
+            # stale tree row — the item was removed/renamed behind the panel's
+            # back (e.g. snapshot cache replacement); resync instead of crashing
+            self._refresh_workspace_panel()
+            return
         try:
             self.load_item(item)
         except TypeError as exc:
@@ -621,12 +626,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             act_clear = menu.addAction(f"Clear '{role}'")
             act = menu.exec(self._ws_list.viewport().mapToGlobal(pos))
             if act == act_clear:
-                ws_item = self.workspace.get_item(item_name)
+                ws_item = self.workspace.find_item(item_name)
+                if ws_item is None:
+                    self._refresh_workspace_panel()
+                    return
                 ws_item.annotations.pop(role, None)
                 self.workspace.notify_changed(item_name)
         elif isinstance(data, str):
-            ws_item = self.workspace.get_item(data)
+            ws_item = self.workspace.find_item(data)
             if ws_item is None:
+                self._refresh_workspace_panel()
                 return
             menu = QtWidgets.QMenu(self)
             self._populate_ws_item_context_menu(menu, ws_item)
@@ -641,6 +650,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     def _on_remove_item(self) -> None:
         name = self._selected_item_name()
         if name:
+            if not self.workspace.has_item(name):
+                self._refresh_workspace_panel()   # stale tree row
+                return
             self.workspace.remove_item(name)
 
     def _on_default_toggled(self, checked: bool) -> None:
@@ -863,6 +875,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                                           "Select a workspace item to save.")
             return
         item = self.workspace.get_item(name)
+        from angstrompro.io import uds_io, scene_plot_io  # noqa: F401 — ensure all formats registered
         from angstrompro.io.angstrom_io import registered_formats
         formats = [f for f in registered_formats()
                    if f.writable and f.type_id == item.payload.type_id]

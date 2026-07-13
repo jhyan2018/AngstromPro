@@ -6,13 +6,20 @@ Created on 2026-07-06
 
 Scene template manager for CurveStackViewer.
 
-Templates are stored as JSON in <UserDataFolder>/scene_templates/.
-Each file contains:
-  - "version": int
-  - "rcparams_delta": dict of rcParam keys that differ from mpl defaults
-  - "widget_style": dict of widget-specific style keys that differ from WIDGET_DEFAULTS
+Template file format (.scet, JSON):
+  {
+    "version": 1,
+    "rcparams_delta": { <key>: <value>, ... },
+    "widget_extras": {
+      "stack":    { "color_mode": "...", "offset": 0.0 },
+      "colormap": { "colormap": "RdBu_r", "symmetric": false },
+      ...
+    }
+  }
 
-Only changed values are saved (delta pattern, same as angstrompro config system).
+Save is always a merge: only the current widget type's widget_extras section is
+replaced; other widget types' sections are preserved from the existing file.
+Missing sections at load time fall back to widget defaults silently.
 """
 from __future__ import annotations
 
@@ -33,45 +40,25 @@ _STYLE_PREFIXES = {
 
 # rcParams that conflict with Qt layout or are irrelevant to appearance
 _EXCLUDED_RCPARAMS = {
-    "figure.figsize",
-    "figure.dpi",
-    "figure.max_open_warning",
-    "figure.raise_window",
-    "backend",
-    "backend_fallback",
-    "interactive",
-    "toolbar",
-    "savefig.dpi",
-    "savefig.directory",
-    "savefig.format",
-    "path.simplify",
-    "path.simplify_threshold",
-    "path.snap",
-    "path.sketch",
-    "agg.path.chunksize",
-    "animation.html",
-    "animation.embed_limit",
-    "animation.writer",
-    "animation.codec",
-    "animation.bitrate",
-    "animation.frame_format",
-    "animation.ffmpeg_path",
-    "animation.convert_path",
-    "webagg.open_in_browser",
-    "webagg.port",
-    "webagg.port_retries",
+    "figure.figsize", "figure.dpi", "figure.max_open_warning",
+    "figure.raise_window", "backend", "backend_fallback",
+    "interactive", "toolbar", "savefig.dpi", "savefig.directory",
+    "savefig.format", "path.simplify", "path.simplify_threshold",
+    "path.snap", "path.sketch", "agg.path.chunksize",
+    "animation.html", "animation.embed_limit", "animation.writer",
+    "animation.codec", "animation.bitrate", "animation.frame_format",
+    "animation.ffmpeg_path", "animation.convert_path",
+    "webagg.open_in_browser", "webagg.port", "webagg.port_retries",
 }
 
-# Widget-specific style keys and their defaults
-WIDGET_DEFAULTS: dict[str, object] = {
-    "colormap":   "RdBu_r",
-    "show_grid":  False,
-    "line_width": 1.0,
+# Per-widget-type default extras (used as fallback on load)
+WIDGET_EXTRA_DEFAULTS: dict[str, dict] = {
+    "stack":    {"color_mode": "auto", "offset": 0.0},
+    "colormap": {"colormap": "RdBu_r", "symmetric": False},
 }
 
 
 def _tracked_keys() -> frozenset[str]:
-    """Return the set of rcParam keys this template system controls."""
     import matplotlib as mpl
     return frozenset(
         k for k in mpl.rcParamsDefault
@@ -88,61 +75,73 @@ def templates_dir() -> Path:
 
 
 def list_templates() -> list[str]:
-    """Return template names (without extension), sorted alphabetically."""
     try:
         return sorted(p.stem for p in templates_dir().glob("*.scet"))
     except Exception:
         return []
 
 
-def save_template(name: str, rcparams: dict, widget_style: dict) -> Path:
+def save_template(name: str,
+                  widget_type: str,
+                  widget_extra: dict) -> Path:
     """
-    Save a template file.  Only keys differing from defaults are written.
+    Merge-save a template file.
+
+    Only the rcparams delta (vs matplotlib defaults) and the current
+    widget_type's widget_extra are written.  Other widget types' sections
+    from an existing file are preserved unchanged.
 
     Parameters
     ----------
     name         : template name (filename stem)
-    rcparams     : current matplotlib rcParams snapshot
-    widget_style : current widget style dict (colormap, show_grid, line_width, …)
+    widget_type  : "stack" | "colormap" | …
+    widget_extra : current widget-specific extras for widget_type
     """
     import matplotlib as mpl
 
+    path = templates_dir() / f"{name}.scet"
+
+    # load existing file to preserve other widget types' sections
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            existing = {}
+    else:
+        existing = {}
+
     tracked = _tracked_keys()
     rcparams_delta = {
-        k: rcparams[k]
+        k: mpl.rcParams[k]
         for k in tracked
-        if k in rcparams and rcparams[k] != mpl.rcParamsDefault.get(k)
+        if k in mpl.rcParams and mpl.rcParams[k] != mpl.rcParamsDefault.get(k)
     }
 
-    widget_delta = {
-        k: v
-        for k, v in widget_style.items()
-        if v != WIDGET_DEFAULTS.get(k)
-    }
+    widget_extras = existing.get("widget_extras", {})
+    widget_extras[widget_type] = dict(widget_extra)
 
     payload = {
-        "version":       _VERSION,
+        "version":        _VERSION,
         "rcparams_delta": rcparams_delta,
-        "widget_style":  widget_delta,
+        "widget_extras":  widget_extras,
     }
 
-    path = templates_dir() / f"{name}.scet"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     log.info("Template saved: %s", path)
     return path
 
 
-def load_template(name: str) -> tuple[dict, dict]:
+def load_template(name: str) -> tuple[dict, dict[str, dict]]:
     """
     Load a template by name.
 
     Returns
     -------
-    (rcparams_full, widget_style_full)
-    Both are complete dicts starting from defaults, with the saved delta overlaid.
+    (rcparams_delta, widget_extras)
+    rcparams_delta : dict of keys differing from mpl defaults (apply with overlay)
+    widget_extras  : dict keyed by widget_type → extras dict
+                     missing widget types fall back to WIDGET_EXTRA_DEFAULTS
     """
-    import matplotlib as mpl
-
     path = templates_dir() / f"{name}.scet"
     if not path.exists():
         raise FileNotFoundError(f"Template not found: {path}")
@@ -150,25 +149,27 @@ def load_template(name: str) -> tuple[dict, dict]:
     raw = json.loads(path.read_text(encoding="utf-8"))
 
     rcparams_delta = raw.get("rcparams_delta", {})
-    widget_delta   = raw.get("widget_style", {})
+    widget_extras  = raw.get("widget_extras", {})
 
-    rcparams_full = {k: mpl.rcParamsDefault[k]
-                     for k in _tracked_keys() if k in mpl.rcParamsDefault}
-    rcparams_full.update(rcparams_delta)
-
-    widget_style_full = dict(WIDGET_DEFAULTS)
-    widget_style_full.update(widget_delta)
-
-    return rcparams_full, widget_style_full
+    return rcparams_delta, widget_extras
 
 
-def apply_rcparams(rcparams: dict) -> None:
-    """Apply a rcparams dict to the current matplotlib session."""
+def apply_rcparams(delta: dict) -> None:
+    """Apply rcparams_delta: rcdefaults() then overlay."""
     import matplotlib as mpl
+    mpl.rcdefaults()
     tracked = _tracked_keys()
-    for k, v in rcparams.items():
+    for k, v in delta.items():
         if k in tracked:
             try:
                 mpl.rcParams[k] = v
             except Exception as exc:
                 log.debug("Could not set rcParam %r = %r: %s", k, v, exc)
+
+
+def get_widget_extra(widget_extras: dict[str, dict],
+                     widget_type: str) -> dict:
+    """Return extras for the given widget type, falling back to defaults."""
+    defaults = WIDGET_EXTRA_DEFAULTS.get(widget_type, {})
+    saved    = widget_extras.get(widget_type, {})
+    return {**defaults, **saved}
