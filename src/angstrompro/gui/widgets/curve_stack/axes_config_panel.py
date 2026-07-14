@@ -4,11 +4,15 @@ Created on 2026-07-13
 
 @author: jiahaoYan
 
-AxesConfigPanel — dockable widget to edit axes fields and apply them
-to the live matplotlib Axes immediately (ax.set_*() + draw_idle()).
+AxesConfigPanel — dockable widget editing the scene's AxesSpec.config.
 
-Bound to a ViewerContext (pull model): call ``bind_context(ctx)`` once;
-the panel re-pulls from the active axes whenever the target changes.
+Model-driven: every control change emits ``config_changed(patch_dict)``.
+The viewer writes the patch into the RuntimeScene (single source of truth)
+and applies it to the live axes; rebuilds re-apply from the scene, so the
+settings survive mode switches and save/reload.
+
+Bound to a ViewerContext (pull model): the panel re-reads effective values
+from the active axes whenever the target changes.
 """
 from __future__ import annotations
 
@@ -16,11 +20,16 @@ from angstrompro.utils.qt_compat import QtCore, QtWidgets
 
 
 class AxesConfigPanel(QtWidgets.QWidget):
-    """Edit title, labels, limits, scale, grid, legend — apply live."""
+    """Edit title, labels, limits, scale, grid, legend — applied live."""
+
+    config_changed = QtCore.pyqtSignal(dict)   # partial AxesConfig patch
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._context = None
+        self._loading = False
+        self._loaded: dict = {}     # snapshot of last-loaded field values
+        self._scene_config_provider = None  # () -> dict  (raw per-mode config)
         self._build()
 
     # ── ViewerContext binding (pull model) ────────────────────────────────
@@ -28,20 +37,44 @@ class AxesConfigPanel(QtWidgets.QWidget):
     def bind_context(self, context) -> None:
         self._context = context
         context.target_changed.connect(self._on_target_changed)
+        context.plot_rebuilt.connect(self._on_target_changed)
         self._on_target_changed()
+
+    def set_scene_config_provider(self, fn) -> None:
+        """Provide a callable () -> dict returning the raw per-mode scene config.
+
+        Grid, legend, and aspect are user-controlled settings stored in the
+        scene, not auto-computed by matplotlib.  Reading them from the live
+        axes is unreliable (e.g. ax.get_xgridlines() only returns major
+        gridlines, so minor-only grids appear as 'off').  The provider is
+        called after _load_from_axes to overlay these values from the scene.
+        """
+        self._scene_config_provider = fn
 
     def _on_target_changed(self) -> None:
         if self._ax is not None:
             self._load_from_axes()
+            self._overlay_from_scene()
         self.setEnabled(self._ax is not None)
+        self._update_field_enabled()
+
+    def _update_field_enabled(self) -> None:
+        """Disable fields irrelevant to the right twin-Y axis."""
+        is_right = (self._context is not None
+                    and self._context.y_side == "right")
+        left_only = [
+            self._title, self._xlabel,
+            self._xmin, self._xmax,
+            self._xscale,
+            self._grid, self._grid_which,
+            self._aspect,
+        ]
+        for w in left_only:
+            w.setEnabled(not is_right)
 
     @property
     def _ax(self):
-        return self._context.ax if self._context is not None else None
-
-    @property
-    def _canvas(self):
-        return self._context.canvas if self._context is not None else None
+        return self._context.active_ax if self._context is not None else None
 
     # ── Build ─────────────────────────────────────────────────────────────
 
@@ -60,188 +93,176 @@ class AxesConfigPanel(QtWidgets.QWidget):
         form.addRow("Title:",   self._title)
         form.addRow("X label:", self._xlabel)
         form.addRow("Y label:", self._ylabel)
+        self._title.editingFinished.connect(
+            lambda: self._emit_text("title", self._title))
+        self._xlabel.editingFinished.connect(
+            lambda: self._emit_text("xlabel", self._xlabel))
+        self._ylabel.editingFinished.connect(
+            lambda: self._emit_text("ylabel", self._ylabel))
 
-        # limits
-        lim_widget = QtWidgets.QWidget()
-        lim_lay    = QtWidgets.QGridLayout(lim_widget)
-        lim_lay.setContentsMargins(0, 0, 0, 0)
-        lim_lay.setSpacing(4)
-
+        # limits — each bound (min/max) on its own row
         self._xmin = QtWidgets.QLineEdit(); self._xmin.setPlaceholderText("auto")
         self._xmax = QtWidgets.QLineEdit(); self._xmax.setPlaceholderText("auto")
         self._ymin = QtWidgets.QLineEdit(); self._ymin.setPlaceholderText("auto")
         self._ymax = QtWidgets.QLineEdit(); self._ymax.setPlaceholderText("auto")
-        lim_lay.addWidget(QtWidgets.QLabel("X:"),   0, 0)
-        lim_lay.addWidget(self._xmin, 0, 1)
-        lim_lay.addWidget(QtWidgets.QLabel("–"),    0, 2)
-        lim_lay.addWidget(self._xmax, 0, 3)
-        lim_lay.addWidget(QtWidgets.QLabel("Y:"),   1, 0)
-        lim_lay.addWidget(self._ymin, 1, 1)
-        lim_lay.addWidget(QtWidgets.QLabel("–"),    1, 2)
-        lim_lay.addWidget(self._ymax, 1, 3)
-        form.addRow("Limits:", lim_widget)
+        form.addRow("X min:", self._xmin)
+        form.addRow("X max:", self._xmax)
+        form.addRow("Y min:", self._ymin)
+        form.addRow("Y max:", self._ymax)
+        for w in (self._xmin, self._xmax):
+            w.editingFinished.connect(
+                lambda: self._emit_lim("xlim", self._xmin, self._xmax))
+        for w in (self._ymin, self._ymax):
+            w.editingFinished.connect(
+                lambda: self._emit_lim("ylim", self._ymin, self._ymax))
 
-        # scale
-        scale_widget = QtWidgets.QWidget()
-        scale_lay    = QtWidgets.QHBoxLayout(scale_widget)
-        scale_lay.setContentsMargins(0, 0, 0, 0)
-        scale_lay.setSpacing(8)
+        # scale — X and Y each on their own row
         _scales = ["linear", "log", "symlog", "logit"]
         self._xscale = QtWidgets.QComboBox(); self._xscale.addItems(_scales)
         self._yscale = QtWidgets.QComboBox(); self._yscale.addItems(_scales)
-        scale_lay.addWidget(QtWidgets.QLabel("X:")); scale_lay.addWidget(self._xscale)
-        scale_lay.addWidget(QtWidgets.QLabel("Y:")); scale_lay.addWidget(self._yscale)
-        scale_lay.addStretch()
-        form.addRow("Scale:", scale_widget)
+        form.addRow("X scale:", self._xscale)
+        form.addRow("Y scale:", self._yscale)
+        self._xscale.currentTextChanged.connect(
+            lambda s: self._emit({"xscale": s}))
+        self._yscale.currentTextChanged.connect(
+            lambda s: self._emit({"yscale": s}))
 
-        # grid
-        grid_widget = QtWidgets.QWidget()
-        grid_lay    = QtWidgets.QHBoxLayout(grid_widget)
-        grid_lay.setContentsMargins(0, 0, 0, 0)
-        self._grid      = QtWidgets.QCheckBox("Show")
+        # grid — Show checkbox on its own row, Which combo on the next
+        self._grid = QtWidgets.QCheckBox("Show")
         self._grid_which = QtWidgets.QComboBox()
         self._grid_which.addItems(["major", "minor", "both"])
-        grid_lay.addWidget(self._grid)
-        grid_lay.addWidget(QtWidgets.QLabel("Which:"))
-        grid_lay.addWidget(self._grid_which)
-        grid_lay.addStretch()
-        form.addRow("Grid:", grid_widget)
+        form.addRow("Grid:", self._grid)
+        form.addRow("Grid which:", self._grid_which)
+        self._grid.toggled.connect(lambda _: self._emit_grid())
+        self._grid_which.currentTextChanged.connect(lambda _: self._emit_grid())
 
-        # legend
-        leg_widget = QtWidgets.QWidget()
-        leg_lay    = QtWidgets.QHBoxLayout(leg_widget)
-        leg_lay.setContentsMargins(0, 0, 0, 0)
-        self._legend     = QtWidgets.QCheckBox("Show")
+        # legend — Show checkbox on its own row, Loc combo on the next
+        self._legend = QtWidgets.QCheckBox("Show")
         self._legend_loc = QtWidgets.QComboBox()
         self._legend_loc.addItems(["best", "upper right", "upper left",
                                    "lower right", "lower left",
                                    "center", "center left", "center right"])
-        leg_lay.addWidget(self._legend)
-        leg_lay.addWidget(QtWidgets.QLabel("Loc:"))
-        leg_lay.addWidget(self._legend_loc)
-        leg_lay.addStretch()
-        form.addRow("Legend:", leg_widget)
+        form.addRow("Legend:", self._legend)
+        form.addRow("Legend loc:", self._legend_loc)
+        self._legend.toggled.connect(lambda _: self._emit_legend())
+        self._legend_loc.currentTextChanged.connect(lambda _: self._emit_legend())
 
         # aspect
         self._aspect = QtWidgets.QComboBox()
         self._aspect.addItems(["auto", "equal"])
         form.addRow("Aspect:", self._aspect)
+        self._aspect.currentTextChanged.connect(
+            lambda s: self._emit({"aspect": s}))
 
         layout.addLayout(form)
-
-        # buttons
-        btn_row = QtWidgets.QHBoxLayout()
-        btn_apply = QtWidgets.QPushButton("Apply")
-        btn_apply.setDefault(True)
-        btn_apply.clicked.connect(self._apply)
-        btn_reload = QtWidgets.QPushButton("Reload")
-        btn_reload.setToolTip("Re-read current values from the plot")
-        btn_reload.clicked.connect(self._on_target_changed)
-        btn_reset = QtWidgets.QPushButton("Reset to Defaults")
-        btn_reset.clicked.connect(self._reset)
-        btn_row.addWidget(btn_reset)
-        btn_row.addWidget(btn_reload)
-        btn_row.addStretch()
-        btn_row.addWidget(btn_apply)
-        layout.addLayout(btn_row)
-
         layout.addStretch()   # dock: keep form at the top
         self.setMinimumWidth(320)
 
-    # ── Load from live axes ───────────────────────────────────────────────
+    # ── Emit helpers ──────────────────────────────────────────────────────
+
+    def _emit(self, patch: dict) -> None:
+        if self._loading:
+            return
+        self.config_changed.emit(patch)
+
+    def _emit_text(self, field: str, widget: QtWidgets.QLineEdit) -> None:
+        if self._loading:
+            return
+        val = widget.text()
+        if val == self._loaded.get(field):
+            return   # editingFinished fires on focus-out even without changes
+        self._loaded[field] = val
+        self.config_changed.emit({field: val})
+
+    def _emit_lim(self, field: str, lo: QtWidgets.QLineEdit,
+                  hi: QtWidgets.QLineEdit) -> None:
+        if self._loading:
+            return
+        if not lo.text().strip() and not hi.text().strip():
+            val = None          # both cleared → autoscale
+        else:
+            try:
+                val = (float(lo.text()), float(hi.text()))
+            except ValueError:
+                return          # incomplete / invalid — wait for more input
+        if val == self._loaded.get(field):
+            return
+        self._loaded[field] = val
+        self.config_changed.emit(
+            {field: list(val) if val is not None else None})
+
+    def _emit_grid(self) -> None:
+        self._emit({"grid":       self._grid.isChecked(),
+                    "grid_which": self._grid_which.currentText()})
+
+    def _emit_legend(self) -> None:
+        self._emit({"legend":     self._legend.isChecked(),
+                    "legend_loc": self._legend_loc.currentText()})
+
+    # ── Load effective values from live axes ──────────────────────────────
 
     def _load_from_axes(self) -> None:
         ax = self._ax
-        self._title.setText(ax.get_title())
-        self._xlabel.setText(ax.get_xlabel())
-        self._ylabel.setText(ax.get_ylabel())
-
-        xmin, xmax = ax.get_xlim()
-        ymin, ymax = ax.get_ylim()
-        self._xmin.setText(f"{xmin:.6g}")
-        self._xmax.setText(f"{xmax:.6g}")
-        self._ymin.setText(f"{ymin:.6g}")
-        self._ymax.setText(f"{ymax:.6g}")
-
-        self._xscale.setCurrentText(ax.get_xscale())
-        self._yscale.setCurrentText(ax.get_yscale())
-
+        self._loading = True
         try:
-            grid_on = any(l.get_visible() for l in ax.get_xgridlines())
-        except Exception:
-            grid_on = False
-        self._grid.setChecked(grid_on)
-        self._legend.setChecked(ax.get_legend() is not None)
-        if ax.get_legend() is not None:
-            pass  # legend_loc is hard to read back reliably
+            self._title.setText(ax.get_title())
+            self._xlabel.setText(ax.get_xlabel())
+            self._ylabel.setText(ax.get_ylabel())
+            self._loaded["title"]  = ax.get_title()
+            self._loaded["xlabel"] = ax.get_xlabel()
+            self._loaded["ylabel"] = ax.get_ylabel()
 
-        self._aspect.setCurrentText(
-            ax.get_aspect() if ax.get_aspect() in ("auto", "equal") else "auto")
+            xmin, xmax = ax.get_xlim()
+            ymin, ymax = ax.get_ylim()
+            self._xmin.setText(f"{xmin:.6g}")
+            self._xmax.setText(f"{xmax:.6g}")
+            self._ymin.setText(f"{ymin:.6g}")
+            self._ymax.setText(f"{ymax:.6g}")
+            self._loaded["xlim"] = (float(f"{xmin:.6g}"), float(f"{xmax:.6g}"))
+            self._loaded["ylim"] = (float(f"{ymin:.6g}"), float(f"{ymax:.6g}"))
 
-    # ── Apply to live axes ────────────────────────────────────────────────
+            self._xscale.setCurrentText(ax.get_xscale())
+            self._yscale.setCurrentText(ax.get_yscale())
 
-    def _apply(self) -> None:
-        ax = self._ax
-        if ax is None:
+            # grid/legend/aspect — read from live axes as fallback only;
+            # _overlay_from_scene() will correct these from the scene config
+            # (ax.get_xgridlines() only returns major lines and is unreliable
+            # for detecting minor-only or 'both' grids)
+            try:
+                grid_on = any(l.get_visible() for l in ax.get_xgridlines())
+            except Exception:
+                grid_on = False
+            self._grid.setChecked(grid_on)
+            self._legend.setChecked(ax.get_legend() is not None)
+            self._aspect.setCurrentText(
+                ax.get_aspect() if ax.get_aspect() in ("auto", "equal")
+                else "auto")
+        finally:
+            self._loading = False
+
+    def _overlay_from_scene(self) -> None:
+        """Overlay grid/legend/aspect from scene config (authoritative source).
+
+        These are user-controlled settings that must not be re-derived from
+        the live axes — matplotlib's API for reading them back is unreliable
+        (e.g. get_xgridlines() only returns major lines).
+        """
+        if self._scene_config_provider is None:
             return
-
-        ax.set_title(self._title.text())
-        ax.set_xlabel(self._xlabel.text())
-        ax.set_ylabel(self._ylabel.text())
-
-        xlim = self._parse_lim(self._xmin, self._xmax)
-        ylim = self._parse_lim(self._ymin, self._ymax)
-        if xlim:
-            ax.set_xlim(xlim)
-        else:
-            ax.autoscale(axis="x")
-        if ylim:
-            ax.set_ylim(ylim)
-        else:
-            ax.autoscale(axis="y")
-
-        ax.set_xscale(self._xscale.currentText())
-        ax.set_yscale(self._yscale.currentText())
-
-        if self._grid.isChecked():
-            ax.grid(True, which=self._grid_which.currentText(),
-                    linestyle="--", alpha=0.4)
-        else:
-            ax.grid(False)
-
-        if self._legend.isChecked():
-            ax.legend(loc=self._legend_loc.currentText())
-        else:
-            leg = ax.get_legend()
-            if leg is not None:
-                leg.remove()
-
-        ax.set_aspect(self._aspect.currentText())
-
-        self._canvas.draw_idle()
-
-    def _reset(self) -> None:
-        ax = self._ax
-        if ax is None:
+        d = self._scene_config_provider()
+        if not d:
             return
-        ax.set_title("")
-        ax.set_xlabel("")
-        ax.set_ylabel("")
-        ax.autoscale(axis="both")
-        ax.set_xscale("linear")
-        ax.set_yscale("linear")
-        ax.grid(False)
-        leg = ax.get_legend()
-        if leg is not None:
-            leg.remove()
-        ax.set_aspect("auto")
-        self._canvas.draw_idle()
-        self._load_from_axes()
-
-    @staticmethod
-    def _parse_lim(lo: QtWidgets.QLineEdit,
-                   hi: QtWidgets.QLineEdit) -> tuple | None:
+        self._loading = True
         try:
-            return (float(lo.text()), float(hi.text()))
-        except ValueError:
-            return None
+            if "grid" in d:
+                self._grid.setChecked(bool(d["grid"]))
+            if "grid_which" in d:
+                self._grid_which.setCurrentText(d["grid_which"])
+            if "legend" in d:
+                self._legend.setChecked(bool(d["legend"]))
+            if "legend_loc" in d:
+                self._legend_loc.setCurrentText(d["legend_loc"])
+            if "aspect" in d and d["aspect"] in ("auto", "equal"):
+                self._aspect.setCurrentText(d["aspect"])
+        finally:
+            self._loading = False

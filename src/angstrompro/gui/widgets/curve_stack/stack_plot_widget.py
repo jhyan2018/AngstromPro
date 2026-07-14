@@ -52,10 +52,13 @@ class StackPlotWidget(BasePlotWidget):
 
     def __init__(self, config: dict | None = None, parent=None) -> None:
         super().__init__(config, parent)
-        self._lines:         dict[tuple[str, int], object] = {}
-        self._line_order:    list[tuple[str, int]]         = []
-        self._manual_colors: dict[tuple[str, int], str]    = {}  # pinned per-line colors
-        self._colorbar    = None
+        self._lines:             dict[tuple[str, int], object] = {}
+        self._line_order:        list[tuple[str, int]]         = []
+        self._ax2             = None   # right twin Y axis, created on demand
+        # provider: () -> dict[str, "left"|"right"] — set by viewer widget
+        self.y_axis_provider          = None
+        # provider for right-axis axes config — set by viewer widget
+        self.axes_config_provider_right = None
         self._setup_ui()
         self._setup_crosshair()
 
@@ -94,10 +97,22 @@ class StackPlotWidget(BasePlotWidget):
         self._cmap_combo.currentIndexChanged.connect(self._on_color_mode_changed)
         ctrl.addWidget(self._cmap_combo)
 
-        ctrl.addSpacing(8)
+        # RT colormap — own anchor set, independent from colormap mode's
+        from .rt_cmap import RtCmapControl
+        self._rt = RtCmapControl(self)
+        self._rt.add_to(ctrl)
+        self._rt.changed.connect(self._rebuild_plot)
+
+        ctrl.addStretch()
+        layout.addLayout(ctrl)
+
+        # second toolbar row: offset / Y auto / crosshair / readout
+        ctrl2 = QtWidgets.QHBoxLayout()
+        ctrl2.setContentsMargins(4, 0, 4, 2)
+        ctrl2.setSpacing(8)
 
         # Offset
-        ctrl.addWidget(QtWidgets.QLabel("Offset:"))
+        ctrl2.addWidget(QtWidgets.QLabel("Offset:"))
         self._offset_spin = QtWidgets.QDoubleSpinBox()
         self._offset_spin.setRange(-1e9, 1e9)
         self._offset_spin.setValue(0.0)
@@ -106,20 +121,20 @@ class StackPlotWidget(BasePlotWidget):
         self._offset_spin.setFixedWidth(110)
         self._offset_spin.setToolTip("Vertical offset between successive curves")
         self._offset_spin.valueChanged.connect(self._on_offset_changed)
-        ctrl.addWidget(self._offset_spin)
+        ctrl2.addWidget(self._offset_spin)
 
         btn_yauto = QtWidgets.QPushButton("Y Auto")
         btn_yauto.setToolTip("Auto-scale Y axis to visible data")
         btn_yauto.clicked.connect(self._on_y_autoscale)
-        ctrl.addWidget(btn_yauto)
+        ctrl2.addWidget(btn_yauto)
 
         self._xhair_cb = QtWidgets.QCheckBox("Crosshair")
         self._xhair_cb.setChecked(True)
         self._xhair_cb.setToolTip("Show crosshair cursor with x/y readout")
         self._xhair_cb.stateChanged.connect(self._on_crosshair_toggled)
-        ctrl.addWidget(self._xhair_cb)
+        ctrl2.addWidget(self._xhair_cb)
 
-        ctrl.addStretch()
+        ctrl2.addStretch()
 
         self._readout = QtWidgets.QLabel("")
         self._readout.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight |
@@ -129,9 +144,9 @@ class StackPlotWidget(BasePlotWidget):
             QtWidgets.QSizePolicy.Policy.Ignored,
             QtWidgets.QSizePolicy.Policy.Preferred)
         self._readout.setStyleSheet("font-family: monospace; color: #555;")
-        ctrl.addWidget(self._readout, stretch=1)
+        ctrl2.addWidget(self._readout, stretch=1)
 
-        layout.addLayout(ctrl)
+        layout.addLayout(ctrl2)
 
         self._fig    = Figure(tight_layout=True)
         self._ax     = self._fig.add_subplot(111)
@@ -221,23 +236,33 @@ class StackPlotWidget(BasePlotWidget):
         self._checked  = checked
         self._rebuild_plot()
 
-    def _remove_colorbar(self) -> None:
-        if self._colorbar is not None:
+    def _get_or_create_ax2(self):
+        """Return (or lazily create) the right twin Y axis."""
+        if self._ax2 is None:
+            self._ax2 = self._ax.twinx()
+        return self._ax2
+
+    def _remove_ax2(self) -> None:
+        """Remove the right twin Y axis from the figure if it exists."""
+        if self._ax2 is not None:
             try:
-                self._colorbar.remove()
+                self._ax2.remove()
             except Exception:
                 pass
-            self._colorbar = None
+            self._ax2 = None
+
+    def _y_assignments(self) -> dict[str, str]:
+        return self.y_axis_provider() if self.y_axis_provider else {}
 
     def clear(self) -> None:
         self._xhair_h = None
         self._xhair_v = None
         self._lines.clear()
         self._line_order.clear()
-        self._manual_colors.clear()
         self._datasets.clear()
         self._checked.clear()
-        self._remove_colorbar()
+        self._remove_ax2()
+        self._remove_ax2()
         self._ax.clear()
         self._canvas.draw_idle()
         self._readout.setText("")
@@ -258,30 +283,41 @@ class StackPlotWidget(BasePlotWidget):
             self._rebuild_plot()
             return
 
-        offset = self._offset_spin.value()
-        x_arr  = entry["x"]
-        y_arr  = entry["y"]
-        n      = y_arr.shape[0]
-        start  = len(self._line_order)
+        with self._rc():
+            offset      = self._offset_spin.value()
+            x_arr       = entry["x"]
+            y_arr       = entry["y"]
+            n           = y_arr.shape[0]
+            start       = len(self._line_order)
+            side        = self._y_assignments().get(name, "left")
+            target      = self._get_or_create_ax2() if side == "right" else self._ax
 
-        for i, vis in enumerate(checked_list):
-            global_idx  = start + i
-            curve_label = f"{name} / Line {i}" if n > 1 else name
-            line, = self._ax.plot(
-                x_arr, y_arr[i] + global_idx * offset,
-                label=curve_label, visible=vis)
-            self._lines[(name, i)] = line
-            self._line_order.append((name, i))
+            for i, vis in enumerate(checked_list):
+                global_idx  = start + i
+                curve_label = f"{name} / Line {i}" if n > 1 else name
+                line, = target.plot(
+                    x_arr, y_arr[i] + global_idx * offset,
+                    label=curve_label, visible=vis)
+                self._lines[(name, i)] = line
+                self._line_order.append((name, i))
 
-        x_label = entry.get("x_label", "")
-        y_label = entry.get("y_label", "")
-        if x_label and not self._ax.get_xlabel():
-            self._ax.set_xlabel(x_label)
-        if y_label and not self._ax.get_ylabel():
-            self._ax.set_ylabel(y_label)
+            x_label = entry.get("x_label", "")
+            y_label = entry.get("y_label", "")
+            if x_label and not self._ax.get_xlabel():
+                self._ax.set_xlabel(x_label)
+            if side == "right":
+                if y_label and self._ax2 is not None and not self._ax2.get_ylabel():
+                    self._ax2.set_ylabel(y_label)
+            else:
+                if y_label and not self._ax.get_ylabel():
+                    self._ax.set_ylabel(y_label)
 
-        self._assign_colors(self._lines)
-        self._fig.tight_layout()
+            self._assign_colors(self._lines)
+            self._apply_row_style_pins()
+            self._apply_axes_config()
+            self._fig.tight_layout()
+            if self._ax2 is not None:
+                self._ax2.set_position(self._ax.get_position())
         self._capture_background()
 
     def remove_lines(self, name: str) -> None:
@@ -310,38 +346,87 @@ class StackPlotWidget(BasePlotWidget):
 
     # ── Scene helpers ─────────────────────────────────────────────────────
 
-    def pin_color(self, key: tuple[str, int], color: str) -> None:
-        """Record a manual color override for one line."""
-        self._manual_colors[key] = color
+    @staticmethod
+    def _apply_style_props(artist, props: dict) -> None:
+        for prop, val in props.items():
+            setter = getattr(artist, f"set_{prop}", None)
+            if setter is None:
+                continue   # e.g. marker on a LineCollection
+            try:
+                setter(val)
+            except Exception:
+                pass       # e.g. linestyle "none" on a LineCollection
 
-    def reset_color(self, key: tuple[str, int]) -> None:
-        """Remove manual color override and reapply color mode."""
-        self._manual_colors.pop(key, None)
+    def refresh_line_styles(self) -> None:
+        """Re-pull per-line pins from the scene and reapply (cheap, no rebuild)."""
+        self._apply_row_style_pins()
         self._assign_colors(self._lines)
         self._capture_background()
 
-    def get_line_styles(self) -> dict[tuple[str, int], dict]:
-        from matplotlib.lines import Line2D
-        result = {}
-        for key, artist in self._lines.items():
-            if not isinstance(artist, Line2D):
-                continue   # LineCollection — no simple per-line style to extract
-            result[key] = {
-                "color":     artist.get_color(),
-                "linewidth": artist.get_linewidth(),
-                "linestyle": artist.get_linestyle(),
-                "marker":    artist.get_marker() if artist.get_marker() != "None" else "",
-                "alpha":     artist.get_alpha() or 1.0,
-                "label":     artist.get_label(),
-                "visible":   artist.get_visible(),
-            }
-        return result
+    def _apply_row_style_pins(self) -> None:
+        """Apply scene row-style pins to live artists.
+
+        Color pins apply only in auto mode (cmap modes own their colors);
+        other props (linewidth, linestyle, alpha, marker, …) apply always.
+        """
+        for key, props in self._row_style_pins().items():
+            artist = self._lines.get(key)
+            if artist is None:
+                continue
+            p = dict(props)
+            color = p.pop("color", "")
+            if color and self.color_mode == "auto":
+                artist.set_color(color)
+            if p:
+                self._apply_style_props(artist, p)
+
+    def _apply_axes_config(self) -> None:
+        """Apply axes config to both left (_ax) and right (_ax2) axes."""
+        super()._apply_axes_config()   # left axis via axes_config_provider
+        if self._ax2 is None:
+            return
+        provider = self.axes_config_provider_right
+        if provider is None:
+            return
+        cfg = provider()
+        if cfg is None:
+            return
+        # Only Y-axis settings are independent on a twin; X is shared with _ax
+        if cfg.ylabel:
+            self._ax2.set_ylabel(cfg.ylabel)
+        if cfg.yscale and cfg.yscale != "linear":
+            self._ax2.set_yscale(cfg.yscale)
+        if cfg.ylim:
+            self._ax2.set_ylim(tuple(cfg.ylim))
+        if cfg.legend:
+            try:
+                self._ax2.legend(loc=cfg.legend_loc or "best")
+            except Exception:
+                pass
 
     def get_offset(self) -> float:
         return self._offset_spin.value()
 
     def set_offset(self, value: float) -> None:
         self._offset_spin.setValue(value)
+
+    # ── RT colormap (delegates to RtCmapControl) ──────────────────────────
+
+    def use_rt_cmap(self) -> bool:
+        return self._rt.use_rt_cmap()
+
+    def rt_anchors(self) -> list[dict]:
+        return self._rt.rt_anchors()
+
+    def set_rt_cmap(self, use: bool, anchors: list[dict] | None) -> None:
+        self._rt.set_rt(use, anchors)
+
+    def _resolve_cmap(self, name: str):
+        """RT anchor cmap wins over the named cmap in 'cmap:<name>' mode."""
+        resolved = self._rt.resolve(name)
+        if not isinstance(resolved, str):
+            return resolved          # anchor-built Colormap object
+        return super()._resolve_cmap(resolved)
 
     # ── Color mode ────────────────────────────────────────────────────────
 
@@ -422,45 +507,57 @@ class StackPlotWidget(BasePlotWidget):
     # ── Drawing ───────────────────────────────────────────────────────────
 
     def _rebuild_plot(self) -> None:
-        self._xhair_h = None
-        self._xhair_v = None
-        self._remove_colorbar()
-        self._ax.clear()
-        self._lines.clear()
-        self._line_order.clear()
+        # everything artist-creating runs under the scene's rcparams delta
+        with self._rc():
+            self._xhair_h = None
+            self._xhair_v = None
+            self._remove_ax2()   # recreated lazily in _rebuild_line2d if needed
+            self._ax.clear()
+            self._lines.clear()
+            self._line_order.clear()
+            self._apply_fig_style()
 
-        if _needs_lc(self.color_mode):
-            self._rebuild_lc()
-        else:
-            self._rebuild_line2d()
+            if _needs_lc(self.color_mode):
+                self._rebuild_lc()
+            else:
+                self._rebuild_line2d()
 
-        # re-apply manual color pins that survive mode/offset changes
-        for key, color in self._manual_colors.items():
-            artist = self._lines.get(key)
-            if artist is not None:
-                artist.set_color(color)
+            # scene is the single truth: re-apply per-line pins and axes config
+            self._apply_row_style_pins()
+            self._apply_axes_config()
 
-        self._ax.minorticks_on()
-        self._ax.tick_params(axis="both", which="both", direction="in")
-        self._fig.tight_layout()
+            # face/edge style is not re-read from rcParams by ax.clear()
+            self._apply_axes_face_style(self._ax)
+            self._apply_axes_face_style(self._ax2)
+
+            self._ax.minorticks_on()
+            self._apply_house_ticks(self._ax)
+            self._apply_house_ticks(self._ax2)
+            self._fig.tight_layout()
+            if self._ax2 is not None:
+                self._ax2.set_position(self._ax.get_position())
         self._capture_background()
         self.artists_rebuilt.emit()
 
     def _rebuild_line2d(self) -> None:
-        offset    = self._offset_spin.value()
-        x_label   = ""
-        y_label   = ""
-        global_idx = 0
+        offset      = self._offset_spin.value()
+        x_label     = ""
+        y_label_l   = ""
+        y_label_r   = ""
+        global_idx  = 0
+        assignments = self._y_assignments()
 
         for name, entry in self._datasets.items():
             y_arr   = entry["y"]
             x_arr   = entry["x"]
             checked = self._checked.get(name, [True] * y_arr.shape[0])
             n       = y_arr.shape[0]
+            side    = assignments.get(name, "left")
+            target  = self._get_or_create_ax2() if side == "right" else self._ax
 
             for i, vis in enumerate(checked):
                 curve_label = f"{name} / Line {i}" if n > 1 else name
-                line, = self._ax.plot(
+                line, = target.plot(
                     x_arr, y_arr[i] + global_idx * offset,
                     label=curve_label, visible=vis)
                 self._lines[(name, i)] = line
@@ -468,12 +565,17 @@ class StackPlotWidget(BasePlotWidget):
                 global_idx += 1
 
             x_label = entry.get("x_label", "") or x_label
-            y_label = entry.get("y_label", "") or y_label
+            if side == "right":
+                y_label_r = entry.get("y_label", "") or y_label_r
+            else:
+                y_label_l = entry.get("y_label", "") or y_label_l
 
         if x_label:
             self._ax.set_xlabel(x_label)
-        if y_label:
-            self._ax.set_ylabel(y_label)
+        if y_label_l:
+            self._ax.set_ylabel(y_label_l)
+        if y_label_r and self._ax2 is not None:
+            self._ax2.set_ylabel(y_label_r)
         if self._config.get("show_grid", False):
             self._ax.grid(True, linestyle="--", alpha=0.4)
 
@@ -485,7 +587,9 @@ class StackPlotWidget(BasePlotWidget):
 
         import matplotlib as mpl
         mode      = self.color_mode
-        cmap_name = _cmap_name_from_mode(mode)
+        # RT anchor cmap (when enabled) overrides the combo's named cmap;
+        # LineCollection accepts either a name string or a Colormap object
+        cmap_name = self._rt.resolve(_cmap_name_from_mode(mode))
         is_global = _is_lc_global_mode(mode)
         offset    = self._offset_spin.value()
         lw        = mpl.rcParams.get("lines.linewidth", 1.0)
@@ -510,14 +614,18 @@ class StackPlotWidget(BasePlotWidget):
         else:
             global_norm = None
 
-        global_idx = 0
-        last_lc    = None   # track last collection for colorbar
+        global_idx  = 0
+        last_lc     = None   # track last collection for colorbar
+        assignments = self._y_assignments()
+        y_label_r   = ""
 
         for name, entry in self._datasets.items():
             y_arr   = entry["y"]
             x_arr   = entry["x"]
             checked = self._checked.get(name, [True] * y_arr.shape[0])
             n       = y_arr.shape[0]
+            side    = assignments.get(name, "left")
+            target  = self._get_or_create_ax2() if side == "right" else self._ax
 
             for i, vis in enumerate(checked):
                 y_plot  = y_arr[i] + global_idx * offset
@@ -528,28 +636,31 @@ class StackPlotWidget(BasePlotWidget):
 
                 lc = self._make_lc(x_arr, y_plot, y_color,
                                    cmap_name, norm, lw, vis)
-                self._ax.add_collection(lc)
+                target.add_collection(lc)
                 self._lines[(name, i)] = lc
                 self._line_order.append((name, i))
                 global_idx += 1
                 last_lc = lc
 
             x_label = entry.get("x_label", "") or x_label
-            y_label = entry.get("y_label", "") or y_label
+            if side == "right":
+                y_label_r = entry.get("y_label", "") or y_label_r
+            else:
+                y_label = entry.get("y_label", "") or y_label
 
         # Collections don't auto-scale axes
         self._ax.autoscale_view()
+        if self._ax2 is not None:
+            self._ax2.autoscale_view()
 
         if x_label:
             self._ax.set_xlabel(x_label)
         if y_label:
             self._ax.set_ylabel(y_label)
+        if y_label_r and self._ax2 is not None:
+            self._ax2.set_ylabel(y_label_r)
         if self._config.get("show_grid", False):
             self._ax.grid(True, linestyle="--", alpha=0.4)
-
-        # Colorbar only for global mode (unambiguous shared norm)
-        if is_global and last_lc is not None:
-            self._colorbar = self._fig.colorbar(last_lc, ax=self._ax)
 
     @staticmethod
     def _make_lc(x, y_plot, y_color, cmap_name, norm, lw, visible):

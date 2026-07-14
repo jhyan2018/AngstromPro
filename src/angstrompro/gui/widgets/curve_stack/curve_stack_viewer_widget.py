@@ -21,7 +21,6 @@ from __future__ import annotations
 import copy
 import logging
 
-import matplotlib as mpl
 import numpy as np
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
@@ -73,11 +72,161 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._plot_widgets: dict[str, BasePlotWidget] = {}   # mode → cached widget
         self._cmap_palette: list[str] = []            # user palette from preferences
         self._widget_extras: dict[str, dict] = {}     # mode → restored scene extras
-        self._restored_manual_colors: dict[tuple, str] = {}  # pending per-line pins
+        self._runtime_scene = None                    # set via set_runtime_scene()
+        self._current_mode: str = "stack"             # active plot mode
         self._bulk_update: bool = False               # suppress per-child refreshes
-        self.view_context = ViewerContext(self)            # identity of active view objects
+        self.view_context = ViewerContext(self)       # identity of active view objects
+        from .scene_bus import SceneBus
+        self.scene_bus = SceneBus(self)               # scene-mutation notifications
         self._setup_ui()
         self._set_mode("stack")
+
+    # ── RuntimeScene (single source of truth) ─────────────────────────────
+
+    def set_runtime_scene(self, runtime_scene) -> None:
+        """Attach the module-owned RuntimeScene. Must be called once at build."""
+        self._runtime_scene = runtime_scene
+
+    def _active_axes(self):
+        """Active AxesSpec of the scene — created on demand."""
+        from angstrompro.core.data.scene_plot import AxesSpec
+        if self._runtime_scene is None:
+            return None
+        axes = self._runtime_scene.active_axes
+        if axes is None:
+            axes = AxesSpec()
+            self._runtime_scene.scene.figure.axes_list.append(axes)
+        return axes
+
+    def _artist_spec(self, ds_name: str, uds=None):
+        """Find-or-create the ArtistSpec for a dataset (keyed by label)."""
+        from angstrompro.core.data.scene_plot import ArtistSpec, LineStyle
+        axes = self._active_axes()
+        if axes is None:
+            return None
+        for spec in axes.artists:
+            if spec.label == ds_name:
+                return spec
+        spec = ArtistSpec(kind="line", style=LineStyle(),
+                          data=uds, label=ds_name)
+        axes.artists.append(spec)
+        return spec
+
+    # ── Y-axis assignment (twin axes) ─────────────────────────────────────
+
+    def _ds_yaxis(self, ds_name: str) -> str:
+        """Return 'left' or 'right' Y-axis assignment for a dataset."""
+        axes = self._active_axes()
+        if axes is None:
+            return "left"
+        for spec in axes.artists:
+            if spec.label == ds_name:
+                return spec.extra.get("y_axis", "left")
+        return "left"
+
+    def _get_y_axis_assignments(self) -> dict[str, str]:
+        """Provider: {ds_name: 'left'|'right'} for all current artists."""
+        axes = self._active_axes()
+        if axes is None:
+            return {}
+        return {spec.label: spec.extra.get("y_axis", "left")
+                for spec in axes.artists}
+
+    def set_dataset_yaxis(self, ds_name: str, side: str) -> None:
+        """Assign dataset to left or right Y axis and trigger a rebuild."""
+        spec = self._artist_spec(ds_name)
+        if spec is None:
+            return
+        spec.extra["y_axis"] = side
+        self._rebuild_tree()
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(self._datasets, self._checked)
+        self.scene_bus.artists_changed.emit()
+
+    def _axes_config_key(self) -> str:
+        """Config-dict slot for the currently active axis.
+
+        'stack_right' when viewing the right twin axis; otherwise the
+        widget mode name ('stack', 'colormap', …).
+        """
+        if (self._current_mode == "stack"
+                and self.view_context.y_side == "right"):
+            return "stack_right"
+        return self._current_mode
+
+    # ── Tree context menu ─────────────────────────────────────────────────
+
+    def _on_tree_context_menu(self, pos) -> None:
+        item = self._tree.itemAt(pos)
+        if item is None:
+            return
+        data = item.data(0, _ITEM_ROLE)
+        if data is None or data[0] != "dataset":
+            return
+        _, ds_name = data
+        current_side = self._ds_yaxis(ds_name)
+
+        menu = QtWidgets.QMenu(self)
+        if current_side != "right":
+            act = menu.addAction("Move to Right Y axis")
+            act.triggered.connect(lambda: self.set_dataset_yaxis(ds_name, "right"))
+        if current_side != "left":
+            act = menu.addAction("Move to Left Y axis")
+            act.triggered.connect(lambda: self.set_dataset_yaxis(ds_name, "left"))
+        menu.exec(self._tree.viewport().mapToGlobal(pos))
+
+    # scene providers pulled by the plot widgets (see BasePlotWidget)
+
+    def _get_axes_config(self, mode: str):
+        """Return an AxesConfig for the given mode, built from the per-mode dict."""
+        from angstrompro.core.data.scene_plot import AxesConfig
+        axes = self._runtime_scene.active_axes if self._runtime_scene else None
+        if axes is None:
+            return AxesConfig()
+        d = axes.extra.get("axes_config_by_mode", {}).get(mode, {})
+        if not d:
+            return AxesConfig()   # all defaults → autoscale / dataset labels apply
+        def _lim(v): return tuple(v) if v else None
+        return AxesConfig(
+            title      = d.get("title", ""),
+            xlabel     = d.get("xlabel", ""),
+            ylabel     = d.get("ylabel", ""),
+            xlim       = _lim(d.get("xlim")),
+            ylim       = _lim(d.get("ylim")),
+            xscale     = d.get("xscale", "linear"),
+            yscale     = d.get("yscale", "linear"),
+            grid       = d.get("grid"),        # None = untouched → delta rules
+            grid_which = d.get("grid_which", "major"),
+            legend     = d.get("legend", False),
+            legend_loc = d.get("legend_loc", "best"),
+            aspect     = d.get("aspect", "auto"),
+        )
+
+    def _get_rcparams_delta(self) -> dict:
+        """Provider: the scene's live rcparams_delta (single source of truth)."""
+        if self._runtime_scene is None:
+            return {}
+        return self._runtime_scene.scene.rcparams_delta
+
+    def set_rcparams_delta(self, delta: dict) -> None:
+        """Replace the scene's delta wholesale and rebuild the active plot."""
+        if self._runtime_scene is None:
+            return
+        self._runtime_scene.scene.rcparams_delta = tmgr.sanitize_delta(delta)
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(self._datasets, self._checked)
+
+    def _get_row_styles(self) -> dict:
+        """{(ds_name, row): props} across all artists of the active axes."""
+        axes = self._runtime_scene.active_axes if self._runtime_scene else None
+        if axes is None:
+            return {}
+        out: dict[tuple, dict] = {}
+        for spec in axes.artists:
+            ds = spec.label or (spec.data.name if spec.data is not None else "")
+            for k, props in (spec.extra.get("row_styles") or {}).items():
+                out[(ds, int(k))] = props
+        return out
 
     # ── UI construction ───────────────────────────────────────────────────
 
@@ -123,6 +272,9 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._tree.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self._tree.itemChanged.connect(self._on_tree_item_changed)
+        self._tree.setContextMenuPolicy(
+            QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._on_tree_context_menu)
         ll.addWidget(self._tree, stretch=1)   # tree takes all spare vertical space
 
         btn_row    = QtWidgets.QHBoxLayout()
@@ -181,36 +333,72 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             act = self._tpl_load_menu.addAction(name)
             act.triggered.connect(lambda _checked, n=name: self._load_template(n))
 
-    def _load_template(self, name: str) -> None:
+    def _load_template(self, name: str) -> bool:
+        """Load a template: REPLACE the scene delta and ALL modes' extras.
+
+        The active plot mode is never changed.  Returns True on success.
+        """
         try:
             rcparams_delta, widget_extras = tmgr.load_template(name)
         except Exception as exc:
             log.warning("Failed to load template %r: %s", name, exc)
-            return
+            return False
 
-        tmgr.apply_rcparams(rcparams_delta)
+        if self._runtime_scene is not None:
+            self._runtime_scene.scene.rcparams_delta = dict(rcparams_delta)
 
-        mode  = self._mode_combo.currentData() or "stack"
-        extra = tmgr.get_widget_extra(widget_extras, mode)
+        # replace extras for every mode; cached widgets pick theirs up now,
+        # not-yet-created widgets pick theirs up lazily in _set_mode
+        self._widget_extras = {m: dict(e) for m, e in widget_extras.items()}
+        for m, w in self._plot_widgets.items():
+            self._apply_widget_extra(w, m)
 
-        # apply widget-type extras to the active plot widget
-        if hasattr(self._plot_widget, "set_color_mode"):
-            self._plot_widget.set_color_mode(extra.get("color_mode", "auto"))
-        if hasattr(self._plot_widget, "set_offset"):
-            self._plot_widget.set_offset(extra.get("offset", 0.0))
-        from .colormap_plot_widget import ColormapPlotWidget
-        if isinstance(self._plot_widget, ColormapPlotWidget):
-            cmb = self._plot_widget._cmap_combo
-            cmb.blockSignals(True)
-            cmb.setCurrentText(extra.get("colormap", "RdBu_r"))
-            cmb.blockSignals(False)
-
-        self._plot_widget.refresh(self._datasets, self._checked)
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(self._datasets, self._checked)
+        return True
 
     def apply_template_by_name(self, name: str) -> None:
-        """Public entry point called by the module on startup."""
+        """Manual template load (Scene menu)."""
         if name:
             self._load_template(name)
+
+    def apply_preload_template(self, name: str) -> None:
+        """Pre-load template for fresh UDS loads.
+
+        Called by the module right after the scene reset on a UDS
+        double-click.  Missing/broken templates are logged, not fatal —
+        the scene simply keeps matplotlib defaults.
+        """
+        if not name:
+            return
+        if not self._load_template(name):
+            log.warning(
+                "Pre-load template %r is configured but could not be "
+                "loaded — using matplotlib defaults", name)
+
+    def _harvest_widget_extras(self) -> dict[str, dict]:
+        """Toolbar state of ALL cached widgets (hidden modes included)."""
+        extras: dict[str, dict] = {}
+        stack_w = self._plot_widgets.get("stack")
+        cmap_w  = self._plot_widgets.get("colormap")
+        if stack_w is not None:
+            extras["stack"] = {
+                "color_mode":  stack_w.color_mode,
+                "offset":      stack_w.get_offset(),
+                "use_rt_cmap": stack_w.use_rt_cmap(),
+                "rt_anchors":  stack_w.rt_anchors(),
+            }
+        if cmap_w is not None:
+            extras["colormap"] = {
+                "colormap":    cmap_w._cmap_combo.currentText(),
+                "symmetric":   cmap_w._sym_check.isChecked(),
+                "use_rt_cmap": cmap_w.use_rt_cmap(),
+                "rt_anchors":  cmap_w.rt_anchors(),
+            }
+        # modes never activated: keep extras restored from a scene/template
+        for m, e in self._widget_extras.items():
+            extras.setdefault(m, dict(e))
+        return extras
 
     def _on_save_template(self) -> None:
         name, ok = QtWidgets.QInputDialog.getText(
@@ -219,59 +407,50 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             return
         name = name.strip()
 
-        mode  = self._mode_combo.currentData() or "stack"
-        extra: dict = {}
-        if hasattr(self._plot_widget, "color_mode"):
-            extra["color_mode"] = self._plot_widget.color_mode
-        if hasattr(self._plot_widget, "get_offset"):
-            extra["offset"] = self._plot_widget.get_offset()
-        if hasattr(self._plot_widget, "_cmap_combo"):
-            extra["colormap"] = self._plot_widget._cmap_combo.currentText()
-
-        # warn if this widget type already exists in the template
-        existing = tmgr.list_templates()
-        if name in existing:
-            from angstrompro.gui.widgets.curve_stack import template_manager as _t
-            path = _t.templates_dir() / f"{name}.scet"
-            try:
-                import json as _j
-                raw = _j.loads(path.read_text(encoding="utf-8"))
-                if mode in raw.get("widget_extras", {}):
-                    ans = QtWidgets.QMessageBox.question(
-                        self, "Override template?",
-                        f"Template '{name}' already has settings for "
-                        f"widget type '{mode}'.\n\nOverride?",
-                        QtWidgets.QMessageBox.StandardButton.Yes |
-                        QtWidgets.QMessageBox.StandardButton.No,
-                    )
-                    if ans != QtWidgets.QMessageBox.StandardButton.Yes:
-                        return
-            except Exception:
-                pass
+        if name in tmgr.list_templates():
+            ans = QtWidgets.QMessageBox.question(
+                self, "Override template?",
+                f"Template '{name}' already exists.\n\nOverride?",
+                QtWidgets.QMessageBox.StandardButton.Yes |
+                QtWidgets.QMessageBox.StandardButton.No,
+            )
+            if ans != QtWidgets.QMessageBox.StandardButton.Yes:
+                return
 
         try:
-            tmgr.save_template(name, mode, extra)
+            tmgr.save_template(name,
+                               self._get_rcparams_delta(),
+                               self._harvest_widget_extras())
         except Exception as exc:
             QtWidgets.QMessageBox.warning(self, "Save failed", str(exc))
 
     # ── Mode switching ────────────────────────────────────────────────────
 
     def _set_mode(self, mode: str) -> None:
+        self._current_mode = mode
         widget = self._plot_widgets.get(mode)
         if widget is None:
             widget = self._create_plot_widget(mode)
             widget.apply_config(self._config)
+            # scene providers — the widget pulls axes config and per-line
+            # pins from the RuntimeScene during every rebuild.
+            # axes_config_provider captures mode so each widget reads its
+            # own per-mode config dict from the scene.
+            widget.axes_config_provider = lambda m=mode: self._get_axes_config(m)
+            widget.row_styles_provider  = self._get_row_styles
+            widget.rcparams_provider    = self._get_rcparams_delta
+            if mode == "stack":
+                widget.y_axis_provider           = self._get_y_axis_assignments
+                widget.axes_config_provider_right = (
+                    lambda: self._get_axes_config("stack_right"))
             if self._cmap_palette and hasattr(widget, "set_cmap_palette"):
                 widget.set_cmap_palette(self._cmap_palette)
-            if hasattr(widget, "artists_rebuilt"):
-                # artists replaced (e.g. color mode Line2D↔LC) — panels re-pull
-                widget.artists_rebuilt.connect(self.view_context.refresh_selection)
+            # artists_rebuilt is routed through ViewerContext (plot_rebuilt +
+            # selection_changed) — no direct connection needed here
             self._plot_widgets[mode] = widget
             self._plot_stack.addWidget(widget)
             # apply extras restored from a scene before this widget existed
             self._apply_widget_extra(widget, mode)
-            if mode == "stack":
-                self._apply_manual_colors(widget)
 
         self._plot_widget = widget
         self._plot_stack.setCurrentWidget(widget)
@@ -300,21 +479,31 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         n = entry["y"].shape[0]
         if len(self._checked.get(name, [])) != n:
             self._checked[name] = [True] * n
+        # keep the scene's artist list in sync (single source of truth)
+        spec = self._artist_spec(name, uds)
+        if spec is not None:
+            spec.data = uds
         self._rebuild_tree()
         if is_replace:
             self._plot_widget.remove_lines(name)
         self._plot_widget.add_lines(name, entry, self._checked[name])
+        self.scene_bus.artists_changed.emit()
 
     def remove_dataset(self, name: str) -> None:
         self._datasets.pop(name, None)
         self._checked.pop(name, None)
+        axes = self._active_axes()
+        if axes is not None:
+            axes.artists = [s for s in axes.artists if s.label != name]
         self._rebuild_tree()
         self._plot_widget.remove_lines(name)
+        self.scene_bus.artists_changed.emit()
 
     def clear(self) -> None:
         self._datasets.clear()
         self._checked.clear()
         self._tree.clear()
+        self._widget_extras = {}
         for w in self._plot_widgets.values():
             w.clear()
         self.view_context.set_selected_key(None)
@@ -342,97 +531,44 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
                 w.set_cmap_palette(names)
 
     def save_scene(self, name: str):
-        """Capture current display state as a ScenePlot."""
-        import copy
-        import matplotlib as mpl
-        from angstrompro.core.data.scene_plot import (
-            ScenePlot, FigureConfig, AxesSpec, AxesConfig, ArtistSpec, LineStyle)
+        """Sync UI-held state into the RuntimeScene and return a snapshot.
 
-        mode = self._mode_combo.currentData()
+        Per-line pins, axes config and the rcparams delta already live in the
+        scene (written on every edit).  Only widget toolbar state and
+        visibility are harvested here.
+        """
+        rs = self._runtime_scene
+        ax_spec = self._active_axes()
+        if rs is None or ax_spec is None:
+            raise RuntimeError("save_scene: no RuntimeScene attached")
 
-        # gather from ALL cached plot widgets so hidden-mode state is kept too
-        stack_w = self._plot_widgets.get("stack")
-        cmap_w  = self._plot_widgets.get("colormap")
+        rs.scene.name = name
 
-        line_styles: dict[tuple[str, int], dict] = {}
-        offset        = 0.0
-        color_mode    = "auto"
-        manual_colors = {}
-        if stack_w is not None:
-            line_styles   = stack_w.get_line_styles()
-            offset        = stack_w.get_offset()
-            color_mode    = stack_w.color_mode
-            manual_colors = dict(stack_w._manual_colors)
+        widget_extras = self._harvest_widget_extras()
 
-        colormap  = self._config.get("default_cmap", "RdBu_r")
-        symmetric = True
-        if cmap_w is not None:
-            colormap  = cmap_w._cmap_combo.currentText()
-            symmetric = cmap_w._sym_check.isChecked()
+        row_styles_all = self._get_row_styles()
+        ax_spec.extra["plot_mode"]     = self._mode_combo.currentData()
+        ax_spec.extra["widget_extras"] = widget_extras
+        ax_spec.extra["has_manual_colors"] = any(
+            props.get("color") for props in row_styles_all.values())
 
-        widget_extras = {
-            "stack":    {"color_mode": color_mode, "offset": offset},
-            "colormap": {"colormap": colormap, "symmetric": symmetric},
-        }
-        artists = []
-        for ds_name, entry in self._datasets.items():
-            y_arr   = entry["y"]
-            n       = y_arr.shape[0]
-            checked = self._checked.get(ds_name, [True] * n)
-            uds     = entry["uds"]
-            # representative style from first row
-            s = line_styles.get((ds_name, 0), {})
-            # per-row style overrides: only save rows that differ (non-empty color)
-            row_styles = {}
-            for i in range(n):
-                ri = line_styles.get((ds_name, i), {})
-                if ri.get("color", ""):
-                    row_styles[i] = ri
-            artist = ArtistSpec(
-                kind    = "line",
-                style   = LineStyle(
-                    color     = s.get("color", ""),
-                    linewidth = s.get("linewidth"),
-                    linestyle = s.get("linestyle", ""),
-                    marker    = s.get("marker", ""),
-                ),
-                data    = copy.deepcopy(uds),
-                label   = ds_name,
-                visible = any(checked),
-                row     = None,
-                extra   = {
-                    "row_visibility": list(checked),
-                    "row_styles":     row_styles,
-                },
-            )
-            artists.append(artist)
+        # per-artist visibility
+        for spec in ax_spec.artists:
+            checked = self._checked.get(spec.label, [])
+            spec.extra["row_visibility"] = list(checked)
+            spec.visible = any(checked) if checked else True
 
-        ax_spec = AxesSpec(
-            config  = AxesConfig(grid=self._config.get("show_grid", False)),
-            artists = artists,
-            extra   = {
-                "plot_mode":         mode,
-                "widget_extras":     widget_extras,
-                "has_manual_colors": bool(manual_colors),
-            },
-        )
+        # rcparams_delta is live state — already exact in the scene
 
-        rcparams_delta = {
-            k: mpl.rcParams[k]
-            for k in mpl.rcParams
-            if k in mpl.rcParamsDefault and mpl.rcParams[k] != mpl.rcParamsDefault[k]
-        }
-
-        return ScenePlot(
-            name           = name,
-            figure         = FigureConfig(axes_list=[ax_spec]),
-            rcparams_delta = rcparams_delta,
-        )
+        return rs.snapshot()
 
     def restore_scene(self, scene) -> None:
-        """Restore full display state from a ScenePlot."""
-        import matplotlib as mpl
+        """Restore full display state from a ScenePlot.
 
+        The scene's rcparams_delta needs no handling here: the module has
+        already replaced the RuntimeScene, and every rebuild pulls the delta
+        via rcparams_provider — global mpl.rcParams is never touched.
+        """
         self.clear()
 
         if not scene.figure.axes_list:
@@ -449,14 +585,6 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._mode_combo.setCurrentIndex(idx)
         self._mode_combo.blockSignals(False)
         self._set_mode(mode)
-
-        # restore rcparams before drawing
-        if scene.rcparams_delta:
-            mpl.rcdefaults()
-            try:
-                mpl.rcParams.update(scene.rcparams_delta)
-            except Exception as exc:
-                log.warning("restore_scene: rcparams_delta partially failed: %s", exc)
 
         # restore per-widget-type extras (applied lazily to widgets not yet created)
         self._widget_extras = extra.get("widget_extras", {})
@@ -476,27 +604,12 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             self._checked[ds_name] = list(checked)
 
         self._rebuild_tree()
+        # refresh pulls per-line pins and axes config straight from the scene
         self._plot_widget.refresh(self._datasets, self._checked)
-
-        # collect per-line manual color pins — applied to the stack widget
-        # (now if it exists, or lazily when it is first created)
-        self._restored_manual_colors = {}
-        for artist in ax_spec.artists:
-            if artist.kind != "line" or artist.data is None:
-                continue
-            ds_name    = artist.label or artist.data.name
-            row_styles = artist.extra.get("row_styles", {})
-            for row_idx_str, rs in row_styles.items():
-                color = rs.get("color", "")
-                if color:
-                    self._restored_manual_colors[(ds_name, int(row_idx_str))] = color
-
-        stack_w = self._plot_widgets.get("stack")
-        if stack_w is not None:
-            self._apply_manual_colors(stack_w)
 
         # artists were rebuilt — panels must drop stale refs and re-pull
         self.view_context.set_plot_widget(self._plot_widget)
+        self.scene_bus.scene_replaced.emit()
 
     def _apply_widget_extra(self, widget, mode: str) -> None:
         """Apply restored scene extras for one widget type."""
@@ -508,6 +621,10 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             widget.set_color_mode(extra.get("color_mode", "auto"))
         if hasattr(widget, "set_offset"):
             widget.set_offset(extra.get("offset", 0.0))
+        # per-mode RT colormap copy — stack and colormap each restore their own
+        if mode == "stack" and hasattr(widget, "set_rt_cmap"):
+            widget.set_rt_cmap(extra.get("use_rt_cmap", False),
+                               extra.get("rt_anchors"))
         if isinstance(widget, ColormapPlotWidget):
             cmb = widget._cmap_combo
             cmb.blockSignals(True)
@@ -516,17 +633,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             widget._sym_check.blockSignals(True)
             widget._sym_check.setChecked(extra.get("symmetric", True))
             widget._sym_check.blockSignals(False)
-
-    def _apply_manual_colors(self, stack_widget) -> None:
-        """Push restored per-line color pins into a stack widget."""
-        if not self._restored_manual_colors:
-            return
-        stack_widget._manual_colors = dict(self._restored_manual_colors)
-        for key, color in stack_widget._manual_colors.items():
-            line = stack_widget._lines.get(key)
-            if line is not None:
-                line.set_color(color)
-        stack_widget._capture_background()
+            widget.set_rt_cmap(extra.get("use_rt_cmap", False),
+                               extra.get("rt_anchors"))
 
     # ── Selection → ViewerContext ─────────────────────────────────────────
 
@@ -535,26 +643,156 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         selected = self._tree.selectedItems()
         if len(selected) != 1:
             self.view_context.set_selected_key(None)
+            self.view_context.set_y_side("left")
             return
         data = selected[0].data(0, _ITEM_ROLE)
-        if not isinstance(data, tuple) or data[0] != "curve":
+        if not isinstance(data, tuple):
             self.view_context.set_selected_key(None)
+            self.view_context.set_y_side("left")
             return
-        _, ds_name, curve_idx = data
-        self.view_context.set_selected_key((ds_name, curve_idx))
+        if data[0] == "dataset":
+            _, ds_name = data
+            self.view_context.set_selected_key(None)
+            self.view_context.set_y_side(self._ds_yaxis(ds_name))
+        elif data[0] == "curve":
+            _, ds_name, curve_idx = data
+            self.view_context.set_selected_key((ds_name, curve_idx))
+            self.view_context.set_y_side(self._ds_yaxis(ds_name))
+        else:
+            self.view_context.set_selected_key(None)
+            self.view_context.set_y_side("left")
 
     def pin_selected_color(self, hex_color: str) -> None:
-        """Pin a manual color on the selected curve (called by the module)."""
+        """Pin a manual color on the selected curve — written to the scene."""
+        self._pin_selected("color", hex_color)
+
+    def pin_selected_style(self, prop: str, value) -> None:
+        """Pin a manual style prop on the selected curve — written to the scene."""
+        self._pin_selected(prop, value)
+
+    def _pin_selected(self, prop: str, value) -> None:
         key = self.view_context.selected_key
-        if key is not None and hasattr(self._plot_widget, "pin_color"):
-            self._plot_widget.pin_color(key, hex_color)
+        if key is None:
+            return
+        ds_name, row = key
+        spec = self._artist_spec(ds_name)
+        if spec is None:
+            return
+        row_styles = spec.extra.setdefault("row_styles", {})
+        # JSON round-trips turn int keys into strings — reuse either form
+        entry = row_styles.get(row)
+        if entry is None:
+            entry = row_styles.pop(str(row), None)
+            if entry is None:
+                entry = {}
+            row_styles[row] = entry
+        entry[prop] = value
+        # live application already happened in the panel; the scene entry
+        # makes it survive rebuilds, mode switches and save/reload
+        self.scene_bus.line_style_changed.emit(key)
 
     def reset_selected_color(self) -> None:
         """Remove the manual color pin on the selected curve."""
         key = self.view_context.selected_key
-        if key is not None and hasattr(self._plot_widget, "reset_color"):
-            self._plot_widget.reset_color(key)
-            self.view_context.refresh_selection()   # panel re-pulls the new color
+        if key is None:
+            return
+        ds_name, row = key
+        spec = self._artist_spec(ds_name)
+        if spec is not None:
+            row_styles = spec.extra.get("row_styles", {})
+            for rk in (row, str(row)):   # int at runtime, str after JSON load
+                if rk in row_styles:
+                    row_styles[rk].pop("color", None)
+                    if not row_styles[rk]:
+                        row_styles.pop(rk)
+        if hasattr(self._plot_widget, "refresh_line_styles"):
+            self._plot_widget.refresh_line_styles()
+        self.scene_bus.line_style_changed.emit(key)
+        self.view_context.refresh_selection()   # panel re-pulls the new color
+
+    # ── Axes config (scene-backed) ────────────────────────────────────────
+
+    def update_axes_config(self, patch: dict) -> None:
+        """Write a partial axes config patch into the current axis's scene dict."""
+        axes = self._active_axes()
+        if axes is None:
+            return
+        by_mode = axes.extra.setdefault("axes_config_by_mode", {})
+        cfg = by_mode.setdefault(self._axes_config_key(), {})
+        for k, v in patch.items():
+            # store lists (JSON-safe); tuples round-trip as lists through JSON
+            if k in ("xlim", "ylim") and v is not None:
+                v = list(v)
+            cfg[k] = v
+        self._apply_axes_patch_live(patch)
+        self.scene_bus.axes_config_changed.emit()
+
+    def _current_mode_cfg(self) -> dict:
+        """Raw config dict for the current active axis (read-only convenience)."""
+        axes = self._active_axes()
+        if axes is None:
+            return {}
+        return axes.extra.get("axes_config_by_mode", {}).get(self._axes_config_key(), {})
+
+    def _apply_axes_patch_live(self, patch: dict) -> None:
+        """Apply a patch directly to the live ax (handles clears too)."""
+        w = self._plot_widget
+        # Right twin axis gets its own config slot; only Y settings apply there
+        if self._axes_config_key() == "stack_right":
+            ax = getattr(w, "_ax2", None)
+        else:
+            ax = getattr(w, "_ax", None)
+        canvas = getattr(w, "_canvas", None)
+        if ax is None:
+            return
+        cfg = self._current_mode_cfg()
+        for k, v in patch.items():
+            if k == "title":
+                ax.set_title(v)
+            elif k == "xlabel":
+                ax.set_xlabel(v)
+            elif k == "ylabel":
+                ax.set_ylabel(v)
+            elif k == "xlim":
+                ax.set_xlim(tuple(v)) if v else ax.autoscale(axis="x")
+            elif k == "ylim":
+                ax.set_ylim(tuple(v)) if v else ax.autoscale(axis="y")
+            elif k == "xscale":
+                ax.set_xscale(v)
+            elif k == "yscale":
+                ax.set_yscale(v)
+            elif k in ("grid", "grid_which"):
+                ax.grid(False, which="both")   # clear all first
+                if cfg.get("grid"):
+                    ax.grid(True, which=cfg.get("grid_which") or "major",
+                            linestyle="--", alpha=0.4)
+            elif k in ("legend", "legend_loc"):
+                if cfg.get("legend"):
+                    try:
+                        ax.legend(loc=cfg.get("legend_loc") or "best")
+                    except Exception:
+                        pass
+                else:
+                    leg = ax.get_legend()
+                    if leg is not None:
+                        leg.remove()
+            elif k == "aspect":
+                ax.set_aspect(v or "auto")
+        # margins were computed before this text existed — a new/changed
+        # title or label needs a re-layout or it clips at the figure edge
+        if patch.keys() & {"title", "xlabel", "ylabel"}:
+            fig = getattr(w, "_fig", None)
+            if fig is not None:
+                try:
+                    fig.tight_layout()
+                except Exception:
+                    pass
+                ax2 = getattr(w, "_ax2", None)
+                main_ax = getattr(w, "_ax", None)
+                if ax2 is not None and main_ax is not None:
+                    ax2.set_position(main_ax.get_position())
+        if canvas is not None:
+            canvas.draw_idle()
 
     # ── Extract ───────────────────────────────────────────────────────────
 
@@ -642,8 +880,9 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         for name, entry in self._datasets.items():
             n_curves = entry["y"].shape[0]
             checked  = self._checked.get(name, [True] * n_curves)
+            label    = f"{name} [R]" if self._ds_yaxis(name) == "right" else name
 
-            top = QtWidgets.QTreeWidgetItem([name])
+            top = QtWidgets.QTreeWidgetItem([label])
             top.setData(0, _ITEM_ROLE, ("dataset", name))
             # No AutoTristate — we update parent check state manually so that
             # a child change does NOT re-emit itemChanged for the parent.

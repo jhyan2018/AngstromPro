@@ -48,8 +48,9 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
     color_reset()      — user clicked "Auto", removing the manual pin
     """
 
-    color_pinned = QtCore.pyqtSignal(str)   # hex color string
-    color_reset  = QtCore.pyqtSignal()
+    color_pinned  = QtCore.pyqtSignal(str)          # hex color string
+    color_reset   = QtCore.pyqtSignal()
+    style_changed = QtCore.pyqtSignal(str, object)  # (prop_name, value)
 
     def __init__(self, parent=None) -> None:
         # no group-box title: the dock's title bar already says "Curve Style"
@@ -99,6 +100,7 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
 
         self._placeholder = QtWidgets.QLabel("Select a single curve to edit style")
         self._placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self._placeholder.setWordWrap(True)
         self._placeholder.setStyleSheet("color: gray; font-style: italic;")
         layout.addWidget(self._placeholder)
 
@@ -110,13 +112,12 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
 
         # Color
         self._color_btn = QtWidgets.QPushButton()
-        self._color_btn.setFixedHeight(24)
-        self._color_btn.setMinimumWidth(
-            self._color_btn.fontMetrics().horizontalAdvance("#88888888") + 16)
+        self._color_btn.setFixedSize(48, 24)   # plain swatch, no text
         self._color_btn.setToolTip("Click to pick line color")
         self._color_btn.clicked.connect(self._on_pick_color)
         color_row = QtWidgets.QHBoxLayout()
         color_row.setContentsMargins(0, 0, 0, 0)
+        color_row.setSpacing(6)
         color_row.addWidget(self._color_btn)
         self._reset_color_btn = QtWidgets.QPushButton("Auto")
         self._reset_color_btn.setToolTip("Remove manual color (use auto/cmap)")
@@ -183,9 +184,15 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
         self._canvas = canvas
         self._loading = True
         try:
-            # color — Line2D only
-            self._color_btn.setEnabled(is_line2d)
-            self._reset_color_btn.setEnabled(is_line2d)
+            # color — editable only in auto color mode (pins are ignored in
+            # cmap modes, where the colormap owns all line colors)
+            color_mode = "auto"
+            if self._context is not None and self._context.plot_widget is not None:
+                color_mode = getattr(self._context.plot_widget,
+                                     "color_mode", "auto")
+            can_pin = is_line2d and color_mode == "auto"
+            self._color_btn.setEnabled(can_pin)
+            self._reset_color_btn.setEnabled(can_pin)
             if is_line2d:
                 self._set_color_btn(line.get_color())
             else:
@@ -242,7 +249,8 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
         self._placeholder.setText(
             reason or "Select a single curve to edit style")
         self._placeholder.show()
-        self.setMaximumHeight(60)   # just title + placeholder line
+        # compact, but tall enough for the hint to word-wrap to 2-3 lines
+        self.setMaximumHeight(110)
         self.updateGeometry()
 
     # ── Handlers ──────────────────────────────────────────────────────────
@@ -280,6 +288,7 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
             return
         self._line.set_linewidth(val)
         self._redraw()
+        self.style_changed.emit("linewidth", val)
 
     def _on_ls_changed(self, _idx: int) -> None:
         if self._loading or self._line is None:
@@ -294,6 +303,7 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
                 self._line.set_visible(True)   # undo a previous "None" choice
             self._line.set_linestyle(ls)
         self._redraw()
+        self.style_changed.emit("linestyle", ls)
 
     def _on_marker_changed(self, _idx: int) -> None:
         if self._loading or self._line is None:
@@ -301,36 +311,38 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
         m = self._marker_combo.currentData()
         self._line.set_marker(m if m else "None")
         self._redraw()
+        self.style_changed.emit("marker", m if m else "None")
 
     def _on_ms_changed(self, val: float) -> None:
         if self._loading or self._line is None:
             return
         self._line.set_markersize(val)
         self._redraw()
+        self.style_changed.emit("markersize", val)
 
     def _on_alpha_changed(self, val: float) -> None:
         if self._loading or self._line is None:
             return
         self._line.set_alpha(val)
         self._redraw()
+        self.style_changed.emit("alpha", val)
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
     def _set_color_btn(self, color_str: str) -> None:
+        """Show the color as a plain swatch; hex value goes in the tooltip."""
         import matplotlib.colors as mcolors
         try:
             r, g, b, _ = mcolors.to_rgba(color_str)
             qc = QtGui.QColor.fromRgbF(r, g, b)
-            # pick contrasting label color
-            luma = 0.299 * r + 0.587 * g + 0.114 * b
-            fg = "#000000" if luma > 0.5 else "#ffffff"
             self._color_btn.setStyleSheet(
-                f"background-color: {qc.name()}; color: {fg}; "
-                f"border: 1px solid #888;")
-            self._color_btn.setText(qc.name())
+                f"background-color: {qc.name()}; border: 1px solid #888;")
+            self._color_btn.setText("")
+            self._color_btn.setToolTip(f"{qc.name()} — click to pick line color")
         except Exception:
             self._color_btn.setStyleSheet("")
             self._color_btn.setText("?")
+            self._color_btn.setToolTip("Click to pick line color")
 
     def _redraw(self) -> None:
         if self._canvas is not None:

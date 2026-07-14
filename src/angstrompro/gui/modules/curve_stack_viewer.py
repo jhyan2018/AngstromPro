@@ -78,12 +78,18 @@ class CurveStackViewer(AGuiModule):
 
         # ── viewer widget ─────────────────────────────────────────────────
         self._viewer = CurveStackViewerWidget(config=self._config)
+        self._viewer.set_runtime_scene(self._scene)
         self._viewer.extract_requested.connect(self._on_extract_requested)
         self._viewer.cleared.connect(self._on_viewer_cleared)
 
-        default_tpl = self._config.get("default_template", "")
-        if default_tpl:
-            self._viewer.apply_template_by_name(default_tpl)
+        # any scene mutation → dirty flag
+        bus = self._viewer.scene_bus
+        bus.axes_config_changed.connect(self._on_scene_mutated)
+        bus.line_style_changed.connect(lambda _key: self._on_scene_mutated())
+        bus.artists_changed.connect(self._on_scene_mutated)
+
+        # NOTE: the default template is NOT applied at startup — it is the
+        # pre-load template consumed on every fresh UDS load (on_item_loaded)
 
         self._build_scene_menu()
         self.setCentralWidget(self._viewer)
@@ -105,14 +111,17 @@ class CurveStackViewer(AGuiModule):
         self._style_panel.bind_context(ctx)
         self._style_panel.color_pinned.connect(self._viewer.pin_selected_color)
         self._style_panel.color_reset.connect(self._viewer.reset_selected_color)
+        self._style_panel.style_changed.connect(self._viewer.pin_selected_style)
         self._style_dock = QtWidgets.QDockWidget("Curve Style", self)
         self._style_dock.setObjectName("curve_style_dock")
         self._style_dock.setWidget(self._style_panel)
         self.addDockWidget(_Right, self._style_dock)
 
-        # Axes dock
+        # Axes dock — edits go to the RuntimeScene via the viewer
         self._axes_panel = AxesConfigPanel()
         self._axes_panel.bind_context(ctx)
+        self._axes_panel.set_scene_config_provider(self._viewer._current_mode_cfg)
+        self._axes_panel.config_changed.connect(self._viewer.update_axes_config)
         self._axes_dock = QtWidgets.QDockWidget("Axes", self)
         self._axes_dock.setObjectName("axes_config_dock")
         self._axes_dock.setWidget(self._axes_panel)
@@ -129,6 +138,11 @@ class CurveStackViewer(AGuiModule):
             vm.addSeparator()
             vm.addAction(self._style_dock.toggleViewAction())
             vm.addAction(self._axes_dock.toggleViewAction())
+
+    def _on_scene_mutated(self) -> None:
+        """Any scene mutation (via SceneBus) marks the scene dirty."""
+        self._scene.mark_dirty()
+        self._update_title()
 
     def _find_view_menu(self):
         for act in self.menuBar().actions():
@@ -196,6 +210,9 @@ class CurveStackViewer(AGuiModule):
         self._sync_process_inputs()
         self._scene.clear()
         self._viewer.clear()
+        # fresh UDS load: style comes from the pre-load template (if any)
+        self._viewer.apply_preload_template(
+            self._config.get("default_template", ""))
         self._viewer.add_dataset(item.name, item.payload)
         self._scene.mark_dirty()
         self._update_title()
@@ -217,7 +234,10 @@ class CurveStackViewer(AGuiModule):
         self._clear_reference()
         self._displayed_names.clear()
         self._displayed_names.add(item.name)
-        self._scene.replace(item.payload)
+        # deep-copy: the runtime scene is mutated by every edit — it must
+        # never alias the workspace payload, or edits corrupt the saved item
+        import copy
+        self._scene.replace(copy.deepcopy(item.payload))
         self._viewer.restore_scene(self._scene.scene)
         self._update_title()
         self._refresh_workspace_panel()
@@ -238,8 +258,10 @@ class CurveStackViewer(AGuiModule):
         if not ok or not name.strip():
             return
         name = name.strip()
+        # save_scene syncs the RuntimeScene in place and returns an
+        # independent snapshot — the runtime scene must NOT be re-pointed
+        # at the payload, or later edits would mutate the saved item
         scene = self._viewer.save_scene(name)
-        self._scene.scene = scene          # keep RuntimeScene in sync
         self._scene.mark_clean()
         self._update_title()
         self.workspace.add_item(payload=scene)
@@ -334,17 +356,18 @@ class CurveStackViewer(AGuiModule):
     def _on_plot_style(self) -> None:
         from angstrompro.gui.widgets.curve_stack.rcparams_style_panel import RcParamsStylePanel
         if not hasattr(self, "_style_dlg") or self._style_dlg is None:
-            self._style_dlg = RcParamsStylePanel(parent=self)
-            self._style_dlg.applied.connect(self._on_style_applied)
+            self._style_dlg = RcParamsStylePanel(
+                delta_provider=lambda: self._scene.scene.rcparams_delta,
+                parent=self)
+            self._style_dlg.delta_changed.connect(self._on_style_delta_changed)
             self._style_dlg.finished.connect(lambda _: setattr(self, "_style_dlg", None))
         self._style_dlg.show()
         self._style_dlg.raise_()
         self._style_dlg.activateWindow()
 
-    def _on_style_applied(self) -> None:
-        """rcParams changed — rebuild the plot to pick up new defaults."""
-        self._viewer._plot_widget.refresh(
-            self._viewer._datasets, self._viewer._checked)
+    def _on_style_delta_changed(self, delta: dict) -> None:
+        """Dialog produced a new delta — write to scene and rebuild."""
+        self._viewer.set_rcparams_delta(delta)
         self._scene.mark_dirty()
         self._update_title()
 

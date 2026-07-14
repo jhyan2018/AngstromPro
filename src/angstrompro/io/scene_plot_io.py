@@ -170,7 +170,7 @@ def _dict_to_axescfg(d: dict) -> AxesConfig:
         ylim       = _lim(d.get("ylim")),
         xscale     = d.get("xscale", "linear"),
         yscale     = d.get("yscale", "linear"),
-        grid       = d.get("grid", False),
+        grid       = d.get("grid"),        # None = untouched → delta rules
         grid_which = d.get("grid_which", "major"),
         legend     = d.get("legend", False),
         legend_loc = d.get("legend_loc", "best"),

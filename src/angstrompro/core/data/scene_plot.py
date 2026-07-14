@@ -173,7 +173,9 @@ class AxesConfig:
     ylim:       tuple | None = None
     xscale:     str          = "linear"   # "linear"|"log"|"symlog"|"logit"
     yscale:     str          = "linear"
-    grid:       bool         = False
+    # None = "never touched" → the rcParams delta (axes.grid / grid.*) rules;
+    # an explicit bool (user touched the axes panel) overrides it per-axes
+    grid:       bool | None  = None
     grid_which: str          = "major"    # "major"|"minor"|"both"
     legend:     bool         = False
     legend_loc: str          = "best"

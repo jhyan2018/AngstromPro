@@ -33,6 +33,12 @@ _CMAPS = [
 ]
 
 
+from .rt_cmap import RtCmapControl, cmap_from_anchors
+
+# renderer/back-compat alias — anchor→cmap builder lives in rt_cmap now
+_cmap_from_anchors = cmap_from_anchors
+
+
 class ColormapPlotWidget(BasePlotWidget):
     """2D colormap view: curves stacked as rows, signal encoded as color."""
 
@@ -67,6 +73,11 @@ class ColormapPlotWidget(BasePlotWidget):
             "Force colormap range to be symmetric around zero")
         self._sym_check.stateChanged.connect(self._on_sym_changed)
         ctrl.addWidget(self._sym_check)
+
+        # RT colormap — anchor-based custom colormap (own anchors, per mode)
+        self._rt = RtCmapControl(self)
+        self._rt.add_to(ctrl)
+        self._rt.changed.connect(self._rebuild_plot)
 
         ctrl.addStretch()
         layout.addLayout(ctrl)
@@ -120,89 +131,111 @@ class ColormapPlotWidget(BasePlotWidget):
     # ── Drawing ───────────────────────────────────────────────────────────
 
     def _rebuild_plot(self) -> None:
-        self._remove_colorbar()
-        self._ax.clear()
+        # everything artist-creating runs under the scene's rcparams delta
+        with self._rc():
+            self._remove_colorbar()
+            self._ax.clear()
+            self._apply_fig_style()
+            # face/edge style is not re-read from rcParams by ax.clear()
+            self._apply_axes_face_style(self._ax)
 
-        # collect visible rows across all datasets
-        rows:       list[np.ndarray] = []
-        row_vals:   list[float] = []        # physical row positions when available
-        x_arr:      np.ndarray | None = None
-        x_label     = ""
-        y_label     = ""
-        row_label   = ""
-        has_row_axis = True   # stays True only when every entry has matching row_values
+            # collect visible rows across all datasets
+            rows:       list[np.ndarray] = []
+            row_vals:   list[float] = []        # physical row positions when available
+            x_arr:      np.ndarray | None = None
+            x_label     = ""
+            y_label     = ""
+            row_label   = ""
+            has_row_axis = True   # stays True only when every entry has matching row_values
 
-        for name, entry in self._datasets.items():
-            y_data   = entry["y"]
-            x_data   = entry["x"]
-            rv       = entry.get("row_values")   # np.ndarray or None
-            checked  = self._checked.get(name, [True] * y_data.shape[0])
-            n        = y_data.shape[0]
+            for name, entry in self._datasets.items():
+                y_data   = entry["y"]
+                x_data   = entry["x"]
+                rv       = entry.get("row_values")   # np.ndarray or None
+                checked  = self._checked.get(name, [True] * y_data.shape[0])
+                n        = y_data.shape[0]
 
-            for i, visible in enumerate(checked):
-                if not visible:
-                    continue
-                rows.append(y_data[i])
-                if rv is not None and i < len(rv):
-                    row_vals.append(float(rv[i]))
-                else:
-                    has_row_axis = False
+                for i, visible in enumerate(checked):
+                    if not visible:
+                        continue
+                    rows.append(y_data[i])
+                    if rv is not None and i < len(rv):
+                        row_vals.append(float(rv[i]))
+                    else:
+                        has_row_axis = False
 
-            if x_arr is None:
-                x_arr = x_data
-            x_label   = entry.get("x_label", "")
-            y_label   = entry.get("y_label", "")
-            if not row_label:
-                row_label = entry.get("row_label", "")
+                if x_arr is None:
+                    x_arr = x_data
+                x_label   = entry.get("x_label", "")
+                y_label   = entry.get("y_label", "")
+                if not row_label:
+                    row_label = entry.get("row_label", "")
 
-        if not rows or x_arr is None:
-            self._canvas.draw_idle()
-            return
+            if not rows or x_arr is None:
+                self._canvas.draw_idle()
+                return
 
-        z      = np.vstack([r[np.newaxis, :] for r in rows])  # (n_rows, n_pts)
-        n_rows = z.shape[0]
+            z      = np.vstack([r[np.newaxis, :] for r in rows])  # (n_rows, n_pts)
+            n_rows = z.shape[0]
 
-        cmap = self._cmap_combo.currentText()
-        if self._sym_check.isChecked():
-            vmax = float(np.nanmax(np.abs(z)))
-            vmin = -vmax
-        else:
-            vmin = float(np.nanmin(z))
-            vmax = float(np.nanmax(z))
+            cmap = self._current_cmap()
+            if self._sym_check.isChecked():
+                vmax = float(np.nanmax(np.abs(z)))
+                vmin = -vmax
+            else:
+                vmin = float(np.nanmin(z))
+                vmax = float(np.nanmax(z))
 
-        # x cell edges
-        x_edges = np.empty(len(x_arr) + 1)
-        dx = (x_arr[1] - x_arr[0]) if len(x_arr) > 1 else 1.0
-        x_edges[:-1] = x_arr - dx / 2
-        x_edges[-1]  = x_arr[-1] + dx / 2
+            # x cell edges
+            x_edges = np.empty(len(x_arr) + 1)
+            dx = (x_arr[1] - x_arr[0]) if len(x_arr) > 1 else 1.0
+            x_edges[:-1] = x_arr - dx / 2
+            x_edges[-1]  = x_arr[-1] + dx / 2
 
-        # y cell edges — use physical values when all rows have them
-        if has_row_axis and len(row_vals) == n_rows:
-            rv_arr  = np.array(row_vals)
-            dy      = (rv_arr[1] - rv_arr[0]) if n_rows > 1 else 1.0
-            y_edges = np.empty(n_rows + 1)
-            y_edges[:-1] = rv_arr - dy / 2
-            y_edges[-1]  = rv_arr[-1] + dy / 2
-            y_axis_label = row_label
-        else:
-            y_edges      = np.arange(n_rows + 1) - 0.5
-            y_axis_label = ""   # plain index, no label
+            # y cell edges — use physical values when all rows have them
+            if has_row_axis and len(row_vals) == n_rows:
+                rv_arr  = np.array(row_vals)
+                dy      = (rv_arr[1] - rv_arr[0]) if n_rows > 1 else 1.0
+                y_edges = np.empty(n_rows + 1)
+                y_edges[:-1] = rv_arr - dy / 2
+                y_edges[-1]  = rv_arr[-1] + dy / 2
+                y_axis_label = row_label
+            else:
+                y_edges      = np.arange(n_rows + 1) - 0.5
+                y_axis_label = ""   # plain index, no label
 
-        mesh = self._ax.pcolormesh(
-            x_edges, y_edges, z,
-            cmap=cmap, vmin=vmin, vmax=vmax, shading="flat")
+            mesh = self._ax.pcolormesh(
+                x_edges, y_edges, z,
+                cmap=cmap, vmin=vmin, vmax=vmax, shading="flat")
 
-        self._colorbar = self._fig.colorbar(mesh, ax=self._ax)
-        self._colorbar.set_label(y_label)
+            self._colorbar = self._fig.colorbar(mesh, ax=self._ax)
+            self._colorbar.set_label(y_label)
 
-        self._ax.set_xlabel(x_label)
-        self._ax.set_ylabel(y_axis_label)
-        # let matplotlib auto-tick the y-axis — no forced per-row labels
+            self._ax.set_xlabel(x_label)
+            self._ax.set_ylabel(y_axis_label)
+            # let matplotlib auto-tick the y-axis — no forced per-row labels
 
-        self._ax.minorticks_on()
-        self._ax.tick_params(axis="both", which="both", direction="in")
-        self._fig.tight_layout()
+            self._apply_axes_config()   # scene overrides (title, limits, …)
+
+            self._ax.minorticks_on()
+            self._apply_house_ticks(self._ax)
+            self._fig.tight_layout()
         self._canvas.draw_idle()
+
+    # ── RT colormap (delegates to RtCmapControl) ──────────────────────────
+
+    def use_rt_cmap(self) -> bool:
+        return self._rt.use_rt_cmap()
+
+    def rt_anchors(self) -> list[dict]:
+        return self._rt.rt_anchors()
+
+    def set_rt_cmap(self, use: bool, anchors: list[dict] | None) -> None:
+        self._rt.set_rt(use, anchors)
+
+    def _current_cmap(self):
+        """Active colormap: RT anchor-built map, or the palette combo name."""
+        return self._rt.resolve(self._cmap_combo.currentText())
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
