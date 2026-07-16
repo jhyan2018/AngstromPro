@@ -11,7 +11,7 @@ from angstrompro.utils.qt_compat import QtCore
 from .cancel_token import CancelToken
 from .task_request import TaskRequest
 from .pool_executor import PoolExecutor
-from .worker_executor import WorkerExecutor
+from .persistent_worker_executor import PersistentWorkerExecutor
 
 
 class TaskDispatcher(QtCore.QObject):
@@ -25,9 +25,9 @@ class TaskDispatcher(QtCore.QObject):
     ) -> None:
         super().__init__(parent)
         n_cpu = compute_threads or max(1, os.cpu_count() or 4)
-        self._compute = PoolExecutor(n_cpu,     parent=self)
-        self._io      = PoolExecutor(io_threads, parent=self)
-        self._worker  = WorkerExecutor(parent=self)
+        self._compute    = PoolExecutor(n_cpu,      parent=self)
+        self._io         = PoolExecutor(io_threads, parent=self)
+        self._persistent = PersistentWorkerExecutor(parent=self)
 
     def submit(self, request: TaskRequest, progress_cb=None):
         """
@@ -47,12 +47,10 @@ class TaskDispatcher(QtCore.QObject):
 
         if request.backend in ("compute", "auto"):
             signals = self._compute.submit(request, kwargs, cancel_token=cancel_token)
-        elif request.backend == "io":
+        elif request.backend in ("io", "async"):
             signals = self._io.submit(request, kwargs, cancel_token=cancel_token)
-        elif request.backend == "worker":
-            signals = self._worker.submit(request, kwargs, cancel_token=cancel_token)
-        elif request.backend == "async":
-            signals = self._io.submit(request, kwargs, cancel_token=cancel_token)
+        elif request.backend == "persistent":
+            signals = self._persistent.submit(request, kwargs, cancel_token=cancel_token)
         else:
             raise ValueError(f"Unknown backend: {request.backend!r}")
 

@@ -15,7 +15,7 @@ class TaskRequest:
         source_id:    str,
         task_type:    str,
         kwargs:       dict[str, Any] | None = None,
-        backend:      str  = "compute",  # "compute" | "io" | "worker" | "async"
+        backend:      str  = "compute",  # "compute" | "io" | "async" | "persistent"
         cancellable:  bool = False,
         has_progress: bool = False,
         priority:     str  = "normal",   # "high" | "normal" | "low"

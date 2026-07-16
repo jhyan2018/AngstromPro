@@ -185,6 +185,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         dock.setWidget(container)
         self.addDockWidget(_DockArea, dock)
         self._workspace_dock = dock
+        # module types listed in app.hide_workspace_dock start hidden;
+        # the View menu toggle (Ctrl+1) re-opens the dock any time
+        if self.module_id in (self._context.config.get(
+                "app", "hide_workspace_dock", []) or []):
+            dock.hide()
 
     # ------------------------------------------------------------------
     # Inspector dock
@@ -683,6 +688,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if not name:
             QtWidgets.QMessageBox.warning(self, "No item selected", "Select an item to send.")
             return
+        sent = False
         if self._send_default_cb.isChecked():
             targets = self._context.module_manager.get_default_targets(self.instance_id)
             if not targets:
@@ -697,6 +703,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     dst_workspace_id=target.workspace.workspace_id,
                     item_name=name,
                 )
+                sent = True
         else:
             from angstrompro.gui.dialogs.send_item_dialog import SendItemDialog
             dlg = SendItemDialog(self._context, exclude_instance_id=self.instance_id, parent=self)
@@ -707,6 +714,18 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     dst_workspace_id=target.workspace.workspace_id,
                     item_name=name,
                 )
+                sent = True
+        if sent:
+            self._after_send(name)
+
+    def _after_send(self, item_name: str) -> None:
+        """App-level send semantics: transfer_item copies, so with
+        delete_after_send=True (default) the sender's copy is removed —
+        a send reads as *move*.  Safe because the receiver deep-copies /
+        takes ownership at the accept boundary."""
+        if self._context.config.get("app", "delete_after_send", True):
+            if self.workspace.has_item(item_name):
+                self.workspace.remove_item(item_name)
 
     # ------------------------------------------------------------------
     # File menu

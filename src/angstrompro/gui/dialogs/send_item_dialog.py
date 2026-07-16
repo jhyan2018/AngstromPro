@@ -50,9 +50,12 @@ class SendItemDialog(QtWidgets.QDialog):
 
     def _populate(self) -> None:
         self._list.clear()
+        excluded_types = set(self._context.config.get(
+            "app", "send_target_exclude", []) or [])
         self._instances = [
             inst for inst in self._context.module_manager.list_instances()
             if inst.instance_id != self._exclude
+            and inst.module_id not in excluded_types
         ]
         for inst in self._instances:
             label = f"{inst.display_name or inst.module_id}  [{inst.instance_id}]"

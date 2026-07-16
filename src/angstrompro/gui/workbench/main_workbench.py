@@ -34,6 +34,9 @@ class MainWorkbench(AGuiModule):
             PrefItem("app.log_level", "Log panel level", "dropdown",
                      "Minimum severity shown in the log panel",
                      kwargs={"choices": ["WARNING", "ERROR", "INFO", "DEBUG"]}),
+            PrefItem("app.delete_after_send", "Delete after send", "checkbox",
+                     "Remove the workspace item from the sender once the "
+                     "receiver has it (move); unchecked keeps a copy"),
         ]),
         PrefSection("Appearance", "palette", [
             PrefItem("appearance.theme",     "Theme",     "dropdown",
@@ -47,6 +50,17 @@ class MainWorkbench(AGuiModule):
                      "Font family name; leave blank for system default"),
             PrefItem("appearance.accent_color", "Accent color", "text",
                      "Hex accent colour e.g. #4fc3f7; leave blank for theme default"),
+        ]),
+        PrefSection("Hidden workspace docks", "layout-sidebar", [
+            # module types whose Workspace dock starts hidden;
+            # reopen any time via View → Workspace (Ctrl+1)
+            PrefItem("app.hide_workspace_dock", "", "module_id_list",
+                     full_width=True),
+        ]),
+        PrefSection("Excluded send targets", "send-off", [
+            # module types that never appear in the send dialogs (can still send)
+            PrefItem("app.send_target_exclude", "", "module_id_list",
+                     full_width=True),
         ]),
         PrefSection("Plugins", "plug", [
             PrefItem("plugins.path_plugins", "", "plugin_list",
