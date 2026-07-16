@@ -56,6 +56,7 @@ class CardRow:
     png_path:  str  = ""
     state:     str  = STATE_LOADING
     tooltip:   str  = ""
+    stars:     int  = 0          # user rating 0–5
     extra:     dict = field(default_factory=dict)
 
 
@@ -117,7 +118,8 @@ class GalleryModel(QtCore.QAbstractListModel):
 
     def update_row(self, key: tuple, *, png_path: str | None = None,
                    state: str | None = None, info: str | None = None,
-                   tooltip: str | None = None) -> None:
+                   tooltip: str | None = None,
+                   stars: int | None = None) -> None:
         """Update one card in place (render completed / failed) and repaint it."""
         i = self._index_of.get(key)
         if i is None:
@@ -132,11 +134,17 @@ class GalleryModel(QtCore.QAbstractListModel):
             row.info = info
         if tooltip is not None:
             row.tooltip = tooltip
+        if stars is not None:
+            row.stars = max(0, min(5, int(stars)))
         idx = self.index(i)
         self.dataChanged.emit(idx, idx)
 
     def replace_file_rows(self, file_path: str, rows: list[CardRow]) -> None:
-        """First contact: swap a provisional file card for its channel cards."""
+        """Swap a file's cards in place (first contact or re-render).
+        Evict the file's cached pixmaps: keys survive a re-render but the
+        PNG behind them is new — a stale QPixmap would mask the result."""
+        for key in [k for k in self._pixmaps if k[0] == file_path]:
+            self._pixmaps.pop(key, None)
         keep = [r for r in self._rows if r.key[0] != file_path]
         insert_at = next((i for i, r in enumerate(self._rows)
                           if r.key[0] == file_path), len(keep))
@@ -239,13 +247,22 @@ class CardDelegate(QtWidgets.QStyledItemDelegate):
                                  rect.width() - 2 * self.PAD, self._line_h)
         fm = painter.fontMetrics()
 
-        painter.setPen(pal.text().color())
-        name = fm.elidedText(index.data(QtCore.Qt.ItemDataRole.DisplayRole) or "",
-                             QtCore.Qt.TextElideMode.ElideMiddle, text_rect.width())
-        painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignLeft, name)
-
         model = index.model()
         row = model.row_for_key(index.data(KeyRole)) if hasattr(model, "row_for_key") else None
+
+        # stars right-aligned on the name line; filename elides around them
+        stars_w = 0
+        if row is not None and row.stars > 0:
+            stars_text = "★" * row.stars
+            stars_w = fm.horizontalAdvance(stars_text) + 4
+            painter.setPen(QtGui.QColor(240, 160, 20))
+            painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignRight, stars_text)
+
+        painter.setPen(pal.text().color())
+        name = fm.elidedText(index.data(QtCore.Qt.ItemDataRole.DisplayRole) or "",
+                             QtCore.Qt.TextElideMode.ElideMiddle,
+                             text_rect.width() - stars_w)
+        painter.drawText(text_rect, QtCore.Qt.AlignmentFlag.AlignLeft, name)
         painter.setPen(pal.mid().color())
         if row is not None:
             info_rect = text_rect.translated(0, self._line_h)

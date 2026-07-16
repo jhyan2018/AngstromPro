@@ -50,48 +50,64 @@ def payload_type_and_ndim(payload) -> tuple[str, int | None]:
     return type_id, ndim
 
 
-def _auto_offset(y_arr: np.ndarray) -> float:
-    """Median peak-to-peak per curve — gives a readable waterfall."""
-    if y_arr.shape[0] < 2:
-        return 0.0
-    ptps = np.nanmax(y_arr, axis=1) - np.nanmin(y_arr, axis=1)
-    med = float(np.nanmedian(ptps))
-    return med if np.isfinite(med) else 0.0
-
-
 # ── uds ndim=2 — curve stack / colormap ──────────────────────────────────────
+
+def _rt_cmap(extras: dict):
+    if extras.get("use_rt_cmap") and extras.get("rt_anchors"):
+        from angstrompro.gui.widgets.curve_stack.rt_cmap import cmap_from_anchors
+        return cmap_from_anchors(extras["rt_anchors"])
+    return None
+
 
 def render_uds_2d(payload, *, rcparams_delta: dict | None = None,
                   options: dict | None = None,
                   figsize: tuple[float, float] = _DEFAULT_FIGSIZE) -> Figure:
+    """No hardcoded style: everything comes from the rcparams delta and the
+    template's per-mode widget_extras (options["widget_extras"]).  One
+    template serves both branches — extras["stack"] styles the few-curves
+    case, extras["colormap"] the many-curves case."""
+    import matplotlib as mpl
     from angstrompro.gui.widgets.curve_stack.prepare import prepare_entry
 
     options = options or {}
+    extras_all = options.get("widget_extras") or {}
     entry = prepare_entry(getattr(payload, "name", ""), payload)
     x, y_arr = entry["x"], entry["y"]
     n = y_arr.shape[0]
-    threshold = int(options.get("stack_threshold", 20))
+    threshold = int(options.get("stack_threshold", 10))
 
     with rc_overlay(rcparams_delta or {}):
         fig = Figure(figsize=figsize)
         ax = fig.add_subplot(111)
 
         if n <= threshold:
-            offset = options.get("offset")
-            if offset is None:
-                offset = _auto_offset(y_arr)
+            ex = extras_all.get("stack", {})
+            offset = float(ex.get("offset", 0.0))   # template only; 0 = overlay
+            mode = ex.get("color_mode", "auto")
+            cmap = _rt_cmap(ex)
+            if cmap is None and mode.startswith(("cmap:", "cmap_value")):
+                name = mode.split(":", 1)[-1] or "viridis"
+                cmap = mpl.colormaps.get(name)
             for i in range(n):
-                ax.plot(x, y_arr[i] + i * offset, linewidth=0.8)
+                kw = {}
+                if cmap is not None:
+                    kw["color"] = cmap(i / max(n - 1, 1))
+                ax.plot(x, y_arr[i] + i * offset, **kw)
         else:
-            cmap = options.get("colormap", "RdBu_r")
+            ex = extras_all.get("colormap", {})
+            cmap = _rt_cmap(ex) or ex.get("colormap") \
+                or mpl.rcParams["image.cmap"]
             z = y_arr
-            vmax = float(np.nanmax(np.abs(z))) or 1.0
-            ax.pcolormesh(z, cmap=cmap, vmin=-vmax, vmax=vmax,
-                          shading="auto", rasterized=True)
+            if ex.get("symmetric", True):
+                vmax = float(np.nanmax(np.abs(z))) or 1.0
+                vmin = -vmax
+            else:
+                vmin = float(np.nanmin(z))
+                vmax = float(np.nanmax(z))
+            ax.pcolormesh(z, cmap=cmap, vmin=vmin, vmax=vmax, shading="auto")
 
-        ax.set_xlabel(entry.get("x_label", ""), fontsize=7)
-        ax.set_ylabel(entry.get("y_label", ""), fontsize=7)
-        ax.tick_params(labelsize=6, direction="in")
+        ax.set_xlabel(entry.get("x_label", ""))
+        ax.set_ylabel(entry.get("y_label", ""))
         fig.tight_layout(pad=0.3)
     return fig
 
@@ -111,11 +127,10 @@ def render_uds_3d(payload, *, rcparams_delta: dict | None = None,
     with rc_overlay(rcparams_delta or {}):
         fig = Figure(figsize=figsize)
         ax = fig.add_subplot(111)
-        cmap = options.get("colormap", "gray")
-        ax.imshow(img, cmap=cmap, origin="lower", aspect="equal",
-                  interpolation="nearest")
-        ax.set_xticks([])
-        ax.set_yticks([])
+        # cmap=None → matplotlib's own default (rcParams "image.cmap",
+        # overridable via the template delta)
+        ax.imshow(img, cmap=options.get("colormap"), origin="lower",
+                  aspect="equal", interpolation="nearest")
         fig.tight_layout(pad=0.1)
     return fig
 

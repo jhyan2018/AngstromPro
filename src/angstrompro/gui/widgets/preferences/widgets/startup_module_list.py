@@ -23,11 +23,15 @@ class _StartupModuleRow(QtWidgets.QWidget):
 
     def __init__(self, module_choices: list[tuple[str, str]],
                  module_id: str = "", count: int = 1,
-                 removable: bool = True, parent=None):
+                 removable: bool = True, parent=None,
+                 max_for=None):
         """
         module_choices : list of (module_id, display_name) from the registry
+        max_for        : callable module_id → max_instances | None; caps the
+                         count spinbox (max_instances == 1 disables it)
         """
         super().__init__(parent)
+        self._max_for = max_for or (lambda _mid: None)
         layout = QtWidgets.QHBoxLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
         layout.setSpacing(6)
@@ -46,6 +50,8 @@ class _StartupModuleRow(QtWidgets.QWidget):
         self._count_spin.setValue(max(1, int(count)))
         self._count_spin.setFixedWidth(56)
         self._count_spin.setToolTip("Number of instances to open at startup")
+        self._apply_count_cap()
+        self._combo.currentIndexChanged.connect(self._apply_count_cap)
 
         if removable:
             btn = QtWidgets.QToolButton()
@@ -55,11 +61,28 @@ class _StartupModuleRow(QtWidgets.QWidget):
         else:
             btn = QtWidgets.QLabel("🔒")
             btn.setToolTip("Built-in default — cannot be removed")
-            btn.setFixedWidth(24)
+            btn.setFixedWidth(28)
+            btn.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter
+                             if hasattr(QtCore.Qt, "AlignmentFlag")
+                             else QtCore.Qt.AlignCenter)
 
         layout.addWidget(self._combo, stretch=1)
         layout.addWidget(self._count_spin)
         layout.addWidget(btn)
+
+    def _apply_count_cap(self, *_a) -> None:
+        limit = self._max_for(self._combo.currentData() or "")
+        if limit is not None:
+            self._count_spin.setRange(1, max(1, int(limit)))
+            if limit == 1:
+                self._count_spin.setEnabled(False)
+                self._count_spin.setToolTip(
+                    "This module allows a single instance")
+                return
+        else:
+            self._count_spin.setRange(1, 16)
+        self._count_spin.setEnabled(True)
+        self._count_spin.setToolTip("Number of instances to open at startup")
 
     def get_value(self) -> dict:
         return {
@@ -133,6 +156,14 @@ class StartupModuleListWidget(QtWidgets.QWidget):
 
     _EXCLUDED_IDS = {"main_workbench"}
 
+    def _max_instances_for(self, module_id: str) -> int | None:
+        if self._context is None or not module_id:
+            return None
+        for cls in self._context.module_manager.list_all():
+            if cls.module_id == module_id:
+                return getattr(cls, "max_instances", None)
+        return None
+
     def _available_choices(self) -> list[tuple[str, str]]:
         """Module choices excluding main_workbench and already-listed modules."""
         used = {r.get_value()["module_id"] for r in self._rows}
@@ -156,7 +187,8 @@ class StartupModuleListWidget(QtWidgets.QWidget):
             choices = [c for c in self._module_choices if c[0] not in self._EXCLUDED_IDS] \
                       or [("", "(no modules registered)")]
         row = _StartupModuleRow(choices, module_id, count, removable,
-                                self._rows_container)
+                                self._rows_container,
+                                max_for=self._max_instances_for)
         if removable:
             row.remove_requested.connect(lambda r=row: self._remove_row(r))
         self._rows_layout.addWidget(row)

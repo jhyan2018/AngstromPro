@@ -42,7 +42,7 @@ from .gallery_widget import (
 from .thumbnail_cache import ThumbnailCache
 from .render_task import (
     render_file_task, channel_cfg_to_plain, MULTI_CHANNEL_FORMATS,
-    _LOADERS, _load_generic)
+    previewable_exts, _LOADERS, _load_generic)
 from .scanner import ScannerShared, ScannerBridge, scanner_loop
 from . import thumbnail_renderers  # noqa: F401 — registers built-in renderers
 from . import pref_widgets         # noqa: F401 — registers db_* pref controls
@@ -51,9 +51,19 @@ from angstrompro.gui.widgets.preferences.pref_schema import PrefSection, PrefIte
 
 log = logging.getLogger(__name__)
 
-PREVIEWABLE_EXTS = set(MULTI_CHANNEL_FORMATS) | {".uds", ".scplot"}
-
 _FolderRole = QtCore.Qt.ItemDataRole.UserRole
+
+
+class _StayOpenMenu(QtWidgets.QMenu):
+    """Menu of checkable filters: clicking toggles without closing.
+    The menu still closes normally on Esc or a click outside."""
+
+    def mouseReleaseEvent(self, event) -> None:
+        act = self.actionAt(event.pos())
+        if act is not None and act.isCheckable():
+            act.trigger()   # toggle + emit, but keep the popup open
+            return
+        super().mouseReleaseEvent(event)
 
 
 @register_module
@@ -63,10 +73,18 @@ class DataBrowserModule(AGuiModule):
     category     = "Basic"
     description  = "Browse measurement folders with cached thumbnails; send any channel to a module."
     accepted_types: set = set()
+    # one live instance only: a second browser would run a second scanner
+    # thread and duplicate render submissions against the same cache
+    max_instances = 1
 
     preferences_schema = [
         PrefSection("Watch folders", "folder", [
             PrefItem("watch_folders", "", "db_folder_list", full_width=True),
+        ]),
+        PrefSection("Watched formats", "file-check", [
+            # unchecked formats are hidden from the gallery and skipped by
+            # the background scanner
+            PrefItem("formats.watched", "", "db_format_list", full_width=True),
         ]),
         PrefSection("Background scanner", "radar", [
             PrefItem("scanner.enabled", "Enable scanning", "checkbox",
@@ -86,13 +104,21 @@ class DataBrowserModule(AGuiModule):
                      "Card image size; also sets the render figure size",
                      kwargs={"min": 80, "max": 400}),
             PrefItem("thumbnails.stack_threshold", "Stack threshold", "number",
-                     "2D data with more curves than this renders as a colormap",
+                     "2D data with more curves than this renders as a colormap "
+                     "(default 10)",
                      kwargs={"min": 1, "max": 500}),
             PrefItem("thumbnails.template", "Plot template", "db_template_picker",
                      "Curve-stack template applied to thumbnail rendering"),
             PrefItem("thumbnails.pixmap_cache_size", "Pixmap cache", "number",
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
+        ]),
+        PrefSection("Channels — thumbnails follow the app-wide channel "
+                    "mappings (load-by-default = rendered)", "settings", [
+            # the same ChannelManager the file-open path uses; edits here
+            # apply app-wide, not just to the browser
+            PrefItem("", "Channel mappings", "channel_manager",
+                     full_width=True, expandable=True),
         ]),
         PrefSection("Cache", "database", [
             PrefItem("cache.cleanup_orphans", "Clean orphans at startup", "checkbox",
@@ -107,7 +133,7 @@ class DataBrowserModule(AGuiModule):
 
     def build_ui(self) -> None:
         self._cache = ThumbnailCache(self._cfg("cache.dir",
-                                     str(user_data_subpath("data_browser_cache"))))
+                                     str(user_data_subpath("cache", "data_browser"))))
         if self._cfg("cache.cleanup_orphans", True):
             self._cache.cleanup_orphan_pngs()
         self._reload_template_delta()
@@ -133,14 +159,6 @@ class DataBrowserModule(AGuiModule):
         self._subfolders_cb = QtWidgets.QCheckBox("include subfolders")
         self._subfolders_cb.toggled.connect(self._rescan_current)
         lv.addWidget(self._subfolders_cb)
-        row = QtWidgets.QHBoxLayout()
-        btn_add = QtWidgets.QPushButton("Add folder…")
-        btn_add.clicked.connect(self._on_add_watch_folder)
-        btn_rm = QtWidgets.QPushButton("Remove")
-        btn_rm.clicked.connect(self._on_remove_watch_folder)
-        row.addWidget(btn_add)
-        row.addWidget(btn_rm)
-        lv.addLayout(row)
         splitter.addWidget(left)
 
         # right: search bar + gallery + status
@@ -153,6 +171,27 @@ class DataBrowserModule(AGuiModule):
         self._search.setPlaceholderText("filter by filename…")
         self._search.textChanged.connect(self._rescan_current)
         bar.addWidget(self._search)
+        # view-only multi-check format filter — independent of the watched-
+        # formats preference; checking a format with no files just matches none
+        self._format_btn = QtWidgets.QToolButton()
+        self._format_btn.setText("Formats")
+        self._format_btn.setPopupMode(
+            QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._format_menu = _StayOpenMenu(self._format_btn)
+        self._format_btn.setMenu(self._format_menu)
+        self._reload_format_menu()
+        bar.addWidget(self._format_btn)
+        bar.addWidget(QtWidgets.QLabel("Sort:"))
+        self._sort_combo = QtWidgets.QComboBox()
+        for label, mode in [("Newest first", "mtime_desc"),
+                            ("Oldest first", "mtime_asc"),
+                            ("Name A→Z",     "name_asc"),
+                            ("Name Z→A",     "name_desc"),
+                            ("Stars ★→☆",   "stars_desc"),
+                            ("Stars ☆→★",   "stars_asc")]:
+            self._sort_combo.addItem(label, mode)
+        self._sort_combo.currentIndexChanged.connect(self._rescan_current)
+        bar.addWidget(self._sort_combo)
         rv.addLayout(bar)
         self._gallery = GalleryView(thumb_size=int(self._cfg("thumbnails.size", 150)))
         self._gallery.gallery_model().set_pixmap_cache_size(
@@ -167,9 +206,64 @@ class DataBrowserModule(AGuiModule):
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([220, 700])
         self.setCentralWidget(splitter)
+        self._splitter = splitter
+
+        self._restore_view_state()
+        self._subfolders_cb.toggled.connect(self._save_view_state)
+        self._sort_combo.currentIndexChanged.connect(self._save_view_state)
+        # format menu actions are rebuilt in _reload_format_menu; per-action
+        # save hooks are connected there
 
         self._reload_watch_folders()
         self._start_scanner()
+
+    # ------------------------------------------------------------------
+    # View state (QSettings) — transient view choices, not preferences
+    # ------------------------------------------------------------------
+
+    _QS_GROUP = "data_browser"
+
+    def _restore_view_state(self) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+        qs = get_qsettings()
+        # window geometry, dock layout, splitter position
+        geo = qs.value(f"{self._QS_GROUP}/geometry")
+        if geo is not None:
+            self.restoreGeometry(geo)
+        state = qs.value(f"{self._QS_GROUP}/window_state")
+        if state is not None:
+            self.restoreState(state)
+        split = qs.value(f"{self._QS_GROUP}/splitter")
+        if split is not None:
+            self._splitter.restoreState(split)
+        self._subfolders_cb.setChecked(
+            qs.value(f"{self._QS_GROUP}/include_subfolders", False, type=bool))
+        sort_mode = qs.value(f"{self._QS_GROUP}/sort_mode", "mtime_desc", type=str)
+        idx = self._sort_combo.findData(sort_mode)
+        if idx >= 0:
+            self._sort_combo.setCurrentIndex(idx)
+        # store UNCHECKED formats so formats added later default to checked
+        unchecked = qs.value(f"{self._QS_GROUP}/formats_unchecked", [], type=list) or []
+        for a in self._format_menu.actions():
+            a.setChecked(a.text() not in unchecked)
+
+    def _save_window_state(self) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+        qs = get_qsettings()
+        qs.setValue(f"{self._QS_GROUP}/geometry", self.saveGeometry())
+        qs.setValue(f"{self._QS_GROUP}/window_state", self.saveState())
+        qs.setValue(f"{self._QS_GROUP}/splitter", self._splitter.saveState())
+
+    def _save_view_state(self, *_a) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+        qs = get_qsettings()
+        qs.setValue(f"{self._QS_GROUP}/include_subfolders",
+                    self._subfolders_cb.isChecked())
+        qs.setValue(f"{self._QS_GROUP}/sort_mode",
+                    self._sort_combo.currentData())
+        qs.setValue(f"{self._QS_GROUP}/formats_unchecked",
+                    [a.text() for a in self._format_menu.actions()
+                     if not a.isChecked()])
 
         from angstrompro.utils.qt_compat import QtGui
         _QShortcut = getattr(QtGui, "QShortcut", None) or QtWidgets.QShortcut
@@ -207,6 +301,7 @@ class DataBrowserModule(AGuiModule):
             backend="persistent",
             priority="low",
             cancellable=True,
+            silent=True,
         )
         self._scanner_handle = self._context.tasks.submit(request)
         # cancel the loop before the event loop dies so the thread exits cleanly
@@ -219,7 +314,7 @@ class DataBrowserModule(AGuiModule):
         self._scanner_shared.update(
             enabled=bool(self._cfg("scanner.enabled", True)),
             watch_folders=list(self._cfg("watch_folders", [])),
-            previewable_exts=PREVIEWABLE_EXTS,
+            previewable_exts=self._watched_exts(),
             request_interval=float(self._cfg("scanner.request_interval", 1.5)),
             idle_interval=float(self._cfg("scanner.idle_interval", 60.0)),
             scan_order=str(self._cfg("scanner.order", "newest_first")),
@@ -247,16 +342,20 @@ class DataBrowserModule(AGuiModule):
         return node
 
     def _reload_template_delta(self) -> None:
-        """Resolve the thumbnail template name → rcparams delta (missing = skip)."""
+        """Resolve the thumbnail template name → rcparams delta + per-mode
+        widget extras.  One template serves both stack and colormap branches
+        (missing template = bare matplotlib defaults)."""
         from angstrompro.gui.widgets.curve_stack.template_manager import (
             list_templates, load_template)
         name = str(self._cfg("thumbnails.template", ""))
         self._template_delta: dict = {}
+        self._template_extras: dict = {}
         if name:
             try:
                 if name in list_templates():
-                    delta, _extras = load_template(name)
+                    delta, extras = load_template(name)
                     self._template_delta = delta or {}
+                    self._template_extras = extras or {}
                 else:
                     log.warning("Thumbnail template %r not found — skipped", name)
             except Exception:
@@ -264,6 +363,7 @@ class DataBrowserModule(AGuiModule):
 
     def _apply_config_to_panels(self, cfg: dict) -> None:
         """Live-apply from the preferences panel (base class hooks this in)."""
+        self._reload_format_menu()
         self._gallery.set_thumb_size(int(self._cfg("thumbnails.size", 150)))
         self._gallery.gallery_model().set_pixmap_cache_size(
             int(self._cfg("thumbnails.pixmap_cache_size", 200)))
@@ -275,6 +375,33 @@ class DataBrowserModule(AGuiModule):
     # ------------------------------------------------------------------
     # Watch folder tree
     # ------------------------------------------------------------------
+
+    def _reload_format_menu(self) -> None:
+        """Toolbar view filter: one checkbox per readable format, all checked
+        by default.  Purely a view filter — never touches the watch config."""
+        if not hasattr(self, "_format_menu"):
+            return
+        previous = {a.text(): a.isChecked() for a in self._format_menu.actions()}
+        self._format_menu.clear()
+        for ext in sorted(previewable_exts()):
+            act = self._format_menu.addAction(ext)
+            act.setCheckable(True)
+            act.setChecked(previous.get(ext, True))
+            act.toggled.connect(self._rescan_current)
+            act.toggled.connect(self._save_view_state)
+
+    def _view_filter_exts(self) -> set:
+        return {a.text() for a in self._format_menu.actions() if a.isChecked()}
+
+    def _watched_exts(self) -> set:
+        """Formats checked in preferences ∩ formats the app can read.
+        "*" (default) = every readable format, including ones plugins
+        register later."""
+        readable = previewable_exts()
+        watched = self._cfg("formats.watched", ["*"])
+        if "*" in watched:
+            return readable
+        return {str(e).lower() for e in watched} & readable
 
     def _watch_folders(self) -> list[str]:
         return [p for p in self._cfg("watch_folders", []) if os.path.isdir(p)]
@@ -391,36 +518,6 @@ class DataBrowserModule(AGuiModule):
             _walk(self._tree.topLevelItem(i))
         self._rescan_current()
 
-    def _on_add_watch_folder(self) -> None:
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Add watch folder")
-        if not folder:
-            return
-        folder = os.path.normpath(folder)
-        existing = [os.path.normpath(p) for p in self._cfg("watch_folders", [])]
-        for other in existing:
-            common = os.path.commonpath([folder, other]) if \
-                os.path.splitdrive(folder)[0] == os.path.splitdrive(other)[0] else ""
-            if common in (folder, other) and common:
-                QtWidgets.QMessageBox.warning(
-                    self, "Nested watch folders",
-                    f"'{folder}' and '{other}' overlap.\n"
-                    "Watch folders must not be subfolders of each other.")
-                return
-        self._config.setdefault("watch_folders", []).append(folder)
-        self._reload_watch_folders()
-        self._push_scanner_settings()
-
-    def _on_remove_watch_folder(self) -> None:
-        item = self._tree.currentItem()
-        if item is None or item.parent() is not None:
-            return   # only top-level entries are watch folders
-        folder = item.data(0, _FolderRole)
-        folders = self._cfg("watch_folders", [])
-        if folder in folders:
-            folders.remove(folder)
-        self._reload_watch_folders()
-        self._push_scanner_settings()
-
     # ------------------------------------------------------------------
     # Folder listing → gallery rows
     # ------------------------------------------------------------------
@@ -444,10 +541,14 @@ class DataBrowserModule(AGuiModule):
         needle = self._search.text().strip().lower()
         self._gallery.set_show_rel_path(recursive)
 
+        # visible = watched (preference, also drives the scanner)
+        #         ∩ view filter (toolbar checkboxes, view-only)
+        exts = self._watched_exts() & self._view_filter_exts()
+
         files: list[tuple[str, float]] = []
         for root, dirs, names in os.walk(folder):
             for n in names:
-                if Path(n).suffix.lower() in PREVIEWABLE_EXTS \
+                if Path(n).suffix.lower() in exts \
                         and (not needle or needle in n.lower()):
                     p = os.path.join(root, n)
                     try:
@@ -456,7 +557,14 @@ class DataBrowserModule(AGuiModule):
                         continue
             if not recursive:
                 dirs.clear()
-        files.sort(key=lambda t: t[1], reverse=True)   # newest first
+        sort_mode = (self._sort_combo.currentData()
+                     if hasattr(self, "_sort_combo") else "mtime_desc")
+        if sort_mode == "name_asc":
+            files.sort(key=lambda t: os.path.basename(t[0]).lower())
+        elif sort_mode == "name_desc":
+            files.sort(key=lambda t: os.path.basename(t[0]).lower(), reverse=True)
+        else:   # mtime_* and stars_* start from a time ordering
+            files.sort(key=lambda t: t[1], reverse=(sort_mode != "mtime_asc"))
         self._current_files = files
 
         rows: list[CardRow] = []
@@ -466,6 +574,10 @@ class DataBrowserModule(AGuiModule):
             if file_rows and file_rows[0].state != STATE_LOADING:
                 n_cached += 1
             rows.extend(file_rows)
+        if sort_mode in ("stars_desc", "stars_asc"):
+            # stars are per card — stable sort keeps the time order within
+            # equal ratings
+            rows.sort(key=lambda r: r.stars, reverse=(sort_mode == "stars_desc"))
         self._gallery.gallery_model().set_rows(rows)
         self._status.setText(
             f"{len(files)} files · {n_cached} cached · {len(rows)} cards")
@@ -478,9 +590,11 @@ class DataBrowserModule(AGuiModule):
         rel = "" if rel == filename else rel
 
         if self._cache.is_fresh(path, mtime):
+            ratings = self._cache.file_ratings(path)
             rows = []
             for t in self._cache.get_thumbnails(path):
-                rows.append(self._row_from_thumb(path, filename, rel, t))
+                rows.append(self._row_from_thumb(path, filename, rel, t,
+                                                 ratings.get(t["channel_id"], 0)))
             if rows:
                 return rows
         f = self._cache.get_file(path)
@@ -493,17 +607,23 @@ class DataBrowserModule(AGuiModule):
                         state=STATE_LOADING, tooltip=path)]
 
     @staticmethod
-    def _row_from_thumb(path: str, filename: str, rel: str, t: dict) -> CardRow:
+    def _row_from_thumb(path: str, filename: str, rel: str, t: dict,
+                        stars: int = 0) -> CardRow:
         status_map = {"ok": STATE_READY, "not_found": STATE_NOT_FOUND,
                       "no_renderer": STATE_ICON}
         info = ""
         if t["layer_count"] > 1:
             info = f"3D · layer {t['thumbnail_layer']}/{t['layer_count']}"
+        tooltip = f"{path}\n{t['channel_id']}"
+        if t["status"] == "not_found":
+            tooltip += ("\n\nThis file has no channel matching the aliases of "
+                        f"'{t['channel_id']}'.\nConfigure channel names/aliases in "
+                        "Preferences → Channel mappings\n(shared with file opening).")
         return CardRow(key=(path, t["channel_id"]), filename=filename,
                        channel=t["channel_id"], info=info, rel_path=rel,
                        png_path=t["png_path"],
                        state=status_map.get(t["status"], STATE_ICON),
-                       tooltip=f"{path}\n{t['channel_id']}")
+                       tooltip=tooltip, stars=stars)
 
     # ------------------------------------------------------------------
     # Render submission (coordinator)
@@ -528,7 +648,8 @@ class DataBrowserModule(AGuiModule):
 
     def _submit_render(self, path: str, priority: str = "high",
                        layer: int | None = None) -> None:
-        options = {"stack_threshold": int(self._cfg("thumbnails.stack_threshold", 20)),
+        options = {"stack_threshold": int(self._cfg("thumbnails.stack_threshold", 10)),
+                   "widget_extras": dict(self._template_extras),
                    "figsize": (self._cfg("thumbnails.size", 150) / 58,) * 2}
         if layer is not None:
             options["layer"] = layer
@@ -537,13 +658,14 @@ class DataBrowserModule(AGuiModule):
             source_id=self.instance_id,
             task_type="thumbnail_render",
             kwargs={"file_path": path,
-                    "cache_dir": str(self._cache.cache_dir),
+                    "cache_dir": str(self._cache.thumb_dir),   # PNGs live in the subfolder
                     "channel_cfg": self._channel_cfg_for(path),
                     "rcparams_delta": dict(self._template_delta),
                     "options": options},
             backend="io",
             priority=priority,
             cancellable=True,
+            silent=True,
         )
         handle = self._context.tasks.submit(request)
         self._pending[path] = handle
@@ -573,7 +695,9 @@ class DataBrowserModule(AGuiModule):
             filename = os.path.basename(path)
             rel = os.path.relpath(path, self._current_folder)
             rel = "" if rel == filename else rel
-            rows = [self._row_from_thumb(path, filename, rel, t)
+            ratings = self._cache.file_ratings(path)
+            rows = [self._row_from_thumb(path, filename, rel, t,
+                                         ratings.get(t["channel_id"], 0))
                     for t in self._cache.get_thumbnails(path)]
             if rows:
                 model.replace_file_rows(path, rows)
@@ -678,11 +802,28 @@ class DataBrowserModule(AGuiModule):
         act_layer = None
         if t is not None and t["layer_count"] > 1:
             act_layer = menu.addAction("Set thumbnail layer…")
+
+        star_actions: dict = {}
+        if channel_id != "?":
+            current = self._cache.get_stars(path, channel_id)
+            rating_menu = menu.addMenu("Rating")
+            for n in range(6):
+                label = "☆ none" if n == 0 else "★" * n
+                a = rating_menu.addAction(label)
+                a.setCheckable(True)
+                a.setChecked(n == current)
+                star_actions[a] = n
+
         menu.addSeparator()
         act_rerender = menu.addAction("Re-render thumbnail")
 
         act = menu.exec(global_pos)
         if act is None:
+            return
+        if act in star_actions:
+            stars = star_actions[act]
+            self._cache.set_stars(path, channel_id, stars)
+            self._gallery.gallery_model().update_row(key, stars=stars)
             return
         if act == act_send:
             self._on_send_card(key)
@@ -718,6 +859,7 @@ class DataBrowserModule(AGuiModule):
         # in the background; that is its purpose.  Only in-flight viewport
         # renders are cancelled: their results have no viewer anyway, and
         # completed ones still land in the cache.
+        self._save_window_state()
         for handle in self._pending.values():
             try:
                 handle.cancel()
@@ -727,6 +869,7 @@ class DataBrowserModule(AGuiModule):
 
     def shutdown(self) -> None:
         """Stop the scanner thread (app exit / module removal)."""
+        self._save_window_state()
         if getattr(self, "_scanner_handle", None) is not None:
             try:
                 self._scanner_handle.cancel()

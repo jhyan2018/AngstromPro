@@ -822,6 +822,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     on_apply=_apply,
                     on_save_as_default=_save_as_default,
                     on_reset=_reset,
+                    context=self._context,
                     parent=dlg,
                 )
                 # Let the module react to config changes (e.g. repaint panels)

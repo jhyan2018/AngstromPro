@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS thumbnails (
     status          TEXT NOT NULL DEFAULT 'ok',
     PRIMARY KEY (file_path, channel_id)
 );
+CREATE TABLE IF NOT EXISTS ratings (
+    file_path   TEXT NOT NULL,
+    channel_id  TEXT NOT NULL,
+    stars       INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (file_path, channel_id)
+);
 """
 
 # files.status:      'ok' | 'error'
@@ -69,14 +75,86 @@ class ThumbnailCache:
     """One instance per thread; all instances share the same db/cache dir."""
 
     def __init__(self, cache_dir: str | Path) -> None:
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir = Path(cache_dir)             # e.g. <user>/cache/data_browser
+        self.thumb_dir = self.cache_dir / "thumbnails"
+        self.thumb_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = self.cache_dir / "cache.db"
-        self._conn = sqlite3.connect(str(self.db_path))
-        self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.executescript(_SCHEMA)
-        self._conn.commit()
+        try:
+            self._conn = self._open()
+            return
+        except sqlite3.Error as exc:
+            log.warning("Thumbnail cache open failed (%s): %s", exc, self.db_path)
+
+        # Recovery ladder — the cache is disposable, so escalate rather than
+        # ever failing module startup:
+        # 1. transient lock (antivirus / indexer on a fresh file): brief
+        #    retries with backoff
+        # 2. corrupt db / stale -wal/-shm sidecars: delete and rebuild
+        # 3. location fundamentally unusable: local temp-dir cache (thumbnails
+        #    regenerate; nothing of value is lost)
+        import time
+        for attempt in range(3):
+            time.sleep(0.3 * (attempt + 1))
+            self._delete_db_files()
+            try:
+                self._conn = self._open()
+                log.warning("Thumbnail cache rebuilt after %d attempt(s): %s",
+                            attempt + 1, self.db_path)
+                return
+            except sqlite3.Error:
+                continue
+
+        import tempfile
+        fallback = Path(tempfile.gettempdir()) / "angstrompro" / "data_browser_cache"
+        log.error("Thumbnail cache unusable at %s — using local fallback %s "
+                  "for this session", self.cache_dir, fallback)
+        self.cache_dir = fallback
+        self.thumb_dir = fallback / "thumbnails"
+        self.thumb_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = fallback / "cache.db"
+        try:
+            self._conn = self._open()
+        except sqlite3.Error:
+            self._delete_db_files()
+            self._conn = self._open()
+
+    def _delete_db_files(self) -> None:
+        for suffix in ("", "-wal", "-shm"):
+            try:
+                p = Path(str(self.db_path) + suffix)
+                if p.exists():
+                    p.unlink()
+            except OSError:
+                pass
+
+    def _open(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(str(self.db_path))
+        conn.row_factory = sqlite3.Row
+        try:
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+            except sqlite3.OperationalError:
+                # WAL needs shared-memory sidecars; unsupported on some
+                # network / cloud-synced / exFAT locations.  TRUNCATE keeps
+                # commits durable, just without concurrent-reader support.
+                log.warning("WAL unavailable for %s — falling back to "
+                            "TRUNCATE journal mode", self.db_path)
+                conn.execute("PRAGMA journal_mode=TRUNCATE")
+            conn.executescript(_SCHEMA)
+            conn.commit()
+        except sqlite3.Error:
+            # close before the caller deletes the file — an open handle
+            # blocks unlink on Windows
+            conn.close()
+            raise
+        return conn
+
+    def close_quiet(self) -> None:
+        try:
+            if getattr(self, "_conn", None) is not None:
+                self._conn.close()
+        except Exception:
+            pass
 
     def close(self) -> None:
         self._conn.close()
@@ -180,11 +258,39 @@ class ThumbnailCache:
         self._conn.commit()
 
     # ------------------------------------------------------------------
+    # ratings table — user data: survives re-renders, delete_file and
+    # clear_all on purpose
+    # ------------------------------------------------------------------
+
+    def get_stars(self, file_path: str, channel_id: str) -> int:
+        row = self._conn.execute(
+            "SELECT stars FROM ratings WHERE file_path=? AND channel_id=?",
+            (file_path, channel_id)).fetchone()
+        return int(row["stars"]) if row else 0
+
+    def file_ratings(self, file_path: str) -> dict[str, int]:
+        return {r["channel_id"]: int(r["stars"]) for r in self._conn.execute(
+            "SELECT channel_id, stars FROM ratings WHERE file_path=?",
+            (file_path,))}
+
+    def set_stars(self, file_path: str, channel_id: str, stars: int) -> None:
+        stars = max(0, min(5, int(stars)))
+        if stars == 0:
+            self._conn.execute(
+                "DELETE FROM ratings WHERE file_path=? AND channel_id=?",
+                (file_path, channel_id))
+        else:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO ratings (file_path, channel_id, stars) "
+                "VALUES (?,?,?)", (file_path, channel_id, stars))
+        self._conn.commit()
+
+    # ------------------------------------------------------------------
     # PNG files
     # ------------------------------------------------------------------
 
     def new_png_path(self) -> str:
-        return str(self.cache_dir / f"{uuid.uuid4().hex}.png")
+        return str(self.thumb_dir / f"{uuid.uuid4().hex}.png")
 
     def _delete_png(self, png_path: str) -> None:
         try:
@@ -203,7 +309,7 @@ class ThumbnailCache:
         known = {row["png_path"] for row in
                  self._conn.execute("SELECT png_path FROM thumbnails")}
         removed = 0
-        for f in self.cache_dir.glob("*.png"):
+        for f in self.thumb_dir.glob("*.png"):
             if str(f) not in known:
                 try:
                     f.unlink()
@@ -219,7 +325,7 @@ class ThumbnailCache:
         n_thumbs = self._conn.execute("SELECT COUNT(*) FROM thumbnails").fetchone()[0]
         n_errors = self._conn.execute(
             "SELECT COUNT(*) FROM files WHERE status='error'").fetchone()[0]
-        disk = sum(f.stat().st_size for f in self.cache_dir.glob("*.png"))
+        disk = sum(f.stat().st_size for f in self.thumb_dir.glob("*.png"))
         disk += self.db_path.stat().st_size if self.db_path.exists() else 0
         return {"files": n_files, "thumbnails": n_thumbs,
                 "errors": n_errors, "disk_bytes": disk}
@@ -229,7 +335,7 @@ class ThumbnailCache:
         self._conn.execute("DELETE FROM thumbnails")
         self._conn.execute("DELETE FROM files")
         self._conn.commit()
-        for f in self.cache_dir.glob("*.png"):
+        for f in self.thumb_dir.glob("*.png"):
             try:
                 f.unlink()
             except OSError:

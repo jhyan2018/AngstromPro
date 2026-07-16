@@ -300,8 +300,13 @@ class LiveModulesPanel(QtWidgets.QWidget):
     def _on_show(self, instance_id: str) -> None:
         inst = self._instance_by_id(instance_id)
         if inst and isinstance(inst, QtWidgets.QWidget):
+            # clear only the minimized bit — keep a maximized window maximized
+            if inst.isMinimized():
+                inst.setWindowState(
+                    inst.windowState() & ~QtCore.Qt.WindowState.WindowMinimized)
             inst.show()
             inst.raise_()
+            inst.activateWindow()   # required on Windows to actually come to front
 
     def _on_remove(self, instance_id: str) -> None:
         inst = self._instance_by_id(instance_id)

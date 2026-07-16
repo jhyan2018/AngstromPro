@@ -74,6 +74,10 @@ class ScannerShared:
         with self._lock:
             return folder in self._data["watch_folders"]
 
+    def is_enabled(self) -> bool:
+        with self._lock:
+            return bool(self._data["enabled"])
+
 
 class ScannerBridge(QtCore.QObject):
     """Owned by the main thread; the scanner emits from the worker thread."""
@@ -119,6 +123,8 @@ def scanner_loop(cache_dir: str, shared: ScannerShared,
 
             if snap["enabled"]:
                 for folder in snap["watch_folders"]:
+                    if not shared.is_enabled():
+                        break   # disabled mid-pass — skip remaining folders
                     if not os.path.isdir(folder):
                         continue
                     files = _gather_files(folder, snap["previewable_exts"],
@@ -126,6 +132,8 @@ def scanner_loop(cache_dir: str, shared: ScannerShared,
                     for path, mtime in files:
                         if cancel_token is not None and cancel_token.is_cancelled():
                             return
+                        if not shared.is_enabled():
+                            break   # user disabled scanning mid-pass — stop now
                         if not shared.has_folder(folder):
                             break   # folder removed mid-pass — abort it
                         if not cache.should_render(path, mtime):

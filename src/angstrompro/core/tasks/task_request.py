@@ -23,6 +23,7 @@ class TaskRequest:
         retries:      int  = 0,
         group_id:     str  = "",
         metadata:     dict[str, Any] | None = None,
+        silent:       bool = False,   # True = hidden from the task dashboard
     ) -> None:
         self.task_id      = str(uuid.uuid4())
         self.task_func    = task_func
@@ -37,3 +38,4 @@ class TaskRequest:
         self.retries      = retries
         self.group_id     = group_id
         self.metadata     = metadata or {}
+        self.silent       = silent

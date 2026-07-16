@@ -47,6 +47,16 @@ MULTI_CHANNEL_FORMATS = {
     ".dat": "nanonis_dat",
 }
 
+def previewable_exts() -> set[str]:
+    """All readable extensions from the IO registry.  Whether a payload is
+    actually renderable is decided per payload at render time (three-tier
+    rule: no renderer → icon-only card), so every readable format may be
+    watched."""
+    from angstrompro.io import uds_io, scene_plot_io  # noqa: F401 — ensure registered
+    from angstrompro.io.angstrom_io import registered_formats
+    return {f.extension.lower() for f in registered_formats()
+            if f.readable and f.extension}
+
 
 def channel_cfg_to_plain(fmt_cfg) -> list[dict]:
     """FormatChannelConfig → plain data for task kwargs."""

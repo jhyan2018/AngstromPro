@@ -89,6 +89,49 @@ class FolderListControl(QtWidgets.QWidget):
         self._move(+1)
 
 
+class FormatListControl(QtWidgets.QWidget):
+    """Check which previewable file formats the browser watches.
+    Unchecked formats are hidden from the gallery and skipped by the
+    background scanner.  get/set a list[str] of extensions."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        from .render_task import previewable_exts
+        lay = QtWidgets.QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        self._list = QtWidgets.QListWidget()
+        for ext in sorted(previewable_exts()):
+            item = QtWidgets.QListWidgetItem(ext)
+            item.setFlags(item.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.CheckState.Checked)
+            self._list.addItem(item)
+        # size to the content: show every format without an inner scroll bar
+        rows = max(self._list.count(), 1)
+        row_h = self._list.sizeHintForRow(0) if self._list.count() else 20
+        self._list.setMinimumHeight(rows * row_h + 2 * self._list.frameWidth() + 4)
+        lay.addWidget(self._list)
+
+    def get_value(self) -> list:
+        checked = [self._list.item(i).text() for i in range(self._list.count())
+                   if self._list.item(i).checkState() == QtCore.Qt.CheckState.Checked]
+        # all checked → store the wildcard so formats registered later
+        # (e.g. by a new plugin) are watched automatically
+        if len(checked) == self._list.count():
+            return ["*"]
+        return checked
+
+    def set_value(self, v) -> None:
+        values = [str(e).lower() for e in (v or [])]
+        all_on = "*" in values
+        wanted = set(values)
+        for i in range(self._list.count()):
+            item = self._list.item(i)
+            item.setCheckState(
+                QtCore.Qt.CheckState.Checked
+                if all_on or item.text() in wanted
+                else QtCore.Qt.CheckState.Unchecked)
+
+
 class TemplatePickerControl(QtWidgets.QComboBox):
     """Saved curve-stack templates; empty string = no template."""
 
@@ -155,7 +198,7 @@ class CacheToolsControl(QtWidgets.QWidget):
     def _open_cache(self):
         from .thumbnail_cache import ThumbnailCache
         from angstrompro.app.user_data_folder import user_data_subpath
-        cache_dir = self._cache_dir or str(user_data_subpath("data_browser_cache"))
+        cache_dir = self._cache_dir or str(user_data_subpath("cache", "data_browser"))
         return ThumbnailCache(cache_dir)
 
     def _refresh(self) -> None:
@@ -198,5 +241,6 @@ class CacheToolsControl(QtWidgets.QWidget):
 
 
 register_widget_type("db_folder_list", FolderListControl)
+register_widget_type("db_format_list", FormatListControl)
 register_widget_type("db_template_picker", TemplatePickerControl)
 register_widget_type("db_cache_tools", CacheToolsControl)

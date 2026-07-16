@@ -25,6 +25,7 @@ class TaskDashboard(QtWidgets.QWidget):
         self.resize(900, 400)
 
         self._manager  = context.tasks
+        self._config   = context.config
         self._handles:     dict[str, object] = {}   # task_id → TaskHandle
         self._cancellable: dict[str, bool]   = {}   # task_id → bool
 
@@ -70,6 +71,9 @@ class TaskDashboard(QtWidgets.QWidget):
 
     def _on_task_submitted(self, request, handle) -> None:
         """Called for every task submitted anywhere in the app."""
+        if getattr(request, "silent", False) and not self._config.get(
+                "app", "show_silent_tasks", False):
+            return   # internal plumbing (e.g. thumbnail renders) — not shown
         self._handles[handle.task_id]     = handle
         self._cancellable[handle.task_id] = request.cancellable
 

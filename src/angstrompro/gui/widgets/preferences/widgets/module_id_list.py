@@ -46,10 +46,12 @@ class ModuleIdListWidget(QtWidgets.QWidget):
 
     def set_context(self, context) -> None:
         self._context = context
+        # main_workbench IS included here: it has a workspace dock and shows
+        # up as a send target like any module.  (The startup-modules widget
+        # excludes it separately — the workbench starts itself.)
         self._choices = sorted(
             [(cls.module_id, getattr(cls, "display_name", cls.module_id))
-             for cls in context.module_manager.list_all()
-             if cls.module_id != "main_workbench"],
+             for cls in context.module_manager.list_all()],
             key=lambda x: x[1].lower(),
         )
         self._refresh_combo()

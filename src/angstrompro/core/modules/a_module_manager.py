@@ -157,9 +157,31 @@ class AModuleManager(QtCore.QObject):
 
     def create(self, module_id: str, context: "AppContext",
                parent=None) -> ModuleMixin:
-        """Instantiate a registered module class by module_id."""
+        """Instantiate a registered module class by module_id.
+
+        Modules may declare  max_instances  (class attribute, None =
+        unlimited).  At the limit, create() returns the existing instance
+        (shown and raised) instead of building another — get-or-create
+        semantics for singleton modules like the Data Browser."""
         self._snapshot()   # flush any @register_module calls that happened after load_builtin
         cls = self.get(module_id)
+
+        limit = getattr(cls, "max_instances", None)
+        existing = self._instances.get(module_id, [])
+        if limit is not None and len(existing) >= limit:
+            instance = existing[0]
+            log.info("Module %s is limited to %d instance(s) — reusing %s",
+                     module_id, limit, instance.instance_id)
+            if hasattr(instance, "show"):
+                if getattr(instance, "isMinimized", lambda: False)():
+                    instance.setWindowState(
+                        instance.windowState()
+                        & ~QtCore.Qt.WindowState.WindowMinimized)
+                instance.show()
+                instance.raise_()
+                instance.activateWindow()
+            return instance
+
         instance = cls(context, parent=parent)
         self._instances.setdefault(module_id, []).append(instance)
         self.module_added.emit(module_id)

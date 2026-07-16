@@ -235,6 +235,8 @@ class LiveModuleCard(QtWidgets.QFrame):
     def _on_task_submitted(self, request, handle) -> None:
         if request.source_id != self._instance.instance_id:
             return
+        if getattr(request, "silent", False):
+            return   # background plumbing — card would show "Running" forever
         Q = QtCore.Qt.ConnectionType.QueuedConnection
         handle.started.connect(
             lambda _tid: self._set_status("Running"), Q)
