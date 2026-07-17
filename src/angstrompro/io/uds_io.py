@@ -1,0 +1,425 @@
+# -*- coding: utf-8 -*-
+"""
+IO for UdsDataStru.
+
+New format : HDF5  (.uds or any extension) — full precision, type_id="uds"
+Legacy format : custom binary (.uds)        — read-only, converted on load
+
+Version history
+---------------
+v1 (current) — initial HDF5 format
+"""
+
+import json
+import logging
+from pathlib import Path
+
+import numpy as np
+
+from angstrompro.core.data.base import ProcRecord
+from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.isocontour_data import (
+    IsocontourResult, IsopointResult, IsolineResult, IsosurfaceResult,
+    ISOCONTOUR_KIND_MAP,
+)
+from angstrompro.io.angstrom_io import register_io
+from angstrompro.io.migration import apply_migrations
+
+log = logging.getLogger(__name__)
+
+_VERSION = 1
+
+
+class _NumpyEncoder(json.JSONEncoder):
+    """JSON encoder that converts numpy scalar types to native Python types."""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
+def _jdumps(obj) -> str:
+    return json.dumps(obj, cls=_NumpyEncoder)
+
+
+# ------------------------------------------------------------------
+# Intermediate dict  ←→  UdsDataStru
+# ------------------------------------------------------------------
+
+def _uds_to_dict(uds: UdsDataStru) -> dict:
+    import numpy as np
+    def _to_list(v):
+        return v.tolist() if isinstance(v, np.ndarray) else v
+    return {
+        "name": uds.name,
+        "data": _to_list(uds.data),
+        "axes": [
+            {
+                "values": _to_list(ax.values),
+                "label":  ax.label,
+                "units":  ax.units,
+                "ticks":  ax.ticks,
+            }
+            for ax in uds.axes
+        ],
+        "info":         uds.info,
+        "proc_history": [
+            {"step": r.step, "params": r.params,
+             "input_item_names": r.input_item_names, "annotations": r.annotations}
+            for r in uds.proc_history
+        ],
+        # landmarks: tuple keys serialised as JSON arrays
+        "landmarks": {_jdumps(list(k)): v for k, v in uds.landmarks.items()},
+    }
+
+
+def _dict_to_uds(d: dict) -> UdsDataStru:
+    axes = [
+        Axis(
+            values = ax["values"],
+            label  = ax.get("label", "? (?)"),
+            units  = ax.get("units", ""),
+            ticks  = {float(k): v for k, v in ax.get("ticks", {}).items()},
+        )
+        for ax in d.get("axes", [])
+    ]
+    proc_history = [ProcRecord(**r) for r in d.get("proc_history", [])]
+    landmarks = {
+        tuple(float(x) for x in json.loads(k)): v
+        for k, v in d.get("landmarks", {}).items()
+    }
+    isocontours = []
+    isog = d.get("isocontours")   # h5py group or None
+    if isog is not None:
+        count = int(isog.attrs.get("count", 0))
+        for i in range(count):
+            if str(i) in isog:
+                isocontours.append(_isocontour_from_group(isog[str(i)]))
+    return UdsDataStru(
+        name         = d["name"],
+        data         = d["data"],
+        axes         = axes,
+        info         = d.get("info", {}),
+        proc_history = proc_history,
+        landmarks    = landmarks,
+        isocontours  = isocontours,
+    )
+
+
+# ------------------------------------------------------------------
+# Isocontour serialization helpers
+# ------------------------------------------------------------------
+
+def _isocontour_to_group(ig, result: IsocontourResult) -> None:
+    """Write one IsocontourResult into an h5py group."""
+    ig.attrs["kind"]         = result.kind
+    ig.attrs["level"]        = result.level
+    ig.attrs["method"]       = result.method
+    ig.attrs["source_axes"]  = _jdumps(list(result.source_axes))
+    ig.attrs["layer_index"]  = result.layer_index
+    ig.attrs["notes"]        = result.notes
+
+    if isinstance(result, IsopointResult):
+        ig.create_dataset("points", data=result.points)
+
+    elif isinstance(result, IsolineResult):
+        cg = ig.create_group("contours")
+        for j, c in enumerate(result.contours):
+            cg.create_dataset(str(j), data=c)
+        cg.attrs["count"] = len(result.contours)
+
+    elif isinstance(result, IsosurfaceResult):
+        ig.create_dataset("vertices", data=result.vertices, compression="gzip")
+        ig.create_dataset("faces",    data=result.faces,    compression="gzip")
+        ig.create_dataset("normals",  data=result.normals,  compression="gzip")
+
+
+def _isocontour_from_group(ig) -> IsocontourResult:
+    """Read one IsocontourResult from an h5py group."""
+    kind        = str(ig.attrs.get("kind", ""))
+    level       = float(ig.attrs.get("level", 0.0))
+    method      = str(ig.attrs.get("method", ""))
+    source_axes = tuple(json.loads(ig.attrs.get("source_axes", "[]")))
+    layer_index = int(ig.attrs.get("layer_index", 0))
+    notes       = str(ig.attrs.get("notes", ""))
+
+    base_kwargs = dict(kind=kind, level=level, method=method,
+                       source_axes=source_axes, layer_index=layer_index, notes=notes)
+
+    if kind == "isopoint":
+        return IsopointResult(
+            **base_kwargs,
+            points=ig["points"][()] if "points" in ig else np.array([], dtype=np.float64),
+        )
+    elif kind == "isoline":
+        contours = []
+        if "contours" in ig:
+            cg    = ig["contours"]
+            count = int(cg.attrs.get("count", 0))
+            for j in range(count):
+                contours.append(cg[str(j)][()])
+        return IsolineResult(**base_kwargs, contours=contours)
+
+    elif kind == "isosurface":
+        return IsosurfaceResult(
+            **base_kwargs,
+            vertices=ig["vertices"][()] if "vertices" in ig else np.zeros((0, 3), dtype=np.float64),
+            faces   =ig["faces"][()]    if "faces"    in ig else np.zeros((0, 3), dtype=np.int32),
+            normals =ig["normals"][()]  if "normals"  in ig else np.zeros((0, 3), dtype=np.float64),
+        )
+    else:
+        # unknown kind — return base with kind tag intact
+        cls = ISOCONTOUR_KIND_MAP.get(kind, IsocontourResult)
+        return cls(**{k: v for k, v in base_kwargs.items()
+                      if k in IsocontourResult.__dataclass_fields__})
+
+
+# ------------------------------------------------------------------
+# HDF5 group-level helpers (used by project_io too)
+# ------------------------------------------------------------------
+
+def _write_to_group(g, uds: UdsDataStru) -> None:
+    """Write a UdsDataStru into an already-open h5py group."""
+    g.attrs["name"]    = uds.name
+    g.attrs["version"] = _VERSION
+    g.create_dataset("raw_data", data=uds.data, compression="gzip")
+    for i, ax in enumerate(uds.axes):
+        ag = g.create_group(f"axes/{i}")
+        ag.create_dataset("values", data=ax.values)
+        ag.attrs["label"] = ax.label
+        ag.attrs["units"] = ax.units
+        ag.attrs["ticks"] = _jdumps(
+            {str(k): v for k, v in ax.ticks.items()}
+        )
+    g.attrs["info"]         = _jdumps(uds.info)
+    g.attrs["proc_history"] = _jdumps(
+        [{"step": r.step, "params": r.params,
+          "input_item_names": r.input_item_names, "annotations": r.annotations}
+         for r in uds.proc_history]
+    )
+    g.attrs["landmarks"] = _jdumps(
+        {_jdumps(list(k)): v for k, v in uds.landmarks.items()}
+    )
+    if uds.isocontours:
+        isog = g.create_group("isocontours")
+        isog.attrs["count"] = len(uds.isocontours)
+        for i, result in enumerate(uds.isocontours):
+            _isocontour_to_group(isog.create_group(str(i)), result)
+
+
+def _read_from_group(g) -> dict:
+    """Read an intermediate dict from an h5py group (no migration applied)."""
+    axes = []
+    if "axes" in g:
+        for i in range(len(g["axes"])):
+            ag = g[f"axes/{i}"]
+            axes.append({
+                "values": ag["values"][()],
+                "label":  str(ag.attrs.get("label", "? (?)")),
+                "units":  str(ag.attrs.get("units", "")),
+                "ticks":  json.loads(ag.attrs.get("ticks", "{}")),
+            })
+    return {
+        "name":         str(g.attrs.get("name", "")),
+        "data":         g["raw_data"][()],
+        "axes":         axes,
+        "info":         json.loads(g.attrs.get("info", "{}")),
+        "proc_history": json.loads(g.attrs.get("proc_history", "[]")),
+        "landmarks":    json.loads(g.attrs.get("landmarks", "{}")),
+        "isocontours":  g.get("isocontours"),   # h5py group or None
+    }
+
+
+# ------------------------------------------------------------------
+# HDF5 file save / load
+# ------------------------------------------------------------------
+
+def save(path: Path, uds: UdsDataStru) -> None:
+    import h5py
+    with h5py.File(path, "w") as f:
+        f.attrs["type_id"] = "uds"
+        f.attrs["version"] = _VERSION
+        _write_to_group(f, uds)
+
+
+def load(path: Path) -> UdsDataStru:
+    import h5py
+    with h5py.File(path, "r") as f:
+        file_version = int(f.attrs.get("version", 1))
+        d = _read_from_group(f)
+
+    d = apply_migrations("uds", file_version, _VERSION, d)
+    return _dict_to_uds(d)
+
+
+# ------------------------------------------------------------------
+# Legacy .uds binary reader (read-only)
+# ------------------------------------------------------------------
+
+def load_legacy(path: Path) -> UdsDataStru:
+    """
+    Read the old custom binary .uds format produced by UdsDataProcess.saveToFile().
+
+    File layout
+    -----------
+    <name>\\n
+    Shape=<d0>,<d1>,...\\n
+    DataType=<dtype>\\n
+    Axis Name=<n0>,<n1>,...\\n
+    Axis Value=<v0,v1,...;v0,v1,...>   (';' between axes, ',' between values,
+                                        '&' between real&imag / x&y pairs)\\n
+    [key=value\\n ...]
+    :INFO_END:\\n
+    [proc_history line\\n ...]
+    :PROC_HISTORY_END:\\n
+    [proc_to_do line\\n ...]
+    :HEADER_END:\\n
+    <raw binary array data>
+    """
+    with open(path, "rb") as f:
+        name       = f.readline().decode("utf-8").strip()
+        shape_text = f.readline().decode("utf-8").strip().split("=")[-1].split(",")
+        shape      = [int(s) for s in shape_text]
+        data_type  = f.readline().decode("utf-8").strip().split("=")[-1]
+        axis_name  = f.readline().decode("utf-8").strip().split("=")[-1]
+        axis_value = f.readline().decode("utf-8").strip().split("=")[-1]
+        info_start = f.tell()
+        while True:
+            line = f.readline().decode().strip()
+            if line == ":HEADER_END:":
+                break
+        raw = np.fromfile(f, dtype=data_type, count=-1)
+
+    try:
+        data = raw.reshape(shape)
+    except ValueError:
+        log.warning("Legacy load: shape mismatch in %s", path.name)
+        data = raw
+
+    uds = UdsDataStru.from_array(data, name)
+
+    with open(path, "rb") as f:
+        f.seek(info_start)
+        while True:
+            line = f.readline().decode("utf-8").strip()
+            if line in (":INFO_END:", ":HEADER_END:", ""):
+                break
+            if "=" in line:
+                k, v = line.split("=", 1)
+                uds.info[k] = v
+
+    axis_name_list = axis_name.split(",") if axis_name else []
+    for i, ax in enumerate(uds.axes):
+        if i < len(axis_name_list):
+            raw_label = axis_name_list[i]
+            if "(" in raw_label and raw_label.endswith(")"):
+                lbl, unit = raw_label[:-1].split("(", 1)
+                ax.label = lbl.strip()
+                ax.units = unit.strip()
+            else:
+                ax.label = raw_label
+
+    axis_value_text_list = axis_value.split(";") if axis_value else []
+    for i, av_txt in enumerate(axis_value_text_list):
+        if i >= len(uds.axes):
+            break
+        if "&" not in av_txt:
+            uds.axes[i].values = np.array(list(map(float, av_txt.split(","))),
+                                          dtype=np.float64)
+        else:
+            pairs = [list(map(float, p.split("&"))) for p in av_txt.split(",")]
+            uds.axes[i].values = np.array(pairs, dtype=np.float64)
+
+    with open(path, "rb") as f:
+        f.seek(info_start)
+        while True:
+            line = f.readline().decode("utf-8").strip()
+            if line == ":INFO_END:":
+                break
+        while True:
+            line = f.readline().decode("utf-8").strip()
+            if line in (":PROC_HISTORY_END:", ":HEADER_END:", ""):
+                break
+            uds.proc_history.append(ProcRecord(step=line))
+
+    log.info("Loaded legacy .uds: %s  shape=%s  dtype=%s", name, shape, data_type)
+    return uds
+
+
+# ------------------------------------------------------------------
+# Annotation save / load (standalone — do not modify save/load above)
+# ------------------------------------------------------------------
+
+def save_annotations(path: Path, annotations: dict) -> None:
+    """Append/replace annotations group in an existing HDF5 UDS file."""
+    import h5py
+    from angstrompro.core.data.annotation_data import PointSetData, RegionData, LineData
+    with h5py.File(path, "a") as f:
+        if "annotations" in f:
+            del f["annotations"]
+        if not annotations:
+            return
+        ag = f.create_group("annotations")
+        for role, ann in annotations.items():
+            rg = ag.create_group(role)
+            if isinstance(ann, PointSetData):
+                rg.create_dataset("coords", data=ann.coords)
+                rg.attrs["type"] = "point_set"
+            elif isinstance(ann, RegionData):
+                rg.attrs["type"] = "region"
+                rg.attrs["row_min"] = ann.row_min
+                rg.attrs["col_min"] = ann.col_min
+                rg.attrs["row_max"] = ann.row_max
+                rg.attrs["col_max"] = ann.col_max
+            elif isinstance(ann, LineData):
+                rg.attrs["type"] = "line"
+                rg.attrs["p1_row"] = ann.p1[0]
+                rg.attrs["p1_col"] = ann.p1[1]
+                rg.attrs["p2_row"] = ann.p2[0]
+                rg.attrs["p2_col"] = ann.p2[1]
+                rg.attrs["n_points"] = ann.n_points
+
+
+def load_annotations(path: Path) -> dict:
+    """Load annotations from an HDF5 UDS file. Returns {} if none present."""
+    import h5py
+    from angstrompro.core.data.annotation_data import PointSetData, RegionData, LineData
+    annotations = {}
+    try:
+        with h5py.File(path, "r") as f:
+            if "annotations" not in f:
+                return {}
+            for role, rg in f["annotations"].items():
+                t = rg.attrs.get("type", "")
+                if t == "point_set":
+                    annotations[role] = PointSetData(coords=rg["coords"][:])
+                elif t == "region":
+                    annotations[role] = RegionData(
+                        row_min=int(rg.attrs["row_min"]),
+                        col_min=int(rg.attrs["col_min"]),
+                        row_max=int(rg.attrs["row_max"]),
+                        col_max=int(rg.attrs["col_max"]),
+                    )
+                elif t == "line":
+                    annotations[role] = LineData(
+                        p1=(float(rg.attrs["p1_row"]), float(rg.attrs["p1_col"])),
+                        p2=(float(rg.attrs["p2_row"]), float(rg.attrs["p2_col"])),
+                        n_points=int(rg.attrs["n_points"]),
+                    )
+    except Exception:
+        pass
+    return annotations
+
+
+# ------------------------------------------------------------------
+register_io(
+    "uds", load, save,
+    extension    = ".uds",
+    display_name = "UDS Data",
+    description  = "Single scientific dataset with named axes, metadata, and "
+                   "processing history. Supports 1D/2D/3D arrays of any dtype.",
+)
