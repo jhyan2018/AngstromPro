@@ -26,17 +26,31 @@ _LEVEL_MAP = {
 
 # ── shared in-process log handler ─────────────────────────────────────────────
 
-class _QtLogHandler(logging.Handler, QtCore.QObject):
+class _LogEmitter(QtCore.QObject):
     record_emitted = QtCore.Signal(logging.LogRecord)
+
+
+class _QtLogHandler(logging.Handler):
+    """Pure-Python logging.Handler holding a QObject emitter.
+
+    Deliberately NOT a QObject itself: logging.shutdown() runs at interpreter
+    exit, after Qt has torn down its C++ objects — a QObject-based handler
+    still registered with the root logger raises
+    'wrapped C/C++ object has been deleted' there.  Only the emitter is a
+    QObject, and signal emission is guarded for the post-teardown window."""
 
     def __init__(self) -> None:
         logging.Handler.__init__(self)
-        QtCore.QObject.__init__(self)
+        self._emitter = _LogEmitter()
+        self.record_emitted = self._emitter.record_emitted
         self._buffer: deque[logging.LogRecord] = deque(maxlen=_MAX_RECORDS)
 
     def emit(self, record: logging.LogRecord) -> None:
         self._buffer.append(record)
-        self.record_emitted.emit(record)
+        try:
+            self._emitter.record_emitted.emit(record)
+        except RuntimeError:
+            pass   # emitter already destroyed during app teardown
 
     @property
     def buffer(self) -> deque[logging.LogRecord]:
