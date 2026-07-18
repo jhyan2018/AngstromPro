@@ -5,13 +5,13 @@ Preferences → Plugins panel.
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
 
 
 class _PluginRow(QtWidgets.QWidget):
     """One row: [path line-edit] [browse] [module line-edit] [remove]"""
 
-    remove_requested = QtCore.Signal()
+    remove_requested = Signal()
 
     def __init__(self, path: str = "", module: str = "", parent=None):
         super().__init__(parent)

@@ -24,15 +24,15 @@ selection_changed()  — the selected artist changed (or was cleared).
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore
+from angstrompro.utils.qt_compat import QtCore, Signal
 
 
 class ViewerContext(QtCore.QObject):
     """Identity of the active view objects. Notify-only — no value copies."""
 
-    target_changed    = QtCore.pyqtSignal()
-    plot_rebuilt      = QtCore.pyqtSignal()
-    selection_changed = QtCore.pyqtSignal()
+    target_changed    = Signal()
+    plot_rebuilt      = Signal()
+    selection_changed = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)

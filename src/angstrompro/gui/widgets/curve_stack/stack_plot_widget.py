@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 
 from .nav_toolbar import NavToolbar
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
 
 from .base_plot_widget import BasePlotWidget
 
@@ -48,7 +48,7 @@ class StackPlotWidget(BasePlotWidget):
 
     # emitted after _rebuild_plot replaced all artists — subscribers holding
     # artist references (style panel via ViewerContext) must re-pull
-    artists_rebuilt = QtCore.pyqtSignal()
+    artists_rebuilt = Signal()
 
     def __init__(self, config: dict | None = None, parent=None) -> None:
         super().__init__(config, parent)

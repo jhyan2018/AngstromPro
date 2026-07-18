@@ -16,13 +16,13 @@ from the active axes whenever the target changes.
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
 
 
 class AxesConfigPanel(QtWidgets.QWidget):
     """Edit title, labels, limits, scale, grid, legend — applied live."""
 
-    config_changed = QtCore.pyqtSignal(dict)   # partial AxesConfig patch
+    config_changed = Signal(dict)   # partial AxesConfig patch
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)

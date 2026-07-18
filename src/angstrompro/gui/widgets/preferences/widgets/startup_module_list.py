@@ -13,13 +13,13 @@ lock icon; their count is editable but they cannot be removed.
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
 
 
 class _StartupModuleRow(QtWidgets.QWidget):
     """One row: [module dropdown] [count spinbox] [remove / lock]"""
 
-    remove_requested = QtCore.Signal()
+    remove_requested = Signal()
 
     def __init__(self, module_choices: list[tuple[str, str]],
                  module_id: str = "", count: int = 1,

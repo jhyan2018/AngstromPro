@@ -18,14 +18,14 @@ from __future__ import annotations
 
 import matplotlib as mpl
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui, Signal
 
 
 class RcParamsStylePanel(QtWidgets.QDialog):
     """Edit common rcParams as a scene-owned delta."""
 
     # Emitted with the full new delta whenever the user applies changes
-    delta_changed = QtCore.pyqtSignal(dict)
+    delta_changed = Signal(dict)
 
     def __init__(self, delta_provider, parent=None) -> None:
         """

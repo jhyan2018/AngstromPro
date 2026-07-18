@@ -23,7 +23,7 @@ import logging
 
 import numpy as np
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
 
 from .base_plot_widget import BasePlotWidget
 from .prepare import prepare_entry
@@ -59,8 +59,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
                                the user clicks "Extract to workspace"
     """
 
-    extract_requested = QtCore.pyqtSignal(list)   # list[(str, UdsDataStru)]
-    cleared           = QtCore.pyqtSignal()        # emitted when Clear All is pressed
+    extract_requested = Signal(list)   # list[(str, UdsDataStru)]
+    cleared           = Signal()        # emitted when Clear All is pressed
 
     def __init__(self, config: dict | None = None, parent=None) -> None:
         super().__init__(parent)

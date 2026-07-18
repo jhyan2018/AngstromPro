@@ -13,7 +13,7 @@ import logging
 import time
 from collections import deque
 
-from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets, Signal
 
 _MAX_RECORDS = 500
 
@@ -27,7 +27,7 @@ _LEVEL_MAP = {
 # ── shared in-process log handler ─────────────────────────────────────────────
 
 class _LogEmitter(QtCore.QObject):
-    record_emitted = QtCore.Signal(logging.LogRecord)
+    record_emitted = Signal(logging.LogRecord)
 
 
 class _QtLogHandler(logging.Handler):
