@@ -15,13 +15,13 @@ matplotlib operation instead of a full rebuild.
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore
+from angstrompro.utils.qt_compat import QtCore, Signal
 
 
 class SceneBus(QtCore.QObject):
     """Scene-mutation notifications. Emit AFTER writing the RuntimeScene."""
 
-    axes_config_changed = QtCore.pyqtSignal()       # AxesSpec.config edited
-    line_style_changed  = QtCore.pyqtSignal(tuple)  # per-line pin (ds_name, row)
-    artists_changed     = QtCore.pyqtSignal()       # dataset added / removed
-    scene_replaced      = QtCore.pyqtSignal()       # whole scene loaded / cleared
+    axes_config_changed = Signal()       # AxesSpec.config edited
+    line_style_changed  = Signal(tuple)  # per-line pin (ds_name, row)
+    artists_changed     = Signal()       # dataset added / removed
+    scene_replaced      = Signal()       # whole scene loaded / cleared

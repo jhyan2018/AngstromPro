@@ -75,6 +75,11 @@ class PoolExecutor(QtCore.QObject):
         QtCore.QTimer.singleShot(0, lambda rn=runnable, p=priority: self._pool.start(rn, p))
         return runnable.signals
 
+    def shutdown(self, timeout_ms: int = 2000) -> None:
+        """Drop queued runnables and wait briefly for in-flight ones."""
+        self._pool.clear()                 # queued-but-not-started never run
+        self._pool.waitForDone(timeout_ms)
+
     def _make_cleanup(self, task_id: str):
         """Return a bound slot callable for cleanup — avoids lambda/DirectConnection pitfall."""
         def _slot(*_args):

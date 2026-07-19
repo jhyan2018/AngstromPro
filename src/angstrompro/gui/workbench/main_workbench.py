@@ -7,7 +7,7 @@ Created on Tue Jun 16 15:30:33 2026
 
 import copy
 import logging
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, Action
 from angstrompro.app.context import AppContext
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
@@ -206,7 +206,7 @@ class MainWorkbench(AGuiModule):
 
         # --- Dev: Config editor — hidden dock, toggled via Ctrl+Shift+D ---
         self._dock_config = None
-        act_dev = QtWidgets.QAction(self)
+        act_dev = Action(self)   # QtWidgets.QAction is Qt5-only; QtGui in Qt6
         act_dev.setShortcut("Ctrl+Shift+D")
         act_dev.triggered.connect(self._toggle_config_editor)
         self.addAction(act_dev)

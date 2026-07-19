@@ -160,6 +160,19 @@ class TaskManager(QtCore.QObject):
     def group_task_ids(self, group_id: str) -> list[str]:
         return list(self._groups.get(group_id, set()))
 
+    def shutdown(self) -> None:
+        """App-exit teardown: cancel every live task, then wait for the
+        executor threads.  Wire to QApplication.aboutToQuit — without this,
+        Qt6 aborts with 'QThread: Destroyed while thread is still running'
+        when a persistent worker (e.g. the Data Browser scanner) is active."""
+        for handle in list(self._handles.values()):
+            try:
+                handle.cancel()
+            except Exception:
+                pass
+        self._dispatcher.shutdown()
+        log.debug("TaskManager shut down")
+
     def cancel_group(self, group_id: str) -> None:
         for tid in list(self._groups.get(group_id, set())):
             handle = self._handles.get(tid)

@@ -104,6 +104,9 @@ def main(external_namespace=None, start_event_loop=True):
 
     # 7
     context = AppContext(config, theme, icons)
+    # stop worker threads before Qt destroys their QThread objects —
+    # Qt6 aborts hard on a still-running thread at teardown
+    app.aboutToQuit.connect(context.tasks.shutdown)
 
     # 8 — register all built-in modules
     context.module_manager.load_builtin()

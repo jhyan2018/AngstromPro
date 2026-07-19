@@ -4,12 +4,15 @@ Created on Tue Jul 15 2026
 
 @author: jiahaoYan
 """
+import logging
 import traceback
 
 from angstrompro.utils.qt_compat import QtCore, Signal, Slot
 
 from .task_request import TaskRequest
 from .pool_executor import _RunSignals
+
+log = logging.getLogger(__name__)
 
 
 class _PersistentWorker(QtCore.QObject):
@@ -90,6 +93,20 @@ class PersistentWorkerExecutor(QtCore.QObject):
         if thread is not None:
             thread.quit()
             thread.wait(5000)
+
+    def stop_all(self, timeout_ms: int = 3000) -> None:
+        """Wait for every persistent thread to exit.  Callers must cancel the
+        tasks' tokens FIRST — the loops end on cancellation, not on quit().
+        Prevents Qt6's hard abort 'QThread: Destroyed while thread is still
+        running' at application teardown."""
+        for tid, thread in list(self._threads.items()):
+            try:
+                thread.quit()
+                if not thread.wait(timeout_ms):
+                    log.warning("Persistent thread %s did not stop within "
+                                "%d ms", tid, timeout_ms)
+            except RuntimeError:
+                pass   # C++ object already gone
 
     def _cleanup(self, task_id: str) -> None:
         self._workers.pop(task_id, None)

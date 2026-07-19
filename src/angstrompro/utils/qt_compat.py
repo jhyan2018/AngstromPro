@@ -81,6 +81,10 @@ if QT_API == "PyQt6":
     Signal = QtCore.pyqtSignal
     Slot = QtCore.pyqtSlot
     Property = QtCore.pyqtProperty
+    # PySide-style spellings — so QtCore.Signal works under every binding
+    QtCore.Signal = QtCore.pyqtSignal
+    QtCore.Slot = QtCore.pyqtSlot
+    QtCore.Property = QtCore.pyqtProperty
     
     Action = QtGui.QAction
     FileSystemModel = QtGui.QFileSystemModel
@@ -98,6 +102,10 @@ elif QT_API == "PyQt5":
     Signal = QtCore.pyqtSignal
     Slot = QtCore.pyqtSlot
     Property = QtCore.pyqtProperty
+    # PySide-style spellings — so QtCore.Signal works under every binding
+    QtCore.Signal = QtCore.pyqtSignal
+    QtCore.Slot = QtCore.pyqtSlot
+    QtCore.Property = QtCore.pyqtProperty
     
     Action = QtWidgets.QAction
     FileSystemModel = QtWidgets.QFileSystemModel

@@ -12,7 +12,7 @@ Hidden when no single curve is selected.
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui, Signal
 
 _LINESTYLES = [
     ("Solid",    "solid"),
@@ -48,9 +48,9 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
     color_reset()      — user clicked "Auto", removing the manual pin
     """
 
-    color_pinned  = QtCore.pyqtSignal(str)          # hex color string
-    color_reset   = QtCore.pyqtSignal()
-    style_changed = QtCore.pyqtSignal(str, object)  # (prop_name, value)
+    color_pinned  = Signal(str)          # hex color string
+    color_reset   = Signal()
+    style_changed = Signal(str, object)  # (prop_name, value)
 
     def __init__(self, parent=None) -> None:
         # no group-box title: the dock's title bar already says "Curve Style"

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui, Signal
 
 if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
@@ -54,8 +54,8 @@ def _category_colour(category: str) -> str:
 
 class LiveModuleCard(QtWidgets.QFrame):
 
-    sig_show   = QtCore.Signal(str)   # instance_id
-    sig_remove = QtCore.Signal(str)   # instance_id
+    sig_show   = Signal(str)   # instance_id
+    sig_remove = Signal(str)   # instance_id
 
     def __init__(
         self,
