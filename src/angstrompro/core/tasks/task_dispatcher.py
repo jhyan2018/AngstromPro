@@ -55,3 +55,10 @@ class TaskDispatcher(QtCore.QObject):
             raise ValueError(f"Unknown backend: {request.backend!r}")
 
         return signals, cancel_token
+
+    def shutdown(self) -> None:
+        """Orderly teardown before Qt destroys the thread objects.
+        Cancel tokens must already be set (TaskManager.shutdown does this)."""
+        self._persistent.stop_all()
+        self._compute.shutdown()
+        self._io.shutdown()

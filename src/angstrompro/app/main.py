@@ -29,6 +29,10 @@ def _install_exception_hooks() -> None:
             sys.__excepthook__(exc_type, exc_value, exc_tb)
             return
         log.critical("Unhandled exception", exc_info=(exc_type, exc_value, exc_tb))
+        # also print the full traceback to the console — the log panel/file may
+        # not be reachable when startup itself is broken
+        import traceback
+        traceback.print_exception(exc_type, exc_value, exc_tb)
 
     def _thread_excepthook(args):
         if args.exc_type is SystemExit:
@@ -104,6 +108,9 @@ def main(external_namespace=None, start_event_loop=True):
 
     # 7
     context = AppContext(config, theme, icons)
+    # stop worker threads before Qt destroys their QThread objects —
+    # Qt6 aborts hard on a still-running thread at teardown
+    app.aboutToQuit.connect(context.tasks.shutdown)
 
     # 8 — register all built-in modules
     context.module_manager.load_builtin()
