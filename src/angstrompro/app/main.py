@@ -29,10 +29,6 @@ def _install_exception_hooks() -> None:
             sys.__excepthook__(exc_type, exc_value, exc_tb)
             return
         log.critical("Unhandled exception", exc_info=(exc_type, exc_value, exc_tb))
-        # also print the full traceback to the console — the log panel/file may
-        # not be reachable when startup itself is broken
-        import traceback
-        traceback.print_exception(exc_type, exc_value, exc_tb)
 
     def _thread_excepthook(args):
         if args.exc_type is SystemExit:
