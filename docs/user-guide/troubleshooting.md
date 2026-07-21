@@ -20,7 +20,9 @@ python -m pip install ".[pyqt6]"
 ```
 
 Inside an existing Spyder or Qt environment, prefer its existing binding rather
-than adding a conflicting one. PyQt5 and PySide6 extras are also available.
+than adding a conflicting one. PyQt5 and PySide6 extras are also available. At
+a Spyder IPython `In [ ]:` prompt, use `%pip install ".[pyqt5]"` instead of the
+terminal form `python -m pip install ".[pyqt5]"`.
 
 ## Startup stops at the folder dialog
 

@@ -19,6 +19,17 @@ python -m pip install ".[pyside6]"
 Do not install several Qt bindings solely for AngstromPro. When working inside
 an existing environment, use the binding already required by that environment.
 
+These `python -m pip` commands run in a system terminal. From a Spyder IPython
+console whose working directory is the AngstromPro repository, use `%pip`
+instead:
+
+```python
+%pip install ".[pyqt5]"
+```
+
+This installs into the environment backing the active IPython console. Apply
+the same substitution when choosing another installation extra.
+
 ## Start the application
 
 ```powershell

@@ -42,6 +42,18 @@ python -m pip install ".[pyqt6,theme]"
 
 Only one Qt binding is needed.
 
+The commands above are for PowerShell, Command Prompt, or another system
+terminal. If the repository is already the working directory in a Spyder
+IPython console, use IPython's `%pip` command instead, for example:
+
+```python
+%pip install ".[pyqt5]"
+```
+
+The same substitution works for the other extras. Do not enter
+`python -m pip ...` at the `In [ ]:` prompt; that syntax launches Python from a
+system terminal, while `%pip` targets the active IPython environment directly.
+
 ## Quick start
 
 Launch AngstromPro from an activated Python environment:
