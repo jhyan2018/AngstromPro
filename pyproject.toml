@@ -1,13 +1,73 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "angstrompro"
 version = "1.2.0"
+description = "Modular analysis platform for scanning probe microscopy / spectroscopy data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Huiyu Zhao", email = "huiyuzhao.tju@gmail.com"},
+    {name = "Jiahao Yan", email = "jhyan2018@gmail.com"},
+]
+maintainers = [
+    {name = "Huiyu Zhao", email = "huiyuzhao.tju@gmail.com"},
+    {name = "Jiahao Yan", email = "jhyan2018@gmail.com"},
+]
+keywords = [
+    "scanning tunnelling microscopy",
+    "scanning probe microscopy",
+    "spectroscopy",
+    "scientific visualization",
+    "data analysis",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "h5py",
+    "Pillow",
+    "imageio",
+    "qtawesome",
+]
+
+# A Qt binding is required to run the GUI but is deliberately an extra:
+# qt_compat auto-detects PyQt6 / PyQt5 / PySide6 / PySide2 at runtime,
+# preferring an already-loaded binding (e.g. inside Spyder's console).
+# Documented install:  pip install "angstrompro[pyqt6]"
+[project.optional-dependencies]
+pyqt6   = ["PyQt6"]
+pyqt5   = ["PyQt5"]
+pyside6 = ["PySide6"]
+full    = ["scikit-image"]   # isocontour extraction, fast phase unwrapping
+# dark theme is optional: pyqtdarktheme's metadata pins python <3.12, so it
+# must not be a hard dependency (would break cold installs on 3.12+);
+# ThemeManager degrades gracefully without it
+theme   = ["pyqtdarktheme"]
 
 [project.scripts]
 angstrompro = "angstrompro.app.main:main"
+
+[project.urls]
+Homepage = "https://github.com/jhyan2018/AngstromPro"
+Repository = "https://github.com/jhyan2018/AngstromPro.git"
+Documentation = "https://github.com/jhyan2018/AngstromPro/tree/main/docs"
+Issues = "https://github.com/jhyan2018/AngstromPro/issues"
+Paper = "https://arxiv.org/abs/2604.18962"
 
 [tool.setuptools.packages.find]
 where = ["src"]

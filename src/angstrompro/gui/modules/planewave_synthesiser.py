@@ -4,7 +4,7 @@ Created on Thu Jul 10 2026
 
 @author: jiahaoYan
 
-RtSynthesisModule — real-time sinusoidal wave synthesis viewer.
+PlanewaveSynthesiser — real-time plane-wave synthesis viewer.
 
 Allows the user to compose a 2-D image as a sum of plane waves:
 
@@ -162,15 +162,15 @@ class WaveVectorRow(QtWidgets.QWidget):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RtSynthesisModule
+# PlanewaveSynthesiser
 # ─────────────────────────────────────────────────────────────────────────────
 
 @register_module
-class RtSynthesisModule(AGuiModule):
-    """Real-time 2-D wave synthesis module."""
+class PlanewaveSynthesiser(AGuiModule):
+    """Real-time 2-D plane-wave synthesis module."""
 
-    module_id      = "rt_synthesis"
-    display_name   = "RT Synthesis"
+    module_id      = "planewave_synthesiser"
+    display_name   = "Planewave Synthesiser"
     category       = "Simulation"
     accepted_types = set()     # no workspace input — generates data internally
     staged_labels  = []
@@ -289,14 +289,14 @@ class RtSynthesisModule(AGuiModule):
         n = self._data_size
         d = self._sum_data[np.newaxis, :, :]
         return UdsDataStru(
-            name="rt_synthesis",
+            name="planewave_synthesiser",
             data=d.astype(np.float64),
             axes=[
                 Axis(values=np.array([0.0]), label="Layer", units=""),
                 Axis(values=np.arange(n, dtype=np.float64), label="Row",    units="px"),
                 Axis(values=np.arange(n, dtype=np.float64), label="Column", units="px"),
             ],
-            info={"source_format": "rt_synthesis", "LayerValue": "0"},
+            info={"source_format": "planewave_synthesiser", "LayerValue": "0"},
             proc_history=[],
         )
 
@@ -375,14 +375,14 @@ class RtSynthesisModule(AGuiModule):
     def _on_save_to_workspace(self) -> None:
         n = self._data_size
         uds = UdsDataStru(
-            name="rt_synthesis_snapshot",
+            name="planewave_synthesiser_snapshot",
             data=self._sum_data[np.newaxis, :, :].copy().astype(np.float64),
             axes=[
                 Axis(values=np.array([0.0]), label="Layer",  units=""),
                 Axis(values=np.arange(n, dtype=np.float64), label="Row",    units="px"),
                 Axis(values=np.arange(n, dtype=np.float64), label="Column", units="px"),
             ],
-            info={"source_format": "rt_synthesis", "LayerValue": "0"},
+            info={"source_format": "planewave_synthesiser", "LayerValue": "0"},
             proc_history=[],
         )
         self.workspace.add_item(payload=uds)

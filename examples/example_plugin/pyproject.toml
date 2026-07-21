@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "angstrompro-example-plugin"
+version = "0.1.0"
+description = "Example plugin demonstrating AngstromPro extension points"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Huiyu Zhao"},
+    {name = "Jiahao Yan"},
+]
+dependencies = ["angstrompro>=1.2.0"]
+
+[project.entry-points."angstrompro.plugins"]
+example = "angstrompro_example"
+
+[tool.setuptools.packages.find]
+where = ["src"]
