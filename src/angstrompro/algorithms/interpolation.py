@@ -55,7 +55,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "spatial.interpolate_2d",
     label       = "Interpolate 2D (2x)",
-    category    = "Spatial",
+    category    = "Geometry & Resampling",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

@@ -75,7 +75,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "spatial.register_2d",
     label       = "Register 2D",
-    category    = "Spatial",
+    category    = "Lattice & Registration",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

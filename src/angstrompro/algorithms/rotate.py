@@ -69,7 +69,7 @@ _SCHEMA = ProcessSchema(
 @register_process(
     name        = "spatial.rotate_2d",
     label       = "Rotate 2D",
-    category    = "Spatial",
+    category    = "Geometry & Resampling",
     schema      = _SCHEMA,
     description = "Rotate every layer of a 3-D stack counter-clockwise by a given angle.",
 )

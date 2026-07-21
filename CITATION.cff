@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use AngstromPro in published research, please cite the accompanying paper."
+title: "AngstromPro"
+version: 1.2.0
+type: software
+license: GPL-3.0-or-later
+repository-code: "https://github.com/jhyan2018/AngstromPro"
+url: "https://arxiv.org/abs/2604.18962"
+keywords:
+  - scanning tunnelling microscopy
+  - scanning probe microscopy
+  - spectroscopy
+  - scientific visualization
+  - data analysis
+authors:
+  - family-names: Zhao
+    given-names: Huiyu
+    email: huiyuzhao.tju@gmail.com
+  - family-names: Yan
+    given-names: Jiahao
+    email: jhyan2018@gmail.com
+preferred-citation:
+  type: article
+  title: "AngstromPro: A versatile software for massive N-dimensional STM data management, visualization and in-depth analysis"
+  authors:
+    - family-names: Zhao
+      given-names: Huiyu
+    - family-names: Yan
+      given-names: Jiahao
+    - family-names: Dawson
+      given-names: Catherine
+    - family-names: Yang
+      given-names: Haitao
+    - family-names: Gao
+      given-names: Hong-Jun
+  year: 2026
+  journal: arXiv
+  url: "https://arxiv.org/abs/2604.18962"

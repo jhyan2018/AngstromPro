@@ -127,7 +127,7 @@ def _reciprocal_axis(spatial_axis: Axis) -> Axis:
 @register_process(
     name        = "spectral.fft_2d",
     label       = "FFT 2D",
-    category    = "Spectral",
+    category    = "Fourier & Wavevector",
     schema      = _SCHEMA_FFT2D,
     description = "Apply 2-D FFT to every layer of a 3-D bias/energy stack.",
 )

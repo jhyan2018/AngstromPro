@@ -32,7 +32,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "spectral.extract_layer_2d",
     label       = "Extract Layer 2D",
-    category    = "Spectral",
+    category    = "Data & Axes",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

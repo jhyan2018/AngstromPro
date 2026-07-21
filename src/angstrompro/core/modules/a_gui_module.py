@@ -279,7 +279,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         # Build one submenu per category (sorted alphabetically)
         for category in sorted(by_category.keys()):
-            submenu = self._process_menu.addMenu(category)
+            # Qt treats a single '&' as a mnemonic marker.  Category names are
+            # registry metadata, so escape only for the rendered menu title.
+            submenu = self._process_menu.addMenu(category.replace("&", "&&"))
             for entry in by_category[category]:
                 act = submenu.addAction(entry.label)
                 act.setToolTip(entry.description or entry.name)
@@ -310,7 +312,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         for category in sorted(by_category.keys()):
             if len(by_category) > 1:
-                submenu = self._simulate_menu.addMenu(category)
+                submenu = self._simulate_menu.addMenu(
+                    category.replace("&", "&&"))
                 target_menu = submenu
             else:
                 target_menu = self._simulate_menu

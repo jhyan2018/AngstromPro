@@ -32,7 +32,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "spectral.integral_2d",
     label       = "Layer Integral 2D",
-    category    = "Spectral",
+    category    = "Spectroscopy & Profiles",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

@@ -86,7 +86,7 @@ def _gap_map_core(data3d: np.ndarray, energies: np.ndarray,
 @register_process(
     name        = "spectral.gap_map_2d",
     label       = "Gap Map 2D",
-    category    = "Spatial",
+    category    = "Spectroscopy & Profiles",
     schema      = ProcessSchema(
         outputs=_OUT_GAP,
         inputs=[

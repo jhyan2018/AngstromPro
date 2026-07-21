@@ -155,7 +155,7 @@ _SCHEMA_DF = ProcessSchema(
 @register_process(
     name        = "spatial.lf_displacement_field_2d",
     label       = "LF Displacement Field 2D",
-    category    = "Spatial",
+    category    = "Lattice & Registration",
     schema      = _SCHEMA_DF,
     description = "Compute the lattice-distortion displacement field (ux, uy) "
                   "from two Bragg peaks via 2-D lock-in demodulation. "
@@ -242,7 +242,7 @@ _SCHEMA_LF = ProcessSchema(
 @register_process(
     name        = "spatial.lf_correction_2d",
     label       = "LF Correction 2D",
-    category    = "Spatial",
+    category    = "Lattice & Registration",
     schema      = _SCHEMA_LF,
     description = "Apply a pre-computed lattice-distortion displacement field to every "
                   "layer of a 3-D stack. Run spatial.lf_displacement_field on the "

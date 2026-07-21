@@ -45,7 +45,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "math.two_stacks_2d",
     label       = "Two Stacks Math 2D",
-    category    = "Math",
+    category    = "Arithmetic & Normalization",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[
@@ -109,7 +109,7 @@ def two_stacks(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 @register_process(
     name        = "math.multiply_const_2d",
     label       = "Multiply by Constant 2D",
-    category    = "Math",
+    category    = "Arithmetic & Normalization",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[
@@ -151,7 +151,7 @@ def multiply_const(inputs: dict, params: dict, *, annotations=None) -> UdsDataSt
 @register_process(
     name        = "math.divide_by_const_2d",
     label       = "Divide by Constant 2D",
-    category    = "Math",
+    category    = "Arithmetic & Normalization",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[
@@ -193,7 +193,7 @@ def divide_by_const(inputs: dict, params: dict, *, annotations=None) -> UdsDataS
 @register_process(
     name        = "math.const_divide_2d",
     label       = "Constant Divide by Stack 2D",
-    category    = "Math",
+    category    = "Arithmetic & Normalization",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[
@@ -235,7 +235,7 @@ def const_divide(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru
 @register_process(
     name        = "math.complex_abs_2d",
     label       = "Complex Abs 2D",
-    category    = "Math",
+    category    = "Arithmetic & Normalization",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

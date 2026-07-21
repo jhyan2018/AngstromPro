@@ -868,7 +868,7 @@ class DataBrowserModule(AGuiModule):
         super().closeEvent(event)
 
     def shutdown(self) -> None:
-        """Stop the scanner thread (app exit / module removal)."""
+        """Stop the scanner and release the main-thread cache connection."""
         self._save_window_state()
         if getattr(self, "_scanner_handle", None) is not None:
             try:
@@ -876,3 +876,7 @@ class DataBrowserModule(AGuiModule):
             except Exception:
                 pass
             self._scanner_handle = None
+        cache = getattr(self, "_cache", None)
+        if cache is not None:
+            cache.close_quiet()
+            self._cache = None

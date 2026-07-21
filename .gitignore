@@ -3,3 +3,4 @@
 .DS_Store
 /ScienceY/config
 /src/angstrompro.egg-info
+/examples/example_plugin/src/angstrompro_example_plugin.egg-info

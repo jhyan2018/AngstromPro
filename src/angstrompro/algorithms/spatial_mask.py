@@ -112,7 +112,7 @@ _SCHEMA = ProcessSchema(
 @register_process(
     name        = "spatial.mask_2d",
     label       = "Spatial Window Mask 2D",
-    category    = "Spatial",
+    category    = "Filtering & Background",
     schema      = _SCHEMA,
     description = "Multiply each layer of a real-space 3-D stack by a 2-D apodization window "
                   "centred at the mask_center annotation point.",

@@ -241,7 +241,7 @@ _SCHEMA = ProcessSchema(
 @register_process(
     name        = "spectral.lock_in_2d",
     label       = "Lock-in 2D",
-    category    = "Spectral",
+    category    = "Fourier & Wavevector",
     schema      = _SCHEMA,
     description = (
         "2-D lock-in mapping: demodulate the real-space image at the "

@@ -150,7 +150,7 @@ _OUT = OutputSpec(type_id="uds", label="UDS + isocontours",
 @register_process(
     name        = "isocontour.isopoint_1D",
     label       = "Iso-point 1-D",
-    category    = "Isocontour",
+    category    = "Contours & Surfaces",
     description = (
         "Find x positions where f(x) = level, for each layer in a 2-D UDS.\n\n"
         "Input shape: (n_layers, nx)  —  axis[0] = layer, axis[1] = x.\n\n"
@@ -207,7 +207,7 @@ def isopoint_1d(inputs: dict, params: dict,
 @register_process(
     name        = "isocontour.isoline_2D",
     label       = "Iso-line 2-D",
-    category    = "Isocontour",
+    category    = "Contours & Surfaces",
     description = (
         "Extract iso-contour polylines where f(y,x) = level, for each layer in a 3-D UDS.\n\n"
         "Input shape: (n_layers, ny, nx)  —  axis[0] = layer, axis[1] = y, axis[2] = x.\n\n"
@@ -306,7 +306,7 @@ def _extract_isolines(data: np.ndarray, ax0: np.ndarray, ax1: np.ndarray,
 @register_process(
     name        = "isocontour.isosurface_3D",
     label       = "Iso-surface 3-D",
-    category    = "Isocontour",
+    category    = "Contours & Surfaces",
     description = (
         "Extract a triangulated iso-surface where f(z,y,x) = level, "
         "for each layer in a 4-D UDS.\n\n"

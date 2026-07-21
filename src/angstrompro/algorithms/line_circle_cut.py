@@ -160,7 +160,7 @@ _OUT_2D = [OutputSpec(type_id="uds", ndim=2, label="Curve Stack", description="n
 @register_process(
     name        = "spectral.line_cut_2d",
     label       = "Line Cut 2D",
-    category    = "Spectral",
+    category    = "Spectroscopy & Profiles",
     schema      = ProcessSchema(
         outputs=_OUT_2D,
         inputs=[
@@ -299,7 +299,7 @@ def line_cut(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 @register_process(
     name        = "spectral.circle_cut_2d",
     label       = "Circle Cut 2D",
-    category    = "Spectral",
+    category    = "Spectroscopy & Profiles",
     schema      = ProcessSchema(
         outputs=_OUT_2D,
         inputs=[
