@@ -4,6 +4,9 @@ GUI modules subclass `AGuiModule` and register at import time. The base class
 provides File, View, Process, Simulate, and Help menus; workspace and inspector
 docks; sending; preferences; and task-result routing.
 
+See [Tasks and background execution](tasks.md) before adding long-running work
+or directly submitting infrastructure tasks from a module.
+
 Modules share the same generic workspace contract even when they operate on
 different payload types. A new module can introduce a new `WorkspaceData` type,
 wrap it in `WorkspaceItem`, and use the existing Inspector and send workflow.

@@ -30,10 +30,13 @@ Design rules (settled in the Data Browser design discussion):
 """
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import os
+import shutil
 import sqlite3
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -75,6 +78,7 @@ class ThumbnailCache:
     """One instance per thread; all instances share the same db/cache dir."""
 
     def __init__(self, cache_dir: str | Path) -> None:
+        self._closed = False
         self.cache_dir = Path(cache_dir)             # e.g. <user>/cache/data_browser
         self.thumb_dir = self.cache_dir / "thumbnails"
         self.thumb_dir.mkdir(parents=True, exist_ok=True)
@@ -85,52 +89,51 @@ class ThumbnailCache:
         except sqlite3.Error as exc:
             log.warning("Thumbnail cache open failed (%s): %s", exc, self.db_path)
 
-        # Recovery ladder — the cache is disposable, so escalate rather than
-        # ever failing module startup:
-        # 1. transient lock (antivirus / indexer on a fresh file): brief
-        #    retries with backoff
-        # 2. corrupt db / stale -wal/-shm sidecars: delete and rebuild
-        # 3. location fundamentally unusable: local temp-dir cache (thumbnails
-        #    regenerate; nothing of value is lost)
+        # Recovery ladder:
+        # 1. transient lock (another instance / antivirus / indexer): retry
+        # 2. location still unusable: use an isolated session-only temp cache
+        #
+        # Never delete or rebuild the configured database automatically: the
+        # ratings table contains user data, and another process may still own
+        # its WAL/SHM files.
         import time
         for attempt in range(3):
             time.sleep(0.3 * (attempt + 1))
-            self._delete_db_files()
             try:
                 self._conn = self._open()
-                log.warning("Thumbnail cache rebuilt after %d attempt(s): %s",
+                log.warning("Thumbnail cache opened after %d retry attempt(s): %s",
                             attempt + 1, self.db_path)
                 return
-            except sqlite3.Error:
+            except sqlite3.Error as exc:
+                log.debug("Thumbnail cache retry %d failed: %s",
+                          attempt + 1, exc)
                 continue
 
-        import tempfile
-        fallback = Path(tempfile.gettempdir()) / "angstrompro" / "data_browser_cache"
+        fallback_root = Path(tempfile.gettempdir()) / "angstrompro"
+        fallback_root.mkdir(parents=True, exist_ok=True)
+        # Use a unique directory instead of deleting/reusing a shared fallback:
+        # a scanner connection may still be winding down, or another app
+        # instance may be using its own fallback database.
+        fallback = Path(tempfile.mkdtemp(
+            prefix="data_browser_cache_", dir=fallback_root))
+        # At interpreter exit all cache connections/worker threads have been
+        # closed, so this session-only directory can be removed safely.
+        atexit.register(shutil.rmtree, fallback, True)
         log.error("Thumbnail cache unusable at %s — using local fallback %s "
                   "for this session", self.cache_dir, fallback)
         self.cache_dir = fallback
         self.thumb_dir = fallback / "thumbnails"
         self.thumb_dir.mkdir(parents=True, exist_ok=True)
         self.db_path = fallback / "cache.db"
-        try:
-            self._conn = self._open()
-        except sqlite3.Error:
-            self._delete_db_files()
-            self._conn = self._open()
-
-    def _delete_db_files(self) -> None:
-        for suffix in ("", "-wal", "-shm"):
-            try:
-                p = Path(str(self.db_path) + suffix)
-                if p.exists():
-                    p.unlink()
-            except OSError:
-                pass
+        self._conn = self._open()
 
     def _open(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path))
+        # A bounded busy timeout lets a normally exiting peer finish its
+        # transaction without making application startup hang indefinitely.
+        conn = sqlite3.connect(str(self.db_path), timeout=5.0)
         conn.row_factory = sqlite3.Row
         try:
+            conn.execute("PRAGMA busy_timeout=5000")
             try:
                 conn.execute("PRAGMA journal_mode=WAL")
             except sqlite3.OperationalError:
@@ -151,13 +154,18 @@ class ThumbnailCache:
 
     def close_quiet(self) -> None:
         try:
-            if getattr(self, "_conn", None) is not None:
-                self._conn.close()
+            self.close()
         except Exception:
             pass
 
     def close(self) -> None:
-        self._conn.close()
+        if self._closed:
+            return
+        self._closed = True
+        conn = getattr(self, "_conn", None)
+        if conn is not None:
+            conn.close()
+            self._conn = None
 
     # ------------------------------------------------------------------
     # files table

@@ -73,7 +73,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "curve.smooth_1d",
     label       = "Smooth 1D",
-    category    = "Curve",
+    category    = "Filtering & Background",
     schema      = ProcessSchema(
         outputs=_OUT_2D,
         inputs=[
@@ -165,7 +165,7 @@ def smooth_1d(inputs: dict, params: dict, *, annotations: dict | None = None) ->
 @register_process(
     name        = "curve.smooth_2d",
     label       = "Smooth 2D",
-    category    = "Curve",
+    category    = "Filtering & Background",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

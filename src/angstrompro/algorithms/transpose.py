@@ -40,7 +40,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "common.transpose_1d",
     label       = "Transpose 1D (swap axes)",
-    category    = "Common",
+    category    = "Data & Axes",
     schema      = ProcessSchema(
         outputs=_OUT_2D,
         inputs=[
@@ -76,7 +76,7 @@ def transpose_1d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru
 @register_process(
     name        = "common.transpose_2d",
     label       = "Transpose 2D (reorder axes)",
-    category    = "Common",
+    category    = "Data & Axes",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

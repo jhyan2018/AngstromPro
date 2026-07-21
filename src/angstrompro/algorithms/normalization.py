@@ -31,7 +31,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "spectral.normalize_2d",
     label       = "Normalize 2D (per layer)",
-    category    = "Spectral",
+    category    = "Arithmetic & Normalization",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

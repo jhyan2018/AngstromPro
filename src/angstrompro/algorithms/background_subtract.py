@@ -135,7 +135,7 @@ _SCHEMA = ProcessSchema(
 @register_process(
     name        = "spatial.bg_subtract_2d",
     label       = "Background Subtract 2D",
-    category    = "Spatial",
+    category    = "Filtering & Background",
     schema      = _SCHEMA,
     description = "Subtract a polynomial background from every layer of a 3-D stack.",
 )

@@ -64,13 +64,15 @@ A typical workflow is:
 
 ## Documentation
 
-Documentation is divided into two scopes:
+### [Open the User Guide →](docs/README.md#user-guide)
 
-- The [user guide](docs/README.md#user-guide) covers installation, workflows,
-  modules, processes, file formats, preferences, and troubleshooting.
-- The [developer guide](docs/README.md#developer-guide) covers architecture,
-  the data model, modules, processes, plugins, I/O handlers, configuration, and
-  contributing.
+Installation, workflows, modules, processes, file formats, preferences, and
+troubleshooting for people using AngstromPro.
+
+### [Open the Developer Guide →](docs/README.md#developer-guide)
+
+Architecture, the data model, modules, processes, plugins, I/O handlers,
+configuration, and contributing for people extending AngstromPro.
 
 ## Workspaces and runtime data
 

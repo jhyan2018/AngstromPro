@@ -127,7 +127,7 @@ def crop2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> Ud
 @register_process(
     name        = "spatial.crop_square_2d",
     label       = "Crop Square 2D",
-    category    = "Spatial",
+    category    = "Geometry & Resampling",
     schema      = _SCHEMA,
     description = "Crop a 3-D stack to a square region with an even side length, "
                   "using the interest_region annotation.",

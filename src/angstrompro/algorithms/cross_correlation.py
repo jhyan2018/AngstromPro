@@ -70,7 +70,7 @@ _LAYER_PARAM = ParameterSpec(
 @register_process(
     name        = "math.cross_correlation_2d",
     label       = "Cross Correlation 2D",
-    category    = "Math",
+    category    = "Correlation & Statistics",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs = _TWO_STACK_INPUTS,
@@ -147,7 +147,7 @@ def _statistic_cross_correlation(da: np.ndarray, db: np.ndarray,
 @register_process(
     name        = "math.statistic_cross_correlation_2d",
     label       = "Statistic Cross Correlation 2D",
-    category    = "Math",
+    category    = "Correlation & Statistics",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs = _TWO_STACK_INPUTS,

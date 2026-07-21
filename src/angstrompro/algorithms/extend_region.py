@@ -216,7 +216,7 @@ _SCHEMA = ProcessSchema(
 @register_process(
     name        = "spatial.extend_region_2d",
     label       = "Extend Region 2D",
-    category    = "Spatial",
+    category    = "Geometry & Resampling",
     schema      = _SCHEMA,
     description = "Tile the interest_region annotation over the full FOV "
                   "using two lattice vectors.",

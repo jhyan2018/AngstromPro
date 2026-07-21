@@ -50,7 +50,7 @@ _OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="n
 @register_process(
     name        = "spatial.symmetrize_2d",
     label       = "N-fold Symmetrize 2D",
-    category    = "Spatial",
+    category    = "Fourier & Wavevector",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs=[

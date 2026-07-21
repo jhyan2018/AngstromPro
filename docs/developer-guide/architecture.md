@@ -14,7 +14,7 @@ context, registers built-in modules, and opens the main workbench.
 | `ConfigManager` | Merged defaults and persisted user overrides |
 | `ThemeManager` and `IconManager` | Application appearance |
 | `AppSignals` | Cross-component Qt signals |
-| `TaskManager` | Threaded and persistent work |
+| [`TaskManager`](tasks.md) | Threaded and persistent work |
 | `WorkspaceManager` | Per-module workspaces |
 | `AModuleManager` | Module registration and instances |
 | `ProcessRegistry` | Registered processes and simulations |
@@ -58,4 +58,4 @@ contract, composite data types, transfer behavior, and generic inspection.
 
 GUI components should not perform expensive scientific work directly on the
 Qt thread. Express reusable operations as registered processes and submit them
-through the task infrastructure.
+through the [task infrastructure](tasks.md).

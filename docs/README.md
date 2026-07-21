@@ -24,10 +24,11 @@ or contributing to the application.
 3. [Data model](developer-guide/data-model.md)
 4. [Modules](developer-guide/modules.md)
 5. [Processes](developer-guide/processes.md)
-6. [Plugins](developer-guide/plugins.md)
-7. [I/O handlers](developer-guide/io-handlers.md)
-8. [Configuration](developer-guide/configuration.md)
-9. [Contributing](developer-guide/contributing.md)
+6. [Tasks and background execution](developer-guide/tasks.md)
+7. [Plugins](developer-guide/plugins.md)
+8. [I/O handlers](developer-guide/io-handlers.md)
+9. [Configuration](developer-guide/configuration.md)
+10. [Contributing](developer-guide/contributing.md)
 
 The guides describe the current `src/angstrompro` application. The historical
 README documented an earlier interface and should not be treated as current

@@ -226,7 +226,7 @@ def _perfect_lattice_hexagonal(src: UdsDataStru, bPx1, bPy1, bPx2, bPy2,
 @register_process(
     name        = "spatial.perfect_lattice_square_2d",
     label       = "Perfect Lattice Square 2D",
-    category    = "Spatial",
+    category    = "Lattice & Registration",
     schema      = _SCHEMA,
     description = "Correct a square-lattice distortion using two Bragg peaks from the "
                   "bragg_peaks annotation.",
@@ -244,7 +244,7 @@ def perfect_lattice_square(inputs: dict, params: dict,
 @register_process(
     name        = "spatial.perfect_lattice_hexagonal_2d",
     label       = "Perfect Lattice Hexagonal 2D",
-    category    = "Spatial",
+    category    = "Lattice & Registration",
     schema      = _SCHEMA,
     description = "Correct a hexagonal-lattice distortion using two Bragg peaks from the "
                   "bragg_peaks annotation. Q2 must be clockwise from Q1 at ~60°.",

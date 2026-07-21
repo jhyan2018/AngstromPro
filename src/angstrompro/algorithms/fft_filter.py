@@ -174,7 +174,7 @@ _INPUT_SPEC = InputSpec(
 @register_process(
     name        = "spectral.fft_filter_isolate_2d",
     label       = "FFT Filter — Isolate 2D",
-    category    = "Spectral",
+    category    = "Fourier & Wavevector",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs      = [_INPUT_SPEC],
@@ -217,7 +217,7 @@ def fft_filter_isolate(inputs: dict, params: dict,
 @register_process(
     name        = "spectral.fft_filter_out_2d",
     label       = "FFT Filter — Notch Out 2D",
-    category    = "Spectral",
+    category    = "Fourier & Wavevector",
     schema      = ProcessSchema(
         outputs=_OUT_3D,
         inputs      = [_INPUT_SPEC],

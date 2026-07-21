@@ -203,7 +203,7 @@ _LATTICE_PARAMS = [
 @register_process(
     name="simulate.heaviside2d",
     label="Heaviside Step Edge 2D",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
@@ -240,7 +240,7 @@ def heaviside2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 @register_process(
     name="simulate.circle2d",
     label="Circle 2D",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
@@ -266,7 +266,7 @@ def circle2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 @register_process(
     name="simulate.gaussian2d",
     label="Gaussian Peak 2D",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
@@ -292,7 +292,7 @@ def gaussian2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
 @register_process(
     name="simulate.sinusoidal2d",
     label="Sinusoidal Waves 2D",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=[
@@ -339,7 +339,7 @@ def sinusoidal2d(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru
 @register_process(
     name="simulate.perfect_lattice2d",
     label="Perfect Lattice 2D",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=_LATTICE_PARAMS + [
@@ -368,7 +368,7 @@ def perfect_lattice2d(inputs: dict, params: dict, *, annotations=None) -> UdsDat
 @register_process(
     name="simulate.lattice2d_line_domain_wall",
     label="Lattice 2D — Line Domain Wall",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=_LATTICE_PARAMS + [
@@ -402,7 +402,7 @@ def lattice2d_line_domain_wall(inputs: dict, params: dict, *, annotations=None) 
 @register_process(
     name="simulate.lattice2d_periodic_distortion",
     label="Lattice 2D — Periodic Distortion",
-    category="Simulate",
+    category="Simple Simulations",
     schema=ProcessSchema(outputs=_OUTPUT_2D, 
         inputs=[],
         params=_LATTICE_PARAMS + [

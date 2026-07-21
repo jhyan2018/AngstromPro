@@ -36,6 +36,27 @@ The naming convention uses `_1D` for operations on curve stacks (`ndim=2`) and
 `_2D` for operations on image stacks (`ndim=3`). Verify axis orientation in the
 item inspector before processing unfamiliar data.
 
+## Built-in process categories
+
+The Process menu groups built-in operations by purpose:
+
+- **Arithmetic & Normalization** — element-wise mathematics and scaling.
+- **Contours & Surfaces** — iso-points, iso-lines, and iso-surfaces.
+- **Correlation & Statistics** — spatial correlation and intensity statistics.
+- **Data & Axes** — layer extraction and axis reordering.
+- **Filtering & Background** — smoothing, masking, and background removal.
+- **Fourier & Wavevector** — FFT, reciprocal-space filtering, lock-in, and
+  symmetry operations.
+- **Geometry & Resampling** — cropping, interpolation, rotation, and tiling.
+- **Lattice & Registration** — affine registration and lattice-distortion
+  correction.
+- **Simple Simulations** — lightweight synthetic image generators.
+- **Spectroscopy & Profiles** — spectral maps, integration, and line or circle
+  profiles.
+
+Plugins may add further categories when their processes do not fit these
+built-in groups.
+
 ## Configure a module menu
 
 Use **Process → Configure Process Menu…** to expose additional registered
