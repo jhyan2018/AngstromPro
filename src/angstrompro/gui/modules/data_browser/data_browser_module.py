@@ -109,10 +109,12 @@ class DataBrowserModule(AGuiModule):
                      kwargs={"min": 1, "max": 500}),
             PrefItem("thumbnails.template", "Plot template", "db_template_picker",
                      "Curve-stack template applied to thumbnail rendering"),
-            PrefItem("thumbnails.subtract_z_background",
-                     "Subtract background from Z thumbnails", "checkbox",
-                     "Remove a linear 2D polynomial background from the logical "
-                     "Z channel before rendering; source data is unchanged"),
+            PrefItem("thumbnails.z_background_method",
+                     "Z thumbnail background", "dropdown",
+                     "Optional display-only background subtraction for the "
+                     "logical Z channel; source data is unchanged",
+                     kwargs={"choices": ["Off", "Polynomial surface",
+                                         "Per scan line"]}),
             PrefItem("thumbnails.pixmap_cache_size", "Pixmap cache", "number",
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
@@ -372,7 +374,18 @@ class DataBrowserModule(AGuiModule):
         self._gallery.gallery_model().set_pixmap_cache_size(
             int(self._cfg("thumbnails.pixmap_cache_size", 200)))
         self._reload_template_delta()
-        self._reload_watch_folders()
+        # Most preferences do not affect the folder tree.  Rebuilding it on
+        # every Apply collapses expanded nodes and lets Qt move the current
+        # index to the first root item when the dialog closes.
+        current_roots = [
+            os.path.normcase(os.path.normpath(
+                self._tree.topLevelItem(i).data(0, _FolderRole)))
+            for i in range(self._tree.topLevelItemCount())
+        ]
+        configured_roots = [os.path.normcase(os.path.normpath(p))
+                            for p in self._watch_folders()]
+        if current_roots != configured_roots:
+            self._reload_watch_folders()
         self._push_scanner_settings()
         self._rescan_current()
 
@@ -411,12 +424,62 @@ class DataBrowserModule(AGuiModule):
         return [p for p in self._cfg("watch_folders", []) if os.path.isdir(p)]
 
     def _reload_watch_folders(self) -> None:
-        self._tree.clear()
-        for folder in self._watch_folders():
-            item = QtWidgets.QTreeWidgetItem(self._tree, [Path(folder).name])
-            item.setData(0, _FolderRole, folder)
-            item.setToolTip(0, folder)
-            self._add_placeholder_child(item)
+        """Rebuild changed roots without resetting the user's tree context."""
+        expanded: set[str] = set()
+
+        def _key(path: str) -> str:
+            return os.path.normcase(os.path.normpath(path))
+
+        def _remember(item) -> None:
+            folder = item.data(0, _FolderRole)
+            if folder and item.isExpanded():
+                expanded.add(_key(folder))
+            for j in range(item.childCount()):
+                _remember(item.child(j))
+
+        for i in range(self._tree.topLevelItemCount()):
+            _remember(self._tree.topLevelItem(i))
+
+        current = self._tree.currentItem()
+        selected_path = (current.data(0, _FolderRole) if current is not None
+                         else self._current_folder)
+        selected_key = _key(selected_path) if selected_path else ""
+        restored_current = None
+
+        # Suppress currentItemChanged/itemExpanded while reconstructing.  The
+        # gallery already represents selected_path and should not jump folders.
+        blocker = QtCore.QSignalBlocker(self._tree)
+        try:
+            self._tree.clear()
+            for folder in self._watch_folders():
+                item = QtWidgets.QTreeWidgetItem(self._tree, [Path(folder).name])
+                item.setData(0, _FolderRole, folder)
+                item.setToolTip(0, folder)
+                self._add_placeholder_child(item)
+
+            def _restore(item) -> None:
+                nonlocal restored_current
+                folder = item.data(0, _FolderRole) or ""
+                folder_key = _key(folder) if folder else ""
+                if folder_key == selected_key:
+                    restored_current = item
+                if folder_key in expanded:
+                    self._populate_subfolders(item)
+                    item.setExpanded(True)
+                    for j in range(item.childCount()):
+                        _restore(item.child(j))
+
+            for i in range(self._tree.topLevelItemCount()):
+                _restore(self._tree.topLevelItem(i))
+
+            self._tree.setCurrentItem(restored_current)
+        finally:
+            del blocker
+
+        if selected_path and restored_current is None:
+            # The selected folder was removed from the configured roots.
+            self._current_folder = ""
+            self._rescan_current()
         self._update_watched_paths()
 
     def _add_placeholder_child(self, item) -> None:
@@ -653,8 +716,8 @@ class DataBrowserModule(AGuiModule):
     def _submit_render(self, path: str, priority: str = "high",
                        layer: int | None = None) -> None:
         options = {"stack_threshold": int(self._cfg("thumbnails.stack_threshold", 10)),
-                   "subtract_z_background": bool(self._cfg(
-                       "thumbnails.subtract_z_background", True)),
+                   "z_background_method": str(self._cfg(
+                       "thumbnails.z_background_method", "Polynomial surface")),
                    "widget_extras": dict(self._template_extras),
                    "figsize": (self._cfg("thumbnails.size", 150) / 58,) * 2}
         if layer is not None:

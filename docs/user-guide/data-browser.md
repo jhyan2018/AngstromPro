@@ -46,11 +46,17 @@ A template supplies styling only: it does not replace or modify the UDS data.
 For a saved `ScenePlot` (`.scplot`), the thumbnail renderer uses the scene's own
 stored layout and styling instead of the Data Browser template.
 
-The **Subtract background from Z thumbnails** preference removes a linear 2D
-polynomial background before rendering data resolved by the Channel Manager to
-the logical display channel `Z`. This makes tilted topography easier to see
-without changing the source file, cached UDS data, or data sent to another
-module. Other logical channels are not flattened.
+The **Z thumbnail background** preference optionally preprocesses data resolved
+by the Channel Manager to the logical display channel `Z`:
+
+- **Off** renders the raw image.
+- **Polynomial surface** subtracts a first-order 2D plane, making tilted
+  topography easier to see.
+- **Per scan line** subtracts a first-order polynomial independently from every
+  image row, reducing line-by-line scan backgrounds.
+
+This is display-only: it does not change the source file, cached UDS data, or
+data sent to another module. Other logical channels are never flattened.
 
 Changing the selected template affects newly generated thumbnails. Existing
 cached thumbnails also retain their current image when this background option

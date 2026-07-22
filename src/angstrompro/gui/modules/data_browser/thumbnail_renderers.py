@@ -21,7 +21,7 @@ Options dict (all optional)
 ---------------------------
     layer            int   3D layer index                     (default 0)
     channel_id       str   logical ChannelManager display name
-    subtract_z_background bool flatten logical Z image thumbnails
+    z_background_method str Off | Polynomial surface | Per scan line
     stack_threshold  int   max curves before colormap mode    (default 20)
     offset           float explicit stack offset; None = auto
     colormap         str   cmap for colormap/image mode       (default "RdBu_r")
@@ -127,16 +127,19 @@ def render_uds_3d(payload, *, rcparams_delta: dict | None = None,
     # horizontally, and row 0 is displayed at the top.  Do not transpose here;
     # doing so makes Nanonis SXM/3DS thumbnails appear rotated by 90 degrees.
     img = data[layer]
-    if options.get("subtract_z_background", False) \
-            and options.get("channel_id") == "Z":
+    bg_method = str(options.get("z_background_method", "Off"))
+    if bg_method != "Off" and options.get("channel_id") == "Z":
         # Presentation-only preprocessing.  The renderer operates on the
         # selected 2D slice and never mutates the source UDS payload.
         # Degenerate line scans and non-finite images retain their raw display
         # rather than allowing an optional preview operation to fail the card.
         if img.ndim == 2 and min(img.shape) > 1 and np.isfinite(img).all():
             from angstrompro.algorithms.background_subtract import (
-                _bg_subtract_2d_plane)
-            img = _bg_subtract_2d_plane(img, order=1)
+                _bg_subtract_2d_plane, _bg_subtract_per_line)
+            if bg_method == "Polynomial surface":
+                img = _bg_subtract_2d_plane(img, order=1)
+            elif bg_method == "Per scan line":
+                img = _bg_subtract_per_line(img, order=1)
 
     with rc_overlay(rcparams_delta or {}):
         fig = Figure(figsize=figsize)
