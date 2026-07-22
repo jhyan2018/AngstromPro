@@ -154,7 +154,7 @@ class LiveModulesPanel(QtWidgets.QWidget):
         if category not in self._headers:
             header = QtWidgets.QLabel(category.upper())
             header.setObjectName("card_category_header")
-            header.setStyleSheet("color: grey; padding: 2px 0px 0px 2px;")
+            header.setStyleSheet("padding: 2px 0px 0px 2px;")
             # Insert before stretch, in sorted category order
             insert_at = self._category_insert_pos(category)
             self._card_layout.insertWidget(insert_at, header)

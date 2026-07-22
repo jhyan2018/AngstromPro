@@ -7,7 +7,7 @@ combines application-wide settings with settings contributed by modules.
 
 Application-wide preferences include:
 
-- Appearance and optional theme
+- Appearance, including the bundled light or dark theme and application font
 - Whether sending moves or copies a workspace item
 - Modules excluded as send targets
 - Local plugin source paths
@@ -23,6 +23,19 @@ synchronisation, and Curve Stack Viewer templates.
 
 Changes are applied to open modules where supported. Some settings, especially
 plugin discovery and startup behavior, take full effect on the next launch.
+
+## Appearance
+
+AngstromPro provides its own compact light and dark themes. They use a
+consistent Qt Fusion foundation and do not require a separate theme package.
+The **Auto** option selects light or dark from the environment when the theme
+is applied.
+
+The font-family list contains up to ten modern sans-serif choices available on
+the current system, previews each family, and always shows the active choice
+when closed. The default 10-point size is intended for information-dense module
+panels; its spin box accepts 7 to 24 points. Theme and font changes are applied
+application-wide.
 
 ## Storage
 

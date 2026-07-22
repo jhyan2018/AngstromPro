@@ -74,15 +74,15 @@ class ScaleWidget(QtWidgets.QWidget):
 
         self.ui_pb_scale_full__sigma = QtWidgets.QPushButton('F')
         self.ui_pb_scale_full__sigma.clicked.connect(self.fullScale)
-        self.ui_pb_scale_full__sigma.setMaximumSize(40, 40)
+        self.ui_pb_scale_full__sigma.setMaximumWidth(40)
 
         self.ui_pb_scale_zoom_in = QtWidgets.QPushButton('i')
         self.ui_pb_scale_zoom_in.clicked.connect(self.zoomInScale)
-        self.ui_pb_scale_zoom_in.setMaximumSize(40, 40)
+        self.ui_pb_scale_zoom_in.setMaximumWidth(40)
 
         self.ui_pb_scale_zoom_out = QtWidgets.QPushButton('o')
         self.ui_pb_scale_zoom_out.clicked.connect(self.zoomOutScale)
-        self.ui_pb_scale_zoom_out.setMaximumSize(40, 40)
+        self.ui_pb_scale_zoom_out.setMaximumWidth(40)
 
     def initUiLayout(self):
         if self.orientation == Horizontal:
@@ -108,29 +108,94 @@ class ScaleWidget(QtWidgets.QWidget):
             grid = QtWidgets.QGridLayout()
             grid.addLayout(v2, 0, 0, 1, 1)
         else:
-            h1 = QtWidgets.QHBoxLayout()
-            h1.addWidget(self.ui_pb_sigma)
-            h1.addWidget(self.ui_le_data_sigma_factor)
-
-            v1 = QtWidgets.QVBoxLayout()
-            v1.addWidget(self.ui_le_data_upper_value)
-            v1.addLayout(h1)
-            v1.addWidget(self.ui_le_data_lower_value)
-
-            v2 = QtWidgets.QVBoxLayout()
-            v2.addWidget(self.ui_pb_scale_full__sigma)
-            v2.addWidget(self.ui_pb_scale_zoom_out)
-            v2.addWidget(self.ui_pb_scale_zoom_in)
-
-            h2 = QtWidgets.QHBoxLayout()
-            h2.addLayout(v2)
-            h2.addWidget(self.ui_rangeSlider)
-            h2.addLayout(v1)
-
+            # One explicit grid is more robust than the former three nested
+            # layouts.  In a narrow panel, theme-dependent line-edit padding
+            # caused the columns to be compressed until controls overlapped.
             grid = QtWidgets.QGridLayout()
-            grid.addLayout(h2, 0, 0, 1, 1)
+            grid.setContentsMargins(0, 0, 0, 0)
+            grid.setHorizontalSpacing(6)
+            grid.setVerticalSpacing(6)
+
+            buttons = (self.ui_pb_scale_full__sigma,
+                       self.ui_pb_scale_zoom_out,
+                       self.ui_pb_scale_zoom_in,
+                       self.ui_pb_sigma)
+            for button in buttons:
+                button.setMinimumWidth(36)
+                button.setMaximumWidth(44)
+
+            # Reserve enough room for simplified values such as "-601.041m"
+            # under both native Qt and stylesheet-based themes.
+            value_width = min(
+                96, max(80,
+                        self.fontMetrics().horizontalAdvance("-601.041m") + 12))
+            for editor in (self.ui_le_data_upper_value,
+                           self.ui_le_data_lower_value):
+                editor.setFixedWidth(value_width)
+            # Sigma is normally a short factor (for example, "5") and shares
+            # its row with the sigma toggle.  Giving it the full value width
+            # unnecessarily widens the complete right-side control panel.
+            sigma_width = min(
+                50, max(42,
+                        self.fontMetrics().horizontalAdvance("99.9") + 10))
+            self.ui_le_data_sigma_factor.setFixedWidth(sigma_width)
+
+            self.ui_rangeSlider.setMinimumWidth(20)
+            self.ui_rangeSlider.setMaximumWidth(28)
+
+            grid.addWidget(self.ui_pb_scale_full__sigma, 0, 0)
+            grid.addWidget(self.ui_pb_scale_zoom_out,    1, 0)
+            grid.addWidget(self.ui_pb_scale_zoom_in,     2, 0)
+            grid.addWidget(self.ui_rangeSlider,          0, 1, 3, 1)
+            grid.addWidget(self.ui_le_data_upper_value,  0, 2, 1, 2)
+            grid.addWidget(self.ui_pb_sigma,             1, 2)
+            grid.addWidget(self.ui_le_data_sigma_factor, 1, 3)
+            grid.addWidget(self.ui_le_data_lower_value,  2, 2, 1, 2)
+
+            _Minimum = (QtWidgets.QSizePolicy.Policy.Minimum
+                        if hasattr(QtWidgets.QSizePolicy, "Policy")
+                        else QtWidgets.QSizePolicy.Minimum)
+            _Preferred = (QtWidgets.QSizePolicy.Policy.Preferred
+                          if hasattr(QtWidgets.QSizePolicy, "Policy")
+                          else QtWidgets.QSizePolicy.Preferred)
+            # Do not make the widget vertically Fixed.  Stylesheets can make
+            # line edits substantially taller than the native Qt controls;
+            # a fixed size hint can then leave the three grid rows sharing too
+            # little height.  Minimum lets the parent grow the widget while
+            # still preventing compression below the layout's real minimum.
+            self.setSizePolicy(_Preferred, _Minimum)
 
         self.setLayout(grid)
+        if self.orientation != Horizontal:
+            # Explicitly propagate the three row requirements.  The vertical
+            # slider's 120 px minimum can otherwise dominate grid.minimumSize
+            # even when a stylesheet/DPI combination makes each editor row
+            # much taller than 40 px.  In that case the children paint outside
+            # the widget and cover the following "Palette" controls.
+            grid.activate()
+            rows = (
+                (self.ui_pb_scale_full__sigma,
+                 self.ui_le_data_upper_value),
+                (self.ui_pb_scale_zoom_out,
+                 self.ui_pb_sigma,
+                 self.ui_le_data_sigma_factor),
+                (self.ui_pb_scale_zoom_in,
+                 self.ui_le_data_lower_value),
+            )
+
+            def required_height(widget):
+                return max(widget.minimumHeight(),
+                           widget.minimumSizeHint().height(),
+                           widget.sizeHint().height())
+
+            row_height = sum(max(required_height(w) for w in row)
+                             for row in rows)
+            row_height += grid.verticalSpacing() * (len(rows) - 1)
+            slider_height = required_height(self.ui_rangeSlider)
+            margins = grid.contentsMargins()
+            required = (max(row_height, slider_height)
+                        + margins.top() + margins.bottom())
+            self.setMinimumHeight(max(grid.minimumSize().height(), required))
 
     # ------------------------------------------------------------------
     # Slots
@@ -312,8 +377,10 @@ class ScaleWidget(QtWidgets.QWidget):
             self.ui_rangeSlider.setValue(s_l_v, s_u_v)
 
     def setIndicators(self, d_lower_value, d_upper_value):
-        self.ui_le_data_lower_value.setText(NumberExpression.float_to_simplified_number(d_lower_value))
-        self.ui_le_data_upper_value.setText(NumberExpression.float_to_simplified_number(d_upper_value))
+        self.ui_le_data_lower_value.setSNText(
+            NumberExpression.float_to_simplified_number(d_lower_value))
+        self.ui_le_data_upper_value.setSNText(
+            NumberExpression.float_to_simplified_number(d_upper_value))
 
     def getFloatExponent(self, value):
         if value == 0:

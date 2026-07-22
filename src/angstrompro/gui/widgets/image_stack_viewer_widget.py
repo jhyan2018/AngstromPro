@@ -19,6 +19,7 @@ from angstrompro.utils.qt_compat import (
     QtGui, QtCore, QtWidgets, QueuedConnection, Vertical,
     LeftButton, RightButton, Signal, IS_QT6,
     KeepAspectRatio, DashLine, ScrollBarAlwaysOff, SmoothPixmapTransform,
+    event_POS,
 )
 from .ScaleWidget import ScaleWidget
 from .general.NumberExpression import NumberExpression
@@ -65,8 +66,15 @@ def _data_to_pixmap(data2d: np.ndarray, vmin: float, vmax: float,
     """Return (pixmap, rgba8_buf).  Caller must keep rgba8_buf alive."""
     norm  = Normalize(vmin=vmin, vmax=vmax, clip=True)
     if isinstance(colormap, str):
-        import matplotlib.cm as cm
-        cmap = cm.get_cmap(colormap)
+        import matplotlib
+        if hasattr(matplotlib, "colormaps"):
+            # Matplotlib 3.5+ registry API; required by 3.11, which removed
+            # the old matplotlib.cm.get_cmap function.
+            cmap = matplotlib.colormaps.get_cmap(colormap)
+        else:
+            # Compatibility with older Matplotlib releases.
+            from matplotlib import cm
+            cmap = cm.get_cmap(colormap)
     else:
         cmap = colormap
     rgba_f = cmap(norm(data2d))                          # (H, W, 4) float64
@@ -109,8 +117,8 @@ class _PickedPointItem(QtWidgets.QGraphicsEllipseItem):
         self._lbl.setFlag(_GIF_IGNORE,  True)
         self._lbl.setFlag(_GIF_MOVABLE, True)
         self._lbl.setFlag(_GIF_SELECT,  True)
-        font = QtGui.QFont()
-        font.setPointSize(11)
+        app = QtWidgets.QApplication.instance()
+        font = QtGui.QFont(app.font() if app is not None else QtGui.QFont())
         font.setBold(True)
         self._lbl.setFont(font)
         self._lbl.setPos(r + 3, -r)
@@ -191,7 +199,7 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         delta = event.angleDelta().y()
         f = self._ZOOM_FACTOR if delta > 0 else 1.0 / self._ZOOM_FACTOR
         self.scale(f, f)
-        pt = self.mapToScene(event.pos())
+        pt = self.mapToScene(event_POS(event))
         self.wheelScrolled.emit(pt.x(), pt.y(), delta)
 
     def mousePressEvent(self, event):
@@ -199,21 +207,22 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
             super().mousePressEvent(event)
             if self.scene().mouseGrabberItem() is None:
                 self._panning   = True
-                self._pan_start = event.pos()
+                self._pan_start = event_POS(event)
                 self.setCursor(_CLOSED_HAND)
         elif event.button() == RightButton:
-            pt = self.mapToScene(event.pos())
+            pt = self.mapToScene(event_POS(event))
             self.scenePointPicked.emit(pt.x(), pt.y())
             super().mousePressEvent(event)
         else:
             super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        pt = self.mapToScene(event.pos())
+        event_pos = event_POS(event)
+        pt = self.mapToScene(event_pos)
         self.sceneMouseMoved.emit(pt.x(), pt.y())
         if self._panning:
-            delta = event.pos() - self._pan_start
-            self._pan_start = event.pos()
+            delta = event_pos - self._pan_start
+            self._pan_start = event_pos
             self.horizontalScrollBar().setValue(
                 self.horizontalScrollBar().value() - delta.x())
             self.verticalScrollBar().setValue(
@@ -317,6 +326,11 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             self._update_annotation_overlay)
 
         self.ui_lw_img_picked_points = QtWidgets.QListWidget()
+        # QListWidget's style-provided 64 px minimum made the complete module
+        # slightly taller than a 1080p Windows work area at 150% scaling.
+        # These lists remain vertically expanding; the smaller explicit floor
+        # only permits the window to maximise without an impossible minimum.
+        self.ui_lw_img_picked_points.setMinimumHeight(40)
         self.ui_pb_img_picked_points_remove = QtWidgets.QPushButton("Remove Point")
         self.ui_pb_img_picked_points_remove.clicked.connect(self.removePickedPoint)
 
@@ -324,6 +338,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_le_img_to_data_coordinate = QtWidgets.QLineEdit()
         self.ui_lb_uds_data_info          = QtWidgets.QLabel("Info: ")
         self.ui_lw_uds_data_info          = QtWidgets.QListWidget()
+        self.ui_lw_uds_data_info.setMinimumHeight(40)
 
         self.ui_rt_cmp = ColorMapEditorWidget()
         self.ui_rt_cmp.updateCdict.connect(self.imageIsRtCmpOnChanged)
@@ -350,7 +365,17 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
         right_panel = QtWidgets.QWidget()
         right_panel.setLayout(right_top)
-        right_panel.setMaximumWidth(200)
+        # ScaleWidget needs a stable control column across native Qt and
+        # stylesheet themes.  A hard 200 px maximum allowed themed editors to
+        # overlap; retain a compact panel but give its layout room to breathe.
+        panel_margins = right_top.contentsMargins()
+        panel_min_width = (self.ui_scale_widget.minimumSizeHint().width()
+                           + panel_margins.left() + panel_margins.right())
+        right_panel.setMinimumWidth(panel_min_width)
+        # Keep the scientific canvas as the dominant area.  The controls need
+        # a stable compact column, not the former 300 px allowance; still
+        # honour larger font/DPI metrics when their true minimum exceeds it.
+        right_panel.setMaximumWidth(max(200, panel_min_width))
         right_panel.setSizePolicy(_SP_PREFER, _SP_EXPAND)
 
         top_row = QtWidgets.QHBoxLayout()
@@ -660,8 +685,8 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         lbl.setFlag(_GIF_IGNORE,   True)
         lbl.setFlag(_GIF_MOVABLE,  True)
         lbl.setFlag(_GIF_SELECT,   True)
-        font = QtGui.QFont()
-        font.setPointSize(11)
+        app = QtWidgets.QApplication.instance()
+        font = QtGui.QFont(app.font() if app is not None else QtGui.QFont())
         font.setBold(True)
         lbl.setFont(font)
         lbl.setPos(x, y)

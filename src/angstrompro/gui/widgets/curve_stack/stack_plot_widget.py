@@ -143,7 +143,8 @@ class StackPlotWidget(BasePlotWidget):
         self._readout.setSizePolicy(
             QtWidgets.QSizePolicy.Policy.Ignored,
             QtWidgets.QSizePolicy.Policy.Preferred)
-        self._readout.setStyleSheet("font-family: monospace; color: #555;")
+        from angstrompro.gui.appearance.typography import MONOSPACE, set_typography_role
+        set_typography_role(self._readout, MONOSPACE)
         ctrl2.addWidget(self._readout, stretch=1)
 
         layout.addLayout(ctrl2)

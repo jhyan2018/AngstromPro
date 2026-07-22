@@ -42,14 +42,11 @@ class MainWorkbench(AGuiModule):
             PrefItem("appearance.theme",     "Theme",     "dropdown",
                      "Colour theme for the application",
                      kwargs={"choices": ["dark", "light", "auto"]}),
-            PrefItem("appearance.font_size", "Font size", "number",
-                     "Application-wide font size in points"),
-            PrefItem("appearance.icon_size", "Icon size", "number",
-                     "Toolbar / button icon size in px"),
-            PrefItem("appearance.font_family", "Font family", "text",
-                     "Font family name; leave blank for system default"),
-            PrefItem("appearance.accent_color", "Accent color", "text",
-                     "Hex accent colour e.g. #4fc3f7; leave blank for theme default"),
+            PrefItem("appearance.font_size", "Font size", "integer",
+                     "Application-wide font size in points",
+                     kwargs={"min": 7, "max": 24}),
+            PrefItem("appearance.font_family", "Font family", "font",
+                     "Choose from fonts installed on this system"),
         ]),
         PrefSection("Hidden workspace docks", "layout-sidebar", [
             # module types whose Workspace dock starts hidden;
@@ -113,12 +110,15 @@ class MainWorkbench(AGuiModule):
         _appearance_before = copy.deepcopy(cfg.get_group("appearance"))
 
         def _apply(new_cfg: dict) -> None:
+            nonlocal _appearance_before
             for section, values in new_cfg.items():
                 for key, val in values.items():
                     cfg.set(section, key, val)
-            if cfg.get_group("appearance") != _appearance_before:
+            appearance_now = cfg.get_group("appearance")
+            if appearance_now != _appearance_before:
                 from angstrompro.gui.appearance.theme_manager import ThemeManager
-                ThemeManager(cfg.get_group("appearance")).apply()
+                ThemeManager(appearance_now).apply()
+                _appearance_before = copy.deepcopy(appearance_now)
             from angstrompro.gui.widgets.log_panel import _LEVEL_MAP
             self._log_panel.set_min_level(
                 _LEVEL_MAP.get(cfg.get("app", "log_level", "WARNING"), logging.WARNING))

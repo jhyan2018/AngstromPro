@@ -127,7 +127,8 @@ class LogPanel(QtWidgets.QWidget):
         self._list.setSelectionMode(
             QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self._list.setWordWrap(True)
-        self._list.setFont(QtGui.QFont("Consolas, Courier New", 9))
+        from angstrompro.gui.appearance.typography import MONOSPACE, set_typography_role
+        set_typography_role(self._list, MONOSPACE)
         self._list.setSpacing(1)
         layout.addWidget(self._list)
 

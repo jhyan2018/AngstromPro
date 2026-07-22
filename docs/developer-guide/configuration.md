@@ -20,6 +20,11 @@ top-level groups such as:
 Add a default before relying on a new setting. The default supplies both the
 fallback value and the shape used for validation.
 
+The `appearance` group controls the bundled theme and application font. An
+empty `font_family` selects AngstromPro's
+cross-platform sans-serif default; it does not inherit the font of an existing
+Spyder `QApplication`. Theme support is built in and has no installation extra.
+
 ## Reading and writing
 
 Use the shared context rather than opening JSON directly:

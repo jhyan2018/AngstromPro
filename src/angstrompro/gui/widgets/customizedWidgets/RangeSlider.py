@@ -7,6 +7,7 @@ Created on Mon Apr  8 20:50:25 2024
 from angstrompro.utils.qt_compat import (
     QtCore, QtWidgets, QtGui, Signal,
     Horizontal, LeftButton, StrongFocus, NoPen, Antialiasing,
+    event_POS,
 )
 
 
@@ -96,17 +97,19 @@ class RangeSlider(QtWidgets.QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == LeftButton:
-            if self.valueToRect(self.lowerValue).contains(event.pos()):
+            event_pos = event_POS(event)
+            if self.valueToRect(self.lowerValue).contains(event_pos):
                 self.isLowerHandleMoving = True
-            elif self.valueToRect(self.upperValue).contains(event.pos()):
+            elif self.valueToRect(self.upperValue).contains(event_pos):
                 self.isUpperHandleMoving = True
 
     def mouseMoveEvent(self, event):
         if self.isLowerHandleMoving or self.isUpperHandleMoving:
+            event_pos = event_POS(event)
             if self.orientation == Horizontal:
-                pos = event.pos().x()
+                pos = event_pos.x()
             else:
-                pos = self.height() - event.pos().y() - self.handleHeight / 2
+                pos = self.height() - event_pos.y() - self.handleHeight / 2
             value = self.rectToValue(pos)
             if self.isLowerHandleMoving:
                 self.lowerValue = max(self.minimum, min(value, self.upperValue - 1))

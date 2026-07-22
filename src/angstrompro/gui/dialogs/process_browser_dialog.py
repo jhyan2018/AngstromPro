@@ -163,7 +163,8 @@ class ProcessBrowserDialog(PersistentDialog):
         # --- close button + hint on same row ---
         bottom_row = QtWidgets.QHBoxLayout()
         self._hint = QtWidgets.QLabel("")
-        self._hint.setStyleSheet("color: palette(mid-light);")
+        from angstrompro.gui.appearance.typography import SECONDARY, set_typography_role
+        set_typography_role(self._hint, SECONDARY)
         bottom_row.addWidget(self._hint)
         bottom_row.addStretch()
         btn_box = QtWidgets.QDialogButtonBox(

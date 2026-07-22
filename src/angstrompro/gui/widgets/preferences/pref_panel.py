@@ -21,7 +21,7 @@ from __future__ import annotations
 import copy
 from typing import Callable
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, IS_QT6
+from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets, IS_QT6
 from .pref_schema import PrefSection, PrefItem, get_widget_class
 
 # ── built-in control wrappers ──────────────────────────────────────────────────
@@ -46,13 +46,90 @@ class _NumberControl(QtWidgets.QDoubleSpinBox):
             QtCore.Qt.AlignmentFlag.AlignRight if IS_QT6 else QtCore.Qt.AlignRight
         )
 
-    def get_value(self): return self.value()
+    def get_value(self):
+        # Apply can be clicked while the embedded editor still has focus.  In
+        # that case QAbstractSpinBox may expose the previous numeric value even
+        # though the new text is visible, producing a one-Apply delay.
+        self.interpretText()
+        return self.value()
 
     def set_value(self, v):
         try:
             self.setValue(float(v))
         except (TypeError, ValueError):
             pass
+
+
+class _IntegerControl(QtWidgets.QSpinBox):
+    def __init__(self, min: int = 0, max: int = 100, parent=None):
+        super().__init__(parent)
+        self.setRange(int(min), int(max))
+        self.setFixedWidth(90)
+
+    def get_value(self):
+        self.interpretText()
+        return self.value()
+
+    def set_value(self, v):
+        try:
+            self.setValue(int(float(v)))
+        except (TypeError, ValueError):
+            pass
+
+
+class _FontControl(QtWidgets.QComboBox):
+    """Compact chooser for up to ten suitable installed UI fonts."""
+
+    _RECOMMENDED = (
+        "Inter",
+        "Segoe UI Variable",
+        "Segoe UI",
+        "Aptos",
+        "Bahnschrift",
+        "Source Sans 3",
+        "IBM Plex Sans",
+        "Roboto",
+        "Noto Sans",
+        "Ubuntu",
+        "Helvetica Neue",
+        "DejaVu Sans",
+        "Liberation Sans",
+        "Arial",
+        "Calibri",
+        "Candara",
+        "Corbel",
+        "Tahoma",
+        "Verdana",
+        "Trebuchet MS",
+    )
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumWidth(220)
+        from angstrompro.gui.appearance.theme_manager import _has_font_family
+        families = [name for name in self._RECOMMENDED
+                    if _has_font_family(name)][:10]
+        if not families:
+            app = QtWidgets.QApplication.instance()
+            families = [app.font().family() if app is not None else "Sans Serif"]
+
+        for family in families:
+            self.addItem(family)
+            self.setItemData(self.count() - 1, QtGui.QFont(family),
+                             QtCore.Qt.ItemDataRole.FontRole if IS_QT6
+                             else QtCore.Qt.FontRole)
+
+    def get_value(self):
+        return self.currentText()
+
+    def set_value(self, value):
+        family = str(value or "").strip()
+        if not family:
+            app = QtWidgets.QApplication.instance()
+            family = app.font().family() if app is not None else "Sans Serif"
+        index = self.findText(family)
+        if index >= 0:
+            self.setCurrentIndex(index)
 
 
 class _TextControl(QtWidgets.QLineEdit):
@@ -81,6 +158,8 @@ class _DropdownControl(QtWidgets.QComboBox):
 _BUILTIN_CONTROLS = {
     "checkbox": _CheckboxControl,
     "number":   _NumberControl,
+    "integer":  _IntegerControl,
+    "font":     _FontControl,
     "text":     _TextControl,
     "dropdown": _DropdownControl,
 }
