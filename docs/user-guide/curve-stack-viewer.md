@@ -18,12 +18,27 @@ from the **View** menu.
 
 A scene and a template serve different purposes:
 
-- A `.scplot` scene stores the complete plot, including its data and styling.
-- A `.scet` template stores reusable style settings for fresh plots.
+- A `ScenePlot` is AngstromPro's runtime plot object. It contains the figure
+  and axes structure, artist descriptions, styling, and the UDS datasets used
+  by those artists. Saving it as `.scplot` preserves the complete editable
+  plot.
+- A `.scet` scene template contains reusable presentation settings but no
+  scientific dataset. It controls how fresh/raw UDS data is turned into a new
+  plot.
 
-Use **Scene → Save as Scene…** (`Ctrl+Shift+S`) to save a scene. Use the same
-menu to load or save templates and manage the default style. Reopen a `.scplot`
-through the normal file-loading workflow.
+Use **Scene → Save as Scene…** (`Ctrl+Shift+S`) to save the complete scene.
+After styling a plot, use **Scene → Save Template…** to reuse that appearance,
+or **Scene → Load Template** to apply a saved template.
+
+Choose the Curve Stack Viewer's **Default template** in Preferences when every
+fresh UDS dataset loaded as a new primary plot should begin with that style.
+The template is applied before the raw UDS data is rendered. Loading a saved
+`ScenePlot` instead restores the scene's own data, layout, and styling; it does
+not replace them with the default template.
+
+Saved templates are shared with the Data Browser, which can use the same style
+when generating thumbnails for raw UDS data. Reopen a `.scplot` through the
+normal file-loading workflow.
 
 ## Export
 

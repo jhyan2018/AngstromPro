@@ -193,7 +193,9 @@ def render_file_task(file_path: str, cache_dir: str,
         layer_count = int(data.shape[0]) if data is not None and data.ndim == 3 else 1
         layer = int(options.get("layer", 0))
         png_path = str(Path(cache_dir) / f"{uuid.uuid4().hex}.png")
-        opts = {**options, "layer": layer}
+        # Pass the stable logical channel name resolved by ChannelManager so
+        # renderers never need to guess from instrument-specific raw aliases.
+        opts = {**options, "layer": layer, "channel_id": channel_id}
         ok = render_payload_to_png(payload, png_path,
                                    rcparams_delta=rcparams_delta,
                                    options=opts, figsize=figsize, dpi=dpi)

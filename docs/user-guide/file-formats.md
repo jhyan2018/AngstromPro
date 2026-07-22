@@ -25,8 +25,10 @@ annotations, and processing history. Legacy binary `.uds` files are imported
 read-only; save the imported result as `.uds` to upgrade it to the current
 format.
 
-`.scplot` is also HDF5-based and stores plot-scene data. Style-only `.scet`
-templates are managed by the Curve Stack Viewer and are not general workspace
+`.scplot` is also HDF5-based and stores complete `ScenePlot` data. Style-only
+`.scet` templates are created and managed by the Curve Stack Viewer and can be
+selected by both the Curve Stack Viewer and Data Browser when rendering fresh
+raw UDS data. They contain no scientific dataset and are not general workspace
 data files.
 
 ## Channel mappings for multichannel formats

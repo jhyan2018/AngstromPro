@@ -16,6 +16,7 @@ DEFAULTS = {
         "size": 150,                # card image px; also render figure size
         "stack_threshold": 10,      # >N curves → colormap branch
         "template": "",             # curve-stack template name; "" = none
+        "subtract_z_background": True,  # flatten logical Z thumbnails only
         "pixmap_cache_size": 200,   # decoded thumbnails kept in memory
     },
     "cache": {

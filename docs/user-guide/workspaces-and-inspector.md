@@ -37,6 +37,12 @@ Common payloads include:
 - `ScenePlot`: a composite plot scene containing figure and axes settings,
   artist descriptions, styles, and UDS data used by its artists.
 
+`ScenePlot` should not be confused with a `.scet` scene template. A scene is a
+runtime data payload and can be inspected, sent, saved, and reopened with its
+datasets intact. A template is a reusable, data-free rendering style used when
+the Curve Stack Viewer or Data Browser turns raw UDS data into a new plot or
+thumbnail.
+
 ## Using a workspace
 
 - Select an item to inspect it.

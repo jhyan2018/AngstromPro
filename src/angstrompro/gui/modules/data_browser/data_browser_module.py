@@ -109,6 +109,10 @@ class DataBrowserModule(AGuiModule):
                      kwargs={"min": 1, "max": 500}),
             PrefItem("thumbnails.template", "Plot template", "db_template_picker",
                      "Curve-stack template applied to thumbnail rendering"),
+            PrefItem("thumbnails.subtract_z_background",
+                     "Subtract background from Z thumbnails", "checkbox",
+                     "Remove a linear 2D polynomial background from the logical "
+                     "Z channel before rendering; source data is unchanged"),
             PrefItem("thumbnails.pixmap_cache_size", "Pixmap cache", "number",
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
@@ -649,6 +653,8 @@ class DataBrowserModule(AGuiModule):
     def _submit_render(self, path: str, priority: str = "high",
                        layer: int | None = None) -> None:
         options = {"stack_threshold": int(self._cfg("thumbnails.stack_threshold", 10)),
+                   "subtract_z_background": bool(self._cfg(
+                       "thumbnails.subtract_z_background", True)),
                    "widget_extras": dict(self._template_extras),
                    "figsize": (self._cfg("thumbnails.size", 150) / 58,) * 2}
         if layer is not None:
