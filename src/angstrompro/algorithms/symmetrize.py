@@ -16,7 +16,6 @@ from __future__ import annotations
 import copy
 
 import numpy as np
-from scipy.ndimage import rotate
 
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
@@ -28,12 +27,23 @@ from angstrompro.core.processes import (
 )
 
 
+_ROTATE = None
+
+
+def _rotate(*args, **kwargs):
+    global _ROTATE
+    if _ROTATE is None:
+        from scipy.ndimage import rotate
+        _ROTATE = rotate
+    return _ROTATE(*args, **kwargs)
+
+
 def _symmetrize_layer(layer: np.ndarray, n_fold: int) -> np.ndarray:
     acc = np.zeros_like(layer, dtype=np.float64)
     for i in range(n_fold):
         angle = i * (360.0 / n_fold)
-        acc += rotate(layer, angle=angle, reshape=False,
-                      order=3, mode="constant", cval=0.0, prefilter=True)
+        acc += _rotate(layer, angle=angle, reshape=False,
+                       order=3, mode="constant", cval=0.0, prefilter=True)
     return acc / n_fold
 
 

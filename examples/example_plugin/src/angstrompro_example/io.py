@@ -35,7 +35,7 @@ def load_apdemo(path: Path) -> UdsDataStru:
             Axis(np.arange(rows, dtype=np.float64), "Y", "px", AxisType.SPATIAL_Y),
             Axis(np.arange(columns, dtype=np.float64), "X", "px", AxisType.SPATIAL_X),
         ],
-        info={"source_format": "apdemo", "source_path": str(path)},
+        info={"_source_format": "apdemo", "source_path": str(path)},
     )
 
 

@@ -37,7 +37,7 @@ def load(path: Path) -> UdsDataStru:
         name=path.stem,
         data=data,
         axes=axes,
-        info={"source_format": "mat", "mat_key": mat_key},
+        info={"_source_format": "mat", "mat_key": mat_key},
         proc_history=[],
         landmarks={},
     )

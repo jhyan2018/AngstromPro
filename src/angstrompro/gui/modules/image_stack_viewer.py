@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+from angstrompro.core.data.uds_data import is_fft_uds, fft_source_name
 from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets, Action
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
@@ -247,7 +248,7 @@ class ImageStackViewer(AGuiModule):
         self.statusBar().showMessage(
             f"Primary: {item.name}  shape={item.payload.data.shape}", 4000)
 
-        if not item.name.endswith("_fft"):
+        if not is_fft_uds(item.payload):
             self._auto_fft(item)
 
     def _auto_fft(self, src_item: WorkspaceItem) -> None:
@@ -740,12 +741,9 @@ class ImageStackViewer(AGuiModule):
             return
 
         # Resolve target: strip _fft suffix to find the real-space item
-        aux_name = self._aux_item.name
-        if aux_name.endswith("_fft"):
-            real_name = aux_name[:-4]
-            target = self.workspace.find_item(real_name) or self._aux_item
-        else:
-            target = self._aux_item
+        real_name = fft_source_name(self._aux_item.payload)
+        target = (self.workspace.find_item(real_name)
+                  if real_name else None) or self._aux_item
 
         target.annotations["bragg_peaks"] = PointSetData(coords=coords)
         self.workspace.notify_changed(target.name)
@@ -766,9 +764,9 @@ class ImageStackViewer(AGuiModule):
                 "No points picked in aux panel. Right-click on the FFT canvas to pick filter points first.")
             return
         # Always store on the real-space item (strip _fft if main item is FFT)
-        name = self._main_item.name
-        target = (self.workspace.find_item(name[:-4])
-                  if name.endswith("_fft") else self._main_item)
+        real_name = fft_source_name(self._main_item.payload)
+        target = (self.workspace.find_item(real_name)
+                  if real_name else self._main_item)
         if target is None:
             target = self._main_item
         target.annotations["filter_points"] = PointSetData(coords=coords)

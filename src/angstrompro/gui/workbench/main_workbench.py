@@ -180,7 +180,8 @@ class MainWorkbench(AGuiModule):
         DockArea = QtCore.Qt.DockWidgetArea
 
         # --- Live Modules panel — central widget ---
-        self.setCentralWidget(LiveModulesPanel(self._context))
+        self._live_modules_panel = LiveModulesPanel(self._context)
+        self.setCentralWidget(self._live_modules_panel)
 
         # --- Tasks dock (right) ---
         task_demo = TaskDashboard(self._context)
@@ -285,8 +286,74 @@ class MainWorkbench(AGuiModule):
         qs.sync()
 
     def closeEvent(self, event) -> None:
+        other_modules = [
+            module
+            for module in self._context.module_manager.list_instances()
+            if module is not self
+        ]
+        if other_modules:
+            message = (
+                "Closing the Main Workbench will hide all AngstromPro windows. "
+                "Running AngstromPro again in this Spyder console will reopen "
+                "the same session.\n\nHide AngstromPro?"
+                if self._context.hosted else
+                "Closing the Main Workbench will close all open modules and "
+                "stop background tasks.\n\nExit AngstromPro?"
+            )
+            answer = QtWidgets.QMessageBox.question(
+                self,
+                "Hide AngstromPro?" if self._context.hosted else "Exit AngstromPro?",
+                message,
+                QtWidgets.QMessageBox.StandardButton.Ok
+                | QtWidgets.QMessageBox.StandardButton.Cancel,
+                QtWidgets.QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QtWidgets.QMessageBox.StandardButton.Ok:
+                event.ignore()
+                return
+
+        # Startup modules are launched through zero-delay timers.  Stop that
+        # queue before requesting application shutdown so no module (and no
+        # background worker) can be created after aboutToQuit has begun.
+        self._live_modules_panel.cancel_startup_launch()
+
+        # QApplication.quit() does not guarantee a closeEvent for hidden module
+        # windows, so persist every live module explicitly before stopping Qt.
+        for module in other_modules:
+            if self._context.hosted:
+                module._hosted_restore_visible = bool(module.isVisible())
+            save_state = getattr(module, "save_state_for_exit", None)
+            if callable(save_state):
+                try:
+                    save_state()
+                except Exception:
+                    logging.getLogger(__name__).exception(
+                        "Could not save module state for %s",
+                        getattr(module, "instance_id", module),
+                    )
+            # Module closeEvent handlers normally hide rather than destroy the
+            # instance.  Hide explicitly here so a visible module cannot keep
+            # the GUI session alive after the Workbench has accepted exit.
+            hide = getattr(module, "hide", None)
+            if callable(hide):
+                try:
+                    hide()
+                except RuntimeError:
+                    pass  # underlying Qt object was already destroyed
+
         self._save_layout()
-        event.accept()   # main workbench close = quit; don't suppress like child modules
+        if self._context.hosted:
+            # Keep all Qt objects and workers alive in the Spyder kernel.  A
+            # later launcher call re-shows this same session; rebuilding it in
+            # place is unsafe for QThreads, Matplotlib, and VisPy.
+            self.hide()
+            event.ignore()
+            return
+
+        event.accept()
+        app = QtWidgets.QApplication.instance()
+        if app is not None:
+            QtCore.QTimer.singleShot(0, app.quit)
 
     def _set_app_icon(self) -> None:
         icon = self._context.icons.get("app_logo")

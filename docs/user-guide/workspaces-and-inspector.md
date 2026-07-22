@@ -45,9 +45,15 @@ thumbnail.
 
 ## Using a workspace
 
-- Select an item to inspect it.
-- Double-click an item to ask the current module to load or activate it.
-- Use **Send…** to pass it to another compatible module.
+Mouse actions have different purposes:
+
+| Action | Result |
+| --- | --- |
+| **Single left-click** | Selects and highlights the item. The Inspector follows this selection, and **Send…** and **Remove** operate on the selected item. Always single-click the intended row before sending it. |
+| **Double left-click** | Asks the current module to load or activate the item as an input. It does not send the item to another module. |
+| **Right-click** | Opens the actions available for that item in the current module, such as adding data to a plot. Right-clicking a named annotation provides its annotation actions, such as **Clear**. |
+
+- Use **Send…** after selecting an item to pass it to another compatible module.
 - Use **Remove** to remove it from the current runtime workspace.
 - Expand an item to see its named annotations; an annotation can be cleared
   from its context menu.

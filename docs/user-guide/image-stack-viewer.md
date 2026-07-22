@@ -6,7 +6,7 @@ side and maintains a workspace for source data and results.
 
 ## Load data
 
-Send a compatible item from the Data Browser or another module. Workspace items
+Send a compatible item from the Planewave Synthesiser, Data Browser, or another module. Workspace items
 can then be assigned to the viewer's input roles. The viewer validates that
 image-stack data has three dimensions.
 

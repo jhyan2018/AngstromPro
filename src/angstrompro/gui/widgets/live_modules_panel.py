@@ -32,6 +32,7 @@ class LiveModulesPanel(QtWidgets.QWidget):
     def __init__(self, context: "AppContext", parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
         self._context = context
+        self._startup_cancelled = False
         self._cards:   dict[str, LiveModuleCard] = {}   # instance_id → card
         self._headers: dict[str, QtWidgets.QLabel] = {}  # category → header label
         self._setup_ui()
@@ -103,23 +104,43 @@ class LiveModulesPanel(QtWidgets.QWidget):
         super().showEvent(event)
         if not getattr(self, "_startup_done", False):
             self._startup_done = True
-            self._launch_startup_modules()
+            # Let the workbench finish its first paint before constructing
+            # potentially heavy startup modules. Each module is created on a
+            # separate event turn so the UI remains responsive throughout.
+            QtCore.QTimer.singleShot(0, self._launch_startup_modules)
 
     def _launch_startup_modules(self) -> None:
+        if self._startup_cancelled:
+            return
         startup_modules = self._context.config.get("app", "startup_modules") or []
+        self._startup_queue = []
         for entry in startup_modules:
             module_id = entry.get("module_id", "")
             count     = int(entry.get("count", 1))
             if not module_id:
                 continue
-            for _ in range(count):
-                try:
-                    self._context.module_manager.create(module_id, self._context)
-                except Exception as exc:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        "Failed to auto-create startup module %r: %s", module_id, exc
-                    )
+            self._startup_queue.extend([module_id] * max(0, count))
+        self._launch_next_startup_module()
+
+    def _launch_next_startup_module(self) -> None:
+        if self._startup_cancelled:
+            return
+        if not self._startup_queue:
+            return
+        module_id = self._startup_queue.pop(0)
+        try:
+            self._context.module_manager.create(module_id, self._context)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                "Failed to auto-create startup module %r: %s", module_id, exc
+            )
+        QtCore.QTimer.singleShot(0, self._launch_next_startup_module)
+
+    def cancel_startup_launch(self) -> None:
+        """Prevent deferred startup modules from being created during exit."""
+        self._startup_cancelled = True
+        self._startup_queue = []
 
     def _on_workspace_changed(self, *_args) -> None:
         for card in self._cards.values():

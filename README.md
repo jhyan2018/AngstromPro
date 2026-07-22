@@ -60,12 +60,27 @@ Launch AngstromPro from an activated Python environment:
 angstrompro
 ```
 
+When launched from a Spyder IPython console, AngstromPro shares Spyder's Qt
+event loop. Closing the Main Workbench therefore hides the current AngstromPro
+session; launching it again in the same console reopens that session. Restart
+the Spyder kernel after changing AngstromPro or plugin source code so the next
+launch imports the revised classes. A standalone `angstrompro` process exits
+normally when its Main Workbench is closed.
+
 On first launch, AngstromPro asks you to choose a user-data folder. It stores
 configuration, interface settings, thumbnail caches, and logs beneath that
 folder. By default, the application opens the **Data Browser**, **Image Stack
 Viewer**, and **Curve Stack Viewer**.
 
-A typical workflow is:
+A useful first workflow does not require measurement files:
+
+1. In the Main Workbench, choose **+ New Module → Planewave Synthesiser**.
+2. Add one or more wavevectors and adjust their amplitudes and phases.
+3. Choose **Save to workspace** to create a synthetic image stack.
+4. Single-click the new workspace row to select it, choose **Send…**, and send
+   it to the **Image Stack Viewer** to try compatible processes.
+
+When working with experimental data, the typical workflow is:
 
 1. **Browse** a measurement folder and filter or sort its files.
 2. **Send** a file to an appropriate viewer.
@@ -104,6 +119,22 @@ for users and [Runtime data and workspaces](docs/developer-guide/workspaces.md)
 for extension authors.
 
 ## Built-in modules
+
+### Planewave Synthesiser
+
+The Planewave Synthesiser constructs a two-dimensional real-space image from a
+sum of plane waves:
+
+$$
+f(x,y) = \sum_j A_j \cos\!\left(
+2\pi\frac{q_{x_j}X + q_{y_j}Y}{\mathrm{size}} - \varphi_j
+\right)
+$$
+
+Add or remove wave components, adjust their wavevectors, amplitudes, and phases,
+then save the live result to the workspace. Because it generates its own data,
+this is the recommended first module for learning workspace sending, the Image
+Stack Viewer, and compatible processes without needing a measurement file.
 
 ### Data Browser
 
@@ -147,21 +178,6 @@ curve stacks.
 - Use **Scene → Save as Scene…** to save the complete plot as a `.scplot` file.
 - Use `.scet` style templates to apply consistent presentation settings to new
   plots.
-
-### Planewave Synthesiser
-
-The Planewave Synthesiser constructs a two-dimensional real-space image from a
-sum of plane waves:
-
-$$
-f(x,y) = \sum_j A_j \cos\!\left(
-2\pi\frac{q_{x_j}X + q_{y_j}Y}{\mathrm{size}} - \varphi_j
-\right)
-$$
-
-Add or remove wave components, adjust their wavevectors, amplitudes, and phases,
-and send the live result to the workspace for visualisation or further
-processing.
 
 ## Processes
 

@@ -27,7 +27,6 @@ from __future__ import annotations
 import copy
 
 import numpy as np
-from scipy.ndimage import map_coordinates
 
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
@@ -43,6 +42,18 @@ from angstrompro.core.processes.param_schema import AnnotationSpec
 # ---------------------------------------------------------------------------
 # Internal helpers – ported from ScienceY/ImageProcess/LineAndCircleCut.py
 # ---------------------------------------------------------------------------
+
+_MAP_COORDINATES = None
+
+
+def _map_coordinates(*args, **kwargs):
+    """Load SciPy interpolation only when a cut is evaluated."""
+    global _MAP_COORDINATES
+    if _MAP_COORDINATES is None:
+        from scipy.ndimage import map_coordinates
+        _MAP_COORDINATES = map_coordinates
+    return _MAP_COORDINATES(*args, **kwargs)
+
 
 class _LineCut:
     """Compute intensity along a straight line segment."""
@@ -81,7 +92,7 @@ class _LineCut:
         yc = np.linspace(self.y1, self.y2, self.num_points)
         values = np.zeros((self.data3d.shape[0], self.num_points))
         for i in range(self.data3d.shape[0]):
-            values[i] = map_coordinates(self.data3d[i], [yc, xc], order=self.order)
+            values[i] = _map_coordinates(self.data3d[i], [yc, xc], order=self.order)
         return values  # (L, N)
 
     def linecut_with_width_average(self, W):
@@ -102,7 +113,7 @@ class _LineCut:
             px = xc[i] + offsets * perp_dx
             py = yc[i] + offsets * perp_dy
             for j in range(self.data3d.shape[0]):
-                averaged[j, i] = map_coordinates(
+                averaged[j, i] = _map_coordinates(
                     self.data3d[j], [py, px], order=self.order).mean()
         return averaged  # (L, N)
 
@@ -124,7 +135,7 @@ class _CircleCut:
         yc = self.cy + self.radius * np.sin(theta)
         values = np.zeros((self.data3d.shape[0], self.num_points))
         for i in range(self.data3d.shape[0]):
-            values[i] = map_coordinates(self.data3d[i], [yc, xc], order=self.order)
+            values[i] = _map_coordinates(self.data3d[i], [yc, xc], order=self.order)
         return values  # (L, N)
 
     def circlecut_with_width_average(self, W):
@@ -146,7 +157,7 @@ class _CircleCut:
             px = xc[i] + offsets * rdx
             py = yc[i] + offsets * rdy
             for j in range(self.data3d.shape[0]):
-                averaged[j, i] = map_coordinates(
+                averaged[j, i] = _map_coordinates(
                     self.data3d[j], [py, px], order=self.order).mean()
         return averaged  # (L, N)
 

@@ -184,16 +184,19 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         self.setRenderHint(SmoothPixmapTransform, False)
         self.setMouseTracking(True)
         sp = QtWidgets.QSizePolicy(_SP_EXPAND, _SP_EXPAND)
-        sp.setHeightForWidth(True)
+        # The containing viewer chooses a square size from both the available
+        # width and height.  Advertising height-for-width here makes Qt turn a
+        # wide canvas into an excessive window minimum height.
+        sp.setHeightForWidth(False)
         self.setSizePolicy(sp)
         self._panning   = False
         self._pan_start = QtCore.QPoint()
 
     def hasHeightForWidth(self) -> bool:
-        return True
+        return False
 
     def heightForWidth(self, width: int) -> int:
-        return width
+        return super().heightForWidth(width)
 
     def wheelEvent(self, event):
         delta = event.angleDelta().y()
@@ -255,6 +258,53 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.initNonUiMembers()
         self.initUiMembers()
         self.initUiLayout()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "ui_le_img_to_data_coordinate"):
+            self._update_coordinate_editor_height()
+        # Run after Qt has assigned the horizontal layout widths. The canvas
+        # then uses its actual width as its height, leaving surplus vertical
+        # space to the data controls below.
+        QtCore.QTimer.singleShot(0, self._sync_square_canvas)
+
+    def _sync_square_canvas(self) -> None:
+        if not hasattr(self, "_top_panel") or self._view.width() <= 0:
+            return
+
+        content_margins = self._content_layout.contentsMargins()
+        content_spacing = self._content_layout.spacing()
+        heading_height = self.ui_lb_widget_name.sizeHint().height()
+        # Reserve the lower row's real minimum rather than its generous size
+        # hint.  This leaves more height for the image while keeping the data
+        # editors and information list usable.
+        bottom_height = max(120, self._bottom_row.minimumSize().height())
+        available_height = (
+            self.height()
+            - content_margins.top() - content_margins.bottom()
+            - heading_height - bottom_height
+            - 2 * content_spacing
+        )
+
+        top_margins = self._top_layout.contentsMargins()
+        available_width = (
+            self._top_panel.width()
+            - top_margins.left() - top_margins.right()
+            - self._top_controls.width()
+            - self._top_layout.spacing()
+        )
+        side = max(160, min(600, available_width, available_height))
+        # 600 px is a preferred ceiling, not a hard window minimum.  Keeping a
+        # small minimum lets both viewer panels contract again when workspace
+        # or processing dock widgets are restored.
+        self._view.setMinimumSize(160, 160)
+        self._view.setMaximumSize(side, side)
+        self._view.resize(side, side)
+
+        margins = self._top_layout.contentsMargins()
+        controls_height = self._top_controls.minimumSizeHint().height()
+        row_height = max(side, controls_height) + margins.top() + margins.bottom()
+        self._top_panel.setFixedHeight(row_height)
 
     # ── palette / colormap ────────────────────────────────────────────────
 
@@ -336,6 +386,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
         self.ui_lb_img_to_data_coord      = QtWidgets.QLabel("Data coords（column, row）: ")
         self.ui_le_img_to_data_coordinate = QtWidgets.QLineEdit()
+        self._update_coordinate_editor_height()
         self.ui_lb_uds_data_info          = QtWidgets.QLabel("Info: ")
         self.ui_lw_uds_data_info          = QtWidgets.QListWidget()
         self.ui_lw_uds_data_info.setMinimumHeight(40)
@@ -378,9 +429,12 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         right_panel.setMaximumWidth(max(200, panel_min_width))
         right_panel.setSizePolicy(_SP_PREFER, _SP_EXPAND)
 
-        top_row = QtWidgets.QHBoxLayout()
-        top_row.addWidget(self._view, stretch=1)
-        top_row.addWidget(right_panel)
+        self._top_controls = right_panel
+        self._top_panel = QtWidgets.QWidget()
+        self._top_layout = QtWidgets.QHBoxLayout(self._top_panel)
+        self._top_layout.setContentsMargins(0, 0, 0, 0)
+        self._top_layout.addWidget(self._view, stretch=1)
+        self._top_layout.addWidget(right_panel)
 
         left_bot = QtWidgets.QVBoxLayout()
         left_bot.addWidget(self.ui_pb_select_var)
@@ -406,26 +460,33 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         right_bot.addWidget(self.ui_lw_uds_data_info)
 
         bot_row = QtWidgets.QHBoxLayout()
-        bot_row.addLayout(left_bot)
-        bot_row.addLayout(right_bot)
+        bot_row.addLayout(left_bot, stretch=1)
+        bot_row.addLayout(right_bot, stretch=1)
+        self._bottom_row = bot_row
 
         vlay = QtWidgets.QVBoxLayout()
         vlay.setContentsMargins(0, 0, 0, 0)
         vlay.addWidget(self.ui_lb_widget_name)
-        vlay.addLayout(top_row, stretch=1)
-        vlay.addLayout(bot_row)
+        vlay.addWidget(self._top_panel)
+        vlay.addLayout(bot_row, stretch=1)
+        self._content_layout = vlay
 
         grid = QtWidgets.QGridLayout()
         grid.addLayout(vlay, 0, 0)
         grid.setContentsMargins(0, 0, 0, 0)
         self.setLayout(grid)
 
+    def _update_coordinate_editor_height(self) -> None:
+        """Keep coordinate text clear at the active application font size."""
+        editor = self.ui_le_img_to_data_coordinate
+        editor.setMinimumHeight(max(40, editor.fontMetrics().height() + 14))
+
     def initNonUiMembers(self):
         self.uds_variable            = 0
         self.selected_var_name       = ''
         self.uds_variable_type       = ''
+        self._is_fft_data            = False
         self.uds_variable_dataCopy   = 0
-        self.uds_variable_dataAcCopy = 0
         self.uds_var_layer_value     = []
 
         self.msg_type = [
@@ -814,12 +875,60 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             self.uds_variable_dataCopy = np.real(self.uds_variable.data)
         elif idx == 3:
             self.uds_variable_dataCopy = np.imag(self.uds_variable.data)
-        self.uds_variable_dataAcCopy = self.uds_variable_dataCopy.copy()
-        if self.uds_variable_type == 'fft':
-            Ox = int((self.uds_variable.data.shape[-1] - self.uds_variable.data.shape[-1] % 2) / 2)
-            Oy = int((self.uds_variable.data.shape[-2] - self.uds_variable.data.shape[-2] % 2) / 2)
-            self.uds_variable_dataAcCopy[:, Oy, Ox] = np.zeros(self.uds_variable.data.shape[0])
         self.imageLayerChanged()
+
+    def _current_scale_data(self):
+        """Return the current layer's autoscale sample.
+
+        FFT images keep their DC region for rendering, but omit it from the
+        autoscale sample.  A tapered FFT window spreads DC into a central lobe,
+        so excluding only the exact centre pixel is not sufficient.
+        """
+        layer_data = self.uds_variable_dataCopy[self.img_current_layer, :, :]
+        if not self._is_fft_data or layer_data.size <= 1:
+            return np.ravel(layer_data)
+
+        from angstrompro.core.data.uds_data import (
+            FFT_TUKEY_ALPHA_KEY,
+            FFT_WINDOW_KEY,
+        )
+
+        info = getattr(self.uds_variable, "info", {}) or {}
+        window = info.get(FFT_WINDOW_KEY)
+        tukey_alpha = info.get(FFT_TUKEY_ALPHA_KEY)
+        if window is None:
+            # Results created before FFT window metadata was introduced still
+            # carry the resolved process parameters in their provenance.
+            for record in reversed(getattr(self.uds_variable, "proc_history", []) or []):
+                if getattr(record, "step", "") == "spectral.fft_2d":
+                    params = getattr(record, "params", {}) or {}
+                    window = params.get("window", "none")
+                    tukey_alpha = params.get("tukey_alpha", 0.5)
+                    break
+        window = str(window or "none").strip().lower()
+        height, width = layer_data.shape
+
+        # Half-width of the central square omitted from autoscaling.  Legacy
+        # FFTs have no window metadata and retain the historical one-pixel
+        # exclusion.  Tukey's broad leakage lobe scales with the tapered edge.
+        if window in {"hann", "hamming"}:
+            radius = 1
+        elif window in {"blackman", "blackman-harris"}:
+            radius = 4
+        elif window == "tukey":
+            alpha = float(0.5 if tukey_alpha is None else tukey_alpha)
+            radius = max(1, int(np.ceil(min(height, width) * 0.05 * alpha)))
+        else:
+            radius = 0
+
+        centre_y, centre_x = height // 2, width // 2
+        keep = np.ones((height, width), dtype=bool)
+        keep[
+            max(0, centre_y - radius):min(height, centre_y + radius + 1),
+            max(0, centre_x - radius):min(width, centre_x + radius + 1),
+        ] = False
+        scale_data = layer_data[keep]
+        return scale_data if scale_data.size else np.ravel(layer_data)
 
     def imgeScaleChanged(self):
         self.img_current_layer = self.ui_sb_image_layers.value()
@@ -840,13 +949,13 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         if self.uds_var_layer_value:
             self.ui_le_layer_value.setText(
                 self.uds_var_layer_value[self.img_current_layer])
-        if self.uds_variable_type == 'fft':
+        scale_data = self._current_scale_data()
+        if self._is_fft_data:
             self.ui_scale_widget.setData(
-                np.ravel(self.uds_variable_dataAcCopy[self.img_current_layer, :, :]),
+                scale_data,
                 'SUFFIX_FFT')
         else:
-            self.ui_scale_widget.setData(
-                np.ravel(self.uds_variable_dataCopy[self.img_current_layer, :, :]))
+            self.ui_scale_widget.setData(scale_data)
         self.updateImage()
         self.sendMsgSignalEmit(self.msg_type.index('SYNC_LAYER'))
 
@@ -925,17 +1034,26 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             ]
 
     def setUdsData(self, usd_variable):
+        from angstrompro.core.data.uds_data import is_fft_uds
+
         self.selected_var_name     = usd_variable.name
         self.uds_variable          = usd_variable
-        self.uds_variable_dataCopy = np.abs(self.uds_variable.data)
-        self.uds_variable_type     = usd_variable.name.split('_')[-1]
+        is_fft = is_fft_uds(usd_variable)
+        self._is_fft_data = is_fft
+        self.uds_variable_type = 'fft' if is_fft else 'real_space'
 
-        if self.uds_variable_type == 'fft':
-            Ox = int((self.uds_variable.data.shape[-1] - self.uds_variable.data.shape[-1] % 2) / 2)
-            Oy = int((self.uds_variable.data.shape[-2] - self.uds_variable.data.shape[-2] % 2) / 2)
-            self.uds_variable_dataAcCopy = self.uds_variable_dataCopy.copy()
-            self.uds_variable_dataAcCopy[:, Oy, Ox] = np.zeros(self.uds_variable.data.shape[0])
+        # Loading a new payload must also reset the visible representation.
+        # A real-space item leaves this combo at Real; without an explicit
+        # reset, a subsequently loaded FFT misleadingly remains labelled Real.
+        desired_type_index = 0 if is_fft else 2  # Abs for FFT, Real otherwise
+        blocked = self.ui_cb_image_data_type.blockSignals(True)
+        self.ui_cb_image_data_type.setCurrentIndex(desired_type_index)
+        self.ui_cb_image_data_type.blockSignals(blocked)
 
+        self.uds_variable_dataCopy = (
+            np.abs(self.uds_variable.data) if is_fft
+            else np.real(self.uds_variable.data)
+        )
         self.ui_le_selected_var.setText(self.selected_var_name)
         self.ui_le_layer_value.setText('')
         self.ui_lb_layer_unit.setText('')
@@ -951,12 +1069,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         else:
             self.ui_sb_image_layers.setValue(0)
 
-        if self.uds_variable_type != 'fft':
-            if self.ui_cb_image_data_type.currentIndex() == 2:
-                self.imageDataTypeChanged()
-            else:
-                self.ui_cb_image_data_type.setCurrentIndex(2)
-
         self.ui_sb_image_layers.setEnabled(True)
         self.ui_cb_image_data_type.setEnabled(True)
         self.setEnabled(True)
@@ -964,9 +1076,11 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         QtCore.QTimer.singleShot(0, self._view.fit_scene)
 
     def updateDataInfo(self):
+        from angstrompro.core.data.uds_data import display_info_items
+
         self.ui_lw_uds_data_info.clear()
         self.ui_lw_uds_data_info.addItems(
-            [f"{k} = {v}" for k, v in self.uds_variable.info.items()])
+            [f"{k} = {v}" for k, v in display_info_items(self.uds_variable.info)])
 
     # ── colormap helpers ──────────────────────────────────────────────────
 

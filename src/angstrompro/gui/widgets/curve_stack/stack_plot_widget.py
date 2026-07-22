@@ -577,9 +577,6 @@ class StackPlotWidget(BasePlotWidget):
             self._ax.set_ylabel(y_label_l)
         if y_label_r and self._ax2 is not None:
             self._ax2.set_ylabel(y_label_r)
-        if self._config.get("show_grid", False):
-            self._ax.grid(True, linestyle="--", alpha=0.4)
-
         self._assign_colors(self._lines)
 
     def _rebuild_lc(self) -> None:
@@ -660,9 +657,6 @@ class StackPlotWidget(BasePlotWidget):
             self._ax.set_ylabel(y_label)
         if y_label_r and self._ax2 is not None:
             self._ax2.set_ylabel(y_label_r)
-        if self._config.get("show_grid", False):
-            self._ax.grid(True, linestyle="--", alpha=0.4)
-
     @staticmethod
     def _make_lc(x, y_plot, y_color, cmap_name, norm, lw, visible):
         from matplotlib.collections import LineCollection

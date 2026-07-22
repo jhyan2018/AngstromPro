@@ -23,7 +23,6 @@ from __future__ import annotations
 import copy
 
 import numpy as np
-from scipy.signal import correlate
 
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.processes import (
@@ -82,6 +81,8 @@ _LAYER_PARAM = ParameterSpec(
     ),
 )
 def cross_correlation(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
+    from scipy.signal import correlate
+
     a   = inputs["data_a"]
     b   = inputs["data_b"]
     idx = params["layer_index"]

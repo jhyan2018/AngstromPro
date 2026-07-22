@@ -84,8 +84,8 @@ def load(path: Path) -> UdsDataStru:
         data         = data,          # shape (n_points, n_cols) — sliced by _extract_dat_channels
         axes         = axes,
         info         = {
-            "source_format": "nanonis_dat",
-            "column_names":  column_names,
+            "_source_format": "nanonis_dat",
+            "_column_names": column_names,
             "sweep_column":  sweep_col,
             **{k: v for k, v in header.items()},
         },

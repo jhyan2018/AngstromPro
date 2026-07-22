@@ -48,7 +48,7 @@ class WaveVectorRow(QtWidgets.QWidget):
         self._index = index
         self.qx        = 0.0
         self.qy        = 0.0
-        self.amplitude = 0.0
+        self.amplitude = 1.0
         self.phase     = 0.0
         self._build_ui()
         self._refresh_amplitude()
@@ -57,70 +57,79 @@ class WaveVectorRow(QtWidgets.QWidget):
     # ── construction ─────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
-        row = QtWidgets.QHBoxLayout(self)
-        row.setContentsMargins(4, 2, 4, 2)
-        row.setSpacing(6)
+        outer = QtWidgets.QVBoxLayout(self)
+        outer.setContentsMargins(8, 6, 8, 8)
+        outer.setSpacing(5)
 
-        # index label
-        lbl = QtWidgets.QLabel(f"Q{self._index + 1}")
-        lbl.setFixedWidth(22)
-        row.addWidget(lbl)
+        heading = QtWidgets.QLabel(f"Q{self._index + 1}")
+        heading.setProperty("typographyRole", "heading")
+        outer.addWidget(heading)
 
-        # qx
-        row.addWidget(QtWidgets.QLabel("qx"))
+        vector_row = QtWidgets.QHBoxLayout()
+        vector_row.setSpacing(5)
+        vector_row.addWidget(QtWidgets.QLabel("qx"))
         self._le_qx = QtWidgets.QLineEdit("0")
         self._le_qx.setFixedWidth(52)
         self._le_qx.editingFinished.connect(self._on_qx)
-        row.addWidget(self._le_qx)
-
-        # qy
-        row.addWidget(QtWidgets.QLabel("qy"))
+        vector_row.addWidget(self._le_qx)
+        vector_row.addSpacing(12)
+        vector_row.addWidget(QtWidgets.QLabel("qy"))
         self._le_qy = QtWidgets.QLineEdit("0")
         self._le_qy.setFixedWidth(52)
         self._le_qy.editingFinished.connect(self._on_qy)
-        row.addWidget(self._le_qy)
-
-        # amplitude
-        row.addWidget(QtWidgets.QLabel("A"))
-        self._le_amp_min = QtWidgets.QLineEdit("0")
-        self._le_amp_min.setFixedWidth(44)
-        self._le_amp_min.editingFinished.connect(self._refresh_amplitude)
-        row.addWidget(self._le_amp_min)
-        self._sl_amp = QtWidgets.QSlider(Horizontal)
-        self._sl_amp.setRange(0, 100)
-        self._sl_amp.setValue(0)
-        self._sl_amp.setMinimumWidth(80)
-        self._sl_amp.valueChanged.connect(self._refresh_amplitude)
-        row.addWidget(self._sl_amp)
-        self._le_amp_max = QtWidgets.QLineEdit("1")
-        self._le_amp_max.setFixedWidth(44)
-        self._le_amp_max.editingFinished.connect(self._refresh_amplitude)
-        row.addWidget(self._le_amp_max)
+        vector_row.addWidget(self._le_qy)
+        vector_row.addSpacing(12)
+        vector_row.addWidget(QtWidgets.QLabel("A"))
         self._le_amp_val = QtWidgets.QLineEdit()
         self._le_amp_val.setFixedWidth(60)
-        self._le_amp_val.setEnabled(False)
-        row.addWidget(self._le_amp_val)
-
-        # phase
-        row.addWidget(QtWidgets.QLabel("φ"))
-        self._le_ph_min = QtWidgets.QLineEdit("-3.14")
-        self._le_ph_min.setFixedWidth(50)
-        self._le_ph_min.editingFinished.connect(self._refresh_phase)
-        row.addWidget(self._le_ph_min)
-        self._sl_ph = QtWidgets.QSlider(Horizontal)
-        self._sl_ph.setRange(0, 100)
-        self._sl_ph.setValue(0)
-        self._sl_ph.setMinimumWidth(80)
-        self._sl_ph.valueChanged.connect(self._refresh_phase)
-        row.addWidget(self._sl_ph)
-        self._le_ph_max = QtWidgets.QLineEdit("3.14")
-        self._le_ph_max.setFixedWidth(50)
-        self._le_ph_max.editingFinished.connect(self._refresh_phase)
-        row.addWidget(self._le_ph_max)
+        self._le_amp_val.setReadOnly(True)
+        vector_row.addWidget(self._le_amp_val)
+        vector_row.addSpacing(12)
+        vector_row.addWidget(QtWidgets.QLabel("φ"))
         self._le_ph_val = QtWidgets.QLineEdit()
         self._le_ph_val.setFixedWidth(60)
-        self._le_ph_val.setEnabled(False)
-        row.addWidget(self._le_ph_val)
+        self._le_ph_val.setReadOnly(True)
+        vector_row.addWidget(self._le_ph_val)
+        vector_row.addStretch()
+        outer.addLayout(vector_row)
+
+        controls = QtWidgets.QGridLayout()
+        controls.setHorizontalSpacing(5)
+        controls.setVerticalSpacing(5)
+
+        controls.addWidget(QtWidgets.QLabel("A range"), 0, 0)
+        self._le_amp_min = QtWidgets.QLineEdit("0")
+        self._le_amp_min.setFixedWidth(104)
+        self._le_amp_min.editingFinished.connect(self._refresh_amplitude)
+        controls.addWidget(self._le_amp_min, 0, 1)
+        self._sl_amp = QtWidgets.QSlider(Horizontal)
+        self._sl_amp.setRange(0, 100)
+        self._sl_amp.setValue(100)
+        self._sl_amp.setFixedWidth(140)
+        self._sl_amp.valueChanged.connect(self._refresh_amplitude)
+        controls.addWidget(self._sl_amp, 0, 2)
+        self._le_amp_max = QtWidgets.QLineEdit("1")
+        self._le_amp_max.setFixedWidth(104)
+        self._le_amp_max.editingFinished.connect(self._refresh_amplitude)
+        controls.addWidget(self._le_amp_max, 0, 3)
+
+        controls.addWidget(QtWidgets.QLabel("φ range"), 1, 0)
+        self._le_ph_min = QtWidgets.QLineEdit("-3.14")
+        self._le_ph_min.setFixedWidth(104)
+        self._le_ph_min.editingFinished.connect(self._refresh_phase)
+        controls.addWidget(self._le_ph_min, 1, 1)
+        self._sl_ph = QtWidgets.QSlider(Horizontal)
+        self._sl_ph.setRange(0, 100)
+        self._sl_ph.setValue(50)
+        self._sl_ph.setFixedWidth(140)
+        self._sl_ph.valueChanged.connect(self._refresh_phase)
+        controls.addWidget(self._sl_ph, 1, 2)
+        self._le_ph_max = QtWidgets.QLineEdit("3.14")
+        self._le_ph_max.setFixedWidth(104)
+        self._le_ph_max.editingFinished.connect(self._refresh_phase)
+        controls.addWidget(self._le_ph_max, 1, 3)
+        controls.setColumnStretch(4, 1)
+        outer.addLayout(controls)
 
     # ── slots ─────────────────────────────────────────────────────────────
 
@@ -211,6 +220,7 @@ class PlanewaveSynthesiser(AGuiModule):
 
         # ── right: controls ─────────────────────────────────────────────
         ctrl = QtWidgets.QWidget()
+        ctrl.setMinimumWidth(320)
         vbox = QtWidgets.QVBoxLayout(ctrl)
         vbox.setContentsMargins(6, 6, 6, 6)
         vbox.setSpacing(6)
@@ -218,27 +228,31 @@ class PlanewaveSynthesiser(AGuiModule):
         # formula label
         eq = QtWidgets.QLabel("f(x,y) = Σ  A<sub>j</sub> · cos(2π(qx<sub>j</sub>·X + qy<sub>j</sub>·Y)/size − φ<sub>j</sub>)")
         eq.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        eq.setWordWrap(True)
         vbox.addWidget(QtWidgets.QLabel("<b>─── Function ───</b>"))
         vbox.addWidget(eq)
 
         # size + buttons row
-        btn_row = QtWidgets.QHBoxLayout()
-        btn_row.addWidget(QtWidgets.QLabel("Size (px):"))
+        size_row = QtWidgets.QHBoxLayout()
+        size_row.addWidget(QtWidgets.QLabel("Size (px):"))
         self._le_size = QtWidgets.QLineEdit(str(self._data_size))
         self._le_size.setFixedWidth(60)
         self._le_size.editingFinished.connect(self._on_size_changed)
-        btn_row.addWidget(self._le_size)
-        btn_row.addStretch()
+        size_row.addWidget(self._le_size)
+        size_row.addStretch()
+        vbox.addLayout(size_row)
+
+        edit_row = QtWidgets.QHBoxLayout()
         pb_add = QtWidgets.QPushButton("＋ Add wave")
         pb_add.clicked.connect(self._on_add_wave)
         pb_remove = QtWidgets.QPushButton("－ Remove wave")
         pb_remove.clicked.connect(self._on_remove_wave)
         pb_save = QtWidgets.QPushButton("Save to workspace")
         pb_save.clicked.connect(self._on_save_to_workspace)
-        btn_row.addWidget(pb_add)
-        btn_row.addWidget(pb_remove)
-        btn_row.addWidget(pb_save)
-        vbox.addLayout(btn_row)
+        edit_row.addWidget(pb_add)
+        edit_row.addWidget(pb_remove)
+        vbox.addLayout(edit_row)
+        vbox.addWidget(pb_save)
 
         # scrollable wave-vector list
         self._scroll_content = QtWidgets.QWidget()
@@ -258,7 +272,8 @@ class PlanewaveSynthesiser(AGuiModule):
         splitter.addWidget(self._viewer)
         splitter.addWidget(ctrl)
         splitter.setStretchFactor(0, 2)
-        splitter.setStretchFactor(1, 3)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([720, 360])
         self.setCentralWidget(splitter)
 
         # apply config (palette, scale, canvas settings)
@@ -296,7 +311,7 @@ class PlanewaveSynthesiser(AGuiModule):
                 Axis(values=np.arange(n, dtype=np.float64), label="Row",    units="px"),
                 Axis(values=np.arange(n, dtype=np.float64), label="Column", units="px"),
             ],
-            info={"source_format": "planewave_synthesiser", "LayerValue": "0"},
+            info={"_source_format": "planewave_synthesiser"},
             proc_history=[],
         )
 
@@ -382,7 +397,7 @@ class PlanewaveSynthesiser(AGuiModule):
                 Axis(values=np.arange(n, dtype=np.float64), label="Row",    units="px"),
                 Axis(values=np.arange(n, dtype=np.float64), label="Column", units="px"),
             ],
-            info={"source_format": "planewave_synthesiser", "LayerValue": "0"},
+            info={"_source_format": "planewave_synthesiser"},
             proc_history=[],
         )
         self.workspace.add_item(payload=uds)

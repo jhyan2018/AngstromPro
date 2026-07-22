@@ -17,6 +17,13 @@ During development, add an entry under **Preferences → Plugins** containing:
 On the next launch, AngstromPro adds the path to `sys.path` and imports the
 module. The module's imports must trigger every required registration.
 
+When testing from Spyder, closing the Main Workbench only hides the hosted
+AngstromPro session so it can be reopened without rebuilding Qt. Restart the
+Spyder kernel after changing plugin source; reopening the existing session does
+not reload already imported plugin modules or replace their live widget
+classes. A standalone AngstromPro process can instead be closed and launched
+again normally.
+
 ## Installed plugin
 
 An installable package should expose an entry point in `pyproject.toml`:

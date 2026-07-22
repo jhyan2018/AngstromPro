@@ -28,7 +28,7 @@ def load(path: Path) -> UdsDataStru:
         name=path.stem,
         data=data,
         axes=axes,
-        info={"source_format": "npy"},
+        info={"_source_format": "npy"},
         proc_history=[],
         landmarks={},
     )
