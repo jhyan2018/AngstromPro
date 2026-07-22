@@ -154,6 +154,13 @@ class ConfigManager:
                 saved = json.loads(path.read_text(encoding="utf-8"))
                 saved = validate_and_coerce(saved, DEFAULTS)
                 self._config = _deep_merge(self._config, saved)
+                # Retired in 1.2: these controls never had a reliable visible
+                # effect with the application-owned theme.  Unknown keys are
+                # normally retained for forward compatibility, so remove only
+                # these explicitly migrated appearance values.
+                appearance = self._config.get("appearance", {})
+                appearance.pop("icon_size", None)
+                appearance.pop("accent_color", None)
                 log.debug("Config loaded from %s", path)
             except (OSError, json.JSONDecodeError) as exc:
                 log.warning("Could not read config file (%s); using defaults", exc)

@@ -12,7 +12,7 @@ context, registers built-in modules, and opens the main workbench.
 | Resource | Responsibility |
 | --- | --- |
 | `ConfigManager` | Merged defaults and persisted user overrides |
-| `ThemeManager` and `IconManager` | Application appearance |
+| `ThemeManager` and `IconManager` | Bundled application theme, fonts, palette, and icons |
 | `AppSignals` | Cross-component Qt signals |
 | [`TaskManager`](tasks.md) | Threaded and persistent work |
 | `WorkspaceManager` | Per-module workspaces |
@@ -28,6 +28,20 @@ that contain multiple named channels; single-channel formats do not use it.
 Plugins load before `ProcessRegistry` is constructed. This ordering lets plugin
 imports run registration decorators before the registry snapshots pending
 entries.
+
+`ThemeManager` applies AngstromPro's owned light or dark palette and stylesheet
+on top of Qt's Fusion style. It replaces the complete application stylesheet
+when preferences change, preventing rules from accumulating. Component-specific
+styles should use stable Qt object names so they can be maintained alongside
+the global compact control rules. The application does not depend on a
+third-party Qt theme package.
+
+Application typography uses shared semantic roles: body, secondary, heading,
+section, notification, hint, and monospace. New widgets should use
+`set_typography_role` rather than introducing local font families, fixed sizes,
+or muted-text colors. Scientific plot annotations and Matplotlib figure styles
+remain separate because they describe exported data graphics rather than the
+desktop interface.
 
 ## Package responsibilities
 

@@ -101,7 +101,8 @@ class ArtistStylePanel(QtWidgets.QGroupBox):
         self._placeholder = QtWidgets.QLabel("Select a single curve to edit style")
         self._placeholder.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self._placeholder.setWordWrap(True)
-        self._placeholder.setStyleSheet("color: gray; font-style: italic;")
+        from angstrompro.gui.appearance.typography import HINT, set_typography_role
+        set_typography_role(self._placeholder, HINT)
         layout.addWidget(self._placeholder)
 
         self._form_w = QtWidgets.QWidget()

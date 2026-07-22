@@ -18,6 +18,8 @@ python -m pip install ".[pyside6]"
 
 Do not install several Qt bindings solely for AngstromPro. When working inside
 an existing environment, use the binding already required by that environment.
+AngstromPro's compact light and dark themes are included in the package; no
+theme installation extra or third-party theme package is required.
 
 These `python -m pip` commands run in a system terminal. From a Spyder IPython
 console whose working directory is the AngstromPro repository, use `%pip`

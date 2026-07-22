@@ -286,7 +286,8 @@ class RcParamsStylePanel(QtWidgets.QDialog):
             btns.addWidget(b)
         btns.addStretch()
         hint = QtWidgets.QLabel("Empty list =\ndefault cycle")
-        hint.setStyleSheet("color: gray; font-style: italic;")
+        from angstrompro.gui.appearance.typography import HINT, set_typography_role
+        set_typography_role(hint, HINT)
         btns.addWidget(hint)
         ll.addLayout(btns)
         return w
@@ -340,7 +341,8 @@ class RcParamsStylePanel(QtWidgets.QDialog):
         hint = QtWidgets.QLabel(
             "Bold = pinned in this scene's style.  Edit a value and Apply; "
             "right-click for color picker / reset to default.")
-        hint.setStyleSheet("color: gray; font-style: italic;")
+        from angstrompro.gui.appearance.typography import HINT, set_typography_role
+        set_typography_role(hint, HINT)
         hint.setWordWrap(True)
         v.addWidget(hint)
         return w

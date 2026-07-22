@@ -139,7 +139,8 @@ class ProcessMenuConfigDialog(PersistentDialog):
 
         # --- info label: what's already in menu via developer defaults ---
         self._info_label = QtWidgets.QLabel("")
-        self._info_label.setStyleSheet("color: grey; font-size: 10px;")
+        from angstrompro.gui.appearance.typography import SECONDARY, set_typography_role
+        set_typography_role(self._info_label, SECONDARY)
         self._info_label.setWordWrap(True)
         root.addWidget(self._info_label)
 

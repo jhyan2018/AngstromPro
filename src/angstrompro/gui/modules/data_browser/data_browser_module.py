@@ -29,7 +29,7 @@ import logging
 import os
 from pathlib import Path
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import QtCore, QtWidgets, event_POS
 
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
@@ -59,7 +59,7 @@ class _StayOpenMenu(QtWidgets.QMenu):
     The menu still closes normally on Esc or a click outside."""
 
     def mouseReleaseEvent(self, event) -> None:
-        act = self.actionAt(event.pos())
+        act = self.actionAt(event_POS(event))
         if act is not None and act.isCheckable():
             act.trigger()   # toggle + emit, but keep the popup open
             return

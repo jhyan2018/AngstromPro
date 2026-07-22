@@ -8,7 +8,8 @@ import os
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, QtGui, Signal
+from angstrompro.utils.qt_compat import (
+    QtCore, QtWidgets, QtGui, Signal, event_POS)
 
 
 class ColorBarPreview(QtWidgets.QWidget):
@@ -181,9 +182,10 @@ class MultiHandleSlider(QtWidgets.QWidget):
         except AttributeError: return QtCore.Qt.RightButton
 
     def mousePressEvent(self, event):
-        idx = self._nearest_handle_index(event.pos())
+        event_pos = event_POS(event)
+        idx = self._nearest_handle_index(event_pos)
         if event.button() == self._right_button():
-            v = self._x_to_value(event.pos().x())
+            v = self._x_to_value(event_pos.x())
             eps = 1e-6
             if any(abs(hv - v) < eps for hv in self.handles):
                 return
@@ -203,7 +205,7 @@ class MultiHandleSlider(QtWidgets.QWidget):
     def mouseMoveEvent(self, event):
         if self.dragging_index >= 0 and (event.buttons() & self._left_button()):
             i = self.dragging_index
-            v = self._x_to_value(event.pos().x())
+            v = self._x_to_value(event_POS(event).x())
             eps = 1e-6
             v = max(self.handles[i - 1] + eps, min(v, self.handles[i + 1] - eps))
             self.handles[i] = v

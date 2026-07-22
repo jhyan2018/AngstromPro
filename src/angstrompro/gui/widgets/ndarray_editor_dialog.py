@@ -64,7 +64,8 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
 
         # status bar
         self._status = QtWidgets.QLabel("")
-        self._status.setStyleSheet("color: grey; font-size: 11px;")
+        from angstrompro.gui.appearance.typography import SECONDARY, set_typography_role
+        set_typography_role(self._status, SECONDARY)
         root.addWidget(self._status)
 
         # buttons

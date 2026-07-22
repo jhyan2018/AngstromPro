@@ -23,8 +23,9 @@ cd AngstromPro
 python -m pip install ".[pyqt6]"
 ```
 
-Alternative Qt bindings and optional features are available as installation
-extras:
+Alternative Qt bindings and optional scientific features are available as
+installation extras. The AngstromPro light and dark themes are bundled with
+the application and require no additional package:
 
 ```powershell
 # For an environment that already uses PyQt5, such as some Spyder installations
@@ -35,9 +36,6 @@ python -m pip install ".[pyside6]"
 
 # Include optional scientific features provided by scikit-image
 python -m pip install ".[pyqt6,full]"
-
-# Include the optional dark theme
-python -m pip install ".[pyqt6,theme]"
 ```
 
 Only one Qt binding is needed.

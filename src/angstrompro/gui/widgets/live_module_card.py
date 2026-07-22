@@ -206,7 +206,7 @@ class LiveModuleCard(QtWidgets.QFrame):
         if self._alias:
             self._lbl_name.setText(
                 f"<b>{self._alias}</b>"
-                f"  <span style='color:grey;font-size:9pt'>({iid})</span>")
+                f"  <small><span style='color:grey'>({iid})</span></small>")
         else:
             self._lbl_name.setText(f"<b>{iid}</b>")
 

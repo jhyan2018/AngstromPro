@@ -53,10 +53,6 @@ pyqt6   = ["PyQt6"]
 pyqt5   = ["PyQt5"]
 pyside6 = ["PySide6"]
 full    = ["scikit-image"]   # isocontour extraction, fast phase unwrapping
-# dark theme is optional: pyqtdarktheme's metadata pins python <3.12, so it
-# must not be a hard dependency (would break cold installs on 3.12+);
-# ThemeManager degrades gracefully without it
-theme   = ["pyqtdarktheme"]
 
 [project.scripts]
 angstrompro = "angstrompro.app.main:main"

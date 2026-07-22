@@ -41,6 +41,8 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Callable
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, IS_QT6
+from angstrompro.gui.appearance.typography import (
+    BODY, HINT, SECTION, set_typography_role)
 
 log = logging.getLogger(__name__)
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
@@ -473,9 +475,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         vl.setSpacing(2)
 
         title = QtWidgets.QLabel("Active Processing Slots")
-        font = title.font()
-        font.setBold(True)
-        title.setFont(font)
+        set_typography_role(title, SECTION)
         vl.addWidget(title)
 
         grid = QtWidgets.QGridLayout()
@@ -489,7 +489,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         for idx, label in enumerate(self.staged_labels):
             row_lbl = QtWidgets.QLabel(f"[{label}]")
             val_lbl = QtWidgets.QLabel("—")
-            val_lbl.setStyleSheet("color: gray; font-style: italic;")
+            set_typography_role(val_lbl, HINT)
             val_lbl.setSizePolicy(
                 QtWidgets.QSizePolicy.Policy.Ignored,
                 QtWidgets.QSizePolicy.Policy.Preferred)
@@ -523,12 +523,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             btn = self._slot_clear_btns[idx]
             if item is not None:
                 val_lbl.setText(item.name)
-                val_lbl.setStyleSheet("")
+                set_typography_role(val_lbl, BODY)
                 if btn is not None:
                     btn.setEnabled(True)
             else:
                 val_lbl.setText("—")
-                val_lbl.setStyleSheet("color: gray; font-style: italic;")
+                set_typography_role(val_lbl, HINT)
                 if btn is not None:
                     btn.setEnabled(False)
 

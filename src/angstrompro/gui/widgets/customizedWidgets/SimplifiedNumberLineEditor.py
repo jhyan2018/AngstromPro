@@ -25,6 +25,13 @@ class SimplifiedNumberLineEditor(QtWidgets.QLineEdit):
         if RegExpSimplifiedNumber.isSimplifiedNumber(text):
             self.valid_text = text
             self.setText(text)
+            # QLineEdit places the cursor at the end after setText(), which
+            # scrolls a narrow editor to the suffix.  For scientific values
+            # that can hide the sign and leading magnitude (for example,
+            # "-783.534m" appearing as "3.534m").  Default the passive
+            # display to the informative beginning of the value.
+            self.deselect()
+            self.setCursorPosition(0)
 
     def value(self):
         return NumberExpression.simplified_number_to_float(self.valid_text)
@@ -38,5 +45,7 @@ class SimplifiedNumberLineEditor(QtWidgets.QLineEdit):
         if RegExpSimplifiedNumber.isSimplifiedNumber(input_text):
             self.valid_text = input_text
             self.validTextChanged.emit()
+            self.deselect()
+            self.setCursorPosition(0)
         else:
-            self.setText(self.valid_text)
+            self.setSNText(self.valid_text)

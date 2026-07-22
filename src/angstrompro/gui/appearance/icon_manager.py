@@ -49,7 +49,7 @@ class IconManager:
         ----------
         name  : qtawesome name ("fa5s.save") or file stem ("logo")
         color : optional hex colour string, applied only for qtawesome icons
-        size  : icon size hint in px (0 = use appearance config default)
+        size  : optional icon size hint in px
         """
         cache_key = f"{name}:{color}:{size}"
         if cache_key in self._cache:
@@ -81,13 +81,8 @@ class IconManager:
             kwargs: dict = {}
             if color:
                 kwargs["color"] = color
-            else:
-                # Use accent colour from config if set
-                accent = self._cfg.get("accent_color", "")
-                if accent:
-                    kwargs["color"] = accent
             if size:
-                kwargs["scale_factor"] = size / (self._cfg.get("icon_size", 20) or 20)
+                kwargs["scale_factor"] = size / 20
             return qta.icon(name, **kwargs)
         except Exception as exc:
             log.warning("qtawesome failed for %r: %s", name, exc)

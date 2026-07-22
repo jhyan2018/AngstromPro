@@ -433,10 +433,14 @@ def event_POS(event):
         event.pos()
 
     Qt6:
-        event.position()
+        event.position().toPoint()
+
+    Always returns QPoint because widget hit-testing and QGraphicsView mapping
+    APIs use integer viewport coordinates under both Qt generations.
     """
     if IS_QT6:
-        return event.position()
+        position = event.position()
+        return position.toPoint() if hasattr(position, "toPoint") else position
     else:
         return event.pos()
 
