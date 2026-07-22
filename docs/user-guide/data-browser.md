@@ -33,6 +33,36 @@ used for its preview. From a card's context menu you can:
 If a required channel cannot be matched, review the application-wide channel
 mappings in Preferences.
 
+## Scene templates for thumbnails
+
+The Data Browser can use the same `.scet` scene templates saved by the Curve
+Stack Viewer. In **Preferences → Data Browser → Thumbnails**, choose a
+**Plot template** to give raw UDS thumbnails a consistent presentation style.
+The template can carry settings for both curve-stack and colormap rendering;
+the browser chooses the appropriate representation from the dataset and its
+configured stack threshold.
+
+A template supplies styling only: it does not replace or modify the UDS data.
+For a saved `ScenePlot` (`.scplot`), the thumbnail renderer uses the scene's own
+stored layout and styling instead of the Data Browser template.
+
+The **Z thumbnail background** preference optionally preprocesses data resolved
+by the Channel Manager to the logical display channel `Z`:
+
+- **Off** renders the raw image.
+- **Polynomial surface** subtracts a first-order 2D plane, making tilted
+  topography easier to see.
+- **Per scan line** subtracts a first-order polynomial independently from every
+  image row, reducing line-by-line scan backgrounds.
+
+This is display-only: it does not change the source file, cached UDS data, or
+data sent to another module. Other logical channels are never flattened.
+
+Changing the selected template affects newly generated thumbnails. Existing
+cached thumbnails also retain their current image when this background option
+changes. Re-render an individual card or use **Re-render all** in the Data
+Browser cache preferences to apply the new rendering settings.
+
 ## Background scanner
 
 The scanner walks watch folders and pre-renders missing or stale thumbnails at
