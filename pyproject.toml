@@ -70,3 +70,7 @@ Paper = "https://arxiv.org/abs/2604.18962"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"angstrompro.resources" = ["icons/*.svg", "icons/*.png", "icons/*.ico"]
+"angstrompro.gui.resources" = ["colormaps/*.txt"]

@@ -9,6 +9,8 @@ Replaces the old matplotlib FigureCanvas with QGraphicsView for:
 """
 
 import math
+from importlib.resources import files
+
 import numpy as np
 from matplotlib import colors as mcolors, pyplot
 from matplotlib.colors import Normalize
@@ -439,7 +441,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.var_data_type_list = ['Abs', 'Angle', 'Real', 'Image']
 
         self.img_color_map_builtin_list  = pyplot.colormaps()
-        self.customizedColorPalletFolder = './ScienceY/GUI/customizedColorPallets/'
         self.img_is_rt_cmp_on            = False
         self.img_color_map               = 'gray'
 
@@ -964,8 +965,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         return mcolors.LinearSegmentedColormap('testCmap', segmentdata=cdict, N=256)
 
     def make_colormap_from_txt(self, cp):
-        path = self.customizedColorPalletFolder + cp + '.txt'
-        d    = np.loadtxt(path, delimiter="\t", skiprows=1) / 256 / 256
+        resource = files("angstrompro.gui.resources.colormaps").joinpath(
+            f"{cp}.txt")
+        with resource.open("r", encoding="utf-8") as stream:
+            d = np.loadtxt(stream, delimiter="\t", skiprows=1) / 256 / 256
         cdict = {'red': [], 'green': [], 'blue': []}
         for i in range(256):
             cdict['red'].append([i / 255.0, d[i, 0], d[i, 0]])
