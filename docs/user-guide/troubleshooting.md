@@ -1,5 +1,46 @@
 # Troubleshooting
 
+## Qt DLL load failure in Anaconda or Spyder
+
+An error such as the following means that Python found a Qt binding but Windows
+loaded an incompatible Qt DLL:
+
+```text
+ImportError: DLL load failed while importing QtCore:
+The specified procedure could not be found.
+```
+
+This commonly happens when pip's PyQt6 is installed into an Anaconda base or
+Spyder environment that already contains PyQt5, PySide6, or Conda's own Qt
+libraries. Installing several bindings does not make them interchangeable;
+Windows may resolve a DLL belonging to a different Qt build.
+
+The recommended solution is a dedicated environment:
+
+```bat
+conda create -n angstrompro python=3.12 pip
+conda activate angstrompro
+cd path\to\AngstromPro
+python -m pip install ".[pyqt6]"
+angstrompro
+```
+
+If AngstromPro must run in the same environment as Spyder, use the Qt binding
+already required by Spyder. For an environment whose working binding is
+PyQt5, remove the conflicting pip-installed PyQt6 packages and reinstall the
+PyQt5 extra:
+
+```bat
+python -m pip uninstall PyQt6 PyQt6-Qt6 PyQt6-sip
+cd path\to\AngstromPro
+python -m pip install ".[pyqt5]"
+angstrompro
+```
+
+Do not remove a binding required by other applications unless you have first
+confirmed which environment and binding they use. A dedicated AngstromPro
+environment avoids changing Spyder's dependencies.
+
 ## The `angstrompro` command is not found
 
 Activate the Python environment in which AngstromPro was installed, then run:
