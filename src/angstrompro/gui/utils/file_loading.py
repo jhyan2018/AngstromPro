@@ -244,7 +244,7 @@ def _extract_dat_channels(full_uds, column_names: list[str],
         axis_type = x_ax_type,
     )
 
-    base_info = {k: v for k, v in full_uds.info.items() if k not in ("column_names",)}
+    base_info = {k: v for k, v in full_uds.info.items() if k != "_column_names"}
 
     results = []
     for cc, col_idx in pairs:

@@ -88,7 +88,7 @@ def load(path: Path) -> UdsDataStru:
     )
 
     info: dict = {
-        "source_format": "lf_" + suffix[1:],
+        "_source_format": "lf_" + suffix[1:],
         "bias_v": bias_v,
         "current_a": current_a,
         "scan_range_m": scan_range_m,

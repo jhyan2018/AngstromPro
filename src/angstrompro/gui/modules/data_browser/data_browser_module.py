@@ -68,6 +68,9 @@ class _StayOpenMenu(QtWidgets.QMenu):
 
 @register_module
 class DataBrowserModule(AGuiModule):
+    # Persists additional splitter and browser state under established keys.
+    persist_window_layout = False
+
     module_id    = "data_browser"
     display_name = "Data Browser"
     category     = "Basic"
@@ -935,6 +938,11 @@ class DataBrowserModule(AGuiModule):
             except Exception:
                 pass
         super().closeEvent(event)
+
+    def save_state_for_exit(self) -> None:
+        self._save_window_state()
+        self._save_view_state()
+        super().save_state_for_exit()
 
     def shutdown(self) -> None:
         """Stop the scanner and release the main-thread cache connection."""

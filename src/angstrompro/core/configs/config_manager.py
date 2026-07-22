@@ -161,6 +161,10 @@ class ConfigManager:
                 appearance = self._config.get("appearance", {})
                 appearance.pop("icon_size", None)
                 appearance.pop("accent_color", None)
+                curve_cfg = (self._config.get("modules", {})
+                             .get("curve_stack_viewer", {}))
+                curve_cfg.pop("line_width", None)
+                curve_cfg.pop("show_grid", None)
                 log.debug("Config loaded from %s", path)
             except (OSError, json.JSONDecodeError) as exc:
                 log.warning("Could not read config file (%s); using defaults", exc)

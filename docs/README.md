@@ -7,12 +7,12 @@ or contributing to the application.
 ## User guide
 
 1. [Getting started](user-guide/getting-started.md)
-2. [Workspaces and the Inspector](user-guide/workspaces-and-inspector.md)
-3. [Processes](user-guide/processes.md)
-4. [Data Browser](user-guide/data-browser.md)
+2. [Planewave Synthesiser](user-guide/planewave-synthesiser.md)
+3. [Workspaces and the Inspector](user-guide/workspaces-and-inspector.md)
+4. [Processes](user-guide/processes.md)
 5. [Image Stack Viewer](user-guide/image-stack-viewer.md)
 6. [Curve Stack Viewer](user-guide/curve-stack-viewer.md)
-7. [Planewave Synthesiser](user-guide/planewave-synthesiser.md)
+7. [Data Browser](user-guide/data-browser.md)
 8. [File I/O](user-guide/file-formats.md)
 9. [Preferences](user-guide/preferences.md)
 10. [Troubleshooting](user-guide/troubleshooting.md)

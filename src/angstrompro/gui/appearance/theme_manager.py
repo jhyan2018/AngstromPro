@@ -253,8 +253,15 @@ class ThemeManager:
         monospace_family = self._monospace_family().replace('"', '')
         accent = "#3d8bfd" if dark else "#1976d2"
         border = "#555b63" if dark else "#c5c9cf"
+        dock_border = "#69717a" if dark else "#aeb4bc"
+        dock_title = "#30353b" if dark else "#eef0f3"
         hover = "#3a3f45" if dark else "#e8ebef"
         pressed = "#444a51" if dark else "#dce1e6"
+        toggle = "#263c5b" if dark else "#e8f1fd"
+        toggle_hover = "#31517b" if dark else "#d7e9fc"
+        checked = "#3d8bfd" if dark else "#1976d2"
+        checked_hover = "#579bff" if dark else "#1565b5"
+        button_text = "#8ab4f8" if dark else "#175ea8"
         disabled = "#7f858d" if dark else "#969ca4"
 
         return f"""
@@ -267,14 +274,49 @@ QWidget {{
 }}
 QToolTip {{ border: 1px solid {border}; padding: 3px 5px; }}
 
+/* Docks need a complete outline: relying on the platform separator leaves the
+   outer edge almost invisible on some Windows styles. */
+QDockWidget {{ border: 1px solid {dock_border}; }}
+QDockWidget::title {{
+    background: {dock_title};
+    border-bottom: 1px solid {dock_border};
+    padding: 3px 5px;
+    text-align: left;
+}}
+QMainWindow::separator {{ background: {dock_border}; width: 2px; height: 2px; }}
+QMainWindow::separator:hover {{ background: {accent}; }}
+
 QPushButton, QToolButton {{
     border: 1px solid {border}; border-radius: 3px;
-    padding: 2px 7px; min-height: 20px;
+    padding: 2px 7px; min-height: 20px; color: {button_text};
 }}
 QPushButton:hover, QToolButton:hover {{ background: {hover}; }}
 QPushButton:pressed, QToolButton:pressed {{ background: {pressed}; }}
 QPushButton:disabled, QToolButton:disabled {{ color: {disabled}; }}
 QPushButton:default {{ border: 1px solid {accent}; }}
+
+/* Toggle buttons must remain recognisable before and after they are checked.
+   The property selector limits these rules to buttons made checkable by code. */
+QPushButton[checkable="true"], QToolButton[checkable="true"] {{
+    background: {toggle}; border-color: {accent};
+}}
+QPushButton[checkable="true"]:hover:!checked,
+QToolButton[checkable="true"]:hover:!checked {{
+    background: {toggle_hover};
+}}
+QPushButton:checked, QToolButton:checked {{
+    background: {checked}; color: white;
+    border-color: {checked}; font-weight: 600;
+}}
+QPushButton:checked:hover, QToolButton:checked:hover {{
+    background: {checked_hover}; border-color: {checked_hover};
+}}
+QPushButton:checked:pressed, QToolButton:checked:pressed {{
+    background: {pressed}; color: {button_text};
+}}
+QPushButton:checked:disabled, QToolButton:checked:disabled {{
+    background: {border}; color: {disabled}; border-color: {border};
+}}
 
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
     border: 1px solid {border}; border-radius: 3px;

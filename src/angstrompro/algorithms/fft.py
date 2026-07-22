@@ -13,9 +13,16 @@ from __future__ import annotations
 import copy
 
 import numpy as np
-from scipy.signal.windows import tukey, blackman, blackmanharris
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import (
+    Axis,
+    UdsDataStru,
+    FFT_DOMAIN_KEY,
+    FFT_TRANSFORM_KEY,
+    FFT_SOURCE_NAME_KEY,
+    FFT_WINDOW_KEY,
+    FFT_TUKEY_ALPHA_KEY,
+)
 from angstrompro.core.processes import (
     InputSpec,
     OutputSpec,
@@ -82,6 +89,10 @@ def _make_2d_window(name: str, n_rows: int, n_cols: int, tukey_alpha: float) -> 
     Build a 2-D separable window by outer-producting two 1-D windows.
     Returns an (n_rows × n_cols) float64 array normalised to max = 1.
     """
+    if name in {"tukey", "blackman", "blackman-harris"}:
+        # SciPy is substantial; load it only when its windows are requested.
+        from scipy.signal.windows import tukey, blackman, blackmanharris
+
     def _1d(n: int) -> np.ndarray:
         if name == "none":
             return np.ones(n)
@@ -175,10 +186,19 @@ def fft2d(inputs: dict, params: dict, *, annotations: dict | None = None) -> Uds
     k_axis_y   = _reciprocal_axis(src.axes[2])
     extra_axes  = [copy.deepcopy(ax) for ax in src.axes[3:]]
 
+    info = dict(src.info)
+    info.update({
+        FFT_DOMAIN_KEY: "reciprocal",
+        FFT_TRANSFORM_KEY: "fft_2d",
+        FFT_SOURCE_NAME_KEY: src.name,
+        FFT_WINDOW_KEY: window_name,
+        FFT_TUKEY_ALPHA_KEY: tukey_alpha,
+    })
+
     return UdsDataStru(
         name         = src.name + "_fft",
         data         = out,
         axes         = [layer_axis, k_axis_x, k_axis_y, *extra_axes],
-        info         = dict(src.info),
+        info         = info,
         proc_history = [copy.deepcopy(r) for r in src.proc_history],
     )

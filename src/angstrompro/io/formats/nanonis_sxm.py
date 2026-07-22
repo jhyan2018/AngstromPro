@@ -142,10 +142,10 @@ def load(path: Path,
 
         # Metadata
         info: dict = {
-            "source_format": "nanonis_sxm",
-            "channels": channel_names,
-            "x_pixels": x_pixels,
-            "y_pixels": y_pixels,
+            "_source_format": "nanonis_sxm",
+            "_channels": channel_names,
+            "_x_pixels": x_pixels,
+            "_y_pixels": y_pixels,
             "scan_range_x_m": x_range,
             "scan_range_y_m": y_range,
         }
@@ -174,7 +174,7 @@ def load(path: Path,
     def _make_item(ch_idx: int) -> UdsDataStru:
         ci = max(0, min(ch_idx, n_ch - 1))
         single = data_fwd[ci:ci+1, :, :]   # keep ndim=3: (1, y, x)
-        ch_info = {**info, "channel_loaded": channel_names[ci], "channel_index": ci}
+        ch_info = {**info, "channel_loaded": channel_names[ci], "_channel_index": ci}
         return UdsDataStru(
             name=f"{path.stem}_{channel_names[ci]}",
             data=single.astype(np.float64),

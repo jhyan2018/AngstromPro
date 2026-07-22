@@ -79,6 +79,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # Indices of slots that show a ✕ clear button in the Active Slots panel.
     # Slot 0 (Input) is never clearable regardless. Default: all non-zero slots.
     clearable_slots: set[int] | None = None  # None → {1, 2, ...} (all non-zero)
+    persist_window_layout: bool = True
 
     # ── process_inputs property ──────────────────────────────────────────
     # Wraps the plain list from ModuleMixin so the workspace panel refreshes
@@ -755,7 +756,10 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         act_close = menu.addAction("Close Window")
         act_close.setShortcut("Ctrl+W")
-        act_close.triggered.connect(self.hide)
+        # Route through closeEvent rather than bypassing it with hide().
+        # Child modules still hide through AGuiModule.closeEvent, while the
+        # Main Workbench can run its confirmation and orderly app-exit path.
+        act_close.triggered.connect(self.close)
 
     # ------------------------------------------------------------------
     # Edit menu
@@ -1085,7 +1089,49 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     def on_workspace_changed(self) -> None:
         """Called after any workspace mutation. Override for extra refresh logic."""
 
+    def _window_layout_qsettings_prefix(self) -> str:
+        return f"module/{self.module_id}"
+
+    def _restore_window_layout(self) -> None:
+        if not self.persist_window_layout:
+            return
+        from angstrompro.app.user_data_folder import get_qsettings
+
+        qs = get_qsettings()
+        prefix = self._window_layout_qsettings_prefix()
+        geometry = qs.value(f"{prefix}/geometry")
+        state = qs.value(f"{prefix}/layout")
+        if geometry:
+            self.restoreGeometry(geometry)
+        if state:
+            self.restoreState(state)
+
+    def _save_window_layout(self) -> None:
+        if not self.persist_window_layout:
+            return
+        from angstrompro.app.user_data_folder import get_qsettings
+
+        qs = get_qsettings()
+        prefix = self._window_layout_qsettings_prefix()
+        qs.setValue(f"{prefix}/geometry", self.saveGeometry())
+        qs.setValue(f"{prefix}/layout", self.saveState())
+        qs.sync()
+
+    def save_state_for_exit(self) -> None:
+        """Persist this module before the application event loop stops."""
+        self._save_window_layout()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        if self.persist_window_layout and not getattr(
+                self, "_window_layout_restored", False):
+            self._window_layout_restored = True
+            # Restore after lazy UI construction and subclass resize calls;
+            # otherwise their default geometry wins during startup.
+            QtCore.QTimer.singleShot(0, self._restore_window_layout)
+
     def closeEvent(self, event) -> None:
         """Hide the window instead of destroying it. Use module_manager.remove() to fully remove."""
+        self._save_window_layout()
         self.hide()
         event.ignore()

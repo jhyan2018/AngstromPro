@@ -7,7 +7,7 @@ Data is big-endian float32.
 
 The loaded data has shape (n_points, y_pixels, x_pixels) using only the first
 spectroscopy channel (dI/dV or whichever appears first in 'channels').
-All channels concatenated are available via info['channels'].
+All channel names are available via the internal ``info['_channels']`` entry.
 """
 from pathlib import Path
 
@@ -127,11 +127,11 @@ def load(path: Path, channel_index: int = 0,
                     axis_type=AxisType.SPATIAL_X)
 
         base_info: dict = {
-            "source_format":  "nanonis_3ds",
-            "channels":       channels,
-            "n_points":       n_points,
-            "x_pixels":       x_pixels,
-            "y_pixels":       y_pixels,
+            "_source_format": "nanonis_3ds",
+            "_channels":      channels,
+            "_n_points":      n_points,
+            "_x_pixels":      x_pixels,
+            "_y_pixels":      y_pixels,
             "sweep_signal":   sweep_signal,
             "grid_settings":  grid_settings,
         }
@@ -150,7 +150,7 @@ def load(path: Path, channel_index: int = 0,
             ci = max(0, min(ch_idx, n_channels - 1))
             start = par_num + ci * n_points
             ch_data = data3D[start:start + n_points, :, :]   # (n_pts, x, y)
-            info = {**base_info, "channel_loaded": channels[ci], "channel_index": ci}
+            info = {**base_info, "channel_loaded": channels[ci], "_channel_index": ci}
             # Line-cut special case: y_pixels=1 means a single spatial line.
             # Squeeze the degenerate y-axis → 2D (n_pts, x_pixels) for CurveStackViewer.
             if y_pixels == 1:

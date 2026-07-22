@@ -94,10 +94,15 @@ def _sleep_cancellable(seconds: float, cancel_token) -> bool:
     return True
 
 
-def _gather_files(folder: str, exts: set, order: str) -> list[tuple[str, float]]:
+def _gather_files(folder: str, exts: set, order: str,
+                  cancel_token=None) -> list[tuple[str, float]]:
     files: list[tuple[str, float]] = []
     for root, _dirs, names in os.walk(folder):
+        if cancel_token is not None and cancel_token.is_cancelled():
+            return files
         for n in names:
+            if cancel_token is not None and cancel_token.is_cancelled():
+                return files
             if Path(n).suffix.lower() in exts:
                 p = os.path.join(root, n)
                 try:
@@ -127,8 +132,14 @@ def scanner_loop(cache_dir: str, shared: ScannerShared,
                         break   # disabled mid-pass — skip remaining folders
                     if not os.path.isdir(folder):
                         continue
-                    files = _gather_files(folder, snap["previewable_exts"],
-                                          snap["scan_order"])
+                    files = _gather_files(
+                        folder,
+                        snap["previewable_exts"],
+                        snap["scan_order"],
+                        cancel_token,
+                    )
+                    if cancel_token is not None and cancel_token.is_cancelled():
+                        return
                     for path, mtime in files:
                         if cancel_token is not None and cancel_token.is_cancelled():
                             return

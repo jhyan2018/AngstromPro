@@ -65,6 +65,18 @@ than adding a conflicting one. PyQt5 and PySide6 extras are also available. At
 a Spyder IPython `In [ ]:` prompt, use `%pip install ".[pyqt5]"` instead of the
 terminal form `python -m pip install ".[pyqt5]"`.
 
+## Reopening AngstromPro in Spyder
+
+Spyder owns the IPython kernel's Qt event loop. Closing the Main Workbench
+hides all AngstromPro windows without destroying that shared Qt session.
+Running AngstromPro again in the same console reopens the existing module
+instances and windows. This is different from a standalone `angstrompro`
+process, which exits when its Main Workbench is closed.
+
+After changing AngstromPro or plugin source code, restart the Spyder kernel
+before launching again. Existing widgets and imported classes do not safely
+hot-reload inside a live Qt session.
+
 ## Startup stops at the folder dialog
 
 AngstromPro requires a writable user-data folder. Choose a location where your
@@ -89,7 +101,9 @@ requirements do not match the module.
 
 Confirm that Preferences contains the plugin's `src/` folder and its importable
 top-level module name. Restart AngstromPro, then inspect the application log for
-the import error.
+the import error. When running inside Spyder, restart the Spyder kernel as well;
+merely closing and reopening the hosted AngstromPro session keeps previously
+imported plugin modules in memory.
 
 ## Logs and cache
 

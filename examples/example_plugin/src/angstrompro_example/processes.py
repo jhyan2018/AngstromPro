@@ -62,7 +62,7 @@ def gaussian_stack(inputs: dict, params: dict, *, annotations=None) -> UdsDataSt
             Axis(np.arange(size, dtype=np.float64), "Y", "px", AxisType.SPATIAL_Y),
             Axis(np.arange(size, dtype=np.float64), "X", "px", AxisType.SPATIAL_X),
         ],
-        info={"source_format": "angstrompro_example.simulation"},
+        info={"_source_format": "angstrompro_example.simulation"},
     )
 
 

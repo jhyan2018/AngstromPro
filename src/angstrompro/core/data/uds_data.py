@@ -16,6 +16,72 @@ from .base import WorkspaceData, ProcRecord
 from .isocontour_data import IsocontourResult
 
 
+FFT_DOMAIN_KEY = "_angstrompro.data_domain"
+FFT_TRANSFORM_KEY = "_angstrompro.transform"
+FFT_SOURCE_NAME_KEY = "_angstrompro.source_name"
+FFT_WINDOW_KEY = "_angstrompro.fft_window"
+FFT_TUKEY_ALPHA_KEY = "_angstrompro.fft_tukey_alpha"
+
+_INTERNAL_INFO_KEY_MIGRATIONS = {
+    "angstrompro.data_domain": FFT_DOMAIN_KEY,
+    "angstrompro.transform": FFT_TRANSFORM_KEY,
+    "angstrompro.source_name": FFT_SOURCE_NAME_KEY,
+    "angstrompro.fft_window": FFT_WINDOW_KEY,
+    "angstrompro.fft_tukey_alpha": FFT_TUKEY_ALPHA_KEY,
+    "source_format": "_source_format",
+    "channels": "_channels",
+    "column_names": "_column_names",
+    "channel_index": "_channel_index",
+    "n_points": "_n_points",
+    "x_pixels": "_x_pixels",
+    "y_pixels": "_y_pixels",
+}
+
+
+def display_info_items(info: dict) -> list[tuple[str, object]]:
+    """Return experimental metadata suitable for normal user-facing views.
+
+    By convention, metadata keys beginning with ``_`` are internal.
+    """
+    visible = []
+    for key, value in (info or {}).items():
+        text = str(key).strip()
+        if text.startswith("_"):
+            continue
+        visible.append((text, value))
+    return visible
+
+
+def _legacy_fft_source_name(name: str) -> str | None:
+    """Resolve legacy ``name_fft`` and deduplicated ``name_fft_2`` forms."""
+    if name.endswith("_fft"):
+        return name[:-4]
+    base, separator, suffix = name.rpartition("_")
+    if separator and suffix.isdigit() and base.endswith("_fft"):
+        return base[:-4]
+    return None
+
+
+def is_fft_uds(data: "UdsDataStru") -> bool:
+    """Return whether *data* is FFT output, with legacy name fallback."""
+    info = getattr(data, "info", {}) or {}
+    if info.get(FFT_TRANSFORM_KEY) == "fft_2d":
+        return True
+    if info.get(FFT_DOMAIN_KEY) == "reciprocal":
+        return True
+    return _legacy_fft_source_name(str(getattr(data, "name", ""))) is not None
+
+
+def fft_source_name(data: "UdsDataStru") -> str | None:
+    """Return the originating real-space name when it is known."""
+    info = getattr(data, "info", {}) or {}
+    source = str(info.get(FFT_SOURCE_NAME_KEY, "")).strip()
+    if source:
+        return source
+    name = str(getattr(data, "name", ""))
+    return _legacy_fft_source_name(name)
+
+
 class AxisType(Enum):
     SPATIAL_X  = "spatial_x"
     SPATIAL_Y  = "spatial_y"
@@ -55,6 +121,20 @@ class UdsDataStru(WorkspaceData):
     # named points in N-dimensional data space, e.g.:
     # 1D k-path  — handled by Axis.ticks
     # 2D BZ map  — {(0.0, 0.0): "Γ", (0.5, 0.5): "K", (1.0, 0.0): "M"}
+
+    def __post_init__(self) -> None:
+        """Normalize legacy bookkeeping metadata to the internal-key convention."""
+        self.info = dict(self.info or {})
+        for old_key, new_key in _INTERNAL_INFO_KEY_MIGRATIONS.items():
+            if old_key not in self.info:
+                continue
+            if new_key not in self.info:
+                self.info[new_key] = self.info[old_key]
+            del self.info[old_key]
+
+        # Layer position is represented by axes[0]; these keys are obsolete.
+        self.info.pop("LayerValue", None)
+        self.info.pop("layer_value", None)
 
     def display_type(self) -> str:
         ndim = self.data.ndim
@@ -110,7 +190,9 @@ class UdsDataStru(WorkspaceData):
                       "summary": f"{len(self.axes)} axis/axes",
                       "children": ax_children})
 
-        # info
+        # The Inspector is the complete technical view, including internal and
+        # structural metadata. Compact module views may apply presentation
+        # filtering separately.
         nodes.append({"kind": "group", "label": "info",
                       "summary": f"{len(self.info)} entries",
                       "children": [{"kind": "value", "label": str(k), "value": str(v)}

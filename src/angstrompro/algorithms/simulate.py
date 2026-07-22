@@ -64,7 +64,7 @@ def _wrap(data2d: np.ndarray, name: str) -> UdsDataStru:
     return UdsDataStru(
         name=name, data=d,
         axes=_pixel_axes(1, data2d.shape[0], data2d.shape[1]),
-        info={"LayerValue": "0"},
+        info={},
         proc_history=[],
     )
 

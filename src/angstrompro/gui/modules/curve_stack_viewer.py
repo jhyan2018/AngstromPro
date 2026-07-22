@@ -39,6 +39,9 @@ log = logging.getLogger(__name__)
 
 @register_module
 class CurveStackViewer(AGuiModule):
+    # Retains its existing specialized geometry and dock-state implementation.
+    persist_window_layout = False
+
     module_id    = "curve_stack_viewer"
     display_name = "Curve Stack Viewer"
     category     = "Basic"
@@ -48,13 +51,6 @@ class CurveStackViewer(AGuiModule):
     staged_labels  = ["P", "R"]
 
     preferences_schema = [
-        PrefSection("Display", "chart-line", [
-            PrefItem("line_width", "Line width", "number",
-                     "Matplotlib line width for all curves",
-                     kwargs={"min": 0.1, "max": 10.0}),
-            PrefItem("show_grid", "Show grid", "checkbox",
-                     "Draw a dashed grid on the plot"),
-        ]),
         PrefSection("Color map", "palette", [
             PrefItem("colormap.cmap_palette_list", "", "colormap_picker", full_width=True),
         ]),
@@ -181,6 +177,10 @@ class CurveStackViewer(AGuiModule):
     def closeEvent(self, event) -> None:
         self._save_layout()
         super().closeEvent(event)   # AGuiModule hides instead of destroying
+
+    def save_state_for_exit(self) -> None:
+        self._save_layout()
+        super().save_state_for_exit()
 
     # ── Slot hooks ────────────────────────────────────────────────────────
 
@@ -470,11 +470,6 @@ class CurveStackViewer(AGuiModule):
         cmap_list = cfg.get("colormap", {}).get("cmap_palette_list", [])
         if cmap_list:
             self._viewer.set_cmap_palette(cmap_list)
-        # keep rcParams in sync with the line_width preference
-        import matplotlib as mpl
-        lw = cfg.get("line_width")
-        if lw is not None:
-            mpl.rcParams["lines.linewidth"] = lw
 
     # ── Title / dirty indicator ───────────────────────────────────────────
 

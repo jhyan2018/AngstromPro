@@ -26,7 +26,9 @@ class AppContext:
     Shared application context — owns all managers.
     """
 
-    def __init__(self, config: ConfigManager, theme: ThemeManager, icons: IconManager) -> None:
+    def __init__(self, config: ConfigManager, theme: ThemeManager,
+                 icons: IconManager, *, hosted: bool = False) -> None:
+        self._hosted = hosted
         self._config          = config
         self._theme           = theme
         self._icons           = icons
@@ -39,6 +41,11 @@ class AppContext:
         self._param_history   = ParamHistoryManager()
         self._channel_manager  = ChannelManager(config)
         self._plugin_configs:  dict[str, PluginConfig] = {}
+
+    @property
+    def hosted(self) -> bool:
+        """Whether AngstromPro is running inside a shared host such as Spyder."""
+        return self._hosted
 
     # ------------------------------------------------------------------
     # Plugin discovery

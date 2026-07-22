@@ -29,6 +29,11 @@ python -m pip install -e "examples/example_plugin"
 Restart AngstromPro after installation. The package entry point imports the
 plugin during startup; no path-plugin preference is required.
 
+If AngstromPro is running inside Spyder, restart the Spyder kernel after
+installing or changing the plugin. Closing the Main Workbench only hides the
+hosted session, and launching it again reuses the plugin code already imported
+by that kernel.
+
 ### Alternative: load directly from Preferences
 
 For local development, the plugin can be loaded without installing its package.
@@ -52,6 +57,8 @@ package and also adding its source path is unnecessary.
 2. Click **Generate synthetic data**. The simulation runs through AngstromPro's
    task system and adds a `1 × 96 × 96` image stack to the module workspace.
 3. Double-click the generated workspace item to make it the active input.
+   (For **Send…**, single-click the intended item first so its row is
+   highlighted; double-clicking activates an item rather than sending it.)
 4. Set a scale factor and click **Scale active data**.
 5. Select the result and open **View → Inspector** (`Ctrl+2`) to inspect its UDS
    payload, axes, metadata, and processing history.

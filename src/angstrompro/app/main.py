@@ -84,6 +84,29 @@ def main(external_namespace=None, start_event_loop=True):
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
 
+    if not start_event_loop:
+        # Spyder owns the kernel's Qt event loop.  Keep it alive when the last
+        # AngstromPro window is hidden, and reuse an existing hosted session
+        # instead of rebuilding Qt/VisPy objects in the same process.
+        app.setQuitOnLastWindowClosed(False)
+        session = getattr(app, "_angstrompro_hosted_session", None)
+        if session is not None:
+            context, window = session
+            try:
+                for module in context.module_manager.list_instances():
+                    if getattr(module, "_hosted_restore_visible", False):
+                        module.show()
+                window.show()
+                window.raise_()
+                window.activateWindow()
+                if external_namespace is not None:
+                    external_namespace["window"] = window
+                return app, window
+            except RuntimeError:
+                # The host discarded the underlying C++ window; create a fresh
+                # session rather than retaining an invalid wrapper.
+                delattr(app, "_angstrompro_hosted_session")
+
     # 3 — ensure user data folder is configured before anything reads from it
     if not _ensure_user_data_folder(app):
         return 1   # user cancelled first-launch setup
@@ -103,7 +126,12 @@ def main(external_namespace=None, start_event_loop=True):
     icons = IconManager(config.get_group("appearance"))
 
     # 7
-    context = AppContext(config, theme, icons)
+    context = AppContext(
+        config,
+        theme,
+        icons,
+        hosted=not start_event_loop,
+    )
     # stop worker threads before Qt destroys their QThread objects —
     # Qt6 aborts hard on a still-running thread at teardown
     app.aboutToQuit.connect(context.tasks.shutdown)
@@ -113,6 +141,9 @@ def main(external_namespace=None, start_event_loop=True):
     import angstrompro.gui.workbench.main_workbench  # noqa: F401
     window = context.module_manager.create("main_workbench", context)
     window.show()
+
+    if not start_event_loop:
+        app._angstrompro_hosted_session = (context, window)
 
     if external_namespace is not None:
         external_namespace["window"] = window

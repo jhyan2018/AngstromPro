@@ -387,6 +387,20 @@ class PreferencesPanel(QtWidgets.QWidget):
                 if it.desc:
                     d = QtWidgets.QLabel(it.desc)
                     d.setObjectName("pref_row_desc")
+                    d.setWordWrap(True)
+                    d.setAlignment(
+                        (QtCore.Qt.AlignmentFlag.AlignLeft
+                         | QtCore.Qt.AlignmentFlag.AlignTop)
+                        if IS_QT6 else
+                        (QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+                    )
+                    d.setMinimumWidth(0)
+                    d.setSizePolicy(
+                        (QtWidgets.QSizePolicy.Policy.Expanding
+                         if IS_QT6 else QtWidgets.QSizePolicy.Expanding),
+                        (QtWidgets.QSizePolicy.Policy.Preferred
+                         if IS_QT6 else QtWidgets.QSizePolicy.Preferred),
+                    )
                     lbl_col.addWidget(d)
 
                 row_layout.addLayout(lbl_col, stretch=1)

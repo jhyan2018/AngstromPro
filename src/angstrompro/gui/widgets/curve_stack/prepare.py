@@ -65,8 +65,12 @@ def prepare_entry(name: str, uds) -> dict:
         y_units      = m.group(2)
         y_label      = f"{y_base_label} ({y_prefix}{y_units})"
     else:
-        y_base_label = info.get("channel_display_name") or raw_col or name
-        y_label      = f"{y_base_label} ({y_prefix})" if y_prefix else y_base_label
+        # A dataset/file name identifies the plotted artist; it is not a
+        # physical quantity and must never become the Y-axis label.  Leave the
+        # label blank when channel metadata is unavailable.
+        y_base_label = info.get("channel_display_name") or raw_col
+        y_label = (f"{y_base_label} ({y_prefix})"
+                   if y_base_label and y_prefix else y_base_label)
 
     # row axis — present when data is 2D and has a non-sweep leading axis
     row_values: np.ndarray | None = None
