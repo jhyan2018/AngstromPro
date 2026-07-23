@@ -1,6 +1,34 @@
 # Troubleshooting
 
-## Qt DLL load failure in Anaconda or Spyder
+## Installation is rejected because of the Python version
+
+AngstromPro requires Python 3.10 or newer. Pip will intentionally reject an
+older interpreter with an error such as:
+
+```text
+Package 'angstrompro' requires a different Python: 3.9.x not in '>=3.10'
+```
+
+Do not bypass this check or edit `requires-python`. Create a current environment
+and install AngstromPro there:
+
+```bash
+conda create -n angstrompro python=3.12 pip
+conda activate angstrompro
+cd path/to/AngstromPro
+python -m pip install ".[pyqt5]"
+```
+
+This example chooses PyQt5; PyQt6 and PySide6 are equally supported choices in
+a clean environment. Install only one.
+
+An old Spyder application can sometimes connect to this environment through
+**Preferences → Python interpreter**. If its required `spyder-kernels` version
+does not support the newer Python, update Spyder or install a current Anaconda
+or standalone Spyder release. Avoid upgrading the Python interpreter inside an
+old base environment in place.
+
+## Qt DLL load failure in Anaconda or Spyder on Windows
 
 An error such as the following means that Python found a Qt binding but Windows
 loaded an incompatible Qt DLL:
@@ -21,7 +49,7 @@ The recommended solution is a dedicated environment:
 conda create -n angstrompro python=3.12 pip
 conda activate angstrompro
 cd path\to\AngstromPro
-python -m pip install ".[pyqt6]"
+python -m pip install ".[pyqt5]"
 angstrompro
 ```
 
@@ -41,6 +69,33 @@ Do not remove a binding required by other applications unless you have first
 confirmed which environment and binding they use. A dedicated AngstromPro
 environment avoids changing Spyder's dependencies.
 
+## The Qt Cocoa platform plugin is unavailable on macOS
+
+This error means Python passed the version check, but Qt cannot load its macOS
+window-system plugin:
+
+```text
+qt.qpa.plugin: Could not find the Qt platform plugin "cocoa"
+This application failed to start because no Qt platform plugin could be initialized.
+```
+
+It is usually caused by mixed Conda and pip Qt packages, multiple Qt bindings,
+or an environment variable pointing to another Qt installation. The preferred
+fix is a clean environment containing exactly one binding:
+
+```bash
+conda create -n angstrompro python=3.12 pip
+conda activate angstrompro
+cd path/to/AngstromPro
+python -m pip install ".[pyqt5]"
+angstrompro
+```
+
+If the error remains, check that `which python` and `which angstrompro` both
+refer to this environment. Inspect `env | grep -E '^(QT|DYLD)'`; stale
+`QT_PLUGIN_PATH` or `QT_QPA_PLATFORM_PLUGIN_PATH` values should not be carried
+from another Qt installation.
+
 ## The `angstrompro` command is not found
 
 Activate the Python environment in which AngstromPro was installed, then run:
@@ -54,16 +109,22 @@ appropriate Qt extra.
 
 ## No Qt binding is available
 
-Install one supported binding:
+Install one supported binding. For example:
 
 ```powershell
-python -m pip install ".[pyqt6]"
+python -m pip install ".[pyqt5]"
 ```
 
-Inside an existing Spyder or Qt environment, prefer its existing binding rather
-than adding a conflicting one. PyQt5 and PySide6 extras are also available. At
-a Spyder IPython `In [ ]:` prompt, use `%pip install ".[pyqt5]"` instead of the
-terminal form `python -m pip install ".[pyqt5]"`.
+Alternatively use `.[pyqt6]` or `.[pyside6]`, but do not install the alternatives
+together.
+
+Inside an existing Spyder or Qt environment, first confirm that its Python is
+3.10 or newer and identify its existing binding. Prefer that binding rather
+than adding a conflicting one; PyQt5 and PySide6 extras are available. When
+several bindings are installed, first install AngstromPro without a Qt extra
+and let it use the binding already loaded by Spyder. Move to a clean environment
+if Qt loading errors continue. Use `%pip` at a Spyder IPython prompt only after
+the console has been attached to the intended compatible environment.
 
 ## Reopening AngstromPro in Spyder
 
@@ -79,9 +140,9 @@ hot-reload inside a live Qt session.
 
 ## Startup stops at the folder dialog
 
-AngstromPro requires a writable user-data folder. Choose a location where your
-account can create `config`, `cache`, and `logs` subfolders. Cancelling the
-dialog cancels application startup.
+AngstromPro requires a writable parent location where it can create its
+`angstrompro-user/` folder and the `config`, `cache`, and `logs` subfolders.
+Cancelling the dialog cancels application startup.
 
 ## A file or channel is missing
 

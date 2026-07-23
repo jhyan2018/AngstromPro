@@ -38,6 +38,9 @@ class MainWorkbench(AGuiModule):
                      "Remove the workspace item from the sender once the "
                      "receiver has it (move); unchecked keeps a copy"),
         ]),
+        PrefSection("User data", "folder-cog", [
+            PrefItem("", "", "user_data_folder", full_width=True),
+        ]),
         PrefSection("Appearance", "palette", [
             PrefItem("appearance.theme",     "Theme",     "dropdown",
                      "Colour theme for the application",

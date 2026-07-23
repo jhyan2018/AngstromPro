@@ -40,7 +40,7 @@ import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Callable
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, IS_QT6
+from angstrompro.utils.qt_compat import Action, QtCore, QtWidgets, IS_QT6
 from angstrompro.gui.appearance.typography import (
     BODY, HINT, SECTION, set_typography_role)
 
@@ -54,6 +54,18 @@ if TYPE_CHECKING:
 
 _DockArea = (QtCore.Qt.DockWidgetArea.LeftDockWidgetArea if IS_QT6
              else QtCore.Qt.LeftDockWidgetArea)
+
+
+def _set_menu_role(action, role_name: str) -> None:
+    """Set a QAction menu role across scoped (Qt6) and unscoped (Qt5) enums."""
+    action_type = type(action)
+    menu_role = getattr(action_type, "MenuRole", None)
+    role = (
+        getattr(menu_role, role_name)
+        if menu_role is not None
+        else getattr(action_type, role_name)
+    )
+    action.setMenuRole(role)
 
 
 class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
@@ -229,8 +241,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         act_browser = self._process_menu.addAction("Process Browser…")
         act_browser.setShortcut("Ctrl+B")
         act_browser.triggered.connect(self._on_open_process_browser)
-        act_config = self._process_menu.addAction("Configure Process Menu…")
+        act_config = Action("Configure Process Menu…", self)
+        # macOS text heuristics may classify "Configure" as the application's
+        # Preferences command. Keep this action in the Process menu.
+        _set_menu_role(act_config, "NoRole")
         act_config.triggered.connect(self._on_configure_process_menu)
+        self._process_menu.addAction(act_config)
         self._process_menu.addSeparator()
         self._rebuild_process_submenu()
 
@@ -748,9 +764,13 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         menu.addSeparator()
 
-        act_prefs = menu.addAction("Preferences…")
+        act_prefs = Action("Preferences…", self)
         act_prefs.setShortcut("Ctrl+,")
+        # Mark the one true Preferences action explicitly. On macOS Qt moves
+        # this action into the application menu.
+        _set_menu_role(act_prefs, "PreferencesRole")
         act_prefs.triggered.connect(self._on_preferences)
+        menu.addAction(act_prefs)
 
         menu.addSeparator()
 

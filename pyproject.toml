@@ -47,7 +47,8 @@ dependencies = [
 # A Qt binding is required to run the GUI but is deliberately an extra:
 # qt_compat auto-detects PyQt6 / PyQt5 / PySide6 / PySide2 at runtime,
 # preferring an already-loaded binding (e.g. inside Spyder's console).
-# Documented install:  pip install "angstrompro[pyqt6]"
+# Install without a Qt extra when a compatible binding already exists, or
+# choose exactly one of the pyqt5 / pyqt6 / pyside6 extras in a clean environment.
 [project.optional-dependencies]
 pyqt6   = ["PyQt6"]
 pyqt5   = ["PyQt5"]
