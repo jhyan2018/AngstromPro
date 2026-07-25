@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Data model - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="data-model">Data model</h1>
+<p>All payloads placed in a workspace derive from <code>WorkspaceData</code>. The base class
+defines type, display, summary, and inspection contracts; concrete payloads own
+their domain-specific metadata and content. <code>WorkspaceItem</code> supplies runtime
+identity, source information, and annotations around the payload.</p>
+<p>For the complete container hierarchy and extension contract, see
+<a href="workspaces.html">Runtime data and workspaces</a>.</p>
+<h2 id="scientific-arrays">Scientific arrays</h2>
+<p><code>UdsDataStru</code> is the primary scientific-data container. It combines a NumPy
+array with one <code>Axis</code> per array dimension. Axes carry physical coordinates,
+units, labels, and semantic axis types where known.</p>
+<p>Dimensional conventions used by the current viewers are:</p>
+<ul>
+<li><code>ndim=2</code>: curve stacks for the Curve Stack Viewer</li>
+<li><code>ndim=3</code>: image stacks for the Image Stack Viewer</li>
+</ul>
+<p>These names describe the visualised signal rather than the total number of
+physical coordinates. Processes should declare exact dimensional requirements
+with <code>InputSpec.ndim</code> and may provide axis-type hints.</p>
+<h2 id="annotations">Annotations</h2>
+<p>Annotations attach structured selections to data without modifying the array.
+Built-in types include point sets, regions, and lines. Named roles such as
+<code>bragg_peaks</code>, <code>interest_region</code>, and <code>line_cut</code> allow a <code>ProcessSchema</code> to
+request the correct selection.</p>
+<p>Do not encode annotations as undocumented metadata keys. Add or use a typed
+annotation class and declare it through <code>AnnotationSpec</code>.</p>
+<h2 id="scenes">Scenes</h2>
+<p><code>ScenePlot</code> represents an editable curve-plot scene, including artists and
+style state. It is a composite <code>WorkspaceData</code> payload: its artist
+specifications can wrap <code>UdsDataStru</code> instances and other elementary plot data.
+It uses the <code>scene_plot</code> type ID, and <code>.scplot</code> persistence is handled through
+the normal I/O registry.</p>
+<h2 id="workspace-ownership">Workspace ownership</h2>
+<p>Each live module has its own workspace. Sending an item coordinates a transfer
+between module workspaces; algorithms should operate on the payload rather than
+on GUI widgets.</p>
+<h2 id="mutation">Mutation</h2>
+<p>Process functions should return a new data object and avoid mutating their
+inputs. The process registry can then append a reproducible processing record
+to the returned result without changing the source dataset.</p></body></html>

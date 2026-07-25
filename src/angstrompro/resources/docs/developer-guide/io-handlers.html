@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>I/O handlers - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="io-handlers">I/O handlers</h1>
+<p>The central I/O dispatcher maps data <code>type_id</code> values to readers, writers, and
+user-facing <code>FormatInfo</code> records. Modern native files are detected as HDF5 and
+dispatched using the root type metadata; raw instrument formats are dispatched
+by extension.</p>
+<h2 id="register-a-typed-format">Register a typed format</h2>
+<pre><code class="language-python">from angstrompro.io.angstrom_io import register_io
+
+
+def load_example(path):
+    ...
+
+
+def save_example(path, data):
+    ...
+
+
+register_io(
+    &quot;example_data&quot;,
+    load_example,
+    save_example,
+    extension=&quot;.example&quot;,
+    display_name=&quot;Example data&quot;,
+    description=&quot;Example scientific data.&quot;,
+)
+</code></pre>
+<p>A reader accepts a <code>pathlib.Path</code> and returns <code>WorkspaceData</code>. A writer accepts
+the destination path and compatible data. Set <code>writable=False</code> for a read-only
+format; its writer may raise <code>NotImplementedError</code>.</p>
+<h2 id="register-a-raw-extension-loader">Register a raw extension loader</h2>
+<p>Plugins that only need to load a raw format can register a direct extension
+loader:</p>
+<pre><code class="language-python">from angstrompro.io.angstrom_io import register_ext_loader
+
+register_ext_loader(&quot;.example&quot;, load_example)
+</code></pre>
+<p>Extensions are normalized to lowercase. Raw loaders appear in the runtime
+Supported Formats dialog as plugin-provided, read-only formats.</p>
+<h2 id="multichannel-instruments">Multichannel instruments</h2>
+<p>Only formats that contain multiple named channels should integrate with
+<code>ChannelManager</code>, so loading and thumbnail rendering use the same aliases and
+default selections. Single-channel formats should return their data directly.
+Keep the low-level parser independent of GUI dialogs.</p>
+<h2 id="persistence-rules">Persistence rules</h2>
+<ul>
+<li>Preserve axes, metadata, annotations, and processing records when the format
+  supports them.</li>
+<li>Reject unsupported data explicitly rather than silently dropping fields.</li>
+<li>Use atomic or recoverable writes where practical.</li>
+<li>Keep legacy readers separate from current writers.</li>
+<li>Add the import to the plugin or built-in format package so registration runs.</li>
+</ul></body></html>

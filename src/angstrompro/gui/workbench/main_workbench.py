@@ -171,12 +171,34 @@ class MainWorkbench(AGuiModule):
 
     def _populate_help_menu(self, menu) -> None:
         from angstrompro.gui.dialogs.about_dialog import show_about
+        act_docs = menu.addAction("Documentation…")
+        act_docs.setShortcut("F1")
+        act_docs.triggered.connect(self._on_documentation)
         menu.addSeparator()
         act_formats = menu.addAction("Supported Formats…")
         act_formats.triggered.connect(self._on_format_browser)
         menu.addSeparator()
         act_about = menu.addAction("About AngstromPro…")
         act_about.triggered.connect(lambda: show_about(self))
+
+    def _on_documentation(self) -> None:
+        from angstrompro.gui.dialogs.documentation_dialog import DocumentationDialog
+        dialog = getattr(self, "_documentation_dialog", None)
+        if dialog is None:
+            try:
+                dialog = DocumentationDialog(self)
+            except (OSError, ValueError) as exc:
+                QtWidgets.QMessageBox.critical(
+                    self, "Documentation unavailable", str(exc)
+                )
+                return
+            self._documentation_dialog = dialog
+            dialog.finished.connect(
+                lambda: setattr(self, "_documentation_dialog", None)
+            )
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def build_ui(self) -> None:
 

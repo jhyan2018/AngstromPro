@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Runtime data and workspaces - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="runtime-data-and-workspaces">Runtime data and workspaces</h1>
+<p>The workspace subsystem is AngstromPro's common runtime data bus. It is
+designed to hold more than the built-in UDS array type, allowing new modules and
+plugins to introduce new payloads without creating parallel storage, transfer,
+or inspection mechanisms.</p>
+<h2 id="object-model">Object model</h2>
+<pre><code class="language-text">WorkspaceManager
+└── Workspace                         one per live module instance
+    └── WorkspaceItem                 runtime identity and annotations
+        └── payload: WorkspaceData     arbitrary extensible data type
+</code></pre>
+<p><code>WorkspaceManager</code> registers live workspaces and forwards lifecycle signals.
+<code>Workspace</code> owns an ordered collection of items and emits add, remove, rename,
+and change signals. <code>WorkspaceItem</code> wraps a payload with an item ID, optional
+alias, source path, and named annotations.</p>
+<h2 id="workspacedata-contract">WorkspaceData contract</h2>
+<p>A runtime payload subclasses <code>WorkspaceData</code> and defines:</p>
+<ul>
+<li>A unique, stable <code>type_id</code></li>
+<li><code>display_type()</code> for a human-readable name</li>
+<li><code>summary()</code> for compact facts</li>
+<li><code>inspect_fields()</code> for structured inspection</li>
+</ul>
+<p>The base contract deliberately contains no file I/O. Persistence is registered
+separately with the I/O subsystem. A useful runtime type therefore does not
+need to be directly saveable, although production types should normally offer
+a persistence or export path when their state is valuable.</p>
+<p>Processes declare payload compatibility through <code>InputSpec.type_id</code> and
+modules can declare accepted types. This keeps the workspace generic while
+allowing each consumer to reject unsupported data cleanly.</p>
+<h2 id="elementary-and-composite-payloads">Elementary and composite payloads</h2>
+<p><code>UdsDataStru</code> is an elementary array payload: it owns numerical data, axes,
+metadata, landmarks, and processing history. Runtime annotations belong to the
+surrounding <code>WorkspaceItem</code>.</p>
+<p>Runtime types may also compose other <code>WorkspaceData</code> objects. <code>ScenePlot</code> is
+the main built-in example. It owns a figure hierarchy of axes and artists;
+artist specifications may contain UDS datasets, while error-bar styles may
+refer to additional UDS data. The scene remains one workspace payload even
+though it wraps several elementary datasets and presentation settings.</p>
+<p>This composition model is preferred when a module needs to preserve a coherent
+domain object rather than expose every internal dataset as an unrelated
+workspace row.</p>
+<h2 id="adding-and-transferring-items">Adding and transferring items</h2>
+<p>Add a payload through the owning workspace:</p>
+<pre><code class="language-python">item = self.workspace.add_item(payload=result, source_path=source_path)
+</code></pre>
+<p>The workspace resolves duplicate display names and returns the new
+<code>WorkspaceItem</code>. Cross-module sending creates a destination item through
+<code>WorkspaceManager</code>. The application preference determines whether the source
+row is then removed, producing move-like behavior, or retained.</p>
+<p>Treat workspace payloads as live runtime objects. Consumers that require
+independent mutation should make an explicit copy rather than assuming that a
+send operation creates an independent payload.</p>
+<h2 id="generic-inspection">Generic inspection</h2>
+<p><code>WorkspaceItemInspector</code> renders the list returned by
+<code>WorkspaceData.inspect_fields()</code>. Supported node kinds are:</p>
+<pre><code class="language-text">value   label and printable value
+array   NumPy array, with optional children
+group   nested group of inspection nodes
+axis    group associated with an editable scientific Axis
+</code></pre>
+<p>The base implementation reflects public attributes. Concrete types should
+override it to provide a stable, curated hierarchy, especially for composite
+objects. <code>UdsDataStru</code> exposes data, axes, metadata, and processing history;
+<code>ScenePlot</code> exposes its figure, axes, and artist hierarchy.</p>
+<p>The Inspector can edit array contents and axis semantic types. After an
+in-place change, the owning workspace should emit <code>item_changed</code> when other
+views need to refresh.</p></body></html>

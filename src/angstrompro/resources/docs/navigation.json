@@ -1,0 +1,95 @@
+{
+  "home": "index.html",
+  "sections": [
+    {
+      "title": "User Guide",
+      "pages": [
+        {
+          "title": "Getting started",
+          "path": "user-guide/getting-started.html"
+        },
+        {
+          "title": "Planewave Synthesiser",
+          "path": "user-guide/planewave-synthesiser.html"
+        },
+        {
+          "title": "Workspaces and the Inspector",
+          "path": "user-guide/workspaces-and-inspector.html"
+        },
+        {
+          "title": "Processes",
+          "path": "user-guide/processes.html"
+        },
+        {
+          "title": "Image Stack Viewer",
+          "path": "user-guide/image-stack-viewer.html"
+        },
+        {
+          "title": "Curve Stack Viewer",
+          "path": "user-guide/curve-stack-viewer.html"
+        },
+        {
+          "title": "Data Browser",
+          "path": "user-guide/data-browser.html"
+        },
+        {
+          "title": "File I/O",
+          "path": "user-guide/file-formats.html"
+        },
+        {
+          "title": "Preferences",
+          "path": "user-guide/preferences.html"
+        },
+        {
+          "title": "Troubleshooting",
+          "path": "user-guide/troubleshooting.html"
+        }
+      ]
+    },
+    {
+      "title": "Developer Guide",
+      "pages": [
+        {
+          "title": "Architecture",
+          "path": "developer-guide/architecture.html"
+        },
+        {
+          "title": "Runtime data and workspaces",
+          "path": "developer-guide/workspaces.html"
+        },
+        {
+          "title": "Data model",
+          "path": "developer-guide/data-model.html"
+        },
+        {
+          "title": "Modules",
+          "path": "developer-guide/modules.html"
+        },
+        {
+          "title": "Processes",
+          "path": "developer-guide/processes.html"
+        },
+        {
+          "title": "Tasks and background execution",
+          "path": "developer-guide/tasks.html"
+        },
+        {
+          "title": "Plugins",
+          "path": "developer-guide/plugins.html"
+        },
+        {
+          "title": "I/O handlers",
+          "path": "developer-guide/io-handlers.html"
+        },
+        {
+          "title": "Configuration",
+          "path": "developer-guide/configuration.html"
+        },
+        {
+          "title": "Contributing",
+          "path": "developer-guide/contributing.html"
+        }
+      ]
+    }
+  ]
+}

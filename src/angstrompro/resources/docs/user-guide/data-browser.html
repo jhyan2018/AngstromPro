@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Data Browser - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="data-browser">Data Browser</h1>
+<p>The Data Browser is the disk-to-application entry point. It combines a folder
+tree with a thumbnail gallery and sends supported data to analysis modules.</p>
+<h2 id="watch-folders">Watch folders</h2>
+<p>Add, remove, and reorder watch folders in <strong>Preferences → Data Browser</strong>.
+Watched folders cannot be nested inside one another. Select a folder in the
+tree to list its files; enable <strong>include subfolders</strong> when a recursive view is
+needed.</p>
+<p>The gallery can be narrowed by:</p>
+<ul>
+<li>Filename search</li>
+<li>Readable file format</li>
+<li>Sort order</li>
+</ul>
+<p>The format checkboxes in the browser toolbar filter the current view. The
+watched-format selection in Preferences additionally controls which formats
+the background scanner processes.</p>
+<h2 id="thumbnail-cards">Thumbnail cards</h2>
+<p>A card represents a file and, for multichannel formats, the configured channel
+used for its preview. From a card's context menu you can:</p>
+<ul>
+<li>Send the data to a compatible module</li>
+<li>Select a thumbnail layer for stack data</li>
+<li>Assign a rating from zero to five stars</li>
+<li>Re-render the thumbnail</li>
+</ul>
+<p>If a required channel cannot be matched, review the application-wide channel
+mappings in Preferences.</p>
+<h2 id="scene-templates-for-thumbnails">Scene templates for thumbnails</h2>
+<p>The Data Browser can use the same <code>.scet</code> scene templates saved by the Curve
+Stack Viewer. In <strong>Preferences → Data Browser → Thumbnails</strong>, choose a
+<strong>Plot template</strong> to give raw UDS thumbnails a consistent presentation style.
+The template can carry settings for both curve-stack and colormap rendering;
+the browser chooses the appropriate representation from the dataset and its
+configured stack threshold.</p>
+<p>A template supplies styling only: it does not replace or modify the UDS data.
+For a saved <code>ScenePlot</code> (<code>.scplot</code>), the thumbnail renderer uses the scene's own
+stored layout and styling instead of the Data Browser template.</p>
+<p>The <strong>Z thumbnail background</strong> preference optionally preprocesses data resolved
+by the Channel Manager to the logical display channel <code>Z</code>:</p>
+<ul>
+<li><strong>Off</strong> renders the raw image.</li>
+<li><strong>Polynomial surface</strong> subtracts a first-order 2D plane, making tilted
+  topography easier to see.</li>
+<li><strong>Per scan line</strong> subtracts a first-order polynomial independently from every
+  image row, reducing line-by-line scan backgrounds.</li>
+</ul>
+<p>This is display-only: it does not change the source file, cached UDS data, or
+data sent to another module. Other logical channels are never flattened.</p>
+<p>Changing the selected template affects newly generated thumbnails. Existing
+cached thumbnails also retain their current image when this background option
+changes. Re-render an individual card or use <strong>Re-render all</strong> in the Data
+Browser cache preferences to apply the new rendering settings.</p>
+<h2 id="background-scanner">Background scanner</h2>
+<p>The scanner walks watch folders and pre-renders missing or stale thumbnails at
+low priority. Cached thumbnails make later browsing faster and survive an
+application restart. Files currently visible in the gallery receive higher
+render priority.</p>
+<p>In <strong>Preferences → Data Browser</strong>, you can:</p>
+<ul>
+<li>Enable or disable background scanning</li>
+<li>Choose the formats to watch</li>
+<li>Scan newest files first, oldest files first, or by name</li>
+<li>Set the delay between render requests</li>
+<li>Set the idle interval between complete passes</li>
+<li>Change thumbnail size and rendering options</li>
+<li>Inspect, clean, or regenerate the thumbnail cache</li>
+</ul>
+<p>Disabling the scanner does not prevent thumbnails from being rendered when
+files become visible.</p></body></html>

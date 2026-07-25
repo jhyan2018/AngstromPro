@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Modules - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="modules">Modules</h1>
+<p>GUI modules subclass <code>AGuiModule</code> and register at import time. The base class
+provides File, View, Process, Simulate, and Help menus; workspace and inspector
+docks; sending; preferences; and task-result routing.</p>
+<p>See <a href="tasks.html">Tasks and background execution</a> before adding long-running work
+or directly submitting infrastructure tasks from a module.</p>
+<p>Modules share the same generic workspace contract even when they operate on
+different payload types. A new module can introduce a new <code>WorkspaceData</code> type,
+wrap it in <code>WorkspaceItem</code>, and use the existing Inspector and send workflow.
+Composite module state should normally be represented as one coherent payload,
+as <code>ScenePlot</code> does for plot structure and its embedded UDS data.</p>
+<h2 id="minimal-module">Minimal module</h2>
+<pre><code class="language-python">from angstrompro.core.modules import AGuiModule, register_module
+from angstrompro.utils.qt_compat import QtWidgets
+
+
+@register_module
+class MyModule(AGuiModule):
+    module_id = &quot;example.my_module&quot;
+    display_name = &quot;My Module&quot;
+    category = &quot;Analysis&quot;
+    description = &quot;An example plugin module.&quot;
+    accepted_ndim = 2
+
+    def build_ui(self) -&gt; None:
+        self.setCentralWidget(QtWidgets.QLabel(&quot;Ready&quot;))
+
+    def on_item_loaded(self, item) -&gt; None:
+        pass
+</code></pre>
+<p>Import the module before <code>AppContext</code> finishes construction. Built-in imports
+are collected in <code>angstrompro.gui.modules</code>; external packages normally import
+their modules from a plugin entry point.</p>
+<h2 id="identity-and-compatibility">Identity and compatibility</h2>
+<ul>
+<li><code>module_id</code> must be stable because configuration and startup lists store it.</li>
+<li>Plugin module IDs should begin with the plugin namespace and a dot, such as
+  <code>example.my_module</code>.</li>
+<li><code>display_name</code>, <code>category</code>, and <code>description</code> are user-facing.</li>
+<li><code>accepted_ndim</code> provides basic compatibility filtering.</li>
+<li><code>max_instances</code> can limit singleton-style modules.</li>
+</ul>
+<p>Namespaced plugin modules receive isolated plugin configuration automatically.</p>
+<h2 id="process-and-simulation-menus">Process and simulation menus</h2>
+<p>Set <code>default_process_menu</code> to registered process IDs that should always appear
+for the module. Set <code>default_simulate_menu</code> for registered simulations. The
+runtime menu merges class defaults, developer configuration, and user-added
+entries without allowing users to remove developer defaults.</p>
+<h2 id="input-roles">Input roles</h2>
+<p><code>process_inputs</code> contains the workspace items staged for the next operation.
+Modules with several roles can set <code>staged_labels</code> and <code>clearable_slots</code> to make
+those assignments visible in the workspace dock.</p>
+<h2 id="preferences">Preferences</h2>
+<p>A module may expose a <code>preferences_schema</code> made of <code>PrefSection</code> and <code>PrefItem</code>
+objects. Keep defaults in <code>core/configs/defaults/modules/</code> for built-ins. Plugin
+modules should register their own defaults with the plugin configuration before
+reading values.</p></body></html>

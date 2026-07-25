@@ -19,6 +19,17 @@ Launch the installed entry point:
 angstrompro
 ```
 
+When Markdown documentation changes, rebuild the packaged offline HTML before
+committing:
+
+```powershell
+python -m pip install -e ".[docs]"
+python tools/build_docs.py
+```
+
+The generated files under `src/angstrompro/resources/docs/` are displayed by
+**Help → Documentation…** and should remain synchronized with `docs/`.
+
 ## Design expectations
 
 - Keep scientific algorithms independent from Qt widgets.

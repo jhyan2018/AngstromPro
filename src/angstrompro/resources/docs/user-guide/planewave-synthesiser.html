@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Planewave Synthesiser - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="planewave-synthesiser">Planewave Synthesiser</h1>
+<p>The Planewave Synthesiser produces a two-dimensional real-space image from a
+sum of plane waves. It is the recommended first analysis module when you want
+to explore AngstromPro but do not have measurement data available:</p>
+<p>$$
+f(x,y) = \sum_j A_j \cos!\left(
+2\pi\frac{q_{x_j}X + q_{y_j}Y}{\mathrm{size}} - \varphi_j
+\right)
+$$</p>
+<h2 id="create-an-image">Create an image</h2>
+<ol>
+<li>In the Main Workbench, choose <strong>+ New Module → Planewave Synthesiser</strong>.</li>
+<li>Set the square output size.</li>
+<li>Add or remove wave components.</li>
+<li>For each <code>Q</code> component, set <code>qx</code>, <code>qy</code>, amplitude <code>A</code>, and phase <code>φ</code>.
+   The <strong>A range</strong> and <strong>φ range</strong> controls set the slider limits.</li>
+<li>Adjust component values while observing the live image.</li>
+<li>Choose <strong>Save to workspace</strong>.</li>
+</ol>
+<h2 id="continue-through-angstrompro">Continue through AngstromPro</h2>
+<ol>
+<li>Select the generated item in the Planewave Synthesiser's Workspace dock.</li>
+<li>Single-click the new workspace item so it is highlighted, then choose
+   <strong>Send…</strong> and select an open <strong>Image Stack Viewer</strong>.</li>
+<li>Explore the image display, layer controls, colormaps, and point picking.</li>
+<li>Run a compatible operation from the viewer's <strong>Process</strong> menu.</li>
+<li>Inspect the returned workspace item or send it to another compatible module.</li>
+</ol>
+<p>This synthetic-data route teaches the same workspace and processing workflow
+used for experimental files, without requiring AngstromPro to distribute
+private or instrument-specific example datasets.</p></body></html>

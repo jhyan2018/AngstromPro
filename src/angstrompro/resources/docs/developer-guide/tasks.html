@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tasks and background execution - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="tasks-and-background-execution">Tasks and background execution</h1>
+<p>AngstromPro's task subsystem keeps expensive or long-running work away from
+the Qt GUI thread. <code>AppContext.tasks</code> exposes the shared <code>TaskManager</code>, which
+accepts a <code>TaskRequest</code> and returns a <code>TaskHandle</code> for observing or cancelling
+the work.</p>
+<p>Registered scientific processes normally go through <code>ProcessRunner</code>, which
+builds their task requests and routes results back to a module. Submit a task
+directly when implementing infrastructure work that is not a registered
+process, such as file loading, thumbnail rendering, or a background scanner.</p>
+<h2 id="execution-backends">Execution backends</h2>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Intended work</th>
+<th>Execution model</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>compute</code> or <code>auto</code></td>
+<td>Finite CPU-oriented work</td>
+<td>Shared compute thread pool</td>
+</tr>
+<tr>
+<td><code>io</code></td>
+<td>Finite file or device I/O</td>
+<td>Shared I/O thread pool</td>
+</tr>
+<tr>
+<td><code>async</code></td>
+<td>Compatibility alias for <code>io</code></td>
+<td>Shared I/O thread pool; not an <code>asyncio</code> event loop</td>
+</tr>
+<tr>
+<td><code>persistent</code></td>
+<td>A long-lived cooperative loop</td>
+<td>One dedicated low-priority <code>QThread</code> per task</td>
+</tr>
+</tbody>
+</table>
+<p>The compute pool size comes from <code>tasks.max_concurrent_tasks</code>; the I/O pool
+has its own larger limit. Pool tasks accept <code>high</code>, <code>normal</code>, and <code>low</code>
+priorities. Priority changes queue order, not the operating-system priority of
+already running work. Persistent workers always run at low thread priority.</p>
+<h2 id="submitting-a-task">Submitting a task</h2>
+<pre><code class="language-python">from angstrompro.core.tasks import TaskRequest
+
+
+def build_preview(path, *, cancel_token=None, progress_callback=None):
+    for current in range(10):
+        if cancel_token is not None and cancel_token.is_cancelled():
+            return None
+        # Perform one bounded unit of work here.
+        if progress_callback is not None:
+            progress_callback(current + 1, 10)
+    return {&quot;path&quot;: path}
+
+
+request = TaskRequest(
+    task_func=build_preview,
+    source_id=self.instance_id,
+    task_type=&quot;example.build_preview&quot;,
+    kwargs={&quot;path&quot;: path},
+    backend=&quot;io&quot;,
+    cancellable=True,
+    has_progress=True,
+    priority=&quot;normal&quot;,
+)
+handle = self._context.tasks.submit(request)
+handle.result.connect(self._on_preview_ready)
+handle.error.connect(self._on_preview_error)
+handle.cancelled.connect(self._on_preview_cancelled)
+</code></pre>
+<p>The task manager injects <code>cancel_token</code> only when <code>cancellable=True</code> and
+<code>progress_callback</code> only when <code>has_progress=True</code>. The callable must accept
+those keyword arguments. Results and errors are delivered to the manager on
+the Qt thread through queued signals.</p>
+<h2 id="request-and-handle-contracts">Request and handle contracts</h2>
+<p>Important <code>TaskRequest</code> fields include:</p>
+<ul>
+<li><code>source_id</code>: stable ID of the submitting module or service.</li>
+<li><code>task_type</code>: descriptive ID used by logs and the Task Dashboard.</li>
+<li><code>kwargs</code>: arguments passed to the callable; avoid GUI objects here.</li>
+<li><code>backend</code>, <code>priority</code>: execution placement and pool queue priority.</li>
+<li><code>cancellable</code>, <code>has_progress</code>: enable injected cooperative callbacks.</li>
+<li><code>retries</code>: retry count after exceptions.</li>
+<li><code>timeout_s</code>: emit a timeout error after the task starts.</li>
+<li><code>group_id</code>: collect related tasks for <code>cancel_group()</code>.</li>
+<li><code>metadata</code>: optional descriptive data for observers.</li>
+<li><code>silent</code>: hide internal work from the Task Dashboard.</li>
+</ul>
+<p><code>TaskHandle</code> emits <code>started(task_id)</code>, <code>progress(task_id, current, total)</code>,
+<code>result(task_id, value)</code>, <code>error(task_id, traceback_text)</code>, and
+<code>cancelled(task_id)</code>. Keep the handle when the caller may need to cancel or
+track the operation.</p>
+<h2 id="cancellation-timeouts-and-shutdown">Cancellation, timeouts, and shutdown</h2>
+<p>Cancellation is cooperative. <code>handle.cancel()</code> sets the injected token; the
+callable must check it at sensible boundaries and return promptly. Python
+threads cannot be safely killed from another thread.</p>
+<p>Likewise, <code>timeout_s</code> reports a timeout and removes the task from manager
+tracking, but it does not forcibly stop the underlying callable. A task that
+must stop promptly should also be cancellable and perform bounded operations.</p>
+<p>A persistent task should loop until <code>cancel_token.is_cancelled()</code> and put
+resource cleanup in a <code>finally</code> block. Application shutdown cancels active
+tasks, asks persistent loops to finish, and waits briefly for executor threads.
+Modules must still close resources they own, such as database connections and
+file handles, in their shutdown hooks.</p>
+<h2 id="thread-safety-rules">Thread-safety rules</h2>
+<ul>
+<li>Never create or modify Qt widgets from a task callable.</li>
+<li>Pass plain data into workers and update the GUI from handle signals.</li>
+<li>Do not share thread-bound resources such as SQLite connections; create one
+  connection per worker thread when required.</li>
+<li>Check cancellation inside loops and between potentially slow operations.</li>
+<li>Use a registered process for reusable scientific transformations; use a
+  direct task for application infrastructure.</li>
+</ul>
+<p>The Data Browser provides both patterns: thumbnail renders are finite <code>io</code>
+tasks, while its background scanner is a cancellable <code>persistent</code> task.</p></body></html>
