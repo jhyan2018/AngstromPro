@@ -1,68 +1,73 @@
-<svg width="400" height="400" viewBox="0 0 400 400" role="img" xmlns="http://www.w3.org/2000/svg">
-  <title>AngstromPro app icon</title>
-  <desc>AngstromPro 1:1 app icon: bold angstrom symbol, large STM probe tip, thick atomic structures</desc>
-  <defs>
-    <clipPath id="ic">
-      <circle cx="200" cy="200" r="187"/>
-    </clipPath>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="400"
+     height="400"
+     viewBox="0 0 400 400"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">AngstromPro app logo</title>
+  <desc id="desc">Hand-drawn teal Angstrom symbol on a rounded white app tile.</desc>
 
-  <!-- Emblem fill -->
-  <circle cx="200" cy="200" r="190" fill="#EDF8F6"/>
+  <!-- White app-icon tile for consistent contrast in light and dark UI. -->
+  <rect x="12"
+        y="12"
+        width="376"
+        height="376"
+        rx="42"
+        fill="#FFFFFF"
+        stroke="#D6DCE1"
+        stroke-width="6"/>
 
-  <!-- Probe body — wide and bold -->
-  <rect clip-path="url(#ic)" x="188" y="14" width="24" height="40" rx="3" fill="#0B2D3A"/>
-  <!-- Probe tip — large dramatic triangle -->
-  <polygon clip-path="url(#ic)" points="182,54 218,54 200,104" fill="#16D2B4"/>
-  <!-- Tunnel junction dot -->
-  <circle clip-path="url(#ic)" cx="200" cy="104" r="5.5" fill="#9AF5E8" opacity="0.9"/>
+  <!-- Give the hand-drawn mark comfortable padding inside the tile. -->
+  <g transform="translate(12 26) scale(.86)">
+  <g fill="none"
+     stroke="#0788A3"
+     stroke-linecap="round"
+     stroke-linejoin="round">
 
-  <!-- Å symbol — large and bold -->
-  <text clip-path="url(#ic)" x="200" y="270" text-anchor="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="165" font-weight="700" fill="#0B2D3A">&#x00C5;</text>
+    <!-- Ring above the Angstrom mark. -->
+    <path d="M229 26
+             C244 32 248 46 244 59
+             C240 73 225 79 211 76
+             C195 73 188 61 190 47
+             C192 32 205 23 218 24
+             C222 24 226 25 229 26 Z"
+          stroke-width="24"/>
 
-  <!-- Separator -->
-  <line clip-path="url(#ic)" x1="120" y1="282" x2="280" y2="282"
-    stroke="#0B2D3A" stroke-width="2" opacity="0.25"/>
+    <!-- Left rising stroke and its returning inner stroke preserve the
+         open, hand-drawn loop from the source sketch. -->
+    <path d="M218 108
+             C196 127 178 173 163 222
+             C151 261 143 300 142 328"
+          stroke-width="24"/>
+    <path d="M218 108
+             C211 137 199 174 184 214
+             C167 260 151 301 142 328"
+          stroke-width="14"/>
 
-  <!-- Bond lines — thick -->
-  <line clip-path="url(#ic)" x1="148" y1="354" x2="200" y2="322" stroke="#0B2D3A" stroke-width="3" opacity="0.4"/>
-  <line clip-path="url(#ic)" x1="200" y1="322" x2="252" y2="354" stroke="#0B2D3A" stroke-width="3" opacity="0.4"/>
-  <line clip-path="url(#ic)" x1="148" y1="354" x2="252" y2="354" stroke="#0B2D3A" stroke-width="3" opacity="0.4"/>
-
-  <!-- Atom 1: left (148,354), rotate −40° -->
-  <g clip-path="url(#ic)" transform="translate(148,354) rotate(-40)">
-    <ellipse rx="20" ry="9" fill="none" stroke="#0B2D3A" stroke-width="3"/>
-    <circle r="7" fill="#0B2D3A"/>
-    <circle cx="20" cy="0" r="5" fill="#16D2B4"/>
+    <!-- Long right leg and lower return. -->
+    <path d="M218 108
+             C242 124 249 174 257 226
+             C266 284 274 335 270 354
+             C268 369 257 372 242 366
+             C224 359 204 346 187 330"
+          stroke-width="22"/>
   </g>
 
-  <!-- Atom 2: center (200,322), two crossed orbitals -->
-  <g clip-path="url(#ic)" transform="translate(200,322) rotate(0)">
-    <ellipse rx="22" ry="10" fill="none" stroke="#0B2D3A" stroke-width="3"/>
+  <!-- Broad cross stroke, drawn as a filled brush shape so it retains the
+       tapered left edge and heavier right end of the sketch. -->
+  <path d="M84 254
+           C123 239 164 229 207 220
+           C236 214 260 208 279 208
+           C288 208 293 212 293 218
+           C293 225 286 230 278 231
+           C252 232 226 235 199 239
+           C155 245 116 252 84 258
+           C80 259 78 258 78 257
+           C78 256 80 255 84 254 Z"
+        fill="#0788A3"
+        stroke="#0788A3"
+        stroke-width="12"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
   </g>
-  <g clip-path="url(#ic)" transform="translate(200,322) rotate(70)">
-    <ellipse rx="22" ry="10" fill="none" stroke="#0B2D3A" stroke-width="3"/>
-  </g>
-  <circle clip-path="url(#ic)" cx="200" cy="322" r="8" fill="#0B2D3A"/>
-  <circle clip-path="url(#ic)" cx="222" cy="322" r="5" fill="#16D2B4"/>
-
-  <!-- Atom 3: right (252,354), rotate 40° -->
-  <g clip-path="url(#ic)" transform="translate(252,354) rotate(40)">
-    <ellipse rx="20" ry="9" fill="none" stroke="#0B2D3A" stroke-width="3"/>
-    <circle r="7" fill="#0B2D3A"/>
-    <circle cx="-20" cy="0" r="5" fill="#16D2B4"/>
-  </g>
-
-  <!-- Outer ring — bold -->
-  <circle cx="200" cy="200" r="190" fill="none" stroke="#0B2D3A" stroke-width="5"/>
-
-  <!-- Hex lattice nodes at 60° — larger -->
-  <circle cx="390" cy="200" r="9" fill="#0B2D3A"/>
-  <circle cx="295" cy="35.5" r="9" fill="#0B2D3A"/>
-  <circle cx="105" cy="35.5" r="9" fill="#0B2D3A"/>
-  <circle cx="10" cy="200" r="9" fill="#0B2D3A"/>
-  <circle cx="105" cy="364.5" r="9" fill="#0B2D3A"/>
-  <circle cx="295" cy="364.5" r="9" fill="#0B2D3A"/>
 </svg>
