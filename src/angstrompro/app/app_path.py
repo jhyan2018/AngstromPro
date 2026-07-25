@@ -26,7 +26,6 @@ class AppPaths:
     user_plugins_dir: Path   # <UserDataFolder>/config/plugins/
     user_cache_dir:   Path   # <UserDataFolder>/cache/
     user_logs_dir:    Path   # <UserDataFolder>/logs/
-    snapshot_dir:     Path   # <UserDataFolder>/cache/snapshots/
 
     @classmethod
     def create(cls) -> "AppPaths":
@@ -43,7 +42,6 @@ class AppPaths:
         user_plugins = user_data / "config" / "plugins"
         user_cache   = user_data / "cache"
         user_logs    = user_data / "logs"
-        snapshots    = user_data / "cache" / "snapshots"
 
         return cls(
             project_root     = project_root,
@@ -53,7 +51,6 @@ class AppPaths:
             user_plugins_dir = user_plugins,
             user_cache_dir   = user_cache,
             user_logs_dir    = user_logs,
-            snapshot_dir     = snapshots,
         )
 
     def ensure_dirs(self) -> None:
@@ -62,7 +59,6 @@ class AppPaths:
             self.user_plugins_dir,
             self.user_cache_dir,
             self.user_logs_dir,
-            self.snapshot_dir,
         ):
             d.mkdir(parents=True, exist_ok=True)
 

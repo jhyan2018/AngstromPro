@@ -14,43 +14,82 @@ publication.
 
 ## Installation
 
-AngstromPro requires Python 3.10 or newer. Clone this repository, enter its root
-directory, and install the application with a Qt binding:
+**AngstromPro requires Python 3.10 or newer. Python 3.9 is not supported.**
+AngstromPro works with plain Python and with IDEs such as Spyder, Visual Studio,
+and VS Code. The IDE name does not decide which packages are available: its
+selected Python environment does. Anaconda/Spyder environments commonly
+already contain PyQt5, while a Visual Studio or VS Code project may select an
+environment containing PyQt6 or no Qt binding at all. This is why both Python
+and Qt must be checked first.
+
+Run these checks in PowerShell, Command Prompt, or a macOS/Linux terminal before
+installing:
+
+```powershell
+python --version
+python -c "import sys; print(sys.executable)"
+python -c "import importlib.util as u; print([n for n in ('PyQt6','PyQt5','PySide6') if u.find_spec(n)])"
+```
+
+If Python is 3.10 or newer and the check lists exactly one binding, use the
+simplest installation: clone the repository and install AngstromPro without a
+Qt extra. It will use the binding already present:
 
 ```powershell
 git clone https://github.com/jhyan2018/AngstromPro.git
 cd AngstromPro
-python -m pip install ".[pyqt6]"
+python -m pip install .
 ```
 
-Alternative Qt bindings and optional scientific features are available as
-installation extras. The AngstromPro light and dark themes are bundled with
-the application and require no additional package:
+If Python is 3.10 or newer and no binding is listed, use the same steps but
+choose exactly one supported Qt extra. For example:
 
 ```powershell
-# For an environment that already uses PyQt5, such as some Spyder installations
+git clone https://github.com/jhyan2018/AngstromPro.git
+cd AngstromPro
 python -m pip install ".[pyqt5]"
-
-# Use PySide6 instead of PyQt
-python -m pip install ".[pyside6]"
-
-# Include optional scientific features provided by scikit-image
-python -m pip install ".[pyqt6,full]"
 ```
 
-Only one Qt binding is needed.
+PyQt6 and PySide6 are equally supported alternatives; replace `pyqt5` with
+`pyqt6` or `pyside6`. Do not install more than one Qt extra.
 
-The commands above are for PowerShell, Command Prompt, or another system
-terminal. If the repository is already the working directory in a Spyder
-IPython console, use IPython's `%pip` command instead, for example:
+If multiple bindings are listed, do not install another one. First use the
+no-extra installation (`python -m pip install .`): AngstromPro prefers the
+binding already loaded by an IDE such as Spyder. Create a clean environment
+when Python is older than 3.10 or when the existing environment produces Qt
+loading, DLL, or platform-plugin errors. With Conda:
 
-```python
-%pip install ".[pyqt5]"
+```powershell
+conda create -n angstrompro python=3.12 pip
+conda activate angstrompro
+git clone https://github.com/jhyan2018/AngstromPro.git
+cd AngstromPro
+python -m pip install ".[pyqt5]"
 ```
 
-The same substitution works for the other extras. Do not enter
-`python -m pip ...` at the `In [ ]:` prompt; that syntax launches Python from a
-system terminal, while `%pip` targets the active IPython environment directly.
+Without Conda, create a standard virtual environment using an installed Python
+3.12, activate it, and run the same installation command:
+
+```powershell
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+python -m pip install ".[pyqt5]"
+```
+
+This no-extra installation is normally the simplest choice for a compatible
+Spyder environment that already uses PyQt5. Optional scikit-image features can
+be installed without changing its Qt binding using
+`python -m pip install ".[full]"`.
+
+The README recommends `python -m pip install .` for normal use. Developers who
+intend to edit the checkout should use `python -m pip install -e .` instead;
+editable mode runs from the working source tree, so code changes are available
+without reinstalling. Both forms install the same dependencies and
+`angstrompro` launcher.
+
+For Conda, standard-Python, Spyder, Visual Studio, and VS Code instructions, see
+[Getting started](docs/user-guide/getting-started.md).
 
 ## Quick start
 
@@ -67,10 +106,11 @@ the Spyder kernel after changing AngstromPro or plugin source code so the next
 launch imports the revised classes. A standalone `angstrompro` process exits
 normally when its Main Workbench is closed.
 
-On first launch, AngstromPro asks you to choose a user-data folder. It stores
-configuration, interface settings, thumbnail caches, and logs beneath that
-folder. By default, the application opens the **Data Browser**, **Image Stack
-Viewer**, and **Curve Stack Viewer**.
+On first launch, AngstromPro asks you to choose a parent location and creates
+an `angstrompro-user/` folder beneath it. Configuration, interface settings,
+thumbnail caches, and logs stay inside that dedicated folder. By default, the
+application opens the **Data Browser**, **Image Stack Viewer**, and **Curve
+Stack Viewer**.
 
 A useful first workflow does not require measurement files:
 

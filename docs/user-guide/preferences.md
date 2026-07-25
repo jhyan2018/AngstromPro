@@ -8,6 +8,7 @@ combines application-wide settings with settings contributed by modules.
 Application-wide preferences include:
 
 - Appearance, including the bundled light or dark theme and application font
+- The parent location of the AngstromPro user-data folder
 - Whether sending moves or copies a workspace item
 - Modules excluded as send targets
 - Local plugin source paths
@@ -43,6 +44,19 @@ Application preferences are saved beneath the selected user-data folder in
 `config/config.json`. Interface geometry and other Qt state are stored in
 `config/settings.ini`. Only values that differ from built-in defaults need to
 be persisted.
+
+The **User data** page shows the active folder and can queue a different parent
+location. AngstromPro creates or uses `<parent>/angstrompro-user/`. At the next
+new application session it copies the existing user data to the new location
+before switching the pointer. The obsolete `cache/snapshots/` folder is not
+copied, and the original folder is retained as a backup. For a standalone
+launch, fully exit and launch AngstromPro again. In Spyder, restart the kernel
+and launch AngstromPro again; merely reopening the hidden hosted session is
+still the same runtime.
+
+While a change is queued, a temporary pending record is stored beside the
+OS-managed pointer. After the next session adopts the change, that record is
+removed and `datapath.txt` contains only the new absolute path.
 
 Plugin modules whose IDs use a plugin namespace can store settings in separate
 files under `config/plugins/`, preventing a plugin from overwriting the main

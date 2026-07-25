@@ -2,12 +2,16 @@
 
 ## Development installation
 
-Create or activate a Python 3.10+ environment, then install the checkout in
-editable mode with one Qt binding:
+Create or activate a Python 3.10+ environment, check which Qt binding it already
+contains, then install the checkout in editable mode. If one supported binding
+is already installed:
 
 ```powershell
-python -m pip install -e ".[pyqt6,full]"
+python -m pip install -e ".[full]"
 ```
+
+If no binding is installed, add exactly one of `pyqt5`, `pyqt6`, or `pyside6`
+to the extras, for example `python -m pip install -e ".[pyqt5,full]"`.
 
 Launch the installed entry point:
 

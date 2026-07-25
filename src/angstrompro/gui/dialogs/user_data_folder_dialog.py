@@ -14,7 +14,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
-from angstrompro.app.user_data_folder import default_suggestion, set_user_data_folder
+from angstrompro.app.user_data_folder import (
+    USER_DATA_DIRNAME,
+    default_suggestion,
+    set_user_data_folder,
+    user_data_folder_from_parent,
+)
 
 
 class UserDataFolderDialog(QtWidgets.QDialog):
@@ -51,11 +56,12 @@ class UserDataFolderDialog(QtWidgets.QDialog):
 
         # Explanation
         info = QtWidgets.QLabel(
-            "Please choose a folder to store your AngstromPro settings, "
-            "recent files, and cached data.\n\n"
-            "Recommendation: choose a location that survives OS reinstalls, "
-            "such as a secondary drive (e.g. D:\\AngstromPro) or a "
-            "cloud-synced folder (OneDrive, Dropbox, etc.).\n\n"
+            "Please choose a parent location for your AngstromPro user data. "
+            f"AngstromPro will create a dedicated '{USER_DATA_DIRNAME}' folder "
+            "inside it for settings, recent files, cached data, and logs.\n\n"
+            "Recommendation: choose a parent location that survives OS "
+            "reinstalls, such as a secondary drive or a cloud-synced folder "
+            "(OneDrive, Dropbox, etc.).\n\n"
             "Avoid paths like C:\\Users\\...\\AppData or system folders — "
             "these are wiped when you reinstall Windows / macOS."
         )
@@ -65,7 +71,7 @@ class UserDataFolderDialog(QtWidgets.QDialog):
         # Path row
         path_row = QtWidgets.QHBoxLayout()
         self._path_edit = QtWidgets.QLineEdit()
-        self._path_edit.setPlaceholderText("Choose a folder…")
+        self._path_edit.setPlaceholderText("Choose a parent folder…")
         self._path_edit.setText(str(default_suggestion()))
         self._path_edit.textChanged.connect(self._on_path_changed)
         path_row.addWidget(self._path_edit)
@@ -74,6 +80,10 @@ class UserDataFolderDialog(QtWidgets.QDialog):
         browse_btn.clicked.connect(self._browse)
         path_row.addWidget(browse_btn)
         layout.addLayout(path_row)
+
+        self._result_path = QtWidgets.QLabel()
+        self._result_path.setWordWrap(True)
+        layout.addWidget(self._result_path)
 
         # Warning label (shown when path looks risky)
         self._warning = QtWidgets.QLabel()
@@ -100,7 +110,7 @@ class UserDataFolderDialog(QtWidgets.QDialog):
     def _browse(self) -> None:
         start = self._path_edit.text() or str(Path.home())
         chosen = QtWidgets.QFileDialog.getExistingDirectory(
-            self, "Choose AngstromPro Data Folder", start
+            self, "Choose Parent Folder for AngstromPro User Data", start
         )
         if chosen:
             self._path_edit.setText(chosen)
@@ -109,13 +119,18 @@ class UserDataFolderDialog(QtWidgets.QDialog):
         path = Path(text.strip()) if text.strip() else None
         warning = self._check_path(path)
         self._warning.setText(warning)
+        effective = self._effective_path(path) if path is not None else None
+        self._result_path.setText(
+            f"User data folder: {effective}" if effective is not None else ""
+        )
         self._ok_btn.setEnabled(bool(path))
 
     def _accept(self) -> None:
         text = self._path_edit.text().strip()
         if not text:
             return
-        path = Path(text).expanduser().resolve()
+        parent = Path(text).expanduser().resolve()
+        path = self._effective_path(parent)
         try:
             set_user_data_folder(path)
         except OSError as exc:
@@ -148,6 +163,11 @@ class UserDataFolderDialog(QtWidgets.QDialog):
                 "cleared on reinstall. Consider a secondary drive or cloud folder."
             )
         return ""
+
+    @staticmethod
+    def _effective_path(parent: Path) -> Path:
+        """Return the dedicated data root without duplicating its folder name."""
+        return user_data_folder_from_parent(parent)
 
     # ------------------------------------------------------------------
     # Result

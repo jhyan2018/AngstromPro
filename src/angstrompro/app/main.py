@@ -17,7 +17,10 @@ from angstrompro.core.configs.config_manager import ConfigManager
 from angstrompro.app.context import AppContext
 from angstrompro.gui.appearance import ThemeManager, IconManager
 from angstrompro.utils.platform_utils import set_windows_app_id
-from angstrompro.app.user_data_folder import is_user_data_folder_set
+from angstrompro.app.user_data_folder import (
+    apply_pending_user_data_folder_for_new_runtime,
+    is_user_data_folder_set,
+)
 
 
 def _install_exception_hooks() -> None:
@@ -78,6 +81,10 @@ def _ensure_user_data_folder(app: QtWidgets.QApplication) -> bool:
 def main(external_namespace=None, start_event_loop=True):
     # 1
     set_windows_app_id("com.angstrompro.app")
+    # Apply a queued root before any configuration, logging, QSettings, cache,
+    # or module can open. In a repeated Spyder launch the runtime ID is
+    # unchanged, so the active hosted session is never redirected.
+    apply_pending_user_data_folder_for_new_runtime()
 
     # 2
     app = QtWidgets.QApplication.instance()
