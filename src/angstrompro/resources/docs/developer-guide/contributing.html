@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contributing - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="contributing">Contributing</h1>
+<h2 id="development-installation">Development installation</h2>
+<p>Create or activate a Python 3.10+ environment, check which Qt binding it already
+contains, then install the checkout in editable mode. If one supported binding
+is already installed:</p>
+<pre><code class="language-powershell">python -m pip install -e &quot;.[full]&quot;
+</code></pre>
+<p>If no binding is installed, add exactly one of <code>pyqt5</code>, <code>pyqt6</code>, or <code>pyside6</code>
+to the extras, for example <code>python -m pip install -e ".[pyqt5,full]"</code>.</p>
+<p>Launch the installed entry point:</p>
+<pre><code class="language-powershell">angstrompro
+</code></pre>
+<p>When Markdown documentation changes, rebuild the packaged offline HTML before
+committing:</p>
+<pre><code class="language-powershell">python -m pip install -e &quot;.[docs]&quot;
+python tools/build_docs.py
+</code></pre>
+<p>The generated files under <code>src/angstrompro/resources/docs/</code> are displayed by
+<strong>Help → Documentation…</strong> and should remain synchronized with <code>docs/</code>.</p>
+<h2 id="design-expectations">Design expectations</h2>
+<ul>
+<li>Keep scientific algorithms independent from Qt widgets.</li>
+<li>Represent reusable operations as registered processes.</li>
+<li>Return new data objects instead of mutating process inputs.</li>
+<li>Run expensive work through the task system.</li>
+<li>Add stable, namespaced IDs for externally configurable components.</li>
+<li>Define configuration defaults and expose normal settings through preference
+  schemas.</li>
+<li>Register file formats through the central dispatcher.</li>
+<li>Preserve compatibility with PyQt6, PyQt5, and PySide6 through <code>qt_compat</code>.</li>
+</ul>
+<h2 id="documentation">Documentation</h2>
+<p>User documentation should describe observable behavior and workflows. Developer
+documentation should describe contracts and extension points. Avoid copying
+instructions from the historical README unless they have been verified against
+the current implementation.</p>
+<p>Update the relevant guide whenever a menu name, file format, preference, or
+public extension contract changes. Keep the root README short and link to the
+detailed guide.</p>
+<h2 id="before-submitting-a-change">Before submitting a change</h2>
+<ol>
+<li>Review the working tree and preserve unrelated user changes.</li>
+<li>Exercise the affected workflow with a representative dataset.</li>
+<li>Test every supported Qt binding affected by compatibility changes when
+   practical.</li>
+<li>Check that registered processes and formats appear in their runtime
+   browsers.</li>
+<li>Validate Markdown links and update documentation.</li>
+<li>Confirm new files contain no credentials, personal data, or generated cache.</li>
+</ol>
+<p>Project-specific automated test and formatting commands should be documented
+here when they are added to the repository.</p></body></html>

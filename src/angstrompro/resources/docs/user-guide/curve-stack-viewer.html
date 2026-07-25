@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Curve Stack Viewer - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="curve-stack-viewer">Curve Stack Viewer</h1>
+<p>The Curve Stack Viewer displays two-dimensional spectroscopy and line-scan data
+as a matplotlib figure containing a stack of curves.</p>
+<h2 id="build-a-plot">Build a plot</h2>
+<ul>
+<li>Double-click a workspace item to make it the primary dataset.</li>
+<li>Open an item's context menu and choose <strong>Add to plot</strong> to overlay it.</li>
+<li>Choose <strong>Set as Reference</strong> when a two-input process needs that item.</li>
+<li>Choose <strong>Clear Reference</strong> to remove the current reference assignment.</li>
+</ul>
+<p>Use the Curve Style dock to edit individual artists and the Axes dock to change
+labels, limits, scales, and grid settings. Both docks can be shown or hidden
+from the <strong>View</strong> menu.</p>
+<h2 id="scenes-and-templates">Scenes and templates</h2>
+<p>A scene and a template serve different purposes:</p>
+<ul>
+<li>A <code>ScenePlot</code> is AngstromPro's runtime plot object. It contains the figure
+  and axes structure, artist descriptions, styling, and the UDS datasets used
+  by those artists. Saving it as <code>.scplot</code> preserves the complete editable
+  plot.</li>
+<li>A <code>.scet</code> scene template contains reusable presentation settings but no
+  scientific dataset. It controls how fresh/raw UDS data is turned into a new
+  plot.</li>
+</ul>
+<p>Use <strong>Scene → Save as Scene…</strong> (<code>Ctrl+Shift+S</code>) to save the complete scene.
+After styling a plot, use <strong>Scene → Save Template…</strong> to reuse that appearance,
+or <strong>Scene → Load Template</strong> to apply a saved template.</p>
+<p>Choose the Curve Stack Viewer's <strong>Default template</strong> in Preferences when every
+fresh UDS dataset loaded as a new primary plot should begin with that style.
+The template is applied before the raw UDS data is rendered. Loading a saved
+<code>ScenePlot</code> instead restores the scene's own data, layout, and styling; it does
+not replace them with the default template.</p>
+<p>Saved templates are shared with the Data Browser, which can use the same style
+when generating thumbnails for raw UDS data. Reopen a <code>.scplot</code> through the
+normal file-loading workflow.</p>
+<h2 id="export">Export</h2>
+<p>Use the export command (<code>Ctrl+E</code>) to produce a publication figure. Exporting a
+figure is different from saving a <code>.scplot</code>: the exported image is intended for
+presentation, whereas the scene remains editable inside AngstromPro.</p></body></html>

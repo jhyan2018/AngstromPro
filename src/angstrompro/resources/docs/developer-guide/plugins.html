@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Plugins - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="plugins">Plugins</h1>
+<p>Plugins extend AngstromPro by importing code that registers processes, modules,
+or file-format handlers. They load before the process registry is constructed.</p>
+<p>A plugin may also define new <code>WorkspaceData</code> payload types. Doing so lets its
+modules participate in the standard workspace, sending, compatibility, and
+Inspector infrastructure. See <a href="workspaces.html">Runtime data and workspaces</a>.</p>
+<h2 id="local-source-plugin">Local source plugin</h2>
+<p>During development, add an entry under <strong>Preferences → Plugins</strong> containing:</p>
+<ul>
+<li>The absolute path to the plugin's <code>src/</code> directory</li>
+<li>Its importable top-level module name</li>
+</ul>
+<p>On the next launch, AngstromPro adds the path to <code>sys.path</code> and imports the
+module. The module's imports must trigger every required registration.</p>
+<p>When testing from Spyder, closing the Main Workbench only hides the hosted
+AngstromPro session so it can be reopened without rebuilding Qt. Restart the
+Spyder kernel after changing plugin source; reopening the existing session does
+not reload already imported plugin modules or replace their live widget
+classes. A standalone AngstromPro process can instead be closed and launched
+again normally.</p>
+<h2 id="installed-plugin">Installed plugin</h2>
+<p>An installable package should expose an entry point in <code>pyproject.toml</code>:</p>
+<pre><code class="language-toml">[project.entry-points.&quot;angstrompro.plugins&quot;]
+example = &quot;angstrompro_example&quot;
+</code></pre>
+<p>The referenced object or module is loaded at startup. Keep its top-level import
+focused on registration; avoid opening windows or starting independent event
+loops during import.</p>
+<h2 id="suggested-layout">Suggested layout</h2>
+<pre><code class="language-text">angstrompro-example/
+  pyproject.toml
+  src/
+    angstrompro_example/
+      __init__.py
+      modules.py
+      processes.py
+      io.py
+</code></pre>
+<p><code>__init__.py</code> can import the three registration modules. Use a consistent
+namespace for module and process IDs.</p>
+<h2 id="configuration">Configuration</h2>
+<p>Call <code>context.get_plugin_config("example")</code> for isolated settings. Namespaced
+GUI module IDs such as <code>example.viewer</code> automatically select the corresponding
+plugin configuration. Files are stored under
+<code>&lt;UserDataFolder&gt;/config/plugins/</code>.</p>
+<p>Register defaults before reading configuration, validate user values, and
+store only settings owned by the plugin. Do not edit the core <code>config.json</code>
+directly.</p>
+<h2 id="failure-handling">Failure handling</h2>
+<p>A failing plugin import is logged and startup continues. Test imports in a
+clean environment and inspect <code>angstrompro.log</code> when registrations do not
+appear. Duplicate loading by path and entry point is skipped when AngstromPro
+can identify the same top-level module.</p>
+<p>Plugin authors must review license compatibility for AngstromPro, the plugin,
+and all dependencies before distribution.</p>
+<h2 id="complete-example">Complete example</h2>
+<p>The repository includes an installable
+<a href="https://github.com/jhyan2018/AngstromPro/tree/main/examples/example_plugin">example plugin</a> that registers a GUI
+module, process, simulation, and raw file loader. It uses synthetic data and
+executes its operations through the normal task-backed process path. Its README
+also gives the exact <strong>Preferences → Plugins</strong> values for loading the example
+directly from its <code>src/</code> folder during development.</p></body></html>

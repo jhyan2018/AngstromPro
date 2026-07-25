@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Workspaces and the Inspector - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="workspaces-and-the-inspector">Workspaces and the Inspector</h1>
+<p>Workspaces are the common runtime layer connecting AngstromPro modules. Each
+live module owns its own workspace, shown in the <strong>Workspace</strong> dock. Open or
+hide the dock with <strong>View → Workspace</strong> (<code>Ctrl+1</code>).</p>
+<h3 id="make-room-for-long-item-names">Make room for long item names</h3>
+<p>Workspace item names can be longer than the dock's default width. Drag the
+<strong>Workspace</strong> dock by its title bar out of the module window to make it a
+floating window, then resize it horizontally to show full names. Floating the
+dock also prevents a wide workspace list from reducing the module's central
+viewing area. Drag it back to an edge of the module window when you want to dock
+it again, and use <code>Ctrl+1</code> at any time to show or hide it. This is particularly
+useful when comparing several datasets with similar long filenames.</p>
+<h2 id="workspace-items">Workspace items</h2>
+<p>Every row in a workspace is a <code>WorkspaceItem</code>. The item provides runtime
+identity and transport information around a data payload:</p>
+<ul>
+<li>A stable item identity and display name</li>
+<li>The source file path, when the item came from disk</li>
+<li>A payload type ID used for module and process compatibility</li>
+<li>Named annotations such as points, lines, and regions</li>
+<li>The payload itself</li>
+</ul>
+<p>The payload is not restricted to one scientific array format. Any data type
+that follows AngstromPro's runtime-data contract can be placed in a workspace.
+This is what allows future modules to introduce structures, lattices, scenes,
+tables, or other domain objects without replacing the workspace system.</p>
+<p>Common payloads include:</p>
+<ul>
+<li><code>UdsDataStru</code>: an elementary scientific array with axes, metadata, and
+  processing history.</li>
+<li><code>ScenePlot</code>: a composite plot scene containing figure and axes settings,
+  artist descriptions, styles, and UDS data used by its artists.</li>
+</ul>
+<p><code>ScenePlot</code> should not be confused with a <code>.scet</code> scene template. A scene is a
+runtime data payload and can be inspected, sent, saved, and reopened with its
+datasets intact. A template is a reusable, data-free rendering style used when
+the Curve Stack Viewer or Data Browser turns raw UDS data into a new plot or
+thumbnail.</p>
+<h2 id="using-a-workspace">Using a workspace</h2>
+<p>Mouse actions have different purposes:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Single left-click</strong></td>
+<td>Selects and highlights the item. The Inspector follows this selection, and <strong>Send…</strong> and <strong>Remove</strong> operate on the selected item. Always single-click the intended row before sending it.</td>
+</tr>
+<tr>
+<td><strong>Double left-click</strong></td>
+<td>Asks the current module to load or activate the item as an input. It does not send the item to another module.</td>
+</tr>
+<tr>
+<td><strong>Right-click</strong></td>
+<td>Opens the actions available for that item in the current module, such as adding data to a plot. Right-clicking a named annotation provides its annotation actions, such as <strong>Clear</strong>.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Use <strong>Send…</strong> after selecting an item to pass it to another compatible module.</li>
+<li>Use <strong>Remove</strong> to remove it from the current runtime workspace.</li>
+<li>Expand an item to see its named annotations; an annotation can be cleared
+  from its context menu.</li>
+</ul>
+<p>Sending moves the item from the source workspace by default. Preferences can
+keep the source item as well. Workspaces are runtime containers: save important
+results to a supported file before closing the application.</p>
+<h2 id="workspace-item-inspector">Workspace Item Inspector</h2>
+<p>Open <strong>View → Inspector</strong> or press <code>Ctrl+2</code>. Selecting a workspace row updates
+the Inspector with:</p>
+<ul>
+<li>Item name, payload type, and source path</li>
+<li>Fields chosen by that payload type</li>
+<li>Nested groups and composite structure</li>
+<li>NumPy array shape, data type, and values</li>
+<li>Scientific axes and their semantic axis types</li>
+</ul>
+<p>The Inspector is generic. Each runtime payload describes its own fields, so a
+new plugin data type can become inspectable without adding a new Inspector
+widget.</p>
+<p>Most displayed values are informational. Double-click an array node to open
+the array viewer/editor. Right-click an axis node to edit its semantic axis
+type. These operations modify the runtime object, so save the result if the
+change must persist after the session.</p></body></html>

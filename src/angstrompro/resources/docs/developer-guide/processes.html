@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Processes - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="processes">Processes</h1>
+<p>A process is a pure or mostly pure callable registered with metadata and a
+<code>ProcessSchema</code>. Registration supplies the information needed for menu
+grouping, compatibility checks, parameter dialogs, background execution, and
+the Process Browser.</p>
+<h2 id="example">Example</h2>
+<pre><code class="language-python">from copy import deepcopy
+
+from angstrompro.core.processes import (
+    InputSpec,
+    OutputSpec,
+    ParameterSpec,
+    ProcessSchema,
+    register_process,
+)
+
+
+@register_process(
+    name=&quot;example.scale_2D&quot;,
+    label=&quot;Scale&quot;,
+    category=&quot;Example&quot;,
+    description=&quot;Multiply an image stack by a scalar.&quot;,
+    schema=ProcessSchema(
+        inputs=[InputSpec(&quot;data&quot;, &quot;uds&quot;, ndim=3)],
+        outputs=[OutputSpec(&quot;uds&quot;, ndim=3)],
+        params=[ParameterSpec(&quot;factor&quot;, float, 1.0)],
+    ),
+)
+def scale(inputs: dict, params: dict, annotations=None):
+    source = inputs[&quot;data&quot;]
+    result = deepcopy(source)
+    result.data = source.data * params[&quot;factor&quot;]
+    return result
+</code></pre>
+<p>Confirm the concrete data class supports the copying operation used by your
+process. Never mutate the input merely to avoid allocating a result.</p>
+<h2 id="schema-fields">Schema fields</h2>
+<ul>
+<li><code>InputSpec</code> declares name, type, dimensionality, optionality, and axis hints.</li>
+<li><code>OutputSpec</code> declares result compatibility, especially for simulations.</li>
+<li><code>ParameterSpec</code> declares scalar type, default, range, step, choices, units,
+  and description.</li>
+<li><code>AnnotationSpec</code> resolves a named annotation role from the primary input.</li>
+</ul>
+<p>Axis hints inform users and can produce warnings; they do not replace explicit
+validation required by a scientific algorithm.</p>
+<h2 id="registration-and-discovery">Registration and discovery</h2>
+<p>Decorators append entries during module import. Built-in algorithms are
+imported by <code>angstrompro.algorithms</code>. Plugin processes must be imported by the
+plugin entry module before <code>ProcessRegistry</code> is created.</p>
+<p>Use globally unique, stable process IDs. A namespace such as
+<code>example.scale_2D</code> avoids collisions and allows saved menu configuration to
+survive label changes. Process callables accept <code>inputs</code>, <code>params</code>, and the
+optional <code>annotations</code> keyword used by the runner.</p>
+<h2 id="execution">Execution</h2>
+<p>GUI callers should use <code>ProcessRunner</code> or registry submission rather than call
+expensive functions on the Qt thread. The runner resolves inputs and
+annotations, validates parameters, submits a task, and routes successful
+results back to the source module. The registry adds processing history to
+supported results.</p>
+<p>Use <code>register_simulation</code> for generators. Simulations may have no inputs and
+appear under <strong>Simulate</strong>, not <strong>Process</strong>.</p></body></html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>File I/O - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="file-io">File I/O</h1>
+<h2 id="built-in-formats">Built-in formats</h2>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th style="text-align: center;">Read</th>
+<th style="text-align: center;">Write</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.uds</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+<td>Native HDF5 scientific data</td>
+</tr>
+<tr>
+<td><code>.scplot</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+<td>Curve Stack Viewer scene</td>
+</tr>
+<tr>
+<td><code>.npy</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Yes</td>
+<td>NumPy array</td>
+</tr>
+<tr>
+<td><code>.sxm</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>Nanonis map</td>
+</tr>
+<tr>
+<td><code>.3ds</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>Nanonis grid spectroscopy</td>
+</tr>
+<tr>
+<td><code>.dat</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>Nanonis point spectroscopy</td>
+</tr>
+<tr>
+<td><code>.1fl</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>LF dI/dV map</td>
+</tr>
+<tr>
+<td><code>.tfr</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>LF topography map</td>
+</tr>
+<tr>
+<td><code>.mat</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>MATLAB data</td>
+</tr>
+<tr>
+<td><code>.txt</code></td>
+<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">No</td>
+<td>Whitespace-delimited numeric data</td>
+</tr>
+</tbody>
+</table>
+<p>Open <strong>Help → Supported Formats…</strong> for the runtime registry. This view also
+includes formats supplied by installed plugins.</p>
+<h2 id="native-data">Native data</h2>
+<p>Current <code>.uds</code> files use HDF5 and retain AngstromPro data, axes, metadata,
+annotations, and processing history. Legacy binary <code>.uds</code> files are imported
+read-only; save the imported result as <code>.uds</code> to upgrade it to the current
+format.</p>
+<p><code>.scplot</code> is also HDF5-based and stores complete <code>ScenePlot</code> data. Style-only
+<code>.scet</code> templates are created and managed by the Curve Stack Viewer and can be
+selected by both the Curve Stack Viewer and Data Browser when rendering fresh
+raw UDS data. They contain no scientific dataset and are not general workspace
+data files.</p>
+<h2 id="channel-mappings-for-multichannel-formats">Channel mappings for multichannel formats</h2>
+<p>Some instrument formats contain multiple named channels. For those formats,
+channel mappings associate varying instrument labels with stable AngstromPro
+channel roles and control which channels load by default. Single-channel file
+formats do not require channel mapping.</p>
+<p>Configure mappings in Preferences. The same mapping is used by normal file
+opening and Data Browser thumbnail rendering. If a browser card reports that a
+channel was not found, add the actual instrument channel name as an alias or
+select a different default channel.</p>
+<h2 id="saving-and-exporting">Saving and exporting</h2>
+<p>Saving writes structured data through a registered format handler. Exporting
+creates a presentation artifact such as an image, video, or figure. Use saving
+when the result must be reloaded and processed later; use exporting for
+publication or presentation.</p></body></html>

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Architecture - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="architecture">Architecture</h1>
+<p>AngstromPro uses a <code>src</code>-layout Python package. The console command calls
+<code>angstrompro.app.main:main</code>, which creates Qt, obtains the user-data folder,
+loads configuration and appearance resources, constructs the application
+context, registers built-in modules, and opens the main workbench.</p>
+<h2 id="shared-context">Shared context</h2>
+<p><code>AppContext</code> owns the managers shared by module instances:</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ConfigManager</code></td>
+<td>Merged defaults and persisted user overrides</td>
+</tr>
+<tr>
+<td><code>ThemeManager</code> and <code>IconManager</code></td>
+<td>Bundled application theme, fonts, palette, and icons</td>
+</tr>
+<tr>
+<td><code>AppSignals</code></td>
+<td>Cross-component Qt signals</td>
+</tr>
+<tr>
+<td><a href="tasks.html"><code>TaskManager</code></a></td>
+<td>Threaded and persistent work</td>
+</tr>
+<tr>
+<td><code>WorkspaceManager</code></td>
+<td>Per-module workspaces</td>
+</tr>
+<tr>
+<td><code>AModuleManager</code></td>
+<td>Module registration and instances</td>
+</tr>
+<tr>
+<td><code>ProcessRegistry</code></td>
+<td>Registered processes and simulations</td>
+</tr>
+<tr>
+<td><code>ParamHistoryManager</code></td>
+<td>Previously used process parameters</td>
+</tr>
+</tbody>
+</table>
+<p>File loading and saving form the broader <strong>I/O subsystem</strong> in
+<code>angstrompro.io</code>. Its central registry dispatches readers and writers. The
+context-owned <code>ChannelManager</code> is an optional supporting service for formats
+that contain multiple named channels; single-channel formats do not use it.</p>
+<p>Plugins load before <code>ProcessRegistry</code> is constructed. This ordering lets plugin
+imports run registration decorators before the registry snapshots pending
+entries.</p>
+<p><code>ThemeManager</code> applies AngstromPro's owned light or dark palette and stylesheet
+on top of Qt's Fusion style. It replaces the complete application stylesheet
+when preferences change, preventing rules from accumulating. Component-specific
+styles should use stable Qt object names so they can be maintained alongside
+the global compact control rules. The application does not depend on a
+third-party Qt theme package.</p>
+<p>Application typography uses shared semantic roles: body, secondary, heading,
+section, notification, hint, and monospace. New widgets should use
+<code>set_typography_role</code> rather than introducing local font families, fixed sizes,
+or muted-text colors. Scientific plot annotations and Matplotlib figure styles
+remain separate because they describe exported data graphics rather than the
+desktop interface.</p>
+<h2 id="package-responsibilities">Package responsibilities</h2>
+<pre><code class="language-text">angstrompro.app             startup, paths, shared context
+angstrompro.core.configs    defaults, validation, persistence
+angstrompro.core.data       workspace data and annotations
+angstrompro.core.modules    module contracts and manager
+angstrompro.core.processes  schemas, registry, runner, history
+angstrompro.core.tasks      task requests, handles, and executors
+angstrompro.core.workspaces workspace ownership and items
+angstrompro.gui             modules, dialogs, widgets, appearance
+angstrompro.io              central I/O registry and built-in formats
+angstrompro.algorithms      built-in registered processes
+</code></pre>
+<h2 id="runtime-flow">Runtime flow</h2>
+<ol>
+<li>A loader or simulation creates an extensible <code>WorkspaceData</code> payload.</li>
+<li>A module wraps it in a <code>WorkspaceItem</code> inside its workspace.</li>
+<li>The user stages workspace items as process inputs.</li>
+<li><code>ProcessRunner</code> validates the schema and submits work to <code>TaskManager</code>.</li>
+<li>The registry records processing history on supported results.</li>
+<li>The result returns to the source module's workspace.</li>
+</ol>
+<p>See <a href="workspaces.html">Runtime data and workspaces</a> for the platform-level payload
+contract, composite data types, transfer behavior, and generic inspection.</p>
+<p>GUI components should not perform expensive scientific work directly on the
+Qt thread. Express reusable operations as registered processes and submit them
+through the <a href="tasks.html">task infrastructure</a>.</p></body></html>

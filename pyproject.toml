@@ -54,6 +54,7 @@ pyqt6   = ["PyQt6"]
 pyqt5   = ["PyQt5"]
 pyside6 = ["PySide6"]
 full    = ["scikit-image"]   # isocontour extraction, fast phase unwrapping
+docs    = ["Markdown>=3.5"]  # rebuild bundled offline HTML documentation
 
 [project.scripts]
 angstrompro = "angstrompro.app.main:main"
@@ -69,5 +70,8 @@ Paper = "https://arxiv.org/abs/2604.18962"
 where = ["src"]
 
 [tool.setuptools.package-data]
-"angstrompro.resources" = ["icons/*.svg", "icons/*.png", "icons/*.ico"]
+"angstrompro.resources" = [
+    "icons/*.svg", "icons/*.png", "icons/*.ico",
+    "docs/*.html", "docs/*.json", "docs/*/*.html",
+]
 "angstrompro.gui.resources" = ["colormaps/*.txt"]

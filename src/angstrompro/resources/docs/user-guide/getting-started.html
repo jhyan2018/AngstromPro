@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Getting started - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="getting-started">Getting started</h1>
+<h2 id="check-the-target-python-environment">Check the target Python environment</h2>
+<p><strong>AngstromPro requires Python 3.10 or newer; Python 3.9 is not supported.</strong>
+Run the following in PowerShell, Command Prompt, or a macOS/Linux terminal:</p>
+<pre><code class="language-powershell">python --version
+python -c &quot;import sys; print(sys.executable)&quot;
+python -c &quot;import importlib.util as u; print([n for n in ('PyQt6','PyQt5','PySide6') if u.find_spec(n)])&quot;
+</code></pre>
+<p>The final command lists supported Qt bindings already present in that exact
+environment. Use this decision:</p>
+<ul>
+<li><strong>Python is older than 3.10:</strong> do not install there. Create a new environment
+  with Python 3.12.</li>
+<li><strong>No Qt binding is listed:</strong> choose exactly one of <code>.[pyqt5]</code>, <code>.[pyqt6]</code>,
+  or <code>.[pyside6]</code>. All three are supported.</li>
+<li><strong>Exactly one binding is listed:</strong> install with <code>pip install .</code> and let
+  AngstromPro use it; do not install another Qt extra.</li>
+<li><strong>Several bindings are listed:</strong> do not add another binding. Try the
+  no-extra installation first; AngstromPro prefers a binding already loaded by
+  the IDE. Use a clean environment if Qt loading errors occur.</li>
+</ul>
+<p>Qt packages in separate environments do not conflict. The problem occurs when
+incompatible bindings or Qt libraries are mixed in the same environment. If
+Spyder and AngstromPro deliberately share an environment that already contains
+PyQt5, install AngstromPro without an extra rather than adding PyQt6.</p>
+<h2 id="create-a-conda-environment-in-a-system-terminal">Create a Conda environment in a system terminal</h2>
+<p>For Conda or Anaconda, create and install into the environment from Anaconda
+Prompt, PowerShell, or a macOS/Linux terminal. Do not enter these commands in
+the Spyder IPython console:</p>
+<pre><code class="language-powershell">conda create -n angstrompro python=3.12 pip
+conda activate angstrompro
+cd path/to/AngstromPro
+python -m pip install &quot;.[pyqt5]&quot;
+</code></pre>
+<p>The example chooses PyQt5, which is common in Spyder installations. PyQt6 and
+PySide6 are also supported in a clean environment; replace the extra rather
+than installing bindings together.</p>
+<p>Do not install AngstromPro or a second Qt binding into Anaconda's base
+environment.</p>
+<h2 id="install-with-standard-python">Install with standard Python</h2>
+<p>Anaconda and an IDE are not required. Install Python 3.12 from a trusted Python
+distribution, then create a virtual environment in the repository.</p>
+<p>On Windows:</p>
+<pre><code class="language-powershell">py -3.12 -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install &quot;.[pyqt5]&quot;
+</code></pre>
+<p>On macOS or Linux:</p>
+<pre><code class="language-bash">python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install &quot;.[pyqt5]&quot;
+</code></pre>
+<p>Visual Studio and VS Code users can select this <code>.venv</code> as the project
+interpreter. Users without an IDE can activate it and run AngstromPro directly
+from the terminal.</p>
+<h2 id="install-from-spyder">Install from Spyder</h2>
+<p>In the Spyder IPython console, check its Python version:</p>
+<pre><code class="language-python">import sys
+print(sys.version)
+</code></pre>
+<p>If it is older than Python 3.10, install a current Anaconda distribution and
+open its new Spyder application. Then clone AngstromPro and install it directly
+from the new Spyder IPython console:</p>
+<pre><code class="language-python">!git clone https://github.com/jhyan2018/AngstromPro.git
+%cd AngstromPro
+%pip install .
+</code></pre>
+<p>If the repository is already present, use <code>%cd</code> with its existing path and run
+only <code>%pip install .</code>. Current Spyder installations already provide a supported
+Qt binding, so do not install an additional Qt extra. Restart the Spyder kernel
+after installation.</p>
+<h2 id="normal-and-editable-installation">Normal and editable installation</h2>
+<p>Use <code>python -m pip install .</code> for normal use. It builds and installs AngstromPro
+into the active environment. Use <code>python -m pip install -e .</code> only when
+developing AngstromPro: editable mode points the installation at the checkout,
+so Python source changes take effect without reinstalling. Restart a running
+application or Spyder kernel after changing code.</p>
+<p>AngstromPro's compact light and dark themes are included in the package; no
+theme installation extra or third-party theme package is required.</p>
+<h2 id="start-the-application">Start the application</h2>
+<pre><code class="language-powershell">angstrompro
+</code></pre>
+<h3 id="running-from-spyder">Running from Spyder</h3>
+<p>AngstromPro shares the Qt event loop owned by Spyder's IPython kernel. Closing
+the Main Workbench hides all AngstromPro windows but preserves the session;
+launching AngstromPro again from the same console reopens the existing module
+instances and windows.</p>
+<p>Restart the Spyder kernel before launching again after changing AngstromPro or
+plugin source code. A live session retains its already imported classes, so it
+is not a safe way to test revised code. This hosted behavior is specific to
+Spyder and similar interactive Qt consoles: when started with the standalone
+<code>angstrompro</code> command, closing the Main Workbench closes the modules and exits
+the process.</p>
+<p>On first launch, choose a parent location. AngstromPro creates a dedicated
+<code>angstrompro-user/</code> folder there with this structure:</p>
+<pre><code class="language-text">angstrompro-user/
+  config/   application preferences and interface state
+  cache/    thumbnail and snapshot data
+  logs/     diagnostic logs
+</code></pre>
+<p>Choose a location you can retain and back up. The application stores only a
+pointer to this location in the operating system's normal application-data
+folder.</p>
+<h2 id="main-workbench-and-startup-modules">Main Workbench and startup modules</h2>
+<p>AngstromPro opens three modules by default:</p>
+<ul>
+<li><strong>Data Browser</strong> for finding measurement files.</li>
+<li><strong>Image Stack Viewer</strong> for three-dimensional image stacks.</li>
+<li><strong>Curve Stack Viewer</strong> for two-dimensional curve stacks.</li>
+</ul>
+<p>Startup modules can be changed in Preferences.</p>
+<p>The Main Workbench lists every live module. Use <strong>+ New Module</strong> to open another
+module, <strong>Show</strong> to bring an existing module window forward, and <strong>Remove</strong> to
+close an instance you no longer need.</p>
+<h2 id="first-workflow-without-measurement-data">First workflow without measurement data</h2>
+<p>Start with the Planewave Synthesiser if you do not have a supported data file
+available:</p>
+<ol>
+<li>In the Main Workbench, choose <strong>+ New Module → Planewave Synthesiser</strong>.</li>
+<li>Set <code>qx</code> and <code>qy</code> for the first wave component.</li>
+<li>Add further components and adjust their amplitude and phase values.</li>
+<li>Choose <strong>Save to workspace</strong> in the Planewave Synthesiser.</li>
+<li>Single-click the generated item in its Workspace dock so its row is
+   highlighted, then choose <strong>Send…</strong>. The send command always uses the
+   currently selected row.</li>
+<li>Send it to an open <strong>Image Stack Viewer</strong>.</li>
+<li>Inspect its layers and try a compatible operation from the <strong>Process</strong> menu.</li>
+</ol>
+<p>This introduces module windows, generated data, workspaces, cross-module
+sending, viewers, and processes without requiring private example files. See
+the <a href="planewave-synthesiser.html">Planewave Synthesiser guide</a> for its controls.</p>
+<h2 id="workflow-with-measurement-data">Workflow with measurement data</h2>
+<ol>
+<li>Open Preferences and add one or more Data Browser watch folders.</li>
+<li>Select a folder in the Data Browser.</li>
+<li>Choose <strong>Send to module…</strong> on a supported file.</li>
+<li>Select a compatible open module.</li>
+<li>Run an operation from its <strong>Process</strong> menu.</li>
+<li>Save workspace data with <strong>File → Save…</strong>, or use the viewer's export tools.</li>
+</ol>
+<p>Workspace items belong to a module instance. Sending an item transfers it to
+another module by default; this behavior is configurable.</p>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li>Generate practice data with the <a href="planewave-synthesiser.html">Planewave Synthesiser</a>.</li>
+<li>Understand <a href="workspaces-and-inspector.html">workspaces and the Inspector</a>.</li>
+<li>Learn how to <a href="processes.html">find and configure processes</a>.</li>
+<li>Configure the <a href="data-browser.html">Data Browser</a>.</li>
+<li>Review <a href="file-formats.html">file I/O</a>.</li>
+<li>Consult <a href="troubleshooting.html">troubleshooting</a> if startup fails.</li>
+</ul></body></html>
