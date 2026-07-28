@@ -145,6 +145,9 @@ class ImageStackViewer(AGuiModule):
                      kwargs={"min": 0.1, "max": 3.0}),
         ]),
         PrefSection("Canvas", "layout-kanban", [
+            PrefItem("canvas.max_canvas_size", "Maximum canvas size", "integer",
+                     "Largest square canvas side in pixels",
+                     kwargs={"min": 160, "max": 4096}),
             PrefItem("canvas.bias_text",       "Show bias value", "checkbox", "Overlay bias setpoint text on image"),
             PrefItem("canvas.bias_text_color", "Bias text color", "dropdown", "Color of the bias annotation",
                      kwargs={"choices": ["Red", "Green", "Blue", "Yellow", "Black", "White"]}),
@@ -190,6 +193,7 @@ class ImageStackViewer(AGuiModule):
         # canvas
         canvas = cfg.get("canvas", {})
         for p in panels:
+            p.setCanvasMaximumSize(canvas.get("max_canvas_size", 600))
             p.setBiasTextColor(canvas.get("bias_text_color", "Red"))
             p.setBiasTextShown(canvas.get("bias_text", False))
 
@@ -205,6 +209,12 @@ class ImageStackViewer(AGuiModule):
         self._panel_aux = ImageStackViewerWidget()
         self._panel_aux.ui_lb_widget_name.setText("<b>— REFERENCE —</b>")
         self._panel_aux.sendMsgSignal.connect(self._on_msg_from_aux)
+
+        self._restore_clean_label_state()
+        self._panel_main.ui_pb_img_clean_mode.toggled.connect(
+            self._save_clean_label_state)
+        self._panel_aux.ui_pb_img_clean_mode.toggled.connect(
+            self._save_clean_label_state)
 
         self._apply_config_to_panels(self._config)
 
@@ -226,6 +236,29 @@ class ImageStackViewer(AGuiModule):
 
         self._add_sync_actions()
         self._build_annotate_menu()
+
+    def _restore_clean_label_state(self) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+
+        qs = get_qsettings()
+        prefix = f"{self._window_layout_qsettings_prefix()}/view"
+        self._panel_main.ui_pb_img_clean_mode.setChecked(
+            qs.value(f"{prefix}/primary_clean_labels", False, type=bool))
+        self._panel_aux.ui_pb_img_clean_mode.setChecked(
+            qs.value(f"{prefix}/reference_clean_labels", False, type=bool))
+
+    def _save_clean_label_state(self, *_args) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+
+        qs = get_qsettings()
+        prefix = f"{self._window_layout_qsettings_prefix()}/view"
+        qs.setValue(
+            f"{prefix}/primary_clean_labels",
+            self._panel_main.ui_pb_img_clean_mode.isChecked())
+        qs.setValue(
+            f"{prefix}/reference_clean_labels",
+            self._panel_aux.ui_pb_img_clean_mode.isChecked())
+        qs.sync()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
