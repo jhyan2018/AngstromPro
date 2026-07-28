@@ -8,6 +8,7 @@ IMAGE_VIEWER_DEFAULTS = {
         "sigma": 5,
         "fft_auto_scale_factor": 0.5,
         "slider_scale_zoom_factor": 0.6,
+        "canvas_wheel_zoom_sensitivity": 1.0,
     },
     "canvas": {
         "bias_text": False,

@@ -173,6 +173,8 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
     wheelScrolled    = Signal(float, float, int)     # col, row, angleDelta_y
 
     _ZOOM_FACTOR = 1.25
+    _WHEEL_DELTA_PER_STEP = 120.0
+    _MAX_WHEEL_STEPS_PER_EVENT = 2.0
 
     def __init__(self, scene: QtWidgets.QGraphicsScene, parent=None):
         super().__init__(scene, parent)
@@ -191,6 +193,7 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         self.setSizePolicy(sp)
         self._panning   = False
         self._pan_start = QtCore.QPoint()
+        self._wheel_zoom_sensitivity = 1.0
 
     def hasHeightForWidth(self) -> bool:
         return False
@@ -198,12 +201,35 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
     def heightForWidth(self, width: int) -> int:
         return super().heightForWidth(width)
 
+    def setWheelZoomSensitivity(self, sensitivity: float) -> None:
+        """Set the multiplier applied to normalized wheel/trackpad movement."""
+        self._wheel_zoom_sensitivity = max(0.1, min(3.0, float(sensitivity)))
+
+    def _normalized_wheel_steps(self, event) -> tuple[float, int]:
+        """Return platform-independent wheel steps and the raw signal delta."""
+        angle_delta = event.angleDelta().y()
+        if angle_delta:
+            raw_delta = int(angle_delta)
+            steps = float(angle_delta) / self._WHEEL_DELTA_PER_STEP
+        else:
+            # High-resolution pointing devices may report only pixelDelta().
+            pixel_delta = event.pixelDelta().y()
+            raw_delta = int(pixel_delta)
+            steps = float(pixel_delta) / self._WHEEL_DELTA_PER_STEP
+
+        steps *= self._wheel_zoom_sensitivity
+        limit = self._MAX_WHEEL_STEPS_PER_EVENT
+        return max(-limit, min(limit, steps)), raw_delta
+
     def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        f = self._ZOOM_FACTOR if delta > 0 else 1.0 / self._ZOOM_FACTOR
-        self.scale(f, f)
+        steps, raw_delta = self._normalized_wheel_steps(event)
+        if steps == 0.0:
+            event.ignore()
+            return
+        self.scale(self._ZOOM_FACTOR ** steps, self._ZOOM_FACTOR ** steps)
         pt = self.mapToScene(event_POS(event))
-        self.wheelScrolled.emit(pt.x(), pt.y(), delta)
+        self.wheelScrolled.emit(pt.x(), pt.y(), raw_delta)
+        event.accept()
 
     def mousePressEvent(self, event):
         if event.button() == LeftButton:
@@ -993,6 +1019,9 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
 
     def setScaleWidgetZoomFactor(self, zoom_factor):
         self.ui_scale_widget.setZoomFactor(zoom_factor)
+
+    def setCanvasWheelZoomSensitivity(self, sensitivity):
+        self._view.setWheelZoomSensitivity(sensitivity)
 
     def setScaleWidgetSigmaDefault(self, sigma_default):
         self.ui_scale_widget.setSigmaDefault(sigma_default)

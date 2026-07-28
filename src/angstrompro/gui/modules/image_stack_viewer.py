@@ -140,6 +140,9 @@ class ImageStackViewer(AGuiModule):
             PrefItem("factor.sigma",                    "Sigma",              "number", "σ window for histogram auto-scale"),
             PrefItem("factor.fft_auto_scale_factor",    "FFT auto scale",     "number", "Upper fraction of FFT max kept",  kwargs={"min": 0.001, "max": 1.0}),
             PrefItem("factor.slider_scale_zoom_factor", "Slider zoom factor", "number", "Step size for zoom in/out buttons", kwargs={"min": 0.001, "max": 0.999}),
+            PrefItem("factor.canvas_wheel_zoom_sensitivity", "Wheel zoom sensitivity", "number",
+                     "Canvas mouse-wheel and trackpad zoom multiplier",
+                     kwargs={"min": 0.1, "max": 3.0}),
         ]),
         PrefSection("Canvas", "layout-kanban", [
             PrefItem("canvas.bias_text",       "Show bias value", "checkbox", "Overlay bias setpoint text on image"),
@@ -181,6 +184,8 @@ class ImageStackViewer(AGuiModule):
             p.setScaleWidgetSigmaDefault(factor.get("sigma", 5))
             p.setScaleWidgetFFTAutoScaleFactor(factor.get("fft_auto_scale_factor", 0.5))
             p.setScaleWidgetZoomFactor(factor.get("slider_scale_zoom_factor", 0.6))
+            p.setCanvasWheelZoomSensitivity(
+                factor.get("canvas_wheel_zoom_sensitivity", 1.0))
 
         # canvas
         canvas = cfg.get("canvas", {})

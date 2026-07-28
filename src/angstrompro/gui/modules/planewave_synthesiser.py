@@ -193,6 +193,9 @@ class PlanewaveSynthesiser(AGuiModule):
             PrefItem("factor.sigma",                    "Sigma",              "number", "σ window for histogram auto-scale"),
             PrefItem("factor.slider_scale_zoom_factor", "Slider zoom factor", "number", "Step size for zoom in/out buttons",
                      kwargs={"min": 0.001, "max": 0.999}),
+            PrefItem("factor.canvas_wheel_zoom_sensitivity", "Wheel zoom sensitivity", "number",
+                     "Canvas mouse-wheel and trackpad zoom multiplier",
+                     kwargs={"min": 0.1, "max": 3.0}),
         ]),
         PrefSection("Canvas", "layout-kanban", [
             PrefItem("canvas.bias_text",       "Show bias value", "checkbox", "Overlay bias setpoint text on image"),
@@ -293,6 +296,8 @@ class PlanewaveSynthesiser(AGuiModule):
         factor = cfg.get("factor", {})
         self._viewer.setScaleWidgetSigmaDefault(factor.get("sigma", 5))
         self._viewer.setScaleWidgetZoomFactor(factor.get("slider_scale_zoom_factor", 0.6))
+        self._viewer.setCanvasWheelZoomSensitivity(
+            factor.get("canvas_wheel_zoom_sensitivity", 1.0))
 
         canvas = cfg.get("canvas", {})
         self._viewer.setBiasTextColor(canvas.get("bias_text_color", "Red"))
