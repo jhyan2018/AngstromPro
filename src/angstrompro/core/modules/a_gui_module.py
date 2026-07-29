@@ -1151,7 +1151,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             QtCore.QTimer.singleShot(0, self._restore_window_layout)
 
     def closeEvent(self, event) -> None:
-        """Hide the window instead of destroying it. Use module_manager.remove() to fully remove."""
+        """Close the native window while retaining the reusable module object.
+
+        Qt hides an accepted top-level window without deleting it unless
+        WA_DeleteOnClose is enabled.  Using the normal close lifecycle also
+        lets macOS leave a maximized/full-screen Space correctly.
+        """
         self._save_window_layout()
-        self.hide()
-        event.ignore()
+        event.accept()

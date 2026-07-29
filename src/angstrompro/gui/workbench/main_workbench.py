@@ -356,9 +356,9 @@ class MainWorkbench(AGuiModule):
                         "Could not save module state for %s",
                         getattr(module, "instance_id", module),
                     )
-            # Module closeEvent handlers normally hide rather than destroy the
-            # instance.  Hide explicitly here so a visible module cannot keep
-            # the GUI session alive after the Workbench has accepted exit.
+            # Accepted module close events hide rather than destroy their
+            # reusable instances. Hide explicitly here because application
+            # shutdown does not reliably deliver close events to every module.
             hide = getattr(module, "hide", None)
             if callable(hide):
                 try:
