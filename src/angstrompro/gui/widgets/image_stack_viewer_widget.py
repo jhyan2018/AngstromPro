@@ -96,7 +96,7 @@ class _PickedPointItem(QtWidgets.QGraphicsEllipseItem):
     RADIUS = 5   # scene units (= image pixels)
 
     def __init__(self, col: float, row: float, index: int,
-                 color: QtGui.QColor, on_moved=None):
+                 color: QtGui.QColor, on_moved=None, compact_label=False):
         r = self.RADIUS
         super().__init__(-r, -r, 2 * r, 2 * r)
         self.setPos(col, row)
@@ -126,6 +126,7 @@ class _PickedPointItem(QtWidgets.QGraphicsEllipseItem):
 
         self._idx      = index
         self._on_moved = on_moved
+        self._compact_label = bool(compact_label)
         self._refresh_label()
 
     def scene_col(self) -> float:
@@ -135,8 +136,15 @@ class _PickedPointItem(QtWidgets.QGraphicsEllipseItem):
         return self.pos().y()
 
     def _refresh_label(self):
-        self._lbl.setPlainText(
-            f"{self._idx}: ({self.scene_col():.1f}, {self.scene_row():.1f})")
+        if self._compact_label:
+            self._lbl.setPlainText(str(self._idx))
+        else:
+            self._lbl.setPlainText(
+                f"{self._idx}: ({self.scene_col():.1f}, {self.scene_row():.1f})")
+
+    def setCompactLabel(self, compact: bool) -> None:
+        self._compact_label = bool(compact)
+        self._refresh_label()
 
     def itemChange(self, change, value):
         if change == _GIC_POS:
@@ -173,6 +181,9 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
     wheelScrolled    = Signal(float, float, int)     # col, row, angleDelta_y
 
     _ZOOM_FACTOR = 1.25
+    _WHEEL_DELTA_PER_STEP = 120.0
+    _MAX_WHEEL_STEPS_PER_EVENT = 2.0
+    _MIN_ZOOM_FIT_FRACTION = 0.20
 
     def __init__(self, scene: QtWidgets.QGraphicsScene, parent=None):
         super().__init__(scene, parent)
@@ -191,6 +202,7 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
         self.setSizePolicy(sp)
         self._panning   = False
         self._pan_start = QtCore.QPoint()
+        self._wheel_zoom_sensitivity = 1.0
 
     def hasHeightForWidth(self) -> bool:
         return False
@@ -198,12 +210,66 @@ class _ImageGraphicsView(QtWidgets.QGraphicsView):
     def heightForWidth(self, width: int) -> int:
         return super().heightForWidth(width)
 
+    def setWheelZoomSensitivity(self, sensitivity: float) -> None:
+        """Set the multiplier applied to normalized wheel/trackpad movement."""
+        self._wheel_zoom_sensitivity = max(0.1, min(3.0, float(sensitivity)))
+
+    def _normalized_wheel_steps(self, event) -> tuple[float, int]:
+        """Return platform-independent wheel steps and the raw signal delta."""
+        angle_delta = event.angleDelta().y()
+        if angle_delta:
+            raw_delta = int(angle_delta)
+            steps = float(angle_delta) / self._WHEEL_DELTA_PER_STEP
+        else:
+            # High-resolution pointing devices may report only pixelDelta().
+            pixel_delta = event.pixelDelta().y()
+            raw_delta = int(pixel_delta)
+            steps = float(pixel_delta) / self._WHEEL_DELTA_PER_STEP
+
+        steps *= self._wheel_zoom_sensitivity
+        limit = self._MAX_WHEEL_STEPS_PER_EVENT
+        return max(-limit, min(limit, steps)), raw_delta
+
+    def _minimum_zoom_scale(self) -> float | None:
+        """Return 20% of the scale that would fit the image in the viewport."""
+        bounds = self.scene().itemsBoundingRect()
+        viewport = self.viewport()
+        if (bounds.isEmpty() or bounds.width() <= 0.0 or bounds.height() <= 0.0
+                or viewport.width() <= 0 or viewport.height() <= 0):
+            return None
+        fit_scale = min(
+            float(viewport.width()) / bounds.width(),
+            float(viewport.height()) / bounds.height(),
+        )
+        return fit_scale * self._MIN_ZOOM_FIT_FRACTION
+
+    @staticmethod
+    def _bounded_zoom_factor(requested: float, current: float,
+                             minimum: float | None) -> float:
+        """Clamp zoom-out without restricting zoom-in."""
+        if requested >= 1.0 or minimum is None:
+            return requested
+        if current <= minimum:
+            return 1.0
+        return max(requested, minimum / current)
+
     def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        f = self._ZOOM_FACTOR if delta > 0 else 1.0 / self._ZOOM_FACTOR
-        self.scale(f, f)
+        steps, raw_delta = self._normalized_wheel_steps(event)
+        if steps == 0.0:
+            event.ignore()
+            return
+        factor = self._ZOOM_FACTOR ** steps
+        transform = self.transform()
+        current_scale = (
+            transform.m11() ** 2 + transform.m12() ** 2
+        ) ** 0.5
+        factor = self._bounded_zoom_factor(
+            factor, current_scale, self._minimum_zoom_scale())
+        if factor != 1.0:
+            self.scale(factor, factor)
         pt = self.mapToScene(event_POS(event))
-        self.wheelScrolled.emit(pt.x(), pt.y(), delta)
+        self.wheelScrolled.emit(pt.x(), pt.y(), raw_delta)
+        event.accept()
 
     def mousePressEvent(self, event):
         if event.button() == LeftButton:
@@ -293,10 +359,13 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             - self._top_controls.width()
             - self._top_layout.spacing()
         )
-        side = max(160, min(600, available_width, available_height))
-        # 600 px is a preferred ceiling, not a hard window minimum.  Keeping a
-        # small minimum lets both viewer panels contract again when workspace
-        # or processing dock widgets are restored.
+        side = max(
+            160,
+            min(self._maximum_canvas_size, available_width, available_height),
+        )
+        # The configured maximum is a preferred ceiling, not a hard window
+        # minimum. Keeping a small minimum lets both viewer panels contract
+        # again when workspace or processing dock widgets are restored.
         self._view.setMinimumSize(160, 160)
         self._view.setMaximumSize(side, side)
         self._view.resize(side, side)
@@ -363,7 +432,17 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_cb_show_isolines.setChecked(True)
         self.ui_cb_show_isolines.toggled.connect(self._update_isoline_overlay)
 
-        self.ui_lb_img_picked_points       = QtWidgets.QLabel("Picked Points: ")
+        self.ui_lb_img_picked_points = QtWidgets.QLabel("Picked Points: ")
+        self.ui_pb_img_clean_mode = QtWidgets.QPushButton("C")
+        self.ui_pb_img_clean_mode.setCheckable(True)
+        self.ui_pb_img_clean_mode.setFixedWidth(32)
+        # Preserve the existing full annotation display by default.
+        self.ui_pb_img_clean_mode.setChecked(False)
+        self.ui_pb_img_clean_mode.setToolTip(
+            "Compact point labels: hide coordinates and show point numbers only")
+        self.ui_pb_img_clean_mode.toggled.connect(
+            self._annotation_display_mode_changed)
+
         self.ui_cb_img_pk_pts_palette_list = QtWidgets.QComboBox()
         self.ui_cb_img_pk_pts_palette_list.addItems(self.img_marker_cn_list)
         self.ui_cb_img_pk_pts_palette_list.currentIndexChanged.connect(
@@ -406,7 +485,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         right_top.addWidget(self.ui_cb_img_palette_list)
         right_top.addWidget(self.ui_cb_img_rt_cmp)
         right_top.addWidget(self.ui_cb_show_isolines)
-        right_top.addWidget(self.ui_lb_img_picked_points)
+        picked_heading = QtWidgets.QHBoxLayout()
+        picked_heading.addWidget(self.ui_lb_img_picked_points)
+        picked_heading.addWidget(self.ui_pb_img_clean_mode)
+        right_top.addLayout(picked_heading)
         pk_row = QtWidgets.QHBoxLayout()
         pk_row.addWidget(self.ui_cb_img_pk_pts_palette_list)
         pk_row.addWidget(self.ui_cb_img_pk_pts_mode)
@@ -488,6 +570,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._is_fft_data            = False
         self.uds_variable_dataCopy   = 0
         self.uds_var_layer_value     = []
+        self._maximum_canvas_size    = 600
 
         self.msg_type = [
             'SELECT_USD_VARIABLE',
@@ -506,7 +589,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._point_items           = []   # _PickedPointItem objects in scene
         self._overlay_items         = []   # line / rect / shape items (redrawn on every update)
         self._label_items           = []   # movable label items (redrawn only on topology change)
-        self._label_key             = None # (n, mode) — detects topology change
         self._rt_cursor_item        = None
         self._bias_text_item        = None
         self._bias_text_color       = '#ff0000'
@@ -579,8 +661,10 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
     def _add_picked_point(self, col: float, row: float):
         idx   = len(self._point_items)
         color = self._mk_qcolor()
-        item  = _PickedPointItem(col, row, idx, color,
-                                 on_moved=self._on_point_moved)
+        item  = _PickedPointItem(
+            col, row, idx, color,
+            on_moved=self._on_point_moved,
+            compact_label=self.ui_pb_img_clean_mode.isChecked())
         self._scene.addItem(item)
         self._point_items.append(item)
         self.img_picked_points_list.append(f"{int(col)},{int(row)}")
@@ -621,7 +705,6 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         for item in self._label_items:
             self._scene.removeItem(item)
         self._label_items.clear()
-        self._label_key = None
 
     def _rebuild_point_items(self):
         """Recreate point items from img_picked_points_list (e.g. after colour change)."""
@@ -632,10 +715,16 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             if len(parts) >= 2:
                 item = _PickedPointItem(
                     float(parts[0]), float(parts[1]), i, color,
-                    on_moved=self._on_point_moved)
+                    on_moved=self._on_point_moved,
+                    compact_label=self.ui_pb_img_clean_mode.isChecked())
                 self._scene.addItem(item)
                 self._point_items.append(item)
         self._sync_listwidget()
+        self._update_annotation_overlay()
+
+    def _annotation_display_mode_changed(self, clean_mode: bool):
+        for item in self._point_items:
+            item.setCompactLabel(clean_mode)
         self._update_annotation_overlay()
 
     def _update_annotation_overlay(self):
@@ -652,12 +741,9 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         pen.setWidthF(1.5)
         mode  = self.ui_cb_img_pk_pts_mode.currentText()
 
-        # Recreate labels only when topology (point count or mode) changes
-        _new_key = (n, mode)
-        _labels_dirty = _new_key != self._label_key
-        if _labels_dirty:
-            self._clear_label_items()
-            self._label_key = _new_key
+        # Measurement text depends on the live point coordinates, so rebuild
+        # it together with the geometry on every drag update.
+        self._clear_label_items()
 
         if mode == "Lines" and n >= 2:
             for i in range(n - 1):
@@ -671,12 +757,11 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
                 self._overlay_items.append(li)
                 dist = math.hypot(p1.scene_col() - p0.scene_col(),
                                   p1.scene_row() - p0.scene_row())
-                if _labels_dirty:
-                    self._label_items.append(self._make_label(
-                        f"{dist:.1f}px",
-                        (p0.scene_col() + p1.scene_col()) / 2,
-                        (p0.scene_row() + p1.scene_row()) / 2,
-                        color))
+                self._label_items.append(self._make_label(
+                    f"{dist:.1f}px",
+                    (p0.scene_col() + p1.scene_col()) / 2,
+                    (p0.scene_row() + p1.scene_row()) / 2,
+                    color))
 
             for i in range(n - 2):
                 p0 = self._point_items[i]
@@ -690,10 +775,9 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
                 mag = math.hypot(*v1) * math.hypot(*v2)
                 if mag > 0:
                     ang = math.degrees(math.acos(max(-1.0, min(1.0, dot / mag))))
-                    if _labels_dirty:
-                        self._label_items.append(self._make_label(
-                            f"{ang:.1f}°",
-                            p1.scene_col(), p1.scene_row(), color))
+                    self._label_items.append(self._make_label(
+                        f"{ang:.1f}°",
+                        p1.scene_col(), p1.scene_row(), color))
 
         elif mode == "Circle" and n >= 2:
             p0, p1 = self._point_items[0], self._point_items[1]
@@ -712,12 +796,11 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             li.setZValue(5)
             self._scene.addItem(li)
             self._overlay_items.append(li)
-            if _labels_dirty:
-                self._label_items.append(self._make_label(
-                    f"r={radius:.1f}px",
-                    (cx + p1.scene_col()) / 2,
-                    (cy + p1.scene_row()) / 2,
-                    color))
+            self._label_items.append(self._make_label(
+                f"r={radius:.1f}px",
+                (cx + p1.scene_col()) / 2,
+                (cy + p1.scene_row()) / 2,
+                color))
 
         elif mode == "Region" and n >= 2:
             p0, p1 = self._point_items[0], self._point_items[1]
@@ -734,10 +817,9 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             ri.setZValue(5)
             self._scene.addItem(ri)
             self._overlay_items.append(ri)
-            if _labels_dirty:
-                self._label_items.append(self._make_label(
-                    f"{abs(x1-x0):.0f}×{abs(y1-y0):.0f}px",
-                    min(x0, x1), min(y0, y1), color))
+            self._label_items.append(self._make_label(
+                f"{abs(x1-x0):.0f}×{abs(y1-y0):.0f}px",
+                min(x0, x1), min(y0, y1), color))
 
     def _make_label(self, text: str, x: float, y: float,
                     color: QtGui.QColor) -> QtWidgets.QGraphicsTextItem:
@@ -991,8 +1073,15 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._view.setFixedWidth(w)
         self._view.setFixedHeight(h)
 
+    def setCanvasMaximumSize(self, maximum_size):
+        self._maximum_canvas_size = max(160, int(maximum_size))
+        QtCore.QTimer.singleShot(0, self._sync_square_canvas)
+
     def setScaleWidgetZoomFactor(self, zoom_factor):
         self.ui_scale_widget.setZoomFactor(zoom_factor)
+
+    def setCanvasWheelZoomSensitivity(self, sensitivity):
+        self._view.setWheelZoomSensitivity(sensitivity)
 
     def setScaleWidgetSigmaDefault(self, sigma_default):
         self.ui_scale_widget.setSigmaDefault(sigma_default)

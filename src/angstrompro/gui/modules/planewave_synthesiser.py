@@ -193,8 +193,14 @@ class PlanewaveSynthesiser(AGuiModule):
             PrefItem("factor.sigma",                    "Sigma",              "number", "σ window for histogram auto-scale"),
             PrefItem("factor.slider_scale_zoom_factor", "Slider zoom factor", "number", "Step size for zoom in/out buttons",
                      kwargs={"min": 0.001, "max": 0.999}),
+            PrefItem("factor.canvas_wheel_zoom_sensitivity", "Wheel zoom sensitivity", "number",
+                     "Canvas mouse-wheel and trackpad zoom multiplier",
+                     kwargs={"min": 0.1, "max": 3.0}),
         ]),
         PrefSection("Canvas", "layout-kanban", [
+            PrefItem("canvas.max_canvas_size", "Maximum canvas size", "integer",
+                     "Largest square canvas side in pixels",
+                     kwargs={"min": 160, "max": 4096}),
             PrefItem("canvas.bias_text",       "Show bias value", "checkbox", "Overlay bias setpoint text on image"),
             PrefItem("canvas.bias_text_color", "Bias text color", "dropdown", "Color of the bias annotation",
                      kwargs={"choices": ["Red", "Green", "Blue", "Yellow", "Black", "White"]}),
@@ -278,6 +284,9 @@ class PlanewaveSynthesiser(AGuiModule):
 
         # apply config (palette, scale, canvas settings)
         self._apply_config_to_panels(self._config)
+        self._restore_clean_label_state()
+        self._viewer.ui_pb_img_clean_mode.toggled.connect(
+            self._save_clean_label_state)
 
         # seed one wave row so the viewer shows something
         self._add_wave_row()
@@ -293,12 +302,31 @@ class PlanewaveSynthesiser(AGuiModule):
         factor = cfg.get("factor", {})
         self._viewer.setScaleWidgetSigmaDefault(factor.get("sigma", 5))
         self._viewer.setScaleWidgetZoomFactor(factor.get("slider_scale_zoom_factor", 0.6))
+        self._viewer.setCanvasWheelZoomSensitivity(
+            factor.get("canvas_wheel_zoom_sensitivity", 1.0))
 
         canvas = cfg.get("canvas", {})
+        self._viewer.setCanvasMaximumSize(canvas.get("max_canvas_size", 600))
         self._viewer.setBiasTextColor(canvas.get("bias_text_color", "Red"))
         self._viewer.setBiasTextShown(canvas.get("bias_text", False))
 
     # ── helpers ───────────────────────────────────────────────────────────
+
+    def _restore_clean_label_state(self) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+
+        qs = get_qsettings()
+        key = f"{self._window_layout_qsettings_prefix()}/view/clean_labels"
+        self._viewer.ui_pb_img_clean_mode.setChecked(
+            qs.value(key, False, type=bool))
+
+    def _save_clean_label_state(self, *_args) -> None:
+        from angstrompro.app.user_data_folder import get_qsettings
+
+        qs = get_qsettings()
+        key = f"{self._window_layout_qsettings_prefix()}/view/clean_labels"
+        qs.setValue(key, self._viewer.ui_pb_img_clean_mode.isChecked())
+        qs.sync()
 
     def _make_uds(self) -> UdsDataStru:
         n = self._data_size

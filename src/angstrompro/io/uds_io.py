@@ -12,6 +12,7 @@ v1 (current) — initial HDF5 format
 
 import json
 import logging
+import math
 from pathlib import Path
 
 import numpy as np
@@ -260,7 +261,12 @@ def load(path: Path) -> UdsDataStru:
 # Legacy .uds binary reader (read-only)
 # ------------------------------------------------------------------
 
-def load_legacy(path: Path) -> UdsDataStru:
+_LEGACY_PARSE_ERRORS = (
+    UnicodeDecodeError, ValueError, TypeError, IndexError, OverflowError,
+)
+
+
+def _load_structured_legacy(path: Path) -> UdsDataStru:
     """
     Read the old custom binary .uds format produced by UdsDataProcess.saveToFile().
 
@@ -289,16 +295,21 @@ def load_legacy(path: Path) -> UdsDataStru:
         axis_value = f.readline().decode("utf-8").strip().split("=")[-1]
         info_start = f.tell()
         while True:
-            line = f.readline().decode().strip()
+            line_bytes = f.readline()
+            if not line_bytes:
+                raise ValueError("Legacy UDS header has no :HEADER_END: marker")
+            line = line_bytes.decode().strip()
             if line == ":HEADER_END:":
                 break
         raw = np.fromfile(f, dtype=data_type, count=-1)
 
-    try:
-        data = raw.reshape(shape)
-    except ValueError:
-        log.warning("Legacy load: shape mismatch in %s", path.name)
-        data = raw
+    expected_count = math.prod(shape)
+    if raw.size != expected_count:
+        raise ValueError(
+            f"Legacy UDS payload has {raw.size} values; "
+            f"shape {tuple(shape)} requires {expected_count}"
+        )
+    data = raw.reshape(shape)
 
     uds = UdsDataStru.from_array(data, name)
 
@@ -336,18 +347,95 @@ def load_legacy(path: Path) -> UdsDataStru:
 
     with open(path, "rb") as f:
         f.seek(info_start)
+        has_proc_history = False
         while True:
-            line = f.readline().decode("utf-8").strip()
+            line_bytes = f.readline()
+            if not line_bytes:
+                break
+            line = line_bytes.decode("utf-8").strip()
             if line == ":INFO_END:":
+                has_proc_history = True
                 break
-        while True:
-            line = f.readline().decode("utf-8").strip()
-            if line in (":PROC_HISTORY_END:", ":HEADER_END:", ""):
+            if line == ":HEADER_END:":
                 break
-            uds.proc_history.append(ProcRecord(step=line))
+        if has_proc_history:
+            while True:
+                line_bytes = f.readline()
+                if not line_bytes:
+                    break
+                line = line_bytes.decode("utf-8").strip()
+                if line in (":PROC_HISTORY_END:", ":HEADER_END:", ""):
+                    break
+                uds.proc_history.append(ProcRecord(step=line))
 
     log.info("Loaded legacy .uds: %s  shape=%s  dtype=%s", name, shape, data_type)
     return uds
+
+
+def _load_pre_legacy(path: Path) -> UdsDataStru:
+    """Read the oldest UDS layout using only its stable header fields."""
+    with open(path, "rb") as f:
+        name = f.readline().decode("utf-8").strip()
+
+        shape_line = f.readline().decode("utf-8").strip()
+        shape_key, separator, shape_value = shape_line.partition("=")
+        if not separator or shape_key.strip().lower() != "shape":
+            raise ValueError("Pre-legacy UDS has no valid Shape line")
+        shape = tuple(int(value.strip()) for value in shape_value.split(","))
+        if not shape or any(size < 0 for size in shape):
+            raise ValueError(f"Invalid pre-legacy UDS shape: {shape!r}")
+
+        dtype_line = f.readline().decode("utf-8").strip()
+        dtype_key, separator, dtype_value = dtype_line.partition("=")
+        if not separator or dtype_key.strip().lower() != "datatype":
+            raise ValueError("Pre-legacy UDS has no valid DataType line")
+        dtype = np.dtype(dtype_value.strip())
+        if dtype.hasobject:
+            raise ValueError("Object dtype is not supported in legacy UDS files")
+
+        # Header fields between DataType and HEADER_END varied across the
+        # earliest releases, so deliberately treat them as opaque bytes.
+        while True:
+            line = f.readline()
+            if not line:
+                raise ValueError("Pre-legacy UDS header has no :HEADER_END: marker")
+            if line.strip() == b":HEADER_END:":
+                break
+
+        raw = np.fromfile(f, dtype=dtype, count=-1)
+
+    expected_count = math.prod(shape)
+    if raw.size != expected_count:
+        raise ValueError(
+            f"Pre-legacy UDS payload has {raw.size} values; "
+            f"shape {shape} requires {expected_count}"
+        )
+
+    uds = UdsDataStru.from_array(raw.reshape(shape), name or path.stem)
+    log.info("Loaded pre-legacy .uds: %s  shape=%s  dtype=%s",
+             uds.name, shape, dtype)
+    return uds
+
+
+def load_legacy(path: Path) -> UdsDataStru:
+    """Load a structured legacy UDS, falling back to the oldest layout."""
+    try:
+        return _load_structured_legacy(path)
+    except _LEGACY_PARSE_ERRORS as structured_error:
+        structured_error_text = str(structured_error)
+        log.info(
+            "Structured legacy parser rejected %s; trying pre-legacy reader: %s",
+            path.name, structured_error_text,
+        )
+
+    try:
+        return _load_pre_legacy(path)
+    except _LEGACY_PARSE_ERRORS as pre_legacy_error:
+        raise ValueError(
+            f"Cannot read {path.name} as a legacy UDS file. "
+            f"Structured legacy error: {structured_error_text}. "
+            f"Pre-legacy error: {pre_legacy_error}."
+        ) from pre_legacy_error
 
 
 # ------------------------------------------------------------------
