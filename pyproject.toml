@@ -40,7 +40,7 @@ dependencies = [
     "matplotlib",
     "h5py",
     "Pillow",
-    "imageio",
+    "imageio[ffmpeg]",
     "qtawesome",
 ]
 

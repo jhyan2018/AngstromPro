@@ -710,6 +710,7 @@ class ImageStackViewer(AGuiModule):
                     f"Duration: {n / fps:.1f} s")
         else:
             import imageio
+            import numpy as np
             quality = dlg.quality
             # Map 0-100 → bitrate string: 100→"50M", 50→"8M", 0→"500k"
             # Bitrate gives true full-range quality control across all codecs
@@ -723,7 +724,24 @@ class ImageStackViewer(AGuiModule):
                 codec      = "mjpeg"
                 codec_desc = f"mjpeg via ffmpeg  ({bitrate})"
 
-            imageio.mimwrite(path, frames, fps=fps, codec=codec,
+            # Viewport captures (used when overlays/annotations are included)
+            # can have odd dimensions. The yuv420p pixel format used by H.264,
+            # and commonly by MJPEG, requires even width and height. Pad only
+            # the bottom/right edge instead of resizing or dropping content.
+            pad_h = h % 2
+            pad_w = w % 2
+            if pad_h or pad_w:
+                frames = [
+                    np.pad(frame, ((0, pad_h), (0, pad_w), (0, 0)), mode="edge")
+                    for frame in frames
+                ]
+                h += pad_h
+                w += pad_w
+
+            # Force the video backend. Without this, ImageIO may fall back to
+            # another multi-image writer (notably TIFF) and then reject video
+            # options such as ``fps`` with a misleading TiffWriter error.
+            imageio.mimwrite(path, frames, format="FFMPEG", fps=fps, codec=codec,
                              bitrate=bitrate, macro_block_size=1)
 
             return (f"Format:  {fmt}\n"

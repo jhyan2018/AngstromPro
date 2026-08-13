@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets
+from angstrompro.utils.qt_compat import Action, QtCore, QtGui, QtWidgets
 
 _USER_ROLE = QtCore.Qt.ItemDataRole.UserRole if hasattr(
     QtCore.Qt.ItemDataRole, "UserRole") else QtCore.Qt.UserRole
@@ -60,6 +60,26 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
         # table
         self._table = QtWidgets.QTableWidget()
         self._table.currentCellChanged.connect(self._on_cell_selected)
+
+        copy_action = Action("Copy", self._table)
+        standard_copy = (
+            QtGui.QKeySequence.StandardKey.Copy
+            if hasattr(QtGui.QKeySequence, "StandardKey")
+            else QtGui.QKeySequence.Copy
+        )
+        copy_action.setShortcut(standard_copy)
+        copy_action.setShortcutContext(
+            QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut
+            if hasattr(QtCore.Qt, "ShortcutContext")
+            else QtCore.Qt.WidgetWithChildrenShortcut
+        )
+        copy_action.triggered.connect(self._copy_selected_cells)
+        self._table.addAction(copy_action)
+        self._table.setContextMenuPolicy(
+            QtCore.Qt.ContextMenuPolicy.ActionsContextMenu
+            if hasattr(QtCore.Qt, "ContextMenuPolicy")
+            else QtCore.Qt.ActionsContextMenu
+        )
         root.addWidget(self._table)
 
         # status bar
@@ -133,6 +153,32 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
         if np.issubdtype(self._array.dtype, np.floating):
             return f"{val:.10g}"
         return str(val)
+
+    def _copy_selected_cells(self) -> None:
+        """Copy selected cells as a tab/newline-delimited rectangle."""
+        indexes = self._table.selectedIndexes()
+        if not indexes:
+            return
+
+        selected = {(index.row(), index.column()) for index in indexes}
+        min_row = min(row for row, _column in selected)
+        max_row = max(row for row, _column in selected)
+        min_col = min(column for _row, column in selected)
+        max_col = max(column for _row, column in selected)
+
+        lines = []
+        for row in range(min_row, max_row + 1):
+            values = []
+            for column in range(min_col, max_col + 1):
+                item = self._table.item(row, column)
+                values.append(
+                    item.text()
+                    if (row, column) in selected and item is not None
+                    else ""
+                )
+            lines.append("\t".join(values))
+
+        QtWidgets.QApplication.clipboard().setText("\n".join(lines))
 
     # ------------------------------------------------------------------
     # Flush table edits → _pending
