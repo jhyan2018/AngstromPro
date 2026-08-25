@@ -6,7 +6,7 @@ Presents four choices:
   Panel       — Main / Aux
   Annotations — include overlays (checkbox)
   Destination — Clipboard / File
-  Format      — PNG / TIFF / JPEG  (only when Destination = File)
+  Format      — Bitmap / SVG for Clipboard; PNG / TIFF / JPEG for File
 
 Last-used choices are persisted via QSettings (settings.ini).
 """
@@ -57,7 +57,13 @@ class ExportImageDialog(QtWidgets.QDialog):
         self._dest_cb.currentIndexChanged.connect(self._on_dest_changed)
         layout.addRow("Destination:", self._dest_cb)
 
-        # Format (only visible when Destination = File)
+        # Clipboard format
+        self._clipboard_format_cb = QtWidgets.QComboBox()
+        self._clipboard_format_cb.addItems(["Bitmap", "SVG"])
+        self._clipboard_format_label = QtWidgets.QLabel("Format:")
+        layout.addRow(self._clipboard_format_label, self._clipboard_format_cb)
+
+        # File format
         self._format_cb = QtWidgets.QComboBox()
         self._format_cb.addItems(["PNG", "TIFF", "JPEG"])
         self._format_row_label = QtWidgets.QLabel("Format:")
@@ -82,6 +88,8 @@ class ExportImageDialog(QtWidgets.QDialog):
         is_file = (index == 1)
         self._format_cb.setVisible(is_file)
         self._format_row_label.setVisible(is_file)
+        self._clipboard_format_cb.setVisible(not is_file)
+        self._clipboard_format_label.setVisible(not is_file)
 
     def _on_accept(self) -> None:
         self._save_settings()
@@ -100,6 +108,7 @@ class ExportImageDialog(QtWidgets.QDialog):
             overlay = s.value("overlay", True, type=bool)
             dest = s.value("destination", "Clipboard")
             fmt = s.value("format", "PNG")
+            clipboard_fmt = s.value("clipboard_format", "Bitmap")
             s.endGroup()
 
             idx = self._panel_cb.findText(panel)
@@ -112,6 +121,9 @@ class ExportImageDialog(QtWidgets.QDialog):
             idx = self._format_cb.findText(fmt)
             if idx >= 0:
                 self._format_cb.setCurrentIndex(idx)
+            idx = self._clipboard_format_cb.findText(clipboard_fmt)
+            if idx >= 0:
+                self._clipboard_format_cb.setCurrentIndex(idx)
         except Exception:
             pass  # first run or folder not set — use defaults silently
 
@@ -124,6 +136,7 @@ class ExportImageDialog(QtWidgets.QDialog):
             s.setValue("overlay",     self._overlay_chk.isChecked())
             s.setValue("destination", self._dest_cb.currentText())
             s.setValue("format",      self._format_cb.currentText())
+            s.setValue("clipboard_format", self._clipboard_format_cb.currentText())
             s.endGroup()
             s.sync()
         except Exception:
@@ -150,6 +163,11 @@ class ExportImageDialog(QtWidgets.QDialog):
     def file_format(self) -> str:
         """'PNG', 'TIFF', or 'JPEG'  (only relevant when to_clipboard is False)"""
         return self._format_cb.currentText()
+
+    @property
+    def clipboard_format(self) -> str:
+        """'Bitmap' or 'SVG' (only relevant for Clipboard)."""
+        return self._clipboard_format_cb.currentText()
 
     # ------------------------------------------------------------------
     # Convenience

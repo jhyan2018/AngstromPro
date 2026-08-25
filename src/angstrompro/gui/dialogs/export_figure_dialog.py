@@ -9,7 +9,7 @@ Export Figure dialog for CurveStackViewer.
 Options
 -------
   Destination  — File / Clipboard
-  Format       — PNG / PDF / SVG / TIFF  (File only; PDF & SVG are vector)
+  Format       — Bitmap / SVG for Clipboard; PNG / PDF / SVG / TIFF for File
   DPI          — 72–1200, default 300    (disabled for PDF / SVG)
   Transparent  — transparent background  (PNG / TIFF only)
   Tight bbox   — bbox_inches="tight"
@@ -50,6 +50,12 @@ class ExportFigureDialog(QtWidgets.QDialog):
         self._dest_cb.addItems(["File", "Clipboard"])
         self._dest_cb.currentIndexChanged.connect(self._on_dest_changed)
         layout.addRow("Destination:", self._dest_cb)
+
+        # Clipboard format
+        self._clipboard_format_cb = QtWidgets.QComboBox()
+        self._clipboard_format_cb.addItems(["Bitmap", "SVG"])
+        self._clipboard_format_label = QtWidgets.QLabel("Format:")
+        layout.addRow(self._clipboard_format_label, self._clipboard_format_cb)
 
         # Format
         self._format_cb = QtWidgets.QComboBox()
@@ -102,6 +108,8 @@ class ExportFigureDialog(QtWidgets.QDialog):
         self._dpi_label.setVisible(is_file)
         self._transp_chk.setVisible(is_file)
         self._transp_label.setVisible(is_file)
+        self._clipboard_format_cb.setVisible(not is_file)
+        self._clipboard_format_label.setVisible(not is_file)
         if is_file:
             self._on_format_changed(self._format_cb.currentText())
 
@@ -135,6 +143,7 @@ class ExportFigureDialog(QtWidgets.QDialog):
             dpi    = s.value("dpi",         300, type=int)
             transp = s.value("transparent", False, type=bool)
             tight  = s.value("tight",       True,  type=bool)
+            clipboard_fmt = s.value("clipboard_format", "Bitmap")
             s.endGroup()
 
             idx = self._dest_cb.findText(dest)
@@ -146,6 +155,9 @@ class ExportFigureDialog(QtWidgets.QDialog):
             self._dpi_spin.setValue(dpi)
             self._transp_chk.setChecked(transp)
             self._tight_chk.setChecked(tight)
+            idx = self._clipboard_format_cb.findText(clipboard_fmt)
+            if idx >= 0:
+                self._clipboard_format_cb.setCurrentIndex(idx)
         except Exception:
             pass
 
@@ -159,6 +171,7 @@ class ExportFigureDialog(QtWidgets.QDialog):
             s.setValue("dpi",         self._dpi_spin.value())
             s.setValue("transparent", self._transp_chk.isChecked())
             s.setValue("tight",       self._tight_chk.isChecked())
+            s.setValue("clipboard_format", self._clipboard_format_cb.currentText())
             s.endGroup()
             s.sync()
         except Exception:
@@ -175,6 +188,11 @@ class ExportFigureDialog(QtWidgets.QDialog):
     @property
     def file_format(self) -> str:
         return self._format_cb.currentText()
+
+    @property
+    def clipboard_format(self) -> str:
+        """'Bitmap' or 'SVG' (only relevant for Clipboard)."""
+        return self._clipboard_format_cb.currentText()
 
     @property
     def dpi(self) -> int:

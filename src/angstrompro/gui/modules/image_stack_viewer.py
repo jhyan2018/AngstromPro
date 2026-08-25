@@ -580,7 +580,14 @@ class ImageStackViewer(AGuiModule):
             export_pixmap = pixmap
 
         if dlg.to_clipboard:
-            QtWidgets.QApplication.clipboard().setPixmap(export_pixmap)
+            if dlg.clipboard_format == "SVG":
+                from angstrompro.gui.utils.clipboard_image import (
+                    raster_svg_bytes, set_svg_with_bitmap_fallback,
+                )
+                set_svg_with_bitmap_fallback(
+                    raster_svg_bytes(export_pixmap), export_pixmap)
+            else:
+                QtWidgets.QApplication.clipboard().setPixmap(export_pixmap)
             self.statusBar().showMessage("Image copied to clipboard.", 3000)
         else:
             fmt = dlg.file_format

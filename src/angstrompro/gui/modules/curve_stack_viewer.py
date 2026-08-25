@@ -20,6 +20,7 @@ Item loading strategy
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 import logging
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,70 @@ if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
 
 log = logging.getLogger(__name__)
+
+
+@contextmanager
+def _preserve_plot_during_export(plot_widget):
+    """Render the live figure without changing its interactive view.
+
+    ``savefig`` performs a real draw.  With a tight-layout figure that draw
+    can consume a pending autoscale request, especially after rcParams (for
+    example ``font.size``) changed.  Freeze every axes at its current limits
+    for the export, then restore both view and layout state afterwards.
+    """
+    fig = plot_widget._fig
+    axes_state = []
+    for ax in fig.axes:
+        axes_state.append((
+            ax,
+            # Read the already-rendered view directly.  The public getters
+            # first satisfy any queued autoscale request, which is precisely
+            # the export-time side effect this guard prevents.
+            tuple(ax._viewLim.intervalx),
+            tuple(ax._viewLim.intervaly),
+            bool(ax.get_autoscalex_on()),
+            bool(ax.get_autoscaley_on()),
+            tuple(ax.get_position(original=True).bounds),
+            tuple(ax.get_position().bounds),
+        ))
+
+    size_inches = tuple(fig.get_size_inches())
+    subplotpars = fig.subplotpars
+    subplot_state = (
+        subplotpars.left, subplotpars.right,
+        subplotpars.bottom, subplotpars.top,
+        subplotpars.wspace, subplotpars.hspace,
+    )
+
+    # Do not let the export draw fulfil a deferred autoscale request.
+    for ax, *_rest in axes_state:
+        ax.set_autoscalex_on(False)
+        ax.set_autoscaley_on(False)
+
+    try:
+        with plot_widget._rc():
+            yield fig
+    finally:
+        fig.set_size_inches(size_inches, forward=False)
+        fig.subplots_adjust(
+            left=subplot_state[0], right=subplot_state[1],
+            bottom=subplot_state[2], top=subplot_state[3],
+            wspace=subplot_state[4], hspace=subplot_state[5],
+        )
+        for (ax, xlim, ylim, autoscalex, autoscaley,
+             original_position, active_position) in axes_state:
+            if ax not in fig.axes:
+                continue
+            ax.set_position(original_position, which="original")
+            ax.set_position(active_position, which="active")
+            ax.set_xlim(xlim, emit=False)
+            ax.set_ylim(ylim, emit=False)
+            ax.set_autoscalex_on(autoscalex)
+            ax.set_autoscaley_on(autoscaley)
+
+        canvas = getattr(plot_widget, "_canvas", None)
+        if canvas is not None:
+            canvas.draw_idle()
 
 
 @register_module
@@ -409,10 +474,9 @@ class CurveStackViewer(AGuiModule):
         if dlg is None:
             return
 
-        fig = plot_widget._fig
-
         if dlg.to_clipboard:
-            self._export_figure_to_clipboard(fig)
+            self._export_figure_to_clipboard(
+                plot_widget, dlg.clipboard_format)
             return
 
         _EXT = {"PNG": "png", "PDF": "pdf", "SVG": "svg", "TIFF": "tif"}
@@ -437,20 +501,53 @@ class CurveStackViewer(AGuiModule):
             kwargs["transparent"] = True
 
         try:
-            fig.savefig(path, **kwargs)
+            with _preserve_plot_during_export(plot_widget) as fig:
+                fig.savefig(path, **kwargs)
             self.statusBar().showMessage(f"Figure saved to {path}", 4000)
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Export failed", str(exc))
 
-    def _export_figure_to_clipboard(self, fig) -> None:
+    def _export_figure_to_clipboard(
+            self, plot_widget, clipboard_format: str) -> None:
         import io
         from angstrompro.utils.qt_compat import QtGui
-        buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-        buf.seek(0)
-        pixmap = QtGui.QPixmap()
-        pixmap.loadFromData(buf.read(), "PNG")
-        QtWidgets.QApplication.clipboard().setPixmap(pixmap)
+
+        if clipboard_format == "SVG":
+            import matplotlib as mpl
+            from angstrompro.gui.utils.clipboard_image import (
+                set_svg_with_bitmap_fallback, svg_text_for_powerpoint,
+            )
+            svg_buffer = io.BytesIO()
+            # Matplotlib's default SVG setting converts every glyph to an
+            # individual path. PowerPoint consequently turns each digit into
+            # a separate object when the SVG is ungrouped. Keep normal labels
+            # and tick values as SVG text elements instead.
+            with _preserve_plot_during_export(plot_widget) as fig:
+                with mpl.rc_context({"svg.fonttype": "none"}):
+                    fig.savefig(svg_buffer, format="svg", bbox_inches="tight")
+            # Preserve both the rendered and editable PowerPoint text sizes
+            # without changing the SVG canvas or any axes geometry.
+            svg = svg_text_for_powerpoint(svg_buffer.getvalue())
+
+            # Generate the compatibility bitmap in a separate protected draw,
+            # so it cannot affect the SVG render or the interactive axes.
+            png_buffer = io.BytesIO()
+            with _preserve_plot_during_export(plot_widget) as fig:
+                fig.savefig(
+                    png_buffer, format="png", dpi=150, bbox_inches="tight")
+            pixmap = QtGui.QPixmap()
+            if not pixmap.loadFromData(png_buffer.getvalue(), "PNG"):
+                raise ValueError("Could not render figure for the clipboard")
+            set_svg_with_bitmap_fallback(svg, pixmap)
+        else:
+            png_buffer = io.BytesIO()
+            with _preserve_plot_during_export(plot_widget) as fig:
+                fig.savefig(
+                    png_buffer, format="png", dpi=150, bbox_inches="tight")
+            pixmap = QtGui.QPixmap()
+            if not pixmap.loadFromData(png_buffer.getvalue(), "PNG"):
+                raise ValueError("Could not render figure for the clipboard")
+            QtWidgets.QApplication.clipboard().setPixmap(pixmap)
         self.statusBar().showMessage("Figure copied to clipboard.", 3000)
 
     # ── Config ────────────────────────────────────────────────────────────
