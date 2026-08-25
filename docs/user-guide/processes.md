@@ -36,40 +36,28 @@ The naming convention uses `_1D` for operations on curve stacks (`ndim=2`) and
 `_2D` for operations on image stacks (`ndim=3`). Verify axis orientation in the
 item inspector before processing unfamiliar data.
 
-## Built-in process categories
+## Process categories
 
-The Process menu groups built-in operations by purpose:
-
-- **Arithmetic & Normalization** — element-wise mathematics and scaling.
-- **Contours & Surfaces** — iso-points, iso-lines, and iso-surfaces.
-- **Correlation & Statistics** — spatial correlation and intensity statistics.
-- **Data & Axes** — layer extraction and axis reordering.
-- **Filtering & Background** — smoothing, masking, and background removal.
-- **Fourier & Wavevector** — FFT, reciprocal-space filtering, lock-in, and
-  symmetry operations.
-- **Geometry & Resampling** — cropping, interpolation, rotation, and tiling.
-- **Lattice & Registration** — affine registration and lattice-distortion
-  correction.
-- **Simple Simulations** — lightweight synthetic image generators.
-- **Spectroscopy & Profiles** — spectral maps, integration, and line or circle
-  profiles.
-
-Plugins may add further categories when their processes do not fit these
-built-in groups.
+Each registered process has a developer-provided category used for searching
+and browsing. Categories do not determine the submenus shown under
+**Process**. Those submenu names and contents are entirely user-defined.
 
 ## Configure a module menu
 
-Use **Process → Configure Process Menu…** to expose additional registered
-processes in a particular module:
+Use **Process → Configure Process Menu…** to build the Process submenus for a
+particular module. A new layout starts empty; until a submenu is created, the
+Process menu contains only **Process Browser…** and
+**Configure Process Menu…**.
 
 1. Select the target module type.
-2. Add compatible entries from the registry.
-3. Reorder or remove user-added entries.
-4. Save the configuration.
+2. Create and name one or more submenus.
+3. Add compatible processes to the selected submenu.
+4. Rename, delete, or reorder submenus and processes as needed.
+5. Use **Move to…** to move selected processes between submenus.
+6. Save the configuration.
 
-Developer-provided defaults are shown for context but cannot be removed in this
-dialog. User selections are stored separately, so an application update does
-not overwrite them.
+Removing a process from this tree only removes its shortcut from the module
+menu. The process remains registered and available through Process Browser.
 
 ## Simulations
 

@@ -22,9 +22,10 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="processes">Processes</h1>
 <p>A process is a pure or mostly pure callable registered with metadata and a
-<code>ProcessSchema</code>. Registration supplies the information needed for menu
-grouping, compatibility checks, parameter dialogs, background execution, and
-the Process Browser.</p>
+<code>ProcessSchema</code>. Registration supplies the information needed for discovery,
+compatibility checks, parameter dialogs, background execution, and the Process
+Browser. Process-menu submenu names and ordering are user-defined rather than
+derived from registration categories.</p>
 <h2 id="example">Example</h2>
 <pre><code class="language-python">from copy import deepcopy
 

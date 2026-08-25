@@ -31,6 +31,14 @@ image-stack data has three dimensions.</p>
 <p>The layer control moves through the stack and displays the corresponding
 physical-axis value when metadata is available. Complex data can be shown as
 magnitude, phase, real, or imaginary values.</p>
+<h3 id="import-an-ordinary-image">Import an ordinary image</h3>
+<p>Use <strong>File → Import → Image…</strong> to import PNG, JPEG, TIFF, BMP, WebP, or GIF
+files. The image is oriented using its EXIF metadata, converted to grayscale,
+and added to the workspace as one-layer UDS data with shape
+<code>(1, height, width)</code>. Transparent pixels are composited on white, native
+grayscale and 16-bit intensity values are preserved, and only the first frame
+of a multi-frame image is imported. Use <strong>File → Save…</strong> afterward to save the
+workspace item as a native HDF5 <code>.uds</code> file.</p>
 <h2 id="display-controls">Display controls</h2>
 <p>Each panel provides colour-range and colormap controls. Use:</p>
 <ul>

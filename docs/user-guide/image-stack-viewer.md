@@ -14,6 +14,16 @@ The layer control moves through the stack and displays the corresponding
 physical-axis value when metadata is available. Complex data can be shown as
 magnitude, phase, real, or imaginary values.
 
+### Import an ordinary image
+
+Use **File → Import → Image…** to import PNG, JPEG, TIFF, BMP, WebP, or GIF
+files. The image is oriented using its EXIF metadata, converted to grayscale,
+and added to the workspace as one-layer UDS data with shape
+`(1, height, width)`. Transparent pixels are composited on white, native
+grayscale and 16-bit intensity values are preserved, and only the first frame
+of a multi-frame image is imported. Use **File → Save…** afterward to save the
+workspace item as a native HDF5 `.uds` file.
+
 ## Display controls
 
 Each panel provides colour-range and colormap controls. Use:

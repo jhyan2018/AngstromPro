@@ -89,8 +89,13 @@ thumbnail.</p>
   from its context menu.</li>
 </ul>
 <p>Sending moves the item from the source workspace by default. Preferences can
-keep the source item as well. Workspaces are runtime containers: save important
-results to a supported file before closing the application.</p>
+keep the source item as well.</p>
+<p>Use <strong>File → Save Workspace…</strong> to store all supported items from the current
+module workspace in one <code>.apws</code> HDF5 archive. If unsupported payload types are
+present, AngstromPro lists every skipped item; click <strong>OK</strong> to save the remaining
+items. Use <strong>File → Open Workspace…</strong> to add an archive to the current workspace.
+Existing items are kept, and imported name conflicts are resolved with numeric
+suffixes such as <code>_2</code> and <code>_3</code>.</p>
 <h2 id="workspace-item-inspector">Workspace Item Inspector</h2>
 <p>Open <strong>View → Inspector</strong> or press <code>Ctrl+2</code>. Selecting a workspace row updates
 the Inspector with:</p>

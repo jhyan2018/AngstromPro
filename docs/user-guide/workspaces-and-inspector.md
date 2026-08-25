@@ -59,8 +59,14 @@ Mouse actions have different purposes:
   from its context menu.
 
 Sending moves the item from the source workspace by default. Preferences can
-keep the source item as well. Workspaces are runtime containers: save important
-results to a supported file before closing the application.
+keep the source item as well.
+
+Use **File → Save Workspace…** to store all supported items from the current
+module workspace in one `.apws` HDF5 archive. If unsupported payload types are
+present, AngstromPro lists every skipped item; click **OK** to save the remaining
+items. Use **File → Open Workspace…** to add an archive to the current workspace.
+Existing items are kept, and imported name conflicts are resolved with numeric
+suffixes such as `_2` and `_3`.
 
 ## Workspace Item Inspector
 

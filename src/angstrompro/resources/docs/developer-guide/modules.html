@@ -64,10 +64,15 @@ their modules from a plugin entry point.</p>
 </ul>
 <p>Namespaced plugin modules receive isolated plugin configuration automatically.</p>
 <h2 id="process-and-simulation-menus">Process and simulation menus</h2>
-<p>Set <code>default_process_menu</code> to registered process IDs that should always appear
-for the module. Set <code>default_simulate_menu</code> for registered simulations. The
-runtime menu merges class defaults, developer configuration, and user-added
-entries without allowing users to remove developer defaults.</p>
+<p>Process submenus are user-owned and stored in the versioned
+<code>algorithms.process_menu_layouts</code> configuration. A module with no explicit
+layout shows only Process Browser and Configure Process Menu. The legacy
+<code>default_process_menu</code>, <code>algorithms.process_menus</code>, and
+<code>algorithms.user_process_menus</code> declarations are ignored. Existing JSON files
+containing the retired configuration keys still load without migration errors.</p>
+<p>Set <code>default_simulate_menu</code> for registered simulations. Simulation grouping
+continues to use process registration categories and is independent of the
+user-defined Process menu layout.</p>
 <h2 id="input-roles">Input roles</h2>
 <p><code>process_inputs</code> contains the workspace items staged for the next operation.
 Modules with several roles can set <code>staged_labels</code> and <code>clearable_slots</code> to make
