@@ -13,6 +13,7 @@ import json
 import logging
 from pathlib import Path
 
+from angstrompro.core.data.base import ProcRecord
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.data.scene_plot import (
     ScenePlot, FigureConfig, AxesSpec, AxesConfig, ArtistSpec,
@@ -255,6 +256,12 @@ def _scene_to_dict(scene: ScenePlot) -> dict:
         "name":           scene.name,
         "figure":         _figcfg_to_dict(scene.figure),
         "rcparams_delta": _serialisable(scene.rcparams_delta),
+        "proc_history":   [
+            {"step": r.step, "params": r.params,
+             "input_item_names": r.input_item_names,
+             "annotations": r.annotations}
+            for r in scene.proc_history
+        ],
     }
 
 
@@ -263,30 +270,43 @@ def _dict_to_scene(d: dict) -> ScenePlot:
         name           = d.get("name", ""),
         figure         = _dict_to_figcfg(d.get("figure", {})),
         rcparams_delta = d.get("rcparams_delta", {}),
+        proc_history   = [
+            ProcRecord(**record) for record in d.get("proc_history", [])
+        ],
     )
 
 
 
 # ── HDF5 save / load ──────────────────────────────────────────────────────────
 
+def _write_to_group(g, scene: ScenePlot) -> None:
+    """Write a ScenePlot into an HDF5 root or embedded group."""
+    payload = json.dumps(_scene_to_dict(scene), default=str)
+    g.attrs["type_id"] = "scene_plot"
+    g.attrs["version"] = _VERSION
+    g.attrs["name"]    = scene.name
+    g.attrs["payload"] = payload
+
+    # Embed raw UDS arrays as proper HDF5 datasets for portability
+    # (payload holds the full dict but with data as lists — HDF5 arrays
+    # are the authoritative numerical storage; _uds_to_dict already converts
+    # ndarray → list for JSON, so payload is self-contained too).
+    # We keep the flat HDF5 array groups for external tools to read directly.
+    eg = g.create_group("arrays")
+    _embed_arrays(eg, scene)
+
+
+def _read_from_group(g) -> ScenePlot:
+    """Load a ScenePlot from an HDF5 root or embedded group."""
+    d = json.loads(str(g.attrs["payload"]))
+    return _dict_to_scene(d)
+
+
 def save(path: Path, scene: ScenePlot) -> None:
     import h5py
 
-    payload = json.dumps(_scene_to_dict(scene), default=str)
-
     with h5py.File(path, "w") as f:
-        f.attrs["type_id"] = "scene_plot"
-        f.attrs["version"] = _VERSION
-        f.attrs["name"]    = scene.name
-        f.attrs["payload"] = payload
-
-        # Embed raw UDS arrays as proper HDF5 datasets for portability
-        # (payload holds the full dict but with data as lists — HDF5 arrays
-        # are the authoritative numerical storage; _uds_to_dict already converts
-        # ndarray → list for JSON, so payload is self-contained too).
-        # We keep the flat HDF5 array groups for external tools to read directly.
-        eg = f.create_group("arrays")
-        _embed_arrays(eg, scene)
+        _write_to_group(f, scene)
 
 
 def _embed_arrays(grp, scene: ScenePlot) -> None:
@@ -311,10 +331,7 @@ def load(path: Path) -> ScenePlot:
     import h5py
 
     with h5py.File(path, "r") as f:
-        name = str(f.attrs.get("name", path.stem))
-        d    = json.loads(str(f.attrs["payload"]))
-
-    return _dict_to_scene(d)
+        return _read_from_group(f)
 
 
 # ── Register ──────────────────────────────────────────────────────────────────

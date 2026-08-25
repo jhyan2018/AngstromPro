@@ -235,6 +235,14 @@ def _read_from_group(g) -> dict:
     }
 
 
+def _load_from_group(g) -> UdsDataStru:
+    """Load a UDS payload from an HDF5 root or embedded group."""
+    file_version = int(g.attrs.get("version", 1))
+    d = _read_from_group(g)
+    d = apply_migrations("uds", file_version, _VERSION, d)
+    return _dict_to_uds(d)
+
+
 # ------------------------------------------------------------------
 # HDF5 file save / load
 # ------------------------------------------------------------------
@@ -250,11 +258,7 @@ def save(path: Path, uds: UdsDataStru) -> None:
 def load(path: Path) -> UdsDataStru:
     import h5py
     with h5py.File(path, "r") as f:
-        file_version = int(f.attrs.get("version", 1))
-        d = _read_from_group(f)
-
-    d = apply_migrations("uds", file_version, _VERSION, d)
-    return _dict_to_uds(d)
+        return _load_from_group(f)
 
 
 # ------------------------------------------------------------------

@@ -6,6 +6,7 @@
 | --- | :---: | :---: | --- |
 | `.uds` | Yes | Yes | Native HDF5 scientific data |
 | `.scplot` | Yes | Yes | Curve Stack Viewer scene |
+| `.apws` | Yes | Yes | HDF5 archive of one module workspace |
 | `.npy` | Yes | Yes | NumPy array |
 | `.sxm` | Yes | No | Nanonis map |
 | `.3ds` | Yes | No | Nanonis grid spectroscopy |
@@ -30,6 +31,12 @@ format.
 selected by both the Curve Stack Viewer and Data Browser when rendering fresh
 raw UDS data. They contain no scientific dataset and are not general workspace
 data files.
+
+`.apws` is an HDF5 workspace archive. It stores all supported items from the
+current module workspace in their displayed order, together with item names,
+identities, aliases, source paths, and annotations. Core UDS and ScenePlot
+payloads are supported. Unsupported payload types are listed before saving and
+are skipped after confirmation.
 
 ## Channel mappings for multichannel formats
 

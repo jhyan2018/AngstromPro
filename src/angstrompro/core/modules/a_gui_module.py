@@ -764,6 +764,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         menu.addSeparator()
 
+        act_open_workspace = menu.addAction("Open Workspace…")
+        act_open_workspace.triggered.connect(self._on_workspace_open)
+
+        act_save_workspace = menu.addAction("Save Workspace…")
+        act_save_workspace.triggered.connect(self._on_workspace_save)
+
+        menu.addSeparator()
+
         act_prefs = Action("Preferences…", self)
         act_prefs.setShortcut("Ctrl+,")
         # Mark the one true Preferences action explicitly. On macOS Qt moves
@@ -945,6 +953,115 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             save(Path(path), item.payload)
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Save failed", str(exc))
+
+    def _confirm_skipped_workspace_items(
+            self, heading: str, entries: list) -> bool:
+        """Show every skipped item before a workspace operation continues."""
+        from angstrompro.gui.dialogs.workspace_archive_dialog import (
+            SkippedWorkspaceItemsDialog,
+        )
+
+        lines = []
+        for entry in entries:
+            name = getattr(entry, "name", "") or "(unnamed item)"
+            type_id = getattr(entry, "type_id", "") or "unknown"
+            reason = getattr(entry, "reason", "")
+            line = f"{name}  [{type_id}]"
+            if reason and reason != "Unsupported payload type":
+                line += f"\n    {reason}"
+            lines.append(line)
+        return SkippedWorkspaceItemsDialog.confirm(
+            heading, lines, parent=self)
+
+    def _on_workspace_save(self) -> None:
+        from angstrompro.io.workspace_io import (
+            save_workspace, split_supported_items,
+        )
+
+        items = self.workspace.list_items()
+        if not items:
+            QtWidgets.QMessageBox.information(
+                self, "Empty workspace", "There are no workspace items to save.")
+            return
+
+        supported, unsupported = split_supported_items(items)
+        if unsupported and not self._confirm_skipped_workspace_items(
+                "These workspace items use payload types that cannot be "
+                "stored in a workspace archive:", unsupported):
+            return
+        if not supported:
+            QtWidgets.QMessageBox.information(
+                self, "Nothing to save",
+                "None of the workspace items have a supported payload type.")
+            return
+
+        start_dir = self._context.config.get("io", "default_open_dir") or ""
+        from pathlib import Path
+        suggested = (
+            str(Path(start_dir) / "workspace.apws")
+            if start_dir else "workspace.apws"
+        )
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Save Workspace",
+            suggested,
+            "AngstromPro Workspace (*.apws);;HDF5 (*.h5 *.hdf5)",
+        )
+        if not path:
+            return
+        archive_path = Path(path)
+        if not archive_path.suffix:
+            archive_path = archive_path.with_suffix(".apws")
+
+        try:
+            save_workspace(archive_path, self.workspace)
+            self.statusBar().showMessage(
+                f"Workspace saved: {len(supported)} item(s) → {archive_path}",
+                5000,
+            )
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                self, "Workspace save failed", str(exc))
+
+    def _on_workspace_open(self) -> None:
+        from angstrompro.io.workspace_io import (
+            import_workspace, load_workspace,
+        )
+
+        start_dir = self._context.config.get("io", "default_open_dir") or ""
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Open Workspace",
+            start_dir,
+            "AngstromPro Workspace (*.apws *.h5 *.hdf5);;All Files (*)",
+        )
+        if not path:
+            return
+
+        from pathlib import Path
+        archive_path = Path(path)
+        try:
+            archive = load_workspace(archive_path)
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                self, "Workspace open failed", str(exc))
+            return
+
+        if archive.skipped and not self._confirm_skipped_workspace_items(
+                "These archive items cannot be loaded by this version of "
+                "AngstromPro:", archive.skipped):
+            return
+        if not archive.items:
+            QtWidgets.QMessageBox.information(
+                self, "Nothing to load",
+                "The workspace archive contains no supported items.")
+            return
+
+        imported, renamed = import_workspace(archive, self.workspace)
+        message = f"Loaded {len(imported)} workspace item(s) from {archive_path}"
+        if renamed:
+            message += f"; {len(renamed)} renamed to avoid name conflicts"
+        self.statusBar().showMessage(message, 6000)
 
     # ------------------------------------------------------------------
     # Signal wiring
