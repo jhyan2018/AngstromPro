@@ -74,8 +74,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # Subclasses override these to declare what data they work with
     accepted_ndim: int | None = None   # None = any; 2 = 2D only; 3 = 3D only
 
-    # Developer-curated list of process names shown in this module's Process menu.
-    # Merged with config "process_menus" (developer) and "user_process_menus" (user).
+    # Legacy declaration retained for source compatibility. Process submenus
+    # now come only from the user's algorithms.process_menu_layouts entry.
     default_process_menu: list[str] = []
 
     # Simulation names shown in the Simulate menu (kind="simulation" entries only).
@@ -251,7 +251,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._rebuild_process_submenu()
 
     def _rebuild_process_submenu(self) -> None:
-        """Rebuild the dynamic category submenus from the 3-layer merged process list."""
+        """Rebuild user-named submenus from the explicit saved layout."""
         # Remove everything after the fixed header (Browser + Configure + separator = 3 items)
         for act in self._process_menu.actions()[3:]:
             self._process_menu.removeAction(act)
@@ -259,49 +259,47 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         registry = self._context.processes
         strict   = self._context.config.get("app", "strict_process_menu", True)
 
-        dev_names  = self._context.config.get(
-            "algorithms", "process_menus",      {}).get(self.module_id, [])
-        user_names = self._context.config.get(
-            "algorithms", "user_process_menus", {}).get(self.module_id, [])
+        from angstrompro.core.processes.menu_layout import (
+            normalize_process_menu_layout,
+        )
+        layouts = self._context.config.get(
+            "algorithms", "process_menu_layouts", {})
+        raw_layout = layouts.get(self.module_id, {}) if isinstance(layouts, dict) else {}
+        layout = normalize_process_menu_layout(raw_layout)
 
-        # Merge: class list → developer config → user config; deduplicate, preserve order
-        seen: set[str] = set()
-        merged: list[str] = []
-        for name in list(self.default_process_menu) + list(dev_names) + list(user_names):
-            if name not in seen:
-                seen.add(name)
-                merged.append(name)
-
-        if not merged:
-            return
-
-        # Resolve, check compatibility, group by category
-        by_category: dict[str, list] = {}
-        for name in merged:
-            if not registry.has(name):
-                log.warning(
-                    "Process menu [%s]: %r is not registered — skipped",
-                    self.module_id, name,
-                )
-                continue
-            entry = registry.get(name)
-            ok, reason = self._check_process_compatibility(entry)
-            if not ok:
-                log.warning(
-                    "Process menu [%s]: %r is incompatible (%s)%s",
-                    self.module_id, name, reason,
-                    "" if strict else " — added anyway (strict_process_menu=false)",
-                )
-                if strict:
+        for group in layout["groups"]:
+            entries = []
+            for name in group["processes"]:
+                if not registry.has(name):
+                    log.warning(
+                        "Process menu [%s]: %r is not registered — skipped",
+                        self.module_id, name,
+                    )
                     continue
-            by_category.setdefault(entry.category, []).append(entry)
+                entry = registry.get(name)
+                if entry.kind != "process":
+                    log.warning(
+                        "Process menu [%s]: %r has kind=%r — skipped",
+                        self.module_id, name, entry.kind,
+                    )
+                    continue
+                ok, reason = self._check_process_compatibility(entry)
+                if not ok:
+                    log.warning(
+                        "Process menu [%s]: %r is incompatible (%s)%s",
+                        self.module_id, name, reason,
+                        "" if strict else
+                        " — added anyway (strict_process_menu=false)",
+                    )
+                    if strict:
+                        continue
+                entries.append(entry)
 
-        # Build one submenu per category (sorted alphabetically)
-        for category in sorted(by_category.keys()):
-            # Qt treats a single '&' as a mnemonic marker.  Category names are
-            # registry metadata, so escape only for the rendered menu title.
-            submenu = self._process_menu.addMenu(category.replace("&", "&&"))
-            for entry in by_category[category]:
+            if not entries:
+                continue
+            submenu = self._process_menu.addMenu(
+                group["title"].replace("&", "&&"))
+            for entry in entries:
                 act = submenu.addAction(entry.label)
                 act.setToolTip(entry.description or entry.name)
                 act.triggered.connect(

@@ -1,9 +1,10 @@
 # Processes
 
 A process is a pure or mostly pure callable registered with metadata and a
-`ProcessSchema`. Registration supplies the information needed for menu
-grouping, compatibility checks, parameter dialogs, background execution, and
-the Process Browser.
+`ProcessSchema`. Registration supplies the information needed for discovery,
+compatibility checks, parameter dialogs, background execution, and the Process
+Browser. Process-menu submenu names and ordering are user-defined rather than
+derived from registration categories.
 
 ## Example
 

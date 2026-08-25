@@ -52,10 +52,16 @@ Namespaced plugin modules receive isolated plugin configuration automatically.
 
 ## Process and simulation menus
 
-Set `default_process_menu` to registered process IDs that should always appear
-for the module. Set `default_simulate_menu` for registered simulations. The
-runtime menu merges class defaults, developer configuration, and user-added
-entries without allowing users to remove developer defaults.
+Process submenus are user-owned and stored in the versioned
+`algorithms.process_menu_layouts` configuration. A module with no explicit
+layout shows only Process Browser and Configure Process Menu. The legacy
+`default_process_menu`, `algorithms.process_menus`, and
+`algorithms.user_process_menus` declarations are ignored. Existing JSON files
+containing the retired configuration keys still load without migration errors.
+
+Set `default_simulate_menu` for registered simulations. Simulation grouping
+continues to use process registration categories and is independent of the
+user-defined Process menu layout.
 
 ## Input roles
 

@@ -495,7 +495,7 @@ class ImageStackViewer(AGuiModule):
             lambda: self._clear_annotation("register_reference_points"))
 
     # ------------------------------------------------------------------
-    # File menu override — adds Export Image… before Close
+    # File menu override — adds image import and viewer exports
     # ------------------------------------------------------------------
 
     def _build_file_menu(self) -> None:
@@ -511,6 +511,17 @@ class ImageStackViewer(AGuiModule):
 
         prefs_action = next(
             (a for a in file_menu.actions() if a.text() == "Preferences…"), None)
+
+        import_menu = QtWidgets.QMenu("Import", file_menu)
+        import_image_action = Action("Image…", self)
+        import_image_action.triggered.connect(self._on_import_image)
+        import_menu.addAction(import_image_action)
+        first_separator = next(
+            (a for a in file_menu.actions() if a.isSeparator()), None)
+        if first_separator is not None:
+            file_menu.insertMenu(first_separator, import_menu)
+        else:
+            file_menu.addMenu(import_menu)
 
         export_img_action = Action("Export Image…", self)
         export_img_action.setShortcut("Ctrl+E")
@@ -528,6 +539,37 @@ class ImageStackViewer(AGuiModule):
             file_menu.addSeparator()
             file_menu.addAction(export_img_action)
             file_menu.addAction(export_vid_action)
+
+    def _on_import_image(self) -> None:
+        """Import an ordinary raster image as a one-layer grayscale UDS."""
+        filters = (
+            "Image files (*.png *.jpg *.jpeg *.tif *.tiff *.bmp *.webp *.gif);;"
+            "PNG (*.png);;JPEG (*.jpg *.jpeg);;TIFF (*.tif *.tiff);;"
+            "Bitmap (*.bmp);;WebP (*.webp);;GIF (*.gif);;All Files (*)"
+        )
+        start_dir = self._context.config.get("io", "default_open_dir") or ""
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import Image", start_dir, filters)
+        if not path:
+            return
+
+        from pathlib import Path
+        from angstrompro.io.image_import import load_image_as_uds
+
+        image_path = Path(path)
+        try:
+            payload = load_image_as_uds(image_path)
+            item = self.workspace.add_item(
+                payload=payload, source_path=image_path)
+            self.load_item(item)
+            self.statusBar().showMessage(
+                f"Imported {image_path.name} as {item.name}  "
+                f"shape={item.payload.data.shape}",
+                5000,
+            )
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(
+                self, "Image import failed", str(exc))
 
     # ------------------------------------------------------------------
     # Export helpers
