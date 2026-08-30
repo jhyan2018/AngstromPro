@@ -199,7 +199,7 @@ class ImageStackViewer(AGuiModule):
 
     def build_ui(self) -> None:
         from angstrompro.gui.widgets.image_stack_viewer_widget import ImageStackViewerWidget
-        from angstrompro.gui.resources.colormaps import register_all
+        from angstrompro.gui.appearance.colormap_catalog import register_all
         register_all()
 
         self._panel_main = ImageStackViewerWidget()

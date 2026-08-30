@@ -16,6 +16,8 @@ Folder layout under the user data folder
     settings.ini         ← QSettings (UI state: window geometry, last-used values)
     plugins.json         ← plugin search paths
   cache/
+  colormaps/
+    *.cmap.json         ← User-defined anchor-based colormaps
   logs/
 
 Public API

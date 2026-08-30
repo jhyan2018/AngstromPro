@@ -521,7 +521,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         """Repopulate the colormap combos with user's chosen palette."""
         # custom colormaps (non-mpl names) must be registered before use
         try:
-            from angstrompro.gui.resources.colormaps import register_all
+            from angstrompro.gui.appearance.colormap_catalog import register_all
             register_all()
         except Exception:
             log.warning("Could not register custom colormaps", exc_info=True)

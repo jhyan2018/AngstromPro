@@ -1,9 +1,12 @@
 """Colormap picker — registered as widget type "colormap_picker"."""
 from __future__ import annotations
 
-import matplotlib as mpl
-
 from angstrompro.utils.qt_compat import QtWidgets
+from angstrompro.gui.appearance.colormap_catalog import (
+    SOURCE_LABELS,
+    SOURCE_ORDER,
+    get_colormap_catalog,
+)
 from angstrompro.gui.widgets.color_bar import ColorBar
 
 
@@ -19,7 +22,9 @@ class ColormapPickerWidget(QtWidgets.QWidget):
 
     def __init__(self, value: list | None = None, parent=None, **kwargs):
         super().__init__(parent)
+        self._catalog = get_colormap_catalog()
         self._build_ui()
+        self._catalog.changed.connect(self._reload_available)
         self.set_value(value or [])
 
     # ------------------------------------------------------------------
@@ -27,22 +32,20 @@ class ColormapPickerWidget(QtWidgets.QWidget):
     # ------------------------------------------------------------------
 
     def _build_ui(self) -> None:
-        from angstrompro.gui.resources.colormaps import register_all
-        register_all()
-
-        original = set(mpl.pyplot.colormaps())   # before register_all pollutes
-        all_now  = set(mpl.colormaps)
-        self._builtin_list    = sorted(original)
-        self._customized_list = sorted(all_now - original)
+        self._catalog.register_all()
+        self._source_lists = {
+            source: self._catalog.names(source)
+            for source in SOURCE_ORDER
+        }
 
         # ── available side ─────────────────────────────────────────────
         self._cb_type = QtWidgets.QComboBox()
-        self._cb_type.addItems(["Built-in", "Customized"])
+        self._cb_type.addItems([SOURCE_LABELS[source] for source in SOURCE_ORDER])
         self._cb_type.currentIndexChanged.connect(self._on_type_changed)
 
         self._lw_available = QtWidgets.QListWidget()
         self._lw_available.setMaximumWidth(200)
-        self._lw_available.addItems(self._builtin_list)
+        self._lw_available.addItems(self._source_lists[SOURCE_ORDER[0]])
         self._lw_available.itemSelectionChanged.connect(self._on_available_sel)
 
         self._bar_all = ColorBar()
@@ -114,11 +117,33 @@ class ColormapPickerWidget(QtWidgets.QWidget):
 
     def _on_type_changed(self, idx: int) -> None:
         self._lw_available.clear()
-        self._lw_available.addItems(
-            self._builtin_list if idx == 0 else self._customized_list
-        )
+        if 0 <= idx < len(SOURCE_ORDER):
+            self._lw_available.addItems(self._source_lists[SOURCE_ORDER[idx]])
         if self._lw_available.count():
             self._lw_available.setCurrentRow(0)
+
+    def _reload_available(self) -> None:
+        """Refresh source lists after the RT editor saves a user colormap."""
+        selected_source = self._cb_type.currentIndex()
+        selected_item = self._lw_available.currentItem()
+        selected_name = selected_item.text() if selected_item is not None else ""
+        self._source_lists = {
+            source: self._catalog.names(source)
+            for source in SOURCE_ORDER
+        }
+        self._on_type_changed(selected_source)
+        matches = self._lw_available.findItems(selected_name, self._match_exact())
+        if matches:
+            self._lw_available.setCurrentItem(matches[0])
+
+    @staticmethod
+    def _match_exact():
+        """Return Qt's exact-match flag under either Qt5 or Qt6."""
+        from angstrompro.utils.qt_compat import QtCore
+        try:
+            return QtCore.Qt.MatchFlag.MatchExactly
+        except AttributeError:
+            return QtCore.Qt.MatchExactly
 
     def _on_available_sel(self) -> None:
         item = self._lw_available.currentItem()

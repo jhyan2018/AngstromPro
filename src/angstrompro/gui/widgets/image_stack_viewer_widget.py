@@ -1193,16 +1193,14 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         return mcolors.LinearSegmentedColormap('testCmap', segmentdata=cdict, N=256)
 
     def make_colormap_from_txt(self, cp):
+        from angstrompro.gui.appearance.colormap_catalog import (
+            load_legacy_txt_colormap,
+        )
+
         resource = files("angstrompro.gui.resources.colormaps").joinpath(
             f"{cp}.txt")
         with resource.open("r", encoding="utf-8") as stream:
-            d = np.loadtxt(stream, delimiter="\t", skiprows=1) / 256 / 256
-        cdict = {'red': [], 'green': [], 'blue': []}
-        for i in range(256):
-            cdict['red'].append([i / 255.0, d[i, 0], d[i, 0]])
-            cdict['green'].append([i / 255.0, d[i, 1], d[i, 1]])
-            cdict['blue'].append([i / 255.0, d[i, 2], d[i, 2]])
-        return mcolors.LinearSegmentedColormap('CustomMap', cdict)
+            return load_legacy_txt_colormap(stream, cp)
 
     # ── image update ──────────────────────────────────────────────────────
 
