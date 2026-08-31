@@ -7,8 +7,6 @@ Created on Tue Jun 16 22:40:57 2026
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from angstrompro.utils.qt_compat import QtCore, Signal
 from angstrompro.core.data.base import WorkspaceData
 from .workspace_item import WorkspaceItem
@@ -42,7 +40,6 @@ class Workspace(QtCore.QObject):
     def add_item(
         self,
         payload:     WorkspaceData,
-        source_path: Path | None = None,
     ) -> WorkspaceItem:
         # Deduplicate by modifying payload.name directly
         base = payload.name or "item"
@@ -54,7 +51,6 @@ class Workspace(QtCore.QObject):
         name = payload.name
         item = WorkspaceItem(
             payload=payload,
-            source_path=source_path,
         )
         self._item_order.append(name)
         self._items[name] = item

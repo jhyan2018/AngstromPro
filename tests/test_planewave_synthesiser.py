@@ -60,8 +60,8 @@ def test_planewave_recipe_survives_uds_hdf5_round_trip(tmp_path) -> None:
         name="planewave_snapshot",
     )
 
-    assert set(uds.info) == {"_source_format", "planewave"}
-    assert uds.info["_source_format"] == "planewave_synthesiser"
+    assert set(uds.info) == {"source", "planewave"}
+    assert uds.info["source"] == "planewave_synthesiser"
 
     path = tmp_path / "planewave_snapshot.uds"
     save(path, uds)
@@ -82,6 +82,8 @@ def test_old_planewave_snapshot_has_no_restore_recipe() -> None:
         info={"_source_format": "planewave_synthesiser"},
     )
 
+    assert "_source_format" not in legacy.info
+    assert "source" not in legacy.info
     assert PlanewaveSynthesiser._recipe_from_workspace_item(
         WorkspaceItem(payload=legacy)
     ) is None

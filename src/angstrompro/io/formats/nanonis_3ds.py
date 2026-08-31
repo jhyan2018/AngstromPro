@@ -13,7 +13,12 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
+from angstrompro.core.data.uds_data import (
+    Axis,
+    AxisType,
+    UdsDataStru,
+    file_source,
+)
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -127,7 +132,7 @@ def load(path: Path, channel_index: int = 0,
                     axis_type=AxisType.SPATIAL_X)
 
         base_info: dict = {
-            "_source_format": "nanonis_3ds",
+            "source":         file_source(path),
             "_channels":      channels,
             "_n_points":      n_points,
             "_x_pixels":      x_pixels,

@@ -7,7 +7,12 @@ from pathlib import Path
 import numpy as np
 
 from angstrompro.core.data.base import ProcRecord
-from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
+from angstrompro.core.data.uds_data import (
+    Axis,
+    AxisType,
+    UdsDataStru,
+    file_source,
+)
 
 
 _GRAYSCALE_MODES = frozenset({"L", "I", "F", "I;16", "I;16L", "I;16B"})
@@ -78,7 +83,7 @@ def load_image_as_uds(path: Path) -> UdsDataStru:
         ),
     ]
     info = {
-        "_source_format": path.suffix.lower().lstrip(".") or "image",
+        "source": file_source(path),
         "_image_original_mode": original_mode,
         "_image_width": width,
         "_image_height": height,

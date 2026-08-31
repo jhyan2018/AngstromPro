@@ -100,7 +100,9 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
             return
         self._lbl_name.setText(item.name)
         self._lbl_type.setText(item.type_id)
-        self._lbl_source.setText(str(item.source_path) if item.source_path else "—")
+        info = getattr(item.payload, "info", None)
+        source = info.get("source") if isinstance(info, dict) else None
+        self._lbl_source.setText(str(source) if source is not None else "—")
         self._tree.clear()
         has_array = self._render(item.payload)
         self._tree.expandToDepth(1)

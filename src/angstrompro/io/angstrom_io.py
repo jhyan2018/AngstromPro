@@ -246,6 +246,22 @@ def _load_hdf5(path: Path) -> WorkspaceData:
     return _READERS[type_id](path)
 
 
+def _set_raw_file_source(result, path: Path):
+    """Assign the root file source to UDS payloads from a raw-file reader."""
+    from angstrompro.core.data.uds_data import (
+        UdsDataStru,
+        file_source,
+    )
+
+    payloads = result if isinstance(result, list) else [result]
+    source = file_source(path)
+    for payload in payloads:
+        if isinstance(payload, UdsDataStru):
+            payload.info = dict(payload.info or {})
+            payload.info["source"] = source
+    return result
+
+
 def load(path: Path) -> WorkspaceData:
     path = Path(path)
 
@@ -257,7 +273,7 @@ def load(path: Path) -> WorkspaceData:
 
     if path.suffix.lower() == ".uds":
         from angstrompro.io import uds_io
-        return uds_io.load_legacy(path)
+        return _set_raw_file_source(uds_io.load_legacy(path), path)
 
     ext = path.suffix.lower()
     _EXT_DISPATCH = {
@@ -277,10 +293,10 @@ def load(path: Path) -> WorkspaceData:
             raise ValueError(
                 f"Reader for {ext!r} (type_id={type_id!r}) not registered."
             )
-        return _READERS[type_id](path)
+        return _set_raw_file_source(_READERS[type_id](path), path)
 
     if ext in _EXT_LOADERS:
-        return _EXT_LOADERS[ext](path)
+        return _set_raw_file_source(_EXT_LOADERS[ext](path), path)
 
     raise ValueError(
         f"Cannot load {path.name}: not an HDF5 file and extension {ext!r} "

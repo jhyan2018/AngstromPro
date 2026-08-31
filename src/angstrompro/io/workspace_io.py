@@ -36,7 +36,6 @@ class ArchivedWorkspaceItem:
     name: str
     payload: WorkspaceData
     item_id: str = ""
-    source_path: Path | None = None
     alias: str = ""
     annotations: dict[str, AnnotationData] = field(default_factory=dict)
 
@@ -162,9 +161,6 @@ def save_workspace(path: Path, workspace: Workspace) -> list[WorkspaceItem]:
                 item_group.attrs["payload_provider"] = codec.provider
                 item_group.attrs["payload_version"] = codec.version
                 item_group.attrs["alias"] = item.alias
-                item_group.attrs["source_path"] = (
-                    str(item.source_path) if item.source_path is not None else ""
-                )
                 item_group.attrs["annotations"] = _annotations_to_json(
                     item.annotations)
                 _write_payload(item_group.create_group("payload"), item.payload)
@@ -265,14 +261,12 @@ def load_workspace(path: Path) -> WorkspaceArchive:
                     raise ValueError("Missing payload group")
                 payload = _read_payload(payload_group, type_id)
                 payload.name = name
-                source_text = _attr_text(item_group.attrs.get("source_path"))
                 annotations = _annotations_from_json(
                     _attr_text(item_group.attrs.get("annotations"), "{}"))
                 result.items.append(ArchivedWorkspaceItem(
                     name=name,
                     payload=payload,
                     item_id=_attr_text(item_group.attrs.get("item_id")),
-                    source_path=Path(source_text) if source_text else None,
                     alias=_attr_text(item_group.attrs.get("alias")),
                     annotations=annotations,
                 ))
@@ -318,10 +312,7 @@ def import_workspace(
                 for input_name in record.input_item_names
             ]
 
-        item = workspace.add_item(
-            payload=archived.payload,
-            source_path=archived.source_path,
-        )
+        item = workspace.add_item(payload=archived.payload)
         item.alias = archived.alias
         item.annotations = archived.annotations
         if archived.item_id and archived.item_id not in used_ids:

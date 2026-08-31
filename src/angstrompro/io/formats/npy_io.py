@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, UdsDataStru, file_source
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -28,7 +28,7 @@ def load(path: Path) -> UdsDataStru:
         name=path.stem,
         data=data,
         axes=axes,
-        info={"_source_format": "npy"},
+        info={"source": file_source(path)},
         proc_history=[],
         landmarks={},
     )

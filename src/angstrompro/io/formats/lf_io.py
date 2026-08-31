@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, UdsDataStru, file_source
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -88,7 +88,7 @@ def load(path: Path) -> UdsDataStru:
     )
 
     info: dict = {
-        "_source_format": "lf_" + suffix[1:],
+        "source": file_source(path),
         "bias_v": bias_v,
         "current_a": current_a,
         "scan_range_m": scan_range_m,

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from angstrompro.core.data.base import WorkspaceData
 from angstrompro.core.data.annotation_data import AnnotationData
@@ -22,13 +21,11 @@ class WorkspaceItem:
     payload     — the runtime data object; its payload.name is the item's identity
     alias       — optional display label shown in the GUI (e.g. "ref"); it
                   never changes item identity and is retained by workspace archives
-    source_path — file this item was loaded from, if any
     item_id     — stable UUID, survives rename
     annotations — dict mapping role name to annotation data (e.g. "bragg_peaks", "interest_region")
     """
     payload:     WorkspaceData
     item_id:     str         = field(default_factory=lambda: f"item_{uuid.uuid4().hex[:12]}")
-    source_path: Path | None = None
     alias:       str         = ""
     annotations: dict[str, AnnotationData] = field(default_factory=dict)
 

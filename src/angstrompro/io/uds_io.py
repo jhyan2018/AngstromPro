@@ -18,7 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from angstrompro.core.data.base import ProcRecord
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, UdsDataStru, file_source
 from angstrompro.core.data.isocontour_data import (
     IsocontourResult, IsopointResult, IsolineResult, IsosurfaceResult,
     ISOCONTOUR_KIND_MAP,
@@ -424,22 +424,24 @@ def _load_pre_legacy(path: Path) -> UdsDataStru:
 def load_legacy(path: Path) -> UdsDataStru:
     """Load a structured legacy UDS, falling back to the oldest layout."""
     try:
-        return _load_structured_legacy(path)
+        uds = _load_structured_legacy(path)
     except _LEGACY_PARSE_ERRORS as structured_error:
         structured_error_text = str(structured_error)
         log.info(
             "Structured legacy parser rejected %s; trying pre-legacy reader: %s",
             path.name, structured_error_text,
         )
+        try:
+            uds = _load_pre_legacy(path)
+        except _LEGACY_PARSE_ERRORS as pre_legacy_error:
+            raise ValueError(
+                f"Cannot read {path.name} as a legacy UDS file. "
+                f"Structured legacy error: {structured_error_text}. "
+                f"Pre-legacy error: {pre_legacy_error}."
+            ) from pre_legacy_error
 
-    try:
-        return _load_pre_legacy(path)
-    except _LEGACY_PARSE_ERRORS as pre_legacy_error:
-        raise ValueError(
-            f"Cannot read {path.name} as a legacy UDS file. "
-            f"Structured legacy error: {structured_error_text}. "
-            f"Pre-legacy error: {pre_legacy_error}."
-        ) from pre_legacy_error
+    uds.info["source"] = file_source(path)
+    return uds
 
 
 # ------------------------------------------------------------------

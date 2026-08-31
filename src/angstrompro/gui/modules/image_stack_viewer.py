@@ -559,8 +559,7 @@ class ImageStackViewer(AGuiModule):
         image_path = Path(path)
         try:
             payload = load_image_as_uds(image_path)
-            item = self.workspace.add_item(
-                payload=payload, source_path=image_path)
+            item = self.workspace.add_item(payload=payload)
             self.load_item(item)
             self.statusBar().showMessage(
                 f"Imported {image_path.name} as {item.name}  "

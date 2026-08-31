@@ -973,6 +973,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                                           "Select a workspace item to save.")
             return
         item = self.workspace.get_item(name)
+        if not self._confirm_standalone_uds_save(item):
+            return
         from angstrompro.io import uds_io, scene_plot_io  # noqa: F401 — ensure all formats registered
         from angstrompro.io.angstrom_io import registered_formats
         formats = [f for f in registered_formats()
@@ -996,6 +998,44 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             save(Path(path), item.payload)
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Save failed", str(exc))
+
+    def _confirm_standalone_uds_save(self, item: WorkspaceItem) -> bool:
+        """Recommend a workspace archive for UDS data with multiple sources."""
+        from angstrompro.core.data.uds_data import (
+            UdsDataStru,
+            uds_has_multiple_sources,
+        )
+
+        payload = item.payload
+        if not isinstance(payload, UdsDataStru):
+            return True
+        if not uds_has_multiple_sources(payload):
+            return True
+
+        source_count = len(payload.info["source"])
+        box = QtWidgets.QMessageBox(self)
+        box.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        box.setWindowTitle("Multiple Source Inputs")
+        box.setText(
+            "This data was derived from multiple source inputs. Saving only "
+            "this UDS may omit other workspace data required to reproduce "
+            "the result."
+        )
+        box.setInformativeText(
+            f"The data records {source_count} source contributions. Saving "
+            "the whole workspace is recommended.\n\nContinue saving only "
+            "this UDS?"
+        )
+        continue_button = box.addButton(
+            "Continue",
+            QtWidgets.QMessageBox.ButtonRole.AcceptRole,
+        )
+        cancel_button = box.addButton(
+            QtWidgets.QMessageBox.StandardButton.Cancel
+        )
+        box.setDefaultButton(cancel_button)
+        box.exec()
+        return box.clickedButton() is continue_button
 
     def _confirm_skipped_workspace_items(
             self, heading: str, entries: list,

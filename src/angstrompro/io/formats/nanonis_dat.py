@@ -9,7 +9,12 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
+from angstrompro.core.data.uds_data import (
+    Axis,
+    AxisType,
+    UdsDataStru,
+    file_source,
+)
 from angstrompro.io.angstrom_io import register_io
 
 
@@ -84,7 +89,7 @@ def load(path: Path) -> UdsDataStru:
         data         = data,          # shape (n_points, n_cols) — sliced by _extract_dat_channels
         axes         = axes,
         info         = {
-            "_source_format": "nanonis_dat",
+            "source": file_source(path),
             "_column_names": column_names,
             "sweep_column":  sweep_col,
             **{k: v for k, v in header.items()},

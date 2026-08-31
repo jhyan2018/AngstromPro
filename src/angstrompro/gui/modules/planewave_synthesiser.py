@@ -38,7 +38,7 @@ import angstrompro.gui.widgets.preferences.widgets  # registers custom widget ty
 from angstrompro.algorithms.simulate import _sinusoidal2d
 
 
-_SOURCE_FORMAT = "planewave_synthesiser"
+_SOURCE = "planewave_synthesiser"
 _RECIPE_INFO_KEY = "planewave"
 _RECIPE_SCHEMA_VERSION = 1
 
@@ -202,7 +202,7 @@ def _make_planewave_uds(
             ),
         ],
         info={
-            "_source_format": _SOURCE_FORMAT,
+            "source": _SOURCE,
             _RECIPE_INFO_KEY: _wave_settings_to_recipe(image_size, waves),
         },
         proc_history=[],
@@ -546,7 +546,7 @@ class PlanewaveSynthesiser(AGuiModule):
         info = getattr(payload, "info", None)
         if not isinstance(info, Mapping):
             return None
-        if info.get("_source_format") != _SOURCE_FORMAT:
+        if info.get("source") != _SOURCE:
             return None
         recipe = info.get(_RECIPE_INFO_KEY)
         if not isinstance(recipe, Mapping):
@@ -653,7 +653,7 @@ class PlanewaveSynthesiser(AGuiModule):
     def _redraw(self) -> None:
         self._uds.data[0] = self._sum_data
         self._uds.info = {
-            "_source_format": _SOURCE_FORMAT,
+            "source": _SOURCE,
             _RECIPE_INFO_KEY: _wave_settings_to_recipe(
                 self._data_size,
                 self._current_wave_settings(),
