@@ -36,7 +36,7 @@ Extending
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from angstrompro.core.data.base import WorkspaceData
 
@@ -55,9 +55,21 @@ class FormatInfo:
     writable:     bool = True
 
 
+@dataclass(frozen=True)
+class WorkspaceCodec:
+    """Group-level serializer for one WorkspaceData payload type."""
+
+    type_id: str
+    reader: Callable[[Any], WorkspaceData]
+    writer: Callable[[Any, WorkspaceData], None]
+    provider: str
+    version: int = 1
+
+
 _READERS:  dict[str, Callable]    = {}
 _WRITERS:  dict[str, Callable]    = {}
 _FORMATS:  dict[str, FormatInfo]  = {}
+_WORKSPACE_CODECS: dict[str, WorkspaceCodec] = {}
 
 # Extension → loader callable registered by plugins (e.g. ".cif" → load_lattice).
 # Unlike _READERS (keyed by type_id), this maps raw file extensions to functions
@@ -98,7 +110,23 @@ def register_io(
     display_name: str  = "",
     description:  str  = "",
     writable:     bool = True,
+    workspace_reader: Callable[[Any], WorkspaceData] | None = None,
+    workspace_writer: Callable[[Any, WorkspaceData], None] | None = None,
+    workspace_provider: str = "",
+    workspace_version: int = 1,
 ) -> None:
+    if (workspace_reader is None) != (workspace_writer is None):
+        raise ValueError(
+            "workspace_reader and workspace_writer must be provided together"
+        )
+    if workspace_reader is not None and workspace_writer is not None:
+        register_workspace_codec(
+            type_id,
+            workspace_reader,
+            workspace_writer,
+            provider=workspace_provider,
+            version=workspace_version,
+        )
     _READERS[type_id] = reader
     _WRITERS[type_id] = writer
     _FORMATS[type_id] = FormatInfo(
@@ -109,6 +137,59 @@ def register_io(
         readable     = True,
         writable     = writable,
     )
+
+
+def register_workspace_codec(
+    type_id: str,
+    reader: Callable[[Any], WorkspaceData],
+    writer: Callable[[Any, WorkspaceData], None],
+    *,
+    provider: str = "",
+    version: int = 1,
+) -> None:
+    """Register embedded-workspace persistence for a payload type.
+
+    ``reader`` and ``writer`` operate on an already-open HDF5 group. Plugins
+    register their codecs during normal plugin import; no plugin class names
+    are imported from an archive.
+    """
+
+    normalized_type = str(type_id).strip()
+    if not normalized_type:
+        raise ValueError("Workspace codec type_id must not be empty")
+    if not callable(reader) or not callable(writer):
+        raise TypeError("Workspace codec reader and writer must be callable")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise ValueError("Workspace codec version must be a positive integer")
+    normalized_provider = str(provider).strip() or writer.__module__.split(".", 1)[0]
+
+    existing = _WORKSPACE_CODECS.get(normalized_type)
+    if existing is not None and existing.provider != normalized_provider:
+        raise ValueError(
+            f"Workspace codec {normalized_type!r} is already registered by "
+            f"{existing.provider!r}"
+        )
+    _WORKSPACE_CODECS[normalized_type] = WorkspaceCodec(
+        type_id=normalized_type,
+        reader=reader,
+        writer=writer,
+        provider=normalized_provider,
+        version=version,
+    )
+
+
+def get_workspace_codec(type_id: str) -> WorkspaceCodec | None:
+    """Return the installed codec for ``type_id``, if one is registered."""
+
+    return _WORKSPACE_CODECS.get(str(type_id))
+
+
+def has_workspace_codec(type_id: str) -> bool:
+    return get_workspace_codec(type_id) is not None
+
+
+def registered_workspace_codecs() -> tuple[WorkspaceCodec, ...]:
+    return tuple(_WORKSPACE_CODECS[key] for key in sorted(_WORKSPACE_CODECS))
 
 
 def can_save(data: WorkspaceData) -> bool:

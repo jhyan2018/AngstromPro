@@ -953,7 +953,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Save failed", str(exc))
 
     def _confirm_skipped_workspace_items(
-            self, heading: str, entries: list) -> bool:
+            self, heading: str, entries: list,
+            *, allow_cancel: bool = True) -> bool:
         """Show every skipped item before a workspace operation continues."""
         from angstrompro.gui.dialogs.workspace_archive_dialog import (
             SkippedWorkspaceItemsDialog,
@@ -963,13 +964,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         for entry in entries:
             name = getattr(entry, "name", "") or "(unnamed item)"
             type_id = getattr(entry, "type_id", "") or "unknown"
+            provider = getattr(entry, "provider", "")
             reason = getattr(entry, "reason", "")
             line = f"{name}  [{type_id}]"
+            if provider:
+                line += f"  — provider: {provider}"
             if reason and reason != "Unsupported payload type":
                 line += f"\n    {reason}"
             lines.append(line)
         return SkippedWorkspaceItemsDialog.confirm(
-            heading, lines, parent=self)
+            heading, lines, parent=self, allow_cancel=allow_cancel)
 
     def _on_workspace_save(self) -> None:
         from angstrompro.io.workspace_io import (
@@ -1045,10 +1049,13 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 self, "Workspace open failed", str(exc))
             return
 
-        if archive.skipped and not self._confirm_skipped_workspace_items(
-                "These archive items cannot be loaded by this version of "
-                "AngstromPro:", archive.skipped):
-            return
+        if archive.skipped:
+            self._confirm_skipped_workspace_items(
+                "These archive items cannot be loaded by this installation "
+                "and were skipped:",
+                archive.skipped,
+                allow_cancel=False,
+            )
         if not archive.items:
             QtWidgets.QMessageBox.information(
                 self, "Nothing to load",

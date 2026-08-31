@@ -33,6 +33,46 @@ A reader accepts a `pathlib.Path` and returns `WorkspaceData`. A writer accepts
 the destination path and compatible data. Set `writable=False` for a read-only
 format; its writer may raise `NotImplementedError`.
 
+## Make a payload workspace-archive compatible
+
+The standalone reader and writer above operate on complete files. To embed the
+same payload in **Save Workspace…**, also provide reader and writer functions
+that operate on an already-open HDF5 group:
+
+```python
+def read_example_group(group):
+    return ExampleData(value=int(group.attrs["value"]))
+
+
+def write_example_group(group, data):
+    group.attrs["value"] = data.value
+
+
+register_io(
+    "example_data",
+    load_example,
+    save_example,
+    extension=".example",
+    display_name="Example data",
+    description="Example scientific data.",
+    workspace_reader=read_example_group,
+    workspace_writer=write_example_group,
+    workspace_provider="example_plugin",
+    workspace_version=1,
+)
+```
+
+The plugin must import this registration module during startup. AngstromPro
+then saves the payload alongside built-in workspace types. Archives record the
+provider and codec version, but never import a class named by the archive and
+never pickle a payload. When an archive is opened without the required plugin,
+that payload is skipped and included in the warning; all supported payloads are
+still loaded.
+
+Use a stable, unique `type_id` and provider name. Increment
+`workspace_version` when the embedded group format changes, and keep the group
+reader compatible with older versions or provide an explicit migration path.
+
 ## Register a raw extension loader
 
 Plugins that only need to load a raw format can register a direct extension

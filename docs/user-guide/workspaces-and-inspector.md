@@ -66,7 +66,10 @@ module workspace in one `.apws` HDF5 archive. If unsupported payload types are
 present, AngstromPro lists every skipped item; click **OK** to save the remaining
 items. Use **File → Open Workspace…** to add an archive to the current workspace.
 Existing items are kept, and imported name conflicts are resolved with numeric
-suffixes such as `_2` and `_3`.
+suffixes such as `_2` and `_3`. Installed plugins can register their workspace
+payload formats. If a required plugin is unavailable when an archive is opened,
+AngstromPro skips only those payloads, loads the supported items, and reports
+the skipped names, types, and providers.
 
 ## Workspace Item Inspector
 

@@ -35,8 +35,10 @@ data files.
 `.apws` is an HDF5 workspace archive. It stores all supported items from the
 current module workspace in their displayed order, together with item names,
 identities, aliases, source paths, and annotations. Core UDS and ScenePlot
-payloads are supported. Unsupported payload types are listed before saving and
-are skipped after confirmation.
+payloads are supported, and installed plugins can register their own archive
+payloads. Unsupported payload types are listed before saving and are skipped
+after confirmation. When opening an archive, payloads belonging to unavailable
+plugins are skipped with a warning while the remaining supported items load.
 
 ## Channel mappings for multichannel formats
 

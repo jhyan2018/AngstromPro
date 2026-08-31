@@ -49,6 +49,40 @@ register_io(
 <p>A reader accepts a <code>pathlib.Path</code> and returns <code>WorkspaceData</code>. A writer accepts
 the destination path and compatible data. Set <code>writable=False</code> for a read-only
 format; its writer may raise <code>NotImplementedError</code>.</p>
+<h2 id="make-a-payload-workspace-archive-compatible">Make a payload workspace-archive compatible</h2>
+<p>The standalone reader and writer above operate on complete files. To embed the
+same payload in <strong>Save Workspace…</strong>, also provide reader and writer functions
+that operate on an already-open HDF5 group:</p>
+<pre><code class="language-python">def read_example_group(group):
+    return ExampleData(value=int(group.attrs[&quot;value&quot;]))
+
+
+def write_example_group(group, data):
+    group.attrs[&quot;value&quot;] = data.value
+
+
+register_io(
+    &quot;example_data&quot;,
+    load_example,
+    save_example,
+    extension=&quot;.example&quot;,
+    display_name=&quot;Example data&quot;,
+    description=&quot;Example scientific data.&quot;,
+    workspace_reader=read_example_group,
+    workspace_writer=write_example_group,
+    workspace_provider=&quot;example_plugin&quot;,
+    workspace_version=1,
+)
+</code></pre>
+<p>The plugin must import this registration module during startup. AngstromPro
+then saves the payload alongside built-in workspace types. Archives record the
+provider and codec version, but never import a class named by the archive and
+never pickle a payload. When an archive is opened without the required plugin,
+that payload is skipped and included in the warning; all supported payloads are
+still loaded.</p>
+<p>Use a stable, unique <code>type_id</code> and provider name. Increment
+<code>workspace_version</code> when the embedded group format changes, and keep the group
+reader compatible with older versions or provide an explicit migration path.</p>
 <h2 id="register-a-raw-extension-loader">Register a raw extension loader</h2>
 <p>Plugins that only need to load a raw format can register a direct extension
 loader:</p>

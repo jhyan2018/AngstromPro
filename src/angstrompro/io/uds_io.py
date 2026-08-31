@@ -514,4 +514,8 @@ register_io(
     display_name = "UDS Data",
     description  = "Single scientific dataset with named axes, metadata, and "
                    "processing history. Supports 1D/2D/3D arrays of any dtype.",
+    workspace_reader = _load_from_group,
+    workspace_writer = _write_to_group,
+    workspace_provider = "angstrompro",
+    workspace_version = _VERSION,
 )
