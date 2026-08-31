@@ -55,6 +55,9 @@ Mouse actions have different purposes:
 
 - Use **Send…** after selecting an item to pass it to another compatible module.
 - Use **Remove** to remove it from the current runtime workspace.
+- Right-click an item and choose **Set alias…** to give it a shorter display
+  label. The alias does not change the item's real workspace name or processing
+  identity. Use **Clear alias** to show the real name again.
 - Expand an item to see its named annotations; an annotation can be cleared
   from its context menu.
 

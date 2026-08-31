@@ -20,8 +20,8 @@ class WorkspaceItem:
     """A single data item held inside a Workspace.
 
     payload     — the runtime data object; its payload.name is the item's identity
-    alias       — optional short display label shown in GUI (e.g. "ref", "before anneal")
-                  runtime-only, never saved to disk; falls back to payload.name when not set
+    alias       — optional display label shown in the GUI (e.g. "ref"); it
+                  never changes item identity and is retained by workspace archives
     source_path — file this item was loaded from, if any
     item_id     — stable UUID, survives rename
     annotations — dict mapping role name to annotation data (e.g. "bragg_peaks", "interest_region")

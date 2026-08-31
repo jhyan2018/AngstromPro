@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import ClassVar
 
 import h5py
@@ -19,6 +20,7 @@ import pytest
 from angstrompro.core.data import WorkspaceData
 from angstrompro.core.data.scene_plot import ScenePlot
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.workspaces.workspace import Workspace
 from angstrompro.io import angstrom_io
 from angstrompro.io.angstrom_io import register_workspace_codec
@@ -54,6 +56,31 @@ def _read_example(group) -> ExamplePayload:
 
 def _remove_test_codec() -> None:
     angstrom_io._WORKSPACE_CODECS.pop(ExamplePayload.type_id, None)
+
+
+def test_workspace_item_alias_can_be_set_and_cleared_from_gui_handler(
+        monkeypatch) -> None:
+    workspace = Workspace("source")
+    item = workspace.add_item(ExamplePayload(name="calculated_bands", value=1))
+    changed = []
+    workspace.item_changed.connect(changed.append)
+    module = SimpleNamespace(workspace=workspace)
+
+    monkeypatch.setattr(
+        "angstrompro.core.modules.a_gui_module.QtWidgets.QInputDialog.getText",
+        lambda *_args: ("  reference  ", True),
+    )
+    AGuiModule._set_workspace_item_alias(module, item)
+    assert item.name == "calculated_bands"
+    assert item.alias == "reference"
+    assert item.display_name == "reference"
+    assert changed == ["calculated_bands"]
+
+    AGuiModule._clear_workspace_item_alias(module, item)
+    assert item.name == "calculated_bands"
+    assert item.alias == ""
+    assert item.display_name == "calculated_bands"
+    assert changed == ["calculated_bands", "calculated_bands"]
 
 
 def test_builtin_payloads_still_round_trip_through_registry(tmp_path: Path) -> None:

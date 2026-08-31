@@ -586,6 +586,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 font = top.font(0)
                 font.setBold(True)
                 top.setFont(0, font)
+            if item.alias:
+                top.setToolTip(
+                    0,
+                    f"Workspace name: {item.name}\nAlias: {item.alias}",
+                )
 
             top.setData(0, _UserRole, item.name)
 
@@ -663,11 +668,51 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             menu = QtWidgets.QMenu(self)
             self._populate_ws_item_context_menu(menu, ws_item)
             if not menu.isEmpty():
-                menu.exec(self._ws_list.viewport().mapToGlobal(pos))
+                menu.addSeparator()
+            act_set_alias = menu.addAction("Set alias…")
+            act_set_alias.triggered.connect(
+                lambda _checked=False: self._set_workspace_item_alias(ws_item))
+            if ws_item.alias:
+                act_clear_alias = menu.addAction("Clear alias")
+                act_clear_alias.triggered.connect(
+                    lambda _checked=False: self._clear_workspace_item_alias(
+                        ws_item))
+            menu.exec(self._ws_list.viewport().mapToGlobal(pos))
 
     def _populate_ws_item_context_menu(
             self, menu: "QtWidgets.QMenu", item: "WorkspaceItem") -> None:
         """Hook for subclasses to add actions to the workspace item context menu."""
+
+    def _set_workspace_item_alias(self, item: "WorkspaceItem") -> None:
+        """Prompt for a display-only alias without changing item identity."""
+
+        echo_mode_type = getattr(
+            QtWidgets.QLineEdit, "EchoMode", QtWidgets.QLineEdit)
+        alias, accepted = QtWidgets.QInputDialog.getText(
+            self,
+            "Set workspace item alias",
+            f"Display alias for '{item.name}':\n"
+            "Leave blank to clear the alias.",
+            echo_mode_type.Normal,
+            item.alias,
+        )
+        if not accepted:
+            return
+        alias = alias.strip()
+        if alias == item.name:
+            alias = ""
+        if alias == item.alias:
+            return
+        item.alias = alias
+        self.workspace.notify_changed(item.name)
+
+    def _clear_workspace_item_alias(self, item: "WorkspaceItem") -> None:
+        """Remove an item's display alias while preserving its real name."""
+
+        if not item.alias:
+            return
+        item.alias = ""
+        self.workspace.notify_changed(item.name)
 
 
     def _on_remove_item(self) -> None:
