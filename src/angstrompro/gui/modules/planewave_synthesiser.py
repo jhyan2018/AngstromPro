@@ -20,18 +20,193 @@ so the math is identical to what the process produces.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
+
 import numpy as np
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal, Horizontal, ScrollBarAlwaysOn
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 from angstrompro.gui.widgets.image_stack_viewer_widget import ImageStackViewerWidget
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
 
 # reuse the inlined kernel from simulate.py — no duplication
 from angstrompro.algorithms.simulate import _sinusoidal2d
+
+
+_SOURCE_FORMAT = "planewave_synthesiser"
+_RECIPE_INFO_KEY = "planewave"
+_RECIPE_SCHEMA_VERSION = 1
+
+
+@dataclass(frozen=True)
+class WaveVectorSettings:
+    """Serializable state for one plane-wave control group."""
+
+    qx: float = 0.0
+    qy: float = 0.0
+    amplitude_min: float = 0.0
+    amplitude_max: float = 1.0
+    amplitude_slider: int = 100
+    phase_min: float = -3.14
+    phase_max: float = 3.14
+    phase_slider: int = 50
+
+    @property
+    def amplitude(self) -> float:
+        fraction = self.amplitude_slider / 100.0
+        return round(
+            (self.amplitude_max - self.amplitude_min) * fraction
+            + self.amplitude_min,
+            6,
+        )
+
+    @property
+    def phase(self) -> float:
+        fraction = self.phase_slider / 100.0
+        return round(
+            (self.phase_max - self.phase_min) * fraction + self.phase_min,
+            6,
+        )
+
+
+def _wave_settings_to_recipe(
+    image_size: int,
+    waves: tuple[WaveVectorSettings, ...],
+) -> dict:
+    return {
+        "schema_version": _RECIPE_SCHEMA_VERSION,
+        "image_size": image_size,
+        "waves": [
+            {
+                "qx": wave.qx,
+                "qy": wave.qy,
+                "amplitude_min": wave.amplitude_min,
+                "amplitude_max": wave.amplitude_max,
+                "amplitude_slider": wave.amplitude_slider,
+                "phase_min": wave.phase_min,
+                "phase_max": wave.phase_max,
+                "phase_slider": wave.phase_slider,
+            }
+            for wave in waves
+        ],
+    }
+
+
+def _recipe_to_wave_settings(
+    recipe,
+) -> tuple[int, tuple[WaveVectorSettings, ...]]:
+    if not isinstance(recipe, Mapping):
+        raise ValueError("The planewave synthesis recipe is missing.")
+    if recipe.get("schema_version") != _RECIPE_SCHEMA_VERSION:
+        raise ValueError(
+            "This planewave synthesis recipe uses an unsupported schema version."
+        )
+
+    def integer_value(
+        document,
+        key: str,
+        *,
+        minimum: int,
+        maximum: int,
+    ) -> int:
+        value = document.get(key)
+        if isinstance(value, (bool, np.bool_)):
+            raise ValueError(f"Invalid planewave recipe value: {key}")
+        try:
+            result = int(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError(f"Invalid planewave recipe value: {key}") from exc
+        if result != value or not minimum <= result <= maximum:
+            raise ValueError(f"Invalid planewave recipe value: {key}")
+        return result
+
+    def finite_number(document, key: str, default: float) -> float:
+        try:
+            value = float(document.get(key, default))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid planewave recipe value: {key}") from exc
+        if not np.isfinite(value):
+            raise ValueError(f"Planewave recipe value must be finite: {key}")
+        return value
+
+    image_size = integer_value(
+        recipe,
+        "image_size",
+        minimum=16,
+        maximum=4096,
+    )
+    wave_documents = recipe.get("waves")
+    if not isinstance(wave_documents, list):
+        raise ValueError("The planewave synthesis recipe has no wave list.")
+    if len(wave_documents) > 50:
+        raise ValueError("The planewave synthesis recipe contains too many waves.")
+
+    defaults = WaveVectorSettings()
+    waves: list[WaveVectorSettings] = []
+    for document in wave_documents:
+        if not isinstance(document, Mapping):
+            raise ValueError("Invalid planewave recipe wave entry.")
+        waves.append(WaveVectorSettings(
+            qx=finite_number(document, "qx", defaults.qx),
+            qy=finite_number(document, "qy", defaults.qy),
+            amplitude_min=finite_number(
+                document, "amplitude_min", defaults.amplitude_min),
+            amplitude_max=finite_number(
+                document, "amplitude_max", defaults.amplitude_max),
+            amplitude_slider=integer_value(
+                document,
+                "amplitude_slider",
+                minimum=0,
+                maximum=100,
+            ),
+            phase_min=finite_number(
+                document, "phase_min", defaults.phase_min),
+            phase_max=finite_number(
+                document, "phase_max", defaults.phase_max),
+            phase_slider=integer_value(
+                document,
+                "phase_slider",
+                minimum=0,
+                maximum=100,
+            ),
+        ))
+    return image_size, tuple(waves)
+
+
+def _make_planewave_uds(
+    image: np.ndarray,
+    image_size: int,
+    waves: tuple[WaveVectorSettings, ...],
+    *,
+    name: str,
+) -> UdsDataStru:
+    return UdsDataStru(
+        name=name,
+        data=np.asarray(image, dtype=np.float64)[np.newaxis, :, :].copy(),
+        axes=[
+            Axis(values=np.array([0.0]), label="Layer", units=""),
+            Axis(
+                values=np.arange(image_size, dtype=np.float64),
+                label="Row",
+                units="px",
+            ),
+            Axis(
+                values=np.arange(image_size, dtype=np.float64),
+                label="Column",
+                units="px",
+            ),
+        ],
+        info={
+            "_source_format": _SOURCE_FORMAT,
+            _RECIPE_INFO_KEY: _wave_settings_to_recipe(image_size, waves),
+        },
+        proc_history=[],
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -50,6 +225,10 @@ class WaveVectorRow(QtWidgets.QWidget):
         self.qy        = 0.0
         self.amplitude = 1.0
         self.phase     = 0.0
+        self._amplitude_min = 0.0
+        self._amplitude_max = 1.0
+        self._phase_min = -3.14
+        self._phase_max = 3.14
         self._build_ui()
         self._refresh_amplitude()
         self._refresh_phase()
@@ -153,6 +332,8 @@ class WaveVectorRow(QtWidgets.QWidget):
             hi = float(self._le_amp_max.text())
         except ValueError:
             return
+        self._amplitude_min = lo
+        self._amplitude_max = hi
         pct = self._sl_amp.value() / 100.0
         self.amplitude = round((hi - lo) * pct + lo, 6)
         self._le_amp_val.setText(str(self.amplitude))
@@ -164,10 +345,59 @@ class WaveVectorRow(QtWidgets.QWidget):
             hi = float(self._le_ph_max.text())
         except ValueError:
             return
+        self._phase_min = lo
+        self._phase_max = hi
         pct = self._sl_ph.value() / 100.0
         self.phase = round((hi - lo) * pct + lo, 6)
         self._le_ph_val.setText(str(self.phase))
         self.paramsChanged.emit(self._index)
+
+    def wave_settings(self) -> WaveVectorSettings:
+        return WaveVectorSettings(
+            qx=self.qx,
+            qy=self.qy,
+            amplitude_min=self._amplitude_min,
+            amplitude_max=self._amplitude_max,
+            amplitude_slider=self._sl_amp.value(),
+            phase_min=self._phase_min,
+            phase_max=self._phase_max,
+            phase_slider=self._sl_ph.value(),
+        )
+
+    def set_wave_settings(self, settings: WaveVectorSettings) -> None:
+        widgets = (
+            self._le_qx,
+            self._le_qy,
+            self._le_amp_min,
+            self._le_amp_max,
+            self._sl_amp,
+            self._le_ph_min,
+            self._le_ph_max,
+            self._sl_ph,
+        )
+        blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
+        try:
+            self.qx = settings.qx
+            self.qy = settings.qy
+            self._amplitude_min = settings.amplitude_min
+            self._amplitude_max = settings.amplitude_max
+            self._phase_min = settings.phase_min
+            self._phase_max = settings.phase_max
+
+            self._le_qx.setText(str(settings.qx))
+            self._le_qy.setText(str(settings.qy))
+            self._le_amp_min.setText(str(settings.amplitude_min))
+            self._le_amp_max.setText(str(settings.amplitude_max))
+            self._sl_amp.setValue(settings.amplitude_slider)
+            self.amplitude = settings.amplitude
+            self._le_amp_val.setText(str(self.amplitude))
+            self._le_ph_min.setText(str(settings.phase_min))
+            self._le_ph_max.setText(str(settings.phase_max))
+            self._sl_ph.setValue(settings.phase_slider)
+            self.phase = settings.phase
+            self._le_ph_val.setText(str(self.phase))
+        finally:
+            del blockers
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -295,6 +525,90 @@ class PlanewaveSynthesiser(AGuiModule):
     def on_item_loaded(self, item: WorkspaceItem) -> None:
         pass   # module generates its own data; workspace loading unused
 
+    def _populate_ws_item_context_menu(
+        self,
+        menu: QtWidgets.QMenu,
+        item: WorkspaceItem,
+    ) -> None:
+        recipe = self._recipe_from_workspace_item(item)
+        if recipe is None:
+            return
+        action = menu.addAction("Restore Planewave setup")
+        action.triggered.connect(
+            lambda _checked=False: self._restore_planewave_setup(item)
+        )
+
+    @staticmethod
+    def _recipe_from_workspace_item(item: WorkspaceItem):
+        if getattr(item, "type_id", None) != "uds":
+            return None
+        payload = getattr(item, "payload", None)
+        info = getattr(payload, "info", None)
+        if not isinstance(info, Mapping):
+            return None
+        if info.get("_source_format") != _SOURCE_FORMAT:
+            return None
+        recipe = info.get(_RECIPE_INFO_KEY)
+        if not isinstance(recipe, Mapping):
+            return None
+        if recipe.get("schema_version") != _RECIPE_SCHEMA_VERSION:
+            return None
+        return recipe
+
+    def _restore_planewave_setup(self, item: WorkspaceItem) -> None:
+        try:
+            recipe = self._recipe_from_workspace_item(item)
+            if recipe is None:
+                raise ValueError(
+                    "This workspace item is not a compatible planewave snapshot."
+                )
+            image_size, waves = _recipe_to_wave_settings(recipe)
+            payload = item.payload
+            data = np.asarray(payload.data)
+            if (
+                data.ndim != 3
+                or data.shape[0] < 1
+                or data.shape[1] != data.shape[2]
+            ):
+                raise ValueError(
+                    "The planewave snapshot must contain a square image layer."
+                )
+            if data.shape[1] != image_size:
+                raise ValueError(
+                    "The planewave recipe and stored image sizes do not match."
+                )
+            image = np.asarray(data[0], dtype=np.float64).copy()
+        except (TypeError, ValueError) as exc:
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Cannot Restore Planewave Setup",
+                str(exc),
+            )
+            return
+
+        self._data_size = image_size
+        with QtCore.QSignalBlocker(self._le_size):
+            self._le_size.setText(str(image_size))
+        self._replace_wave_rows(waves)
+
+        self._sum_data = image
+        self._wave_cache = [
+            _sinusoidal2d(
+                image_size,
+                wave.qx,
+                wave.qy,
+                wave.phase,
+                wave.amplitude,
+            )
+            for wave in waves
+        ]
+        self._uds = self._make_uds()
+        self._viewer.setUdsData(self._uds)
+        self.statusBar().showMessage(
+            f"Restored Planewave setup from '{item.display_name}'.",
+            8000,
+        )
+
     def _apply_config_to_panels(self, cfg: dict) -> None:
         cmap_list = cfg.get("colormap", {}).get("cmap_palette_list", ["gray"])
         self._viewer.setup_palette(cmap_list)
@@ -329,23 +643,26 @@ class PlanewaveSynthesiser(AGuiModule):
         qs.sync()
 
     def _make_uds(self) -> UdsDataStru:
-        n = self._data_size
-        d = self._sum_data[np.newaxis, :, :]
-        return UdsDataStru(
+        return _make_planewave_uds(
+            self._sum_data,
+            self._data_size,
+            self._current_wave_settings(),
             name="planewave_synthesiser",
-            data=d.astype(np.float64),
-            axes=[
-                Axis(values=np.array([0.0]), label="Layer", units=""),
-                Axis(values=np.arange(n, dtype=np.float64), label="Row",    units="px"),
-                Axis(values=np.arange(n, dtype=np.float64), label="Column", units="px"),
-            ],
-            info={"_source_format": "planewave_synthesiser"},
-            proc_history=[],
         )
 
     def _redraw(self) -> None:
         self._uds.data[0] = self._sum_data
+        self._uds.info = {
+            "_source_format": _SOURCE_FORMAT,
+            _RECIPE_INFO_KEY: _wave_settings_to_recipe(
+                self._data_size,
+                self._current_wave_settings(),
+            ),
+        }
         self._viewer.setUdsData(self._uds)
+
+    def _current_wave_settings(self) -> tuple[WaveVectorSettings, ...]:
+        return tuple(row.wave_settings() for row in self._rows)
 
     def _recompute_all(self) -> None:
         n = self._data_size
@@ -359,16 +676,33 @@ class PlanewaveSynthesiser(AGuiModule):
 
     # ── wave row management ───────────────────────────────────────────────
 
-    def _add_wave_row(self) -> None:
+    def _add_wave_row(
+        self,
+        settings: WaveVectorSettings | None = None,
+    ) -> None:
         idx = len(self._rows)
         if idx >= 50:
             return
         row = WaveVectorRow(idx)
+        if settings is not None:
+            row.set_wave_settings(settings)
         row.paramsChanged.connect(self._on_wave_params_changed)
         self._rows.append(row)
         self._wave_cache.append(np.zeros((self._data_size, self._data_size)))
         # insert before the trailing stretch
         self._scroll_vbox.insertWidget(self._scroll_vbox.count() - 1, row)
+
+    def _replace_wave_rows(
+        self,
+        waves: tuple[WaveVectorSettings, ...],
+    ) -> None:
+        for row in self._rows:
+            self._scroll_vbox.removeWidget(row)
+            row.deleteLater()
+        self._rows.clear()
+        self._wave_cache.clear()
+        for wave in waves:
+            self._add_wave_row(wave)
 
     def _remove_wave_row(self) -> None:
         if not self._rows:
@@ -416,16 +750,10 @@ class PlanewaveSynthesiser(AGuiModule):
         self._recompute_all()
 
     def _on_save_to_workspace(self) -> None:
-        n = self._data_size
-        uds = UdsDataStru(
+        uds = _make_planewave_uds(
+            self._sum_data,
+            self._data_size,
+            self._current_wave_settings(),
             name="planewave_synthesiser_snapshot",
-            data=self._sum_data[np.newaxis, :, :].copy().astype(np.float64),
-            axes=[
-                Axis(values=np.array([0.0]), label="Layer",  units=""),
-                Axis(values=np.arange(n, dtype=np.float64), label="Row",    units="px"),
-                Axis(values=np.arange(n, dtype=np.float64), label="Column", units="px"),
-            ],
-            info={"_source_format": "planewave_synthesiser"},
-            proc_history=[],
         )
         self.workspace.add_item(payload=uds)
