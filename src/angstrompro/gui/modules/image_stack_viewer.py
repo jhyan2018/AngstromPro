@@ -602,46 +602,13 @@ class ImageStackViewer(AGuiModule):
             pass
 
     def _on_export_image(self) -> None:
-        from angstrompro.gui.dialogs.export_image_dialog import ExportImageDialog
-        has_aux = self._aux_item is not None
-        dlg = ExportImageDialog.run(self, has_aux=has_aux)
-        if dlg is None:
-            return
+        from angstrompro.gui.utils.image_export import export_image
 
-        panel = self._panel_main if dlg.panel == "Primary" else self._panel_aux
-        pixmap = panel._pixmap_item.pixmap()
-        if pixmap.isNull():
-            QtWidgets.QMessageBox.information(
-                self, "Nothing to export", "No image is loaded in this panel.")
-            return
-
-        if dlg.with_overlay:
-            export_pixmap = panel._view.viewport().grab()
-        else:
-            export_pixmap = pixmap
-
-        if dlg.to_clipboard:
-            if dlg.clipboard_format == "SVG":
-                from angstrompro.gui.utils.clipboard_image import (
-                    raster_svg_bytes, set_svg_with_bitmap_fallback,
-                )
-                set_svg_with_bitmap_fallback(
-                    raster_svg_bytes(export_pixmap), export_pixmap)
-            else:
-                QtWidgets.QApplication.clipboard().setPixmap(export_pixmap)
-            self.statusBar().showMessage("Image copied to clipboard.", 3000)
-        else:
-            fmt = dlg.file_format
-            filters = {"PNG": "PNG (*.png)", "TIFF": "TIFF (*.tif *.tiff)",
-                       "JPEG": "JPEG (*.jpg *.jpeg)"}
-            chosen_filter = filters.get(fmt, "PNG (*.png)")
-            all_filters = ";;".join(filters.values())
-            path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self, "Save Image", self._last_export_dir(), all_filters, chosen_filter)
-            if path:
-                export_pixmap.save(path)
-                self._save_export_dir(path)
-                self.statusBar().showMessage(f"Saved to {path}", 4000)
+        export_image(
+            self,
+            self._panel_main,
+            self._panel_aux if self._aux_item is not None else None,
+        )
 
     def _on_export_video(self) -> None:
         from angstrompro.gui.dialogs.export_video_dialog import ExportVideoDialog

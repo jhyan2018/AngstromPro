@@ -449,7 +449,24 @@ class PlanewaveSynthesiser(AGuiModule):
 
     # ── AGuiModule contract ───────────────────────────────────────────────
 
+    def _build_file_menu(self) -> None:
+        super()._build_file_menu()
+        from angstrompro.gui.utils.image_export import (
+            install_export_image_action,
+        )
+
+        install_export_image_action(self, self._on_export_image)
+
+    def _on_export_image(self) -> None:
+        from angstrompro.gui.utils.image_export import export_image
+
+        export_image(self, self._viewer)
+
     def build_ui(self) -> None:
+        from angstrompro.gui.appearance.colormap_catalog import register_all
+
+        register_all()
+
         # ── left: image viewer ──────────────────────────────────────────
         self._viewer = ImageStackViewerWidget()
         self._viewer.setMinimumWidth(400)
@@ -517,6 +534,7 @@ class PlanewaveSynthesiser(AGuiModule):
         self._restore_clean_label_state()
         self._viewer.ui_pb_img_clean_mode.toggled.connect(
             self._save_clean_label_state)
+        self._add_rt_colormap_action()
 
         # seed one wave row so the viewer shows something
         self._add_wave_row()
@@ -623,6 +641,18 @@ class PlanewaveSynthesiser(AGuiModule):
         self._viewer.setCanvasMaximumSize(canvas.get("max_canvas_size", 600))
         self._viewer.setBiasTextColor(canvas.get("bias_text_color", "Red"))
         self._viewer.setBiasTextShown(canvas.get("bias_text", False))
+
+    def _add_rt_colormap_action(self) -> None:
+        self._view_menu.addSeparator()
+        self._view_menu.addAction("RT-ColorMap").triggered.connect(
+            self._show_rt_colormap)
+
+    def _show_rt_colormap(self) -> None:
+        editor = self._viewer.ui_rt_cmp
+        editor.setWidgetTitle("RT-CMP  Planewave")
+        editor.show()
+        editor.raise_()
+        editor.activateWindow()
 
     # ── helpers ───────────────────────────────────────────────────────────
 
