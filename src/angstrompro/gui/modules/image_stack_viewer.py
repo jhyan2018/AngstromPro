@@ -451,6 +451,14 @@ class ImageStackViewer(AGuiModule):
     def _build_annotate_menu(self) -> None:
         menu = self.menuBar().addMenu("Points")
 
+        general_menu = menu.addMenu("General Points")
+        general_menu.addAction("Set from Primary").triggered.connect(
+            self._set_general_points_main)
+        general_menu.addAction("Set from Reference").triggered.connect(
+            self._set_general_points_aux)
+
+        menu.addSeparator()
+
         menu.addAction("Set Interest Region from Primary").triggered.connect(
             self._set_interest_region_main)
         menu.addAction("Set Mask Center from Primary").triggered.connect(
@@ -475,6 +483,11 @@ class ImageStackViewer(AGuiModule):
         menu.addSeparator()
 
         clear_menu = menu.addMenu("Clear")
+        clear_menu.addAction("Clear Primary Points").triggered.connect(
+            lambda: self._clear_annotation("primary_points"))
+        clear_menu.addAction("Clear Reference Points").triggered.connect(
+            lambda: self._clear_annotation("reference_points"))
+        clear_menu.addSeparator()
         clear_menu.addAction("Clear Interest Region").triggered.connect(
             lambda: self._clear_annotation("interest_region"))
         clear_menu.addAction("Clear Mask Center").triggered.connect(
@@ -880,6 +893,68 @@ class ImageStackViewer(AGuiModule):
         self.workspace.notify_changed(self._main_item.name)
         self.statusBar().showMessage(
             f"Register ref points set: {len(coords)} points on '{self._main_item.name}'", 3000)
+
+    def _set_general_points_main(self) -> None:
+        """Store every point picked in Primary under the neutral primary role."""
+        self._set_general_points(
+            self._panel_main,
+            source_item=self._main_item,
+            source_label="Primary",
+            role="primary_points",
+        )
+
+    def _set_general_points_aux(self) -> None:
+        """Store every point picked in Reference on the primary workspace item."""
+        self._set_general_points(
+            self._panel_aux,
+            source_item=self._aux_item,
+            source_label="Reference",
+            role="reference_points",
+        )
+
+    def _set_general_points(
+        self,
+        panel,
+        *,
+        source_item,
+        source_label: str,
+        role: str,
+    ) -> None:
+        """Copy a panel's complete picked-point list into a neutral annotation."""
+        from angstrompro.core.data.annotation_data import PointSetData
+
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No primary item",
+                "Load an item into the Primary panel first.",
+            )
+            return
+        if source_item is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                f"No {source_label.lower()} item",
+                f"Load an item into the {source_label} panel first.",
+            )
+            return
+
+        coords = self._get_picked_coords(panel)
+        if coords is None or len(coords) == 0:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No points",
+                f"No points picked in the {source_label} panel. "
+                "Right-click on its canvas to pick points first.",
+            )
+            return
+
+        self._main_item.annotations[role] = PointSetData(coords=coords)
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"{source_label} points set: {len(coords)} points on "
+            f"'{self._main_item.name}'",
+            3000,
+        )
 
     def _set_circle_cut_points_main(self) -> None:
         """Pick 2 points from main panel, store as circle_cut_points on main item."""
