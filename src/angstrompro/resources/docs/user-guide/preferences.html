@@ -21,26 +21,165 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
              color: #52636d; }
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="preferences">Preferences</h1>
-<p>Open <strong>File → Preferences…</strong> or press <code>Ctrl+,</code> from a module window. The panel
-combines application-wide settings with settings contributed by modules.</p>
-<h2 id="application-settings">Application settings</h2>
-<p>Application-wide preferences include:</p>
+<p>Open <strong>File → Preferences…</strong> or press <code>Ctrl+,</code>. The window from which you open
+Preferences determines what is shown:</p>
 <ul>
-<li>Appearance, including the bundled light or dark theme and application font</li>
-<li>The parent location of the AngstromPro user-data folder</li>
-<li>Whether sending moves or copies a workspace item</li>
-<li>Modules excluded as send targets</li>
-<li>Local plugin source paths</li>
-<li>File-loading behavior and mappings for multichannel formats</li>
-<li>Modules created at startup</li>
-<li>Task concurrency</li>
+<li>The <strong>Main Workbench</strong> contains application-wide settings shared by every
+  module, including file-channel mappings.</li>
+<li>A module window contains settings for that module type. For example, open
+  Preferences from the Image Stack Viewer to configure its synchronisation,
+  scale, canvas, and colormap defaults.</li>
 </ul>
+<h2 id="applying-and-saving-changes">Applying and saving changes</h2>
+<p>The three buttons have different scopes:</p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Apply</strong></td>
+<td>Uses the edited values in the current session. Open widgets update where supported, but the values are not written as future defaults.</td>
+</tr>
+<tr>
+<td><strong>Save as default</strong></td>
+<td>Applies the values and stores them in the active user-data folder. New module instances and later application sessions use them.</td>
+</tr>
+<tr>
+<td><strong>Reset to default</strong></td>
+<td>Restores AngstromPro's built-in values in the fields and current session. Use <strong>Save as default</strong> afterward to remove saved overrides. Channel mappings are independent and are not changed by this bulk reset.</td>
+</tr>
+</tbody>
+</table>
+<p>Settings concerned with startup or plugin discovery naturally take full effect
+on the next launch. Data Browser display and scanner settings, viewer display
+settings, and colormap palettes are applied to the open module.</p>
+<h2 id="application-settings">Application settings</h2>
+<p>Open Preferences from the Main Workbench for these sections:</p>
+<ul>
+<li><strong>General</strong> controls log visibility and whether sending moves or copies a
+  workspace item.</li>
+<li><strong>User data</strong> changes the parent location used for configuration, cache, and
+  logs on the next new application session.</li>
+<li><strong>Appearance</strong> controls theme, font family, and application font size.</li>
+<li><strong>Hidden workspace docks</strong> chooses module types whose Workspace dock starts
+  hidden; use <strong>View → Workspace</strong> to show one again.</li>
+<li><strong>Excluded send targets</strong> removes selected module types from Send dialogs.</li>
+<li><strong>Plugins</strong> configures local plugin source paths. Restart AngstromPro after
+  changing plugin discovery.</li>
+<li><strong>Files</strong> supplies the starting folders for Open and Save dialogs.</li>
+<li><strong>Channels</strong> configures multichannel file formats; see below.</li>
+<li><strong>Startup</strong> chooses which modules and how many instances open at launch.</li>
+</ul>
+<h2 id="channel-mappings">Channel mappings</h2>
+<p>The Channel Manager is application-wide even when opened from Data Browser
+Preferences. It currently applies to the built-in Nanonis <code>.3ds</code>, <code>.sxm</code>, and
+<code>.dat</code> loaders.</p>
+<p>Select a <strong>File format</strong> on the left before editing its independent settings.
+Each table row describes one logical AngstromPro channel:</p>
+<ul>
+<li><strong>Display name</strong> is the stable name used for the loaded dataset and Data
+  Browser card.</li>
+<li><strong>Load by default</strong> preselects a matched channel in the normal file-open
+  dialog. It also determines which channels the Data Browser renders as
+  thumbnails.</li>
+<li><strong>Exact aliases</strong> are semicolon-separated raw channel names. Matching is
+  exact and case-sensitive; their order determines which match wins first.</li>
+<li><strong>Auto-load defaults for this format</strong> is a separate, format-level option.
+  It skips the normal selection dialog and loads the matched default rows.</li>
+</ul>
+<p>These two default controls work together as follows:</p>
+<table>
+<thead>
+<tr>
+<th>Load by default</th>
+<th>Format auto-load</th>
+<th>Opening <code>.3ds</code>, <code>.sxm</code>, or <code>.dat</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Checked</td>
+<td>Off</td>
+<td>The normal channel-selection dialog opens with the matched row preselected.</td>
+</tr>
+<tr>
+<td>Checked</td>
+<td>On</td>
+<td>The matched channel loads without the normal selection dialog.</td>
+</tr>
+<tr>
+<td>Checked but no alias matches</td>
+<td>On</td>
+<td>An <strong>Unmatched channels</strong> dialog asks for a raw channel or allows the logical channel to be skipped.</td>
+</tr>
+<tr>
+<td>Unchecked</td>
+<td>Either</td>
+<td>The logical channel is not selected automatically.</td>
+</tr>
+</tbody>
+</table>
+<p>During unmatched-channel resolution, select <strong>Save alias</strong> to prepend the raw
+channel name to that logical channel for future files. Switching between file
+formats in Channel Manager preserves edits as drafts. Press <strong>Apply</strong> to use
+all edited formats for the current session, or <strong>Save as default</strong> to retain
+them after restarting.</p>
+<p>The format-level auto-load option does not change thumbnail selection: Data
+Browser always renders matched channels marked <strong>Load by default</strong>. Existing
+cached thumbnails are not rewritten merely because mappings changed; use
+<strong>Re-render all</strong> or re-render an individual card.</p>
 <h2 id="module-settings">Module settings</h2>
-<p>Module sections contain controls relevant to that module. Examples include
-Data Browser watch folders and scanner settings, Image Stack Viewer
-synchronisation, and Curve Stack Viewer templates.</p>
-<p>Changes are applied to open modules where supported. Some settings, especially
-plugin discovery and startup behavior, take full effect on the next launch.</p>
+<h3 id="data-browser">Data Browser</h3>
+<ul>
+<li><strong>Watch folders</strong> controls the roots shown in the folder tree.</li>
+<li><strong>Watched formats</strong> controls both gallery visibility and formats processed by
+  the background scanner. The Formats button in the main browser toolbar is a
+  separate, temporary view filter.</li>
+<li><strong>Background scanner</strong> enables background thumbnail generation and controls
+  scan order and pacing.</li>
+<li><strong>Thumbnails</strong> controls card size, curve-to-colormap stack threshold, plot
+  template, display-only Z background subtraction, and the in-memory pixmap
+  cache.</li>
+<li><strong>Channels</strong> edits the same application-wide Channel Manager described
+  above. Auto-load affects interactive opening, not background rendering.</li>
+<li><strong>Cache</strong> controls orphan cleanup and provides cache inspection and
+  regeneration tools.</li>
+</ul>
+<p>Changing thumbnail style, background processing, or channel mappings does not
+rewrite already cached images. Re-render the affected cards to see the change.</p>
+<h3 id="image-stack-viewer">Image Stack Viewer</h3>
+<ul>
+<li><strong>Color map</strong> chooses and orders the palette shown in both image panels.</li>
+<li><strong>Sync</strong> independently synchronises layer, picked points, live cursor, and
+  field-of-view pan/zoom from Primary to Reference.</li>
+<li><strong>Scale</strong> controls histogram sigma scaling, FFT upper scaling, scale-button
+  zoom, and canvas wheel sensitivity.</li>
+<li><strong>Canvas</strong> controls maximum canvas size and the optional bias-value overlay.</li>
+</ul>
+<h3 id="curve-stack-viewer">Curve Stack Viewer</h3>
+<ul>
+<li><strong>Color map</strong> chooses and orders the colormap palette available to plots.</li>
+<li><strong>Default template</strong> styles each fresh raw UDS plot. It is not applied over a
+  loaded <code>.scplot</code>, because a saved scene already contains its own styling.</li>
+</ul>
+<h3 id="planewave-synthesiser">Planewave Synthesiser</h3>
+<ul>
+<li><strong>Color map</strong> chooses and orders the image palette.</li>
+<li><strong>Scale</strong> controls histogram sigma scaling, scale-button zoom, and canvas
+  wheel sensitivity.</li>
+<li><strong>Canvas</strong> controls maximum canvas size and the optional bias-value overlay.</li>
+</ul>
+<p>Plugin modules may contribute additional sections. Their settings can be
+stored in separate plugin configuration files.</p>
+<p>See the <a href="data-browser.html">Data Browser</a>,
+<a href="image-stack-viewer.html">Image Stack Viewer</a>,
+<a href="curve-stack-viewer.html">Curve Stack Viewer</a>, and
+<a href="planewave-synthesiser.html">Planewave Synthesiser</a> guides for the surrounding
+module workflows.</p>
 <h2 id="appearance">Appearance</h2>
 <p>AngstromPro provides its own compact light and dark themes. They use a
 consistent Qt Fusion foundation and do not require a separate theme package.

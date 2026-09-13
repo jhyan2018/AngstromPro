@@ -122,8 +122,8 @@ class DataBrowserModule(AGuiModule):
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
         ]),
-        PrefSection("Channels — thumbnails follow the app-wide channel "
-                    "mappings (load-by-default = rendered)", "settings", [
+        PrefSection("Channels — application-wide mappings; channels marked "
+                    "Load by default are rendered as thumbnails", "settings", [
             # the same ChannelManager the file-open path uses; edits here
             # apply app-wide, not just to the browser
             PrefItem("", "Channel mappings", "channel_manager",

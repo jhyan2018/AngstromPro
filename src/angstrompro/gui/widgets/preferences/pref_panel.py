@@ -486,4 +486,9 @@ class PreferencesPanel(QtWidgets.QWidget):
 
     def _on_reset(self) -> None:
         if self._on_reset_cb:
-            self._on_reset_cb()
+            reset_config = self._on_reset_cb()
+            if isinstance(reset_config, dict):
+                self._config = copy.deepcopy(reset_config)
+                for dot_key, ctrl in self._controls:
+                    if dot_key and hasattr(ctrl, "set_value"):
+                        ctrl.set_value(_get_path(self._config, dot_key))

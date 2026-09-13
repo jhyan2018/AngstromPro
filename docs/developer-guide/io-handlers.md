@@ -94,6 +94,13 @@ Only formats that contain multiple named channels should integrate with
 default selections. Single-channel formats should return their data directly.
 Keep the low-level parser independent of GUI dialogs.
 
+Channel aliases are matched exactly and in configured order. A channel's
+`load_by_default` flag has two consumers: it preselects rows in the interactive
+channel picker and selects Data Browser thumbnail channels. The enclosing
+format's `auto_load` flag is independent: it suppresses the normal picker while
+still invoking unmatched-channel resolution when a default alias cannot be
+resolved. Do not use `auto_load` to decide which thumbnails to render.
+
 ## Persistence rules
 
 - Preserve axes, metadata, annotations, and processing records when the format

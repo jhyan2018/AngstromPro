@@ -74,7 +74,8 @@ class MainWorkbench(AGuiModule):
         ]),
         PrefSection("Channels", "settings", [
             PrefItem("", "Channel mappings", "channel_manager",
-                     "Configure which channels are loaded for each file format",
+                     "Configure exact aliases, per-channel defaults, and "
+                     "optional automatic loading independently for each format",
                      full_width=True, expandable=True),
         ]),
         PrefSection("Startup", "play", [
@@ -130,7 +131,7 @@ class MainWorkbench(AGuiModule):
             _apply(new_cfg)
             cfg.save_defaults()
 
-        def _reset() -> None:
+        def _reset() -> dict:
             from angstrompro.core.configs.defaults import DEFAULTS
             from angstrompro.core.configs.config_manager import _merge_startup_modules
             io_defaults = copy.deepcopy(DEFAULTS.get("io", {}))
@@ -139,12 +140,14 @@ class MainWorkbench(AGuiModule):
             # reset startup_modules to defaults only (drop user additions)
             app_defaults["startup_modules"] = copy.deepcopy(
                 DEFAULTS.get("app", {}).get("startup_modules", []))
-            _apply({
+            reset_config = {
                 "app":        app_defaults,
                 "appearance": copy.deepcopy(DEFAULTS.get("appearance", {})),
                 "io":         io_defaults,
                 "plugins":    copy.deepcopy(DEFAULTS.get("plugins", {})),
-            })
+            }
+            _apply(reset_config)
+            return reset_config
 
         from angstrompro.app.user_data_folder import get_qsettings
         _qs_key = "prefs_size/main_workbench"

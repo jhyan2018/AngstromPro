@@ -9,9 +9,10 @@ ChannelManagerWidget — inline preferences widget for IO channel mappings.
 Registered as widget type "channel_manager" so it can be embedded directly
 in a PreferencesPanel via PrefItem(..., widget="channel_manager").
 
-Because channel manager state lives outside the normal config dict (it writes
-directly to ChannelManager via save_format()), get_value/set_value are no-ops
-— changes are saved immediately via the Save button inside the widget.
+Because channel-manager state lives outside the Preferences snapshot,
+``get_value()`` commits the widget's per-format drafts to ``ChannelManager``
+when the surrounding Preferences panel is applied. Switching formats preserves
+drafts without applying them early.
 """
 from __future__ import annotations
 
@@ -32,6 +33,8 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         super().__init__(parent)
         self._cm    = context.channel_manager
         self._dirty = False
+        self._current_format_id: str | None = None
+        self._drafts: dict[str, tuple[list[ChannelConfig], bool]] = {}
 
         outer = QtWidgets.QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -43,7 +46,7 @@ class ChannelManagerWidget(QtWidgets.QWidget):
 
         # ── Left: format list ─────────────────────────────────────────
         left = QtWidgets.QVBoxLayout()
-        fmt_label = QtWidgets.QLabel("Format")
+        fmt_label = QtWidgets.QLabel("File format")
         fmt_label.setObjectName("pref_section_header_label")
         left.addWidget(fmt_label)
 
@@ -58,13 +61,29 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         # ── Right: channel table + buttons ────────────────────────────
         right = QtWidgets.QVBoxLayout()
 
-        self._auto_load_cb = QtWidgets.QCheckBox("Auto-load default channels (skip dialog)")
+        defaults_note = QtWidgets.QLabel(
+            "Load by default preselects matched channels in the file-open "
+            "dialog and controls which Data Browser thumbnails are rendered."
+        )
+        defaults_note.setObjectName("pref_row_desc")
+        defaults_note.setWordWrap(True)
+        right.addWidget(defaults_note)
+
+        self._auto_load_cb = QtWidgets.QCheckBox(
+            "Auto-load defaults for this format (skip selection dialog)"
+        )
+        self._auto_load_cb.setToolTip(
+            "When enabled, matched default channels load without the normal "
+            "channel-selection dialog. Unmatched defaults still open a "
+            "mapping dialog."
+        )
         self._auto_load_cb.stateChanged.connect(lambda: setattr(self, "_dirty", True))
         right.addWidget(self._auto_load_cb)
 
         self._table = QtWidgets.QTableWidget(0, 3)
         self._table.setHorizontalHeaderLabels(
-            ["Display name", "Default", "Aliases  (semicolon-separated)"])
+            ["Display name", "Load by default",
+             "Exact aliases  (semicolon-separated)"])
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setSectionResizeMode(
             0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
@@ -96,7 +115,7 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         if self._fmt_list.count():
             self._fmt_list.setCurrentRow(0)
 
-    # ── PrefItem protocol (no-ops — state managed internally) ─────────────
+    # ── PrefItem protocol (get_value commits the internal drafts) ──────
 
     def get_value(self):
         self._on_apply()
@@ -107,13 +126,28 @@ class ChannelManagerWidget(QtWidgets.QWidget):
     # ── internals ─────────────────────────────────────────────────────────
 
     def _on_format_selected(self, row: int) -> None:
+        self._capture_current_draft()
         if row < 0:
+            self._current_format_id = None
             return
         fmt_id  = self._fmt_list.item(row).text()
-        fmt_cfg = self._cm.get(fmt_id)
-        self._load_table(
-            fmt_cfg.channels if fmt_cfg else [],
-            fmt_cfg.auto_load if fmt_cfg else False,
+        self._current_format_id = fmt_id
+        draft = self._drafts.get(fmt_id)
+        if draft is not None:
+            channels, auto_load = draft
+        else:
+            fmt_cfg = self._cm.get(fmt_id)
+            channels = fmt_cfg.channels if fmt_cfg else []
+            auto_load = fmt_cfg.auto_load if fmt_cfg else False
+        self._load_table(channels, auto_load)
+
+    def _capture_current_draft(self, *, force: bool = False) -> None:
+        """Keep edits for the visible format while the user visits another."""
+        if self._current_format_id is None or (not self._dirty and not force):
+            return
+        self._drafts[self._current_format_id] = (
+            self._collect_channels(),
+            self._auto_load_cb.isChecked(),
         )
 
     def _load_table(self, channels: list[ChannelConfig], auto_load: bool = False) -> None:
@@ -202,13 +236,10 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         return channels
 
     def _on_apply(self) -> None:
-        row = self._fmt_list.currentRow()
-        if row < 0:
-            return
-        fmt_id    = self._fmt_list.item(row).text()
-        channels  = self._collect_channels()
-        auto_load = self._auto_load_cb.isChecked()
-        self._cm.update_format(fmt_id, channels, auto_load=auto_load)
+        self._capture_current_draft(force=True)
+        for fmt_id, (channels, auto_load) in self._drafts.items():
+            self._cm.update_format(fmt_id, channels, auto_load=auto_load)
+        self._drafts.clear()
         self._dirty = False
 
 

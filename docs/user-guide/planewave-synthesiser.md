@@ -32,3 +32,15 @@ $$
 This synthetic-data route teaches the same workspace and processing workflow
 used for experimental files, without requiring AngstromPro to distribute
 private or instrument-specific example datasets.
+
+## Preferences
+
+Open Preferences from this module to configure:
+
+- **Color map:** choose and order the image palette.
+- **Scale:** set histogram sigma scaling, scale-button zoom, and canvas wheel
+  sensitivity.
+- **Canvas:** limit canvas size and configure the optional bias-value overlay.
+
+Use **Apply** for the current synthesiser and **Save as default** for future
+Planewave Synthesiser instances.

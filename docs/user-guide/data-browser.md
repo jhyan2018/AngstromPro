@@ -30,8 +30,25 @@ used for its preview. From a card's context menu you can:
 - Assign a rating from zero to five stars
 - Re-render the thumbnail
 
-If a required channel cannot be matched, review the application-wide channel
-mappings in Preferences.
+## Multichannel thumbnails
+
+The Channel Manager shown under **Preferences → Data Browser → Channels** is
+application-wide; it edits the same mappings available in Main Workbench
+Preferences. For `.3ds`, `.sxm`, and `.dat` files, the browser creates cards
+only for logical channels that:
+
+1. are marked **Load by default** for that file format, and
+2. have an exact, case-sensitive alias matching a raw channel in the file.
+
+The format-level **Auto-load defaults** checkbox does not control thumbnails.
+It controls whether interactive file opening skips the normal channel-selection
+dialog. See [Preferences](preferences.md#channel-mappings) for the complete
+two-level behavior.
+
+If a card says that a channel was not found, add the raw instrument channel
+name as an exact alias. Existing cached cards are not replaced automatically;
+re-render the file or use **Re-render all** after changing mappings or default
+channels.
 
 ## Scene templates for thumbnails
 
@@ -59,9 +76,10 @@ This is display-only: it does not change the source file, cached UDS data, or
 data sent to another module. Other logical channels are never flattened.
 
 Changing the selected template affects newly generated thumbnails. Existing
-cached thumbnails also retain their current image when this background option
-changes. Re-render an individual card or use **Re-render all** in the Data
-Browser cache preferences to apply the new rendering settings.
+cached thumbnails also retain their current image when the background option,
+channel mappings, or default-channel selection changes. Re-render an individual
+card or use **Re-render all** in the Data Browser cache preferences to apply the
+new rendering settings.
 
 ## Background scanner
 
@@ -82,3 +100,6 @@ In **Preferences → Data Browser**, you can:
 
 Disabling the scanner does not prevent thumbnails from being rendered when
 files become visible.
+
+Press **Apply** to use browser changes in the open module. Press **Save as
+default** to retain them for future browser instances and application sessions.

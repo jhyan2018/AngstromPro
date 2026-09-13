@@ -40,6 +40,18 @@ Saved templates are shared with the Data Browser, which can use the same style
 when generating thumbnails for raw UDS data. Reopen a `.scplot` through the
 normal file-loading workflow.
 
+## Preferences
+
+Open Preferences from this module to configure:
+
+- **Color map:** choose and order the colormaps available to fresh plots.
+- **Default template:** select the `.scet` style applied when fresh raw UDS
+  data becomes a new primary plot. Select `(none)` for Matplotlib defaults.
+
+The default template does not override an existing plot or a loaded `.scplot`.
+Use **Apply** for the current module and **Save as default** for future Curve
+Stack Viewer instances.
+
 ## Export
 
 Use the export command (`Ctrl+E`) to produce a publication figure. Exporting a
