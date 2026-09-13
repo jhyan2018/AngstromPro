@@ -7,7 +7,12 @@ from pathlib import Path
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
+from angstrompro.core.data.uds_data import (
+    Axis,
+    AxisType,
+    UdsDataStru,
+    file_source,
+)
 from angstrompro.io.angstrom_io import register_ext_loader
 
 
@@ -35,7 +40,7 @@ def load_apdemo(path: Path) -> UdsDataStru:
             Axis(np.arange(rows, dtype=np.float64), "Y", "px", AxisType.SPATIAL_Y),
             Axis(np.arange(columns, dtype=np.float64), "X", "px", AxisType.SPATIAL_X),
         ],
-        info={"_source_format": "apdemo", "source_path": str(path)},
+        info={"source": file_source(path)},
     )
 
 

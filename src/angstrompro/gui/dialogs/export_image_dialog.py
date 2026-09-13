@@ -30,6 +30,8 @@ class ExportImageDialog(QtWidgets.QDialog):
         self._has_aux = has_aux
         self._build_ui()
         self._restore_settings()
+        if not self._has_aux:
+            self._panel_cb.setCurrentIndex(0)
 
     # ------------------------------------------------------------------
     # UI

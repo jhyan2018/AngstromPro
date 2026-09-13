@@ -64,7 +64,7 @@ domain object rather than expose every internal dataset as an unrelated
 workspace row.</p>
 <h2 id="adding-and-transferring-items">Adding and transferring items</h2>
 <p>Add a payload through the owning workspace:</p>
-<pre><code class="language-python">item = self.workspace.add_item(payload=result, source_path=source_path)
+<pre><code class="language-python">item = self.workspace.add_item(payload=result)
 </code></pre>
 <p>The workspace resolves duplicate display names and returns the new
 <code>WorkspaceItem</code>. Cross-module sending creates a destination item through

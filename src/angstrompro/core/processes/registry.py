@@ -153,7 +153,24 @@ def _record_history(
     """Append a ProcRecord to the result if it is a WorkspaceData with proc_history."""
     from angstrompro.core.data.base import ProcRecord, WorkspaceData
     from angstrompro.core.data.annotation_data import serialize_annotation
+    from angstrompro.core.data.uds_data import (
+        UdsDataStru,
+        propagate_uds_source,
+    )
     if isinstance(result, WorkspaceData) and hasattr(result, "proc_history"):
+        def iter_uds(values):
+            for value in values:
+                if isinstance(value, UdsDataStru):
+                    yield value
+                elif isinstance(value, (list, tuple)):
+                    yield from iter_uds(value)
+
+        if isinstance(result, UdsDataStru):
+            propagate_uds_source(
+                result,
+                list(iter_uds(inputs.values())),
+                generated_source=process_name,
+            )
         input_item_names = [
             getattr(v, "name", "")
             for v in inputs.values()

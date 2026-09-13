@@ -6,8 +6,10 @@ Created on Mon Jun 22 23:50:31 2026
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import ClassVar
 
 import numpy as np
@@ -21,6 +23,7 @@ FFT_TRANSFORM_KEY = "_angstrompro.transform"
 FFT_SOURCE_NAME_KEY = "_angstrompro.source_name"
 FFT_WINDOW_KEY = "_angstrompro.fft_window"
 FFT_TUKEY_ALPHA_KEY = "_angstrompro.fft_tukey_alpha"
+SOURCE_INFO_KEY = "source"
 
 _INTERNAL_INFO_KEY_MIGRATIONS = {
     "angstrompro.data_domain": FFT_DOMAIN_KEY,
@@ -28,7 +31,6 @@ _INTERNAL_INFO_KEY_MIGRATIONS = {
     "angstrompro.source_name": FFT_SOURCE_NAME_KEY,
     "angstrompro.fft_window": FFT_WINDOW_KEY,
     "angstrompro.fft_tukey_alpha": FFT_TUKEY_ALPHA_KEY,
-    "source_format": "_source_format",
     "channels": "_channels",
     "column_names": "_column_names",
     "channel_index": "_channel_index",
@@ -36,6 +38,72 @@ _INTERNAL_INFO_KEY_MIGRATIONS = {
     "x_pixels": "_x_pixels",
     "y_pixels": "_y_pixels",
 }
+
+
+def file_source(path: str | Path) -> str:
+    """Return the canonical source value for a raw file import."""
+    return str(Path(path).expanduser().resolve())
+
+
+def copy_uds_source(source_uds: "UdsDataStru"):
+    """Return an independent copy of a UDS source value, if present."""
+    info = getattr(source_uds, "info", None)
+    if not isinstance(info, dict) or SOURCE_INFO_KEY not in info:
+        return None
+    return copy.deepcopy(info[SOURCE_INFO_KEY])
+
+
+def _flatten_source_value(value) -> list:
+    if isinstance(value, list):
+        flattened = []
+        for child in value:
+            flattened.extend(_flatten_source_value(child))
+        return flattened
+    if value is None:
+        return []
+    return [copy.deepcopy(value)]
+
+
+def propagate_uds_source(
+    result: "UdsDataStru",
+    inputs: list["UdsDataStru"] | tuple["UdsDataStru", ...],
+    *,
+    generated_source: str | None = None,
+) -> None:
+    """Apply root-source inheritance to a newly produced UDS.
+
+    One input copies its source value exactly. Multiple inputs flatten their
+    source values in input order and deliberately preserve duplicates.
+    A no-input result uses ``generated_source`` when supplied.
+    """
+    result.info = dict(getattr(result, "info", {}) or {})
+    result.info.pop(SOURCE_INFO_KEY, None)
+
+    if len(inputs) == 1:
+        source = copy_uds_source(inputs[0])
+        if source is not None:
+            result.info[SOURCE_INFO_KEY] = source
+        return
+
+    if len(inputs) > 1:
+        merged = []
+        for input_uds in inputs:
+            merged.extend(_flatten_source_value(copy_uds_source(input_uds)))
+        if merged:
+            result.info[SOURCE_INFO_KEY] = merged
+        return
+
+    if generated_source:
+        result.info[SOURCE_INFO_KEY] = str(generated_source)
+
+
+def uds_has_multiple_sources(uds: "UdsDataStru") -> bool:
+    """Return whether a UDS records more than one source contribution."""
+    info = getattr(uds, "info", None)
+    if not isinstance(info, dict):
+        return False
+    source = info.get(SOURCE_INFO_KEY)
+    return isinstance(source, list) and len(source) > 1
 
 
 def display_info_items(info: dict) -> list[tuple[str, object]]:
@@ -125,6 +193,10 @@ class UdsDataStru(WorkspaceData):
     def __post_init__(self) -> None:
         """Normalize legacy bookkeeping metadata to the internal-key convention."""
         self.info = dict(self.info or {})
+        # Legacy source bookkeeping is intentionally not migrated. New data
+        # uses only the root-origin value in ``info['source']``.
+        self.info.pop("source_format", None)
+        self.info.pop("_source_format", None)
         for old_key, new_key in _INTERNAL_INFO_KEY_MIGRATIONS.items():
             if old_key not in self.info:
                 continue

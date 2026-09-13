@@ -199,7 +199,7 @@ class ImageStackViewer(AGuiModule):
 
     def build_ui(self) -> None:
         from angstrompro.gui.widgets.image_stack_viewer_widget import ImageStackViewerWidget
-        from angstrompro.gui.resources.colormaps import register_all
+        from angstrompro.gui.appearance.colormap_catalog import register_all
         register_all()
 
         self._panel_main = ImageStackViewerWidget()
@@ -451,6 +451,14 @@ class ImageStackViewer(AGuiModule):
     def _build_annotate_menu(self) -> None:
         menu = self.menuBar().addMenu("Points")
 
+        general_menu = menu.addMenu("General Points")
+        general_menu.addAction("Set from Primary").triggered.connect(
+            self._set_general_points_main)
+        general_menu.addAction("Set from Reference").triggered.connect(
+            self._set_general_points_aux)
+
+        menu.addSeparator()
+
         menu.addAction("Set Interest Region from Primary").triggered.connect(
             self._set_interest_region_main)
         menu.addAction("Set Mask Center from Primary").triggered.connect(
@@ -475,6 +483,11 @@ class ImageStackViewer(AGuiModule):
         menu.addSeparator()
 
         clear_menu = menu.addMenu("Clear")
+        clear_menu.addAction("Clear Primary Points").triggered.connect(
+            lambda: self._clear_annotation("primary_points"))
+        clear_menu.addAction("Clear Reference Points").triggered.connect(
+            lambda: self._clear_annotation("reference_points"))
+        clear_menu.addSeparator()
         clear_menu.addAction("Clear Interest Region").triggered.connect(
             lambda: self._clear_annotation("interest_region"))
         clear_menu.addAction("Clear Mask Center").triggered.connect(
@@ -559,8 +572,7 @@ class ImageStackViewer(AGuiModule):
         image_path = Path(path)
         try:
             payload = load_image_as_uds(image_path)
-            item = self.workspace.add_item(
-                payload=payload, source_path=image_path)
+            item = self.workspace.add_item(payload=payload)
             self.load_item(item)
             self.statusBar().showMessage(
                 f"Imported {image_path.name} as {item.name}  "
@@ -603,46 +615,13 @@ class ImageStackViewer(AGuiModule):
             pass
 
     def _on_export_image(self) -> None:
-        from angstrompro.gui.dialogs.export_image_dialog import ExportImageDialog
-        has_aux = self._aux_item is not None
-        dlg = ExportImageDialog.run(self, has_aux=has_aux)
-        if dlg is None:
-            return
+        from angstrompro.gui.utils.image_export import export_image
 
-        panel = self._panel_main if dlg.panel == "Primary" else self._panel_aux
-        pixmap = panel._pixmap_item.pixmap()
-        if pixmap.isNull():
-            QtWidgets.QMessageBox.information(
-                self, "Nothing to export", "No image is loaded in this panel.")
-            return
-
-        if dlg.with_overlay:
-            export_pixmap = panel._view.viewport().grab()
-        else:
-            export_pixmap = pixmap
-
-        if dlg.to_clipboard:
-            if dlg.clipboard_format == "SVG":
-                from angstrompro.gui.utils.clipboard_image import (
-                    raster_svg_bytes, set_svg_with_bitmap_fallback,
-                )
-                set_svg_with_bitmap_fallback(
-                    raster_svg_bytes(export_pixmap), export_pixmap)
-            else:
-                QtWidgets.QApplication.clipboard().setPixmap(export_pixmap)
-            self.statusBar().showMessage("Image copied to clipboard.", 3000)
-        else:
-            fmt = dlg.file_format
-            filters = {"PNG": "PNG (*.png)", "TIFF": "TIFF (*.tif *.tiff)",
-                       "JPEG": "JPEG (*.jpg *.jpeg)"}
-            chosen_filter = filters.get(fmt, "PNG (*.png)")
-            all_filters = ";;".join(filters.values())
-            path, _ = QtWidgets.QFileDialog.getSaveFileName(
-                self, "Save Image", self._last_export_dir(), all_filters, chosen_filter)
-            if path:
-                export_pixmap.save(path)
-                self._save_export_dir(path)
-                self.statusBar().showMessage(f"Saved to {path}", 4000)
+        export_image(
+            self,
+            self._panel_main,
+            self._panel_aux if self._aux_item is not None else None,
+        )
 
     def _on_export_video(self) -> None:
         from angstrompro.gui.dialogs.export_video_dialog import ExportVideoDialog
@@ -914,6 +893,68 @@ class ImageStackViewer(AGuiModule):
         self.workspace.notify_changed(self._main_item.name)
         self.statusBar().showMessage(
             f"Register ref points set: {len(coords)} points on '{self._main_item.name}'", 3000)
+
+    def _set_general_points_main(self) -> None:
+        """Store every point picked in Primary under the neutral primary role."""
+        self._set_general_points(
+            self._panel_main,
+            source_item=self._main_item,
+            source_label="Primary",
+            role="primary_points",
+        )
+
+    def _set_general_points_aux(self) -> None:
+        """Store every point picked in Reference on the primary workspace item."""
+        self._set_general_points(
+            self._panel_aux,
+            source_item=self._aux_item,
+            source_label="Reference",
+            role="reference_points",
+        )
+
+    def _set_general_points(
+        self,
+        panel,
+        *,
+        source_item,
+        source_label: str,
+        role: str,
+    ) -> None:
+        """Copy a panel's complete picked-point list into a neutral annotation."""
+        from angstrompro.core.data.annotation_data import PointSetData
+
+        if self._main_item is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No primary item",
+                "Load an item into the Primary panel first.",
+            )
+            return
+        if source_item is None:
+            QtWidgets.QMessageBox.information(
+                self,
+                f"No {source_label.lower()} item",
+                f"Load an item into the {source_label} panel first.",
+            )
+            return
+
+        coords = self._get_picked_coords(panel)
+        if coords is None or len(coords) == 0:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No points",
+                f"No points picked in the {source_label} panel. "
+                "Right-click on its canvas to pick points first.",
+            )
+            return
+
+        self._main_item.annotations[role] = PointSetData(coords=coords)
+        self.workspace.notify_changed(self._main_item.name)
+        self.statusBar().showMessage(
+            f"{source_label} points set: {len(coords)} points on "
+            f"'{self._main_item.name}'",
+            3000,
+        )
 
     def _set_circle_cut_points_main(self) -> None:
         """Pick 2 points from main panel, store as circle_cut_points on main item."""

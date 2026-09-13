@@ -111,13 +111,8 @@ class WorkspaceManager(QtCore.QObject):
         item = src.get_item(item_name)
         if new_name:
             item.payload.name = new_name
-        new_item = dst.add_item(
-            payload=item.payload,
-            source_path=item.source_path,
-        )
+        new_item = dst.add_item(payload=item.payload)
         log.debug("Transferred %r: %s → %s", item.name,
                   src_workspace_id, dst_workspace_id)
         self.item_transferred.emit(src_workspace_id, dst_workspace_id, new_item.name)
         return new_item
-
-        

@@ -51,6 +51,19 @@ the current system, previews each family, and always shows the active choice
 when closed. The default 10-point size is intended for information-dense module
 panels; its spin box accepts 7 to 24 points. Theme and font changes are applied
 application-wide.</p>
+<h2 id="colormaps">Colormaps</h2>
+<p>Colormap palette preferences separate available maps by their source:</p>
+<ul>
+<li><strong>Matplotlib</strong> contains maps supplied by Matplotlib.</li>
+<li><strong>AngstromPro presets</strong> contains the maps bundled with AngstromPro.</li>
+<li><strong>My colormaps</strong> contains maps saved beneath the active user-data folder.</li>
+</ul>
+<p>The real-time colormap editor provides two distinct save actions. <strong>Save to My
+Colormaps…</strong> stores the editable anchors as a versioned file under
+<code>colormaps/</code>, registers the map immediately, and makes it available in
+Preferences. <strong>Export As…</strong> writes the historical sampled text format to a
+location you choose. Legacy <code>.txt</code> maps placed directly in the managed
+<code>colormaps/</code> folder are also loaded for compatibility.</p>
 <h2 id="storage">Storage</h2>
 <p>Application preferences are saved beneath the selected user-data folder in
 <code>config/config.json</code>. Interface geometry and other Qt state are stored in

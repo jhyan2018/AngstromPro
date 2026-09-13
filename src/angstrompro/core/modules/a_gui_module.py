@@ -586,6 +586,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 font = top.font(0)
                 font.setBold(True)
                 top.setFont(0, font)
+            if item.alias:
+                top.setToolTip(
+                    0,
+                    f"Workspace name: {item.name}\nAlias: {item.alias}",
+                )
 
             top.setData(0, _UserRole, item.name)
 
@@ -663,11 +668,51 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             menu = QtWidgets.QMenu(self)
             self._populate_ws_item_context_menu(menu, ws_item)
             if not menu.isEmpty():
-                menu.exec(self._ws_list.viewport().mapToGlobal(pos))
+                menu.addSeparator()
+            act_set_alias = menu.addAction("Set alias…")
+            act_set_alias.triggered.connect(
+                lambda _checked=False: self._set_workspace_item_alias(ws_item))
+            if ws_item.alias:
+                act_clear_alias = menu.addAction("Clear alias")
+                act_clear_alias.triggered.connect(
+                    lambda _checked=False: self._clear_workspace_item_alias(
+                        ws_item))
+            menu.exec(self._ws_list.viewport().mapToGlobal(pos))
 
     def _populate_ws_item_context_menu(
             self, menu: "QtWidgets.QMenu", item: "WorkspaceItem") -> None:
         """Hook for subclasses to add actions to the workspace item context menu."""
+
+    def _set_workspace_item_alias(self, item: "WorkspaceItem") -> None:
+        """Prompt for a display-only alias without changing item identity."""
+
+        echo_mode_type = getattr(
+            QtWidgets.QLineEdit, "EchoMode", QtWidgets.QLineEdit)
+        alias, accepted = QtWidgets.QInputDialog.getText(
+            self,
+            "Set workspace item alias",
+            f"Display alias for '{item.name}':\n"
+            "Leave blank to clear the alias.",
+            echo_mode_type.Normal,
+            item.alias,
+        )
+        if not accepted:
+            return
+        alias = alias.strip()
+        if alias == item.name:
+            alias = ""
+        if alias == item.alias:
+            return
+        item.alias = alias
+        self.workspace.notify_changed(item.name)
+
+    def _clear_workspace_item_alias(self, item: "WorkspaceItem") -> None:
+        """Remove an item's display alias while preserving its real name."""
+
+        if not item.alias:
+            return
+        item.alias = ""
+        self.workspace.notify_changed(item.name)
 
 
     def _on_remove_item(self) -> None:
@@ -928,6 +973,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                                           "Select a workspace item to save.")
             return
         item = self.workspace.get_item(name)
+        if not self._confirm_standalone_uds_save(item):
+            return
         from angstrompro.io import uds_io, scene_plot_io  # noqa: F401 — ensure all formats registered
         from angstrompro.io.angstrom_io import registered_formats
         formats = [f for f in registered_formats()
@@ -952,8 +999,47 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Save failed", str(exc))
 
+    def _confirm_standalone_uds_save(self, item: WorkspaceItem) -> bool:
+        """Recommend a workspace archive for UDS data with multiple sources."""
+        from angstrompro.core.data.uds_data import (
+            UdsDataStru,
+            uds_has_multiple_sources,
+        )
+
+        payload = item.payload
+        if not isinstance(payload, UdsDataStru):
+            return True
+        if not uds_has_multiple_sources(payload):
+            return True
+
+        source_count = len(payload.info["source"])
+        box = QtWidgets.QMessageBox(self)
+        box.setIcon(QtWidgets.QMessageBox.Icon.Warning)
+        box.setWindowTitle("Multiple Source Inputs")
+        box.setText(
+            "This data was derived from multiple source inputs. Saving only "
+            "this UDS may omit other workspace data required to reproduce "
+            "the result."
+        )
+        box.setInformativeText(
+            f"The data records {source_count} source contributions. Saving "
+            "the whole workspace is recommended.\n\nContinue saving only "
+            "this UDS?"
+        )
+        continue_button = box.addButton(
+            "Continue",
+            QtWidgets.QMessageBox.ButtonRole.AcceptRole,
+        )
+        cancel_button = box.addButton(
+            QtWidgets.QMessageBox.StandardButton.Cancel
+        )
+        box.setDefaultButton(cancel_button)
+        box.exec()
+        return box.clickedButton() is continue_button
+
     def _confirm_skipped_workspace_items(
-            self, heading: str, entries: list) -> bool:
+            self, heading: str, entries: list,
+            *, allow_cancel: bool = True) -> bool:
         """Show every skipped item before a workspace operation continues."""
         from angstrompro.gui.dialogs.workspace_archive_dialog import (
             SkippedWorkspaceItemsDialog,
@@ -963,13 +1049,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         for entry in entries:
             name = getattr(entry, "name", "") or "(unnamed item)"
             type_id = getattr(entry, "type_id", "") or "unknown"
+            provider = getattr(entry, "provider", "")
             reason = getattr(entry, "reason", "")
             line = f"{name}  [{type_id}]"
+            if provider:
+                line += f"  — provider: {provider}"
             if reason and reason != "Unsupported payload type":
                 line += f"\n    {reason}"
             lines.append(line)
         return SkippedWorkspaceItemsDialog.confirm(
-            heading, lines, parent=self)
+            heading, lines, parent=self, allow_cancel=allow_cancel)
 
     def _on_workspace_save(self) -> None:
         from angstrompro.io.workspace_io import (
@@ -1045,10 +1134,13 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 self, "Workspace open failed", str(exc))
             return
 
-        if archive.skipped and not self._confirm_skipped_workspace_items(
-                "These archive items cannot be loaded by this version of "
-                "AngstromPro:", archive.skipped):
-            return
+        if archive.skipped:
+            self._confirm_skipped_workspace_items(
+                "These archive items cannot be loaded by this installation "
+                "and were skipped:",
+                archive.skipped,
+                allow_cancel=False,
+            )
         if not archive.items:
             QtWidgets.QMessageBox.information(
                 self, "Nothing to load",

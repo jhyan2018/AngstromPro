@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 _TYPE_ID = "workspace"
 _VERSION = 1
-_SUPPORTED_TYPE_IDS = frozenset({"uds", "scene_plot"})
 
 
 @dataclass
@@ -37,7 +36,6 @@ class ArchivedWorkspaceItem:
     name: str
     payload: WorkspaceData
     item_id: str = ""
-    source_path: Path | None = None
     alias: str = ""
     annotations: dict[str, AnnotationData] = field(default_factory=dict)
 
@@ -48,6 +46,8 @@ class SkippedWorkspaceItem:
 
     name: str
     type_id: str
+    provider: str = ""
+    payload_version: int = 1
     reason: str = "Unsupported payload type"
 
 
@@ -64,34 +64,39 @@ class WorkspaceArchive:
 def split_supported_items(
         items: list[WorkspaceItem],
 ) -> tuple[list[WorkspaceItem], list[WorkspaceItem]]:
-    """Partition items without attempting to serialise them."""
+    """Partition items according to the currently installed archive codecs."""
+
+    _ensure_builtin_workspace_codecs()
+    from angstrompro.io.angstrom_io import has_workspace_codec
+
     supported = []
     unsupported = []
     for item in items:
-        target = supported if item.type_id in _SUPPORTED_TYPE_IDS else unsupported
+        target = supported if has_workspace_codec(item.type_id) else unsupported
         target.append(item)
     return supported, unsupported
 
 
+def _ensure_builtin_workspace_codecs() -> None:
+    from angstrompro.io import scene_plot_io, uds_io  # noqa: F401
+
+
 def _write_payload(group, payload: WorkspaceData) -> None:
-    if payload.type_id == "uds":
-        from angstrompro.io.uds_io import _write_to_group
-        _write_to_group(group, payload)
-    elif payload.type_id == "scene_plot":
-        from angstrompro.io.scene_plot_io import _write_to_group
-        _write_to_group(group, payload)
-    else:
+    from angstrompro.io.angstrom_io import get_workspace_codec
+
+    codec = get_workspace_codec(payload.type_id)
+    if codec is None:
         raise TypeError(f"Unsupported workspace payload type {payload.type_id!r}")
+    codec.writer(group, payload)
 
 
 def _read_payload(group, type_id: str) -> WorkspaceData:
-    if type_id == "uds":
-        from angstrompro.io.uds_io import _load_from_group
-        return _load_from_group(group)
-    if type_id == "scene_plot":
-        from angstrompro.io.scene_plot_io import _read_from_group
-        return _read_from_group(group)
-    raise TypeError(f"Unsupported workspace payload type {type_id!r}")
+    from angstrompro.io.angstrom_io import get_workspace_codec
+
+    codec = get_workspace_codec(type_id)
+    if codec is None:
+        raise TypeError(f"Unsupported workspace payload type {type_id!r}")
+    return codec.reader(group)
 
 
 def _annotations_to_json(annotations: dict[str, AnnotationData]) -> str:
@@ -126,6 +131,7 @@ def save_workspace(path: Path, workspace: Workspace) -> list[WorkspaceItem]:
     written successfully.
     """
     import h5py
+    from angstrompro.io.angstrom_io import get_workspace_codec
 
     path = Path(path)
     supported, unsupported = split_supported_items(workspace.list_items())
@@ -143,14 +149,18 @@ def save_workspace(path: Path, workspace: Workspace) -> list[WorkspaceItem]:
 
             items_group = archive.create_group("items", track_order=True)
             for index, item in enumerate(supported):
+                codec = get_workspace_codec(item.type_id)
+                if codec is None:
+                    raise TypeError(
+                        f"Workspace codec disappeared for type {item.type_id!r}"
+                    )
                 item_group = items_group.create_group(f"{index:08d}")
                 item_group.attrs["name"] = item.name
                 item_group.attrs["item_id"] = item.item_id
                 item_group.attrs["type_id"] = item.type_id
+                item_group.attrs["payload_provider"] = codec.provider
+                item_group.attrs["payload_version"] = codec.version
                 item_group.attrs["alias"] = item.alias
-                item_group.attrs["source_path"] = (
-                    str(item.source_path) if item.source_path is not None else ""
-                )
                 item_group.attrs["annotations"] = _annotations_to_json(
                     item.annotations)
                 _write_payload(item_group.create_group("payload"), item.payload)
@@ -170,9 +180,11 @@ def _archive_group_sort_key(name: str) -> tuple[int, int | str]:
 def load_workspace(path: Path) -> WorkspaceArchive:
     """Read a workspace archive without mutating any live Workspace."""
     import h5py
+    from angstrompro.io.angstrom_io import get_workspace_codec
 
     path = Path(path)
     result = WorkspaceArchive()
+    _ensure_builtin_workspace_codecs()
     with h5py.File(path, "r") as archive:
         archive_type = _attr_text(archive.attrs.get("type_id"))
         if archive_type != _TYPE_ID:
@@ -197,8 +209,50 @@ def load_workspace(path: Path) -> WorkspaceArchive:
             item_group = items_group[key]
             name = _attr_text(item_group.attrs.get("name"), key)
             type_id = _attr_text(item_group.attrs.get("type_id"))
-            if type_id not in _SUPPORTED_TYPE_IDS:
-                result.skipped.append(SkippedWorkspaceItem(name, type_id))
+            provider = _attr_text(item_group.attrs.get("payload_provider"))
+            try:
+                payload_version = int(
+                    item_group.attrs.get("payload_version", 1))
+            except (TypeError, ValueError):
+                result.skipped.append(SkippedWorkspaceItem(
+                    name,
+                    type_id,
+                    provider=provider,
+                    reason="Invalid payload version metadata",
+                ))
+                continue
+            codec = get_workspace_codec(type_id)
+            if codec is None:
+                result.skipped.append(SkippedWorkspaceItem(
+                    name,
+                    type_id,
+                    provider=provider,
+                    payload_version=payload_version,
+                ))
+                continue
+            if provider and provider != codec.provider:
+                result.skipped.append(SkippedWorkspaceItem(
+                    name,
+                    type_id,
+                    provider=provider,
+                    payload_version=payload_version,
+                    reason=(
+                        f"Archive provider {provider!r} does not match "
+                        f"installed provider {codec.provider!r}"
+                    ),
+                ))
+                continue
+            if payload_version > codec.version:
+                result.skipped.append(SkippedWorkspaceItem(
+                    name,
+                    type_id,
+                    provider=provider or codec.provider,
+                    payload_version=payload_version,
+                    reason=(
+                        f"Payload version {payload_version} is newer than "
+                        f"installed codec version {codec.version}"
+                    ),
+                ))
                 continue
 
             try:
@@ -207,14 +261,12 @@ def load_workspace(path: Path) -> WorkspaceArchive:
                     raise ValueError("Missing payload group")
                 payload = _read_payload(payload_group, type_id)
                 payload.name = name
-                source_text = _attr_text(item_group.attrs.get("source_path"))
                 annotations = _annotations_from_json(
                     _attr_text(item_group.attrs.get("annotations"), "{}"))
                 result.items.append(ArchivedWorkspaceItem(
                     name=name,
                     payload=payload,
                     item_id=_attr_text(item_group.attrs.get("item_id")),
-                    source_path=Path(source_text) if source_text else None,
                     alias=_attr_text(item_group.attrs.get("alias")),
                     annotations=annotations,
                 ))
@@ -222,6 +274,8 @@ def load_workspace(path: Path) -> WorkspaceArchive:
                 result.skipped.append(SkippedWorkspaceItem(
                     name=name,
                     type_id=type_id,
+                    provider=provider or codec.provider,
+                    payload_version=payload_version,
                     reason=str(exc),
                 ))
 
@@ -258,10 +312,7 @@ def import_workspace(
                 for input_name in record.input_item_names
             ]
 
-        item = workspace.add_item(
-            payload=archived.payload,
-            source_path=archived.source_path,
-        )
+        item = workspace.add_item(payload=archived.payload)
         item.alias = archived.alias
         item.annotations = archived.annotations
         if archived.item_id and archived.item_id not in used_ids:

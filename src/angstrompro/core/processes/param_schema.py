@@ -18,13 +18,14 @@ class AnnotationSpec:
     """Describes one annotation input required by a process.
 
     name    — key used in the annotations dict passed to the process function
-    role    — annotation role: "bragg_peaks" | "interest_region" | "line_cut"
+    role    — annotation lookup key, such as "primary_points", "bragg_peaks",
+              "interest_region", or a plugin-defined role
     type_id — data type: "point_set" | "region" | "line"
     required — if True, raises ValueError when annotation is missing at run time
     Always resolves from process_inputs[0].annotations[role].
     """
     name:     str
-    role:     str       # "bragg_peaks" | "interest_region" | "line_cut"
+    role:     str       # built-in or plugin-defined annotation lookup key
     type_id:  str       # "point_set" | "region" | "line"
     required: bool = True
 

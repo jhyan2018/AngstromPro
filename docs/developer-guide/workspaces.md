@@ -58,7 +58,7 @@ workspace row.
 Add a payload through the owning workspace:
 
 ```python
-item = self.workspace.add_item(payload=result, source_path=source_path)
+item = self.workspace.add_item(payload=result)
 ```
 
 The workspace resolves duplicate display names and returns the new

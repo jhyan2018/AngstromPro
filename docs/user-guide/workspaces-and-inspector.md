@@ -55,6 +55,9 @@ Mouse actions have different purposes:
 
 - Use **Send…** after selecting an item to pass it to another compatible module.
 - Use **Remove** to remove it from the current runtime workspace.
+- Right-click an item and choose **Set alias…** to give it a shorter display
+  label. The alias does not change the item's real workspace name or processing
+  identity. Use **Clear alias** to show the real name again.
 - Expand an item to see its named annotations; an annotation can be cleared
   from its context menu.
 
@@ -66,7 +69,10 @@ module workspace in one `.apws` HDF5 archive. If unsupported payload types are
 present, AngstromPro lists every skipped item; click **OK** to save the remaining
 items. Use **File → Open Workspace…** to add an archive to the current workspace.
 Existing items are kept, and imported name conflicts are resolved with numeric
-suffixes such as `_2` and `_3`.
+suffixes such as `_2` and `_3`. Installed plugins can register their workspace
+payload formats. If a required plugin is unavailable when an archive is opened,
+AngstromPro skips only those payloads, loads the supported items, and reports
+the skipped names, types, and providers.
 
 ## Workspace Item Inspector
 

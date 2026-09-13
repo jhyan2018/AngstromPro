@@ -342,4 +342,8 @@ register_io(
     display_name = "Plot Scene",
     description  = "Multi-curve canvas: multiple UDS datasets combined with "
                    "individual plot styles and canvas layout configuration.",
+    workspace_reader = _read_from_group,
+    workspace_writer = _write_to_group,
+    workspace_provider = "angstrompro",
+    workspace_version = _VERSION,
 )

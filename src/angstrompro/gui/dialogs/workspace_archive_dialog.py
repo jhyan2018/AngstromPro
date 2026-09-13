@@ -6,10 +6,11 @@ from angstrompro.utils.qt_compat import IS_QT6, QtWidgets
 
 
 class SkippedWorkspaceItemsDialog(QtWidgets.QDialog):
-    """Show every item that will be skipped and ask whether to continue."""
+    """Show every item skipped by a workspace save or load operation."""
 
     def __init__(
-            self, heading: str, lines: list[str], parent=None) -> None:
+            self, heading: str, lines: list[str], parent=None,
+            *, allow_cancel: bool = True) -> None:
         super().__init__(parent)
         self.setWindowTitle("Unsupported workspace items")
         self.resize(560, 360)
@@ -31,18 +32,19 @@ class SkippedWorkspaceItemsDialog(QtWidgets.QDialog):
         note.setWordWrap(True)
         layout.addWidget(note)
 
-        buttons = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.StandardButton.Ok |
-            QtWidgets.QDialogButtonBox.StandardButton.Cancel
-        )
+        button_flags = QtWidgets.QDialogButtonBox.StandardButton.Ok
+        if allow_cancel:
+            button_flags |= QtWidgets.QDialogButtonBox.StandardButton.Cancel
+        buttons = QtWidgets.QDialogButtonBox(button_flags)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
     @classmethod
     def confirm(
-            cls, heading: str, lines: list[str], parent=None) -> bool:
-        dialog = cls(heading, lines, parent)
+            cls, heading: str, lines: list[str], parent=None,
+            *, allow_cancel: bool = True) -> bool:
+        dialog = cls(heading, lines, parent, allow_cancel=allow_cancel)
         accepted = (QtWidgets.QDialog.DialogCode.Accepted
                     if IS_QT6 else QtWidgets.QDialog.Accepted)
         return dialog.exec() == accepted

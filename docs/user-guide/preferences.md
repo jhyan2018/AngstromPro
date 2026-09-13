@@ -38,6 +38,21 @@ when closed. The default 10-point size is intended for information-dense module
 panels; its spin box accepts 7 to 24 points. Theme and font changes are applied
 application-wide.
 
+## Colormaps
+
+Colormap palette preferences separate available maps by their source:
+
+- **Matplotlib** contains maps supplied by Matplotlib.
+- **AngstromPro presets** contains the maps bundled with AngstromPro.
+- **My colormaps** contains maps saved beneath the active user-data folder.
+
+The real-time colormap editor provides two distinct save actions. **Save to My
+Colormaps…** stores the editable anchors as a versioned file under
+`colormaps/`, registers the map immediately, and makes it available in
+Preferences. **Export As…** writes the historical sampled text format to a
+location you choose. Legacy `.txt` maps placed directly in the managed
+`colormaps/` folder are also loaded for compatibility.
+
 ## Storage
 
 Application preferences are saved beneath the selected user-data folder in

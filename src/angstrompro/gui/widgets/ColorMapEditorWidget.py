@@ -4,10 +4,18 @@ Created on Tue Feb 10 13:11:14 2026
 
 @author: jiahaoYan
 """
-import os
+from pathlib import Path
+
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
+from angstrompro.gui.appearance.colormap_catalog import (
+    ColormapNameConflictError,
+    SOURCE_USER,
+    get_colormap_catalog,
+    user_colormaps_dir,
+    write_legacy_txt_colormap,
+)
 from angstrompro.utils.qt_compat import (
     QtCore, QtWidgets, QtGui, Signal, event_POS)
 
@@ -268,7 +276,8 @@ class HandlerInfoPanel(QtWidgets.QWidget):
         self.btn_color     = QtWidgets.QPushButton("")
         self.btn_color.setFixedSize(90, 36)
         self.btn_clipboard = QtWidgets.QPushButton("Clipboard")
-        self.btn_export    = QtWidgets.QPushButton("Export")
+        self.btn_save_user = QtWidgets.QPushButton("Save to My Colormaps…")
+        self.btn_export    = QtWidgets.QPushButton("Export As…")
         self.btn_update    = QtWidgets.QPushButton("Update")
 
         grid = QtWidgets.QGridLayout()
@@ -285,7 +294,7 @@ class HandlerInfoPanel(QtWidgets.QWidget):
 
         btn_col = QtWidgets.QVBoxLayout()
         for btn in (self.btn_delete, self.btn_color, self.btn_clipboard,
-                    self.btn_export, self.btn_update):
+                    self.btn_save_user, self.btn_export, self.btn_update):
             btn_col.addWidget(btn)
         btn_col.addStretch(1)
 
@@ -302,6 +311,7 @@ class HandlerInfoPanel(QtWidgets.QWidget):
         self.btn_delete.clicked.connect(self.on_delete_anchor_clicked)
         self.btn_color.clicked.connect(self.on_pick_color_clicked)
         self.btn_clipboard.clicked.connect(self.on_copy_colorbar_to_clipboard)
+        self.btn_save_user.clicked.connect(self.on_save_user_colormap)
         self.btn_export.clicked.connect(self.on_export_colormap)
         self.btn_update.clicked.connect(self.on_update_colormap)
 
@@ -347,23 +357,81 @@ class HandlerInfoPanel(QtWidgets.QWidget):
         return cdict
 
     def on_export_colormap(self):
+        try:
+            initial_directory = str(user_colormaps_dir())
+        except RuntimeError:
+            initial_directory = ""
         filepath, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Export Colormap", "", "Text Files (*.txt);;All Files (*)")
+            self,
+            "Export Colormap As",
+            initial_directory,
+            "Text Files (*.txt);;All Files (*)",
+        )
         if not filepath:
             return
-        base = os.path.splitext(os.path.basename(filepath))[0]
         if not filepath.lower().endswith(".txt"):
             filepath += ".txt"
+        destination = Path(filepath)
+        name = destination.stem
         try:
-            cmap = LinearSegmentedColormap(base, self._build_cdict_from_data(), N=4096)
-            rgb  = np.clip(np.round(cmap(np.linspace(0, 1, 256))[:, :3] * 65025), 0, 65025).astype(int)
-            with open(filepath, "w", encoding="utf-8") as f:
-                f.write(f"{base}[][0]\t{base}[][1]\t{base}[][2]\n")
-                for r, g, b in rgb:
-                    f.write(f"{r}\t{g}\t{b}\n")
-            QtWidgets.QMessageBox.information(self, "Export", f"Colormap exported:\n{filepath}")
-        except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Export Error", str(e))
+            write_legacy_txt_colormap(destination, name, self.data)
+            QtWidgets.QMessageBox.information(
+                self, "Export", f"Colormap exported:\n{destination}"
+            )
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(self, "Export Error", str(exc))
+
+    def on_save_user_colormap(self):
+        name, accepted = QtWidgets.QInputDialog.getText(
+            self,
+            "Save to My Colormaps",
+            "Colormap name:",
+        )
+        if not accepted:
+            return
+        name = name.strip()
+        catalog = get_colormap_catalog()
+        try:
+            destination = catalog.save_user_colormap(name, self.data)
+        except ColormapNameConflictError as exc:
+            if exc.conflicting.source != SOURCE_USER or exc.conflicting.name != name:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Name Already Used",
+                    f"{exc}\n\nChoose a different name.",
+                )
+                return
+            yes = QtWidgets.QMessageBox.StandardButton.Yes
+            no = QtWidgets.QMessageBox.StandardButton.No
+            answer = QtWidgets.QMessageBox.question(
+                self,
+                "Replace Colormap",
+                f'A colormap named "{name}" already exists in My colormaps. Replace it?',
+                yes | no,
+                no,
+            )
+            if answer != yes:
+                return
+            try:
+                destination = catalog.save_user_colormap(
+                    name,
+                    self.data,
+                    overwrite=True,
+                )
+            except Exception as overwrite_exc:
+                QtWidgets.QMessageBox.critical(
+                    self, "Save Error", str(overwrite_exc)
+                )
+                return
+        except Exception as exc:
+            QtWidgets.QMessageBox.critical(self, "Save Error", str(exc))
+            return
+
+        QtWidgets.QMessageBox.information(
+            self,
+            "My Colormaps",
+            f'"{name}" is now available in My colormaps.\n\nSaved to:\n{destination}',
+        )
 
     def on_update_colormap(self):
         self.updateCdict.emit([dict(d) for d in self.data])
