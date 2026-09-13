@@ -97,6 +97,12 @@ Supported Formats dialog as plugin-provided, read-only formats.</p>
 <code>ChannelManager</code>, so loading and thumbnail rendering use the same aliases and
 default selections. Single-channel formats should return their data directly.
 Keep the low-level parser independent of GUI dialogs.</p>
+<p>Channel aliases are matched exactly and in configured order. A channel's
+<code>load_by_default</code> flag has two consumers: it preselects rows in the interactive
+channel picker and selects Data Browser thumbnail channels. The enclosing
+format's <code>auto_load</code> flag is independent: it suppresses the normal picker while
+still invoking unmatched-channel resolution when a default alias cannot be
+resolved. Do not use <code>auto_load</code> to decide which thumbnails to render.</p>
 <h2 id="persistence-rules">Persistence rules</h2>
 <ul>
 <li>Preserve axes, metadata, annotations, and processing records when the format

@@ -880,10 +880,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 self._context.config.set_module_config(self.module_id, cfg)
                 self._context.config.save_defaults()
 
-        def _reset() -> None:
+        def _reset() -> dict:
             from angstrompro.core.configs.defaults import DEFAULTS
             defaults = DEFAULTS.get("modules", {}).get(self.module_id, {})
             _apply(copy.deepcopy(defaults))
+            return defaults
 
         # 1. Subclass custom widget (full override)
         widget = self.build_preferences_widget(dlg, _apply, _save_as_default)

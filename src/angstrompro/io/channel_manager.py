@@ -5,8 +5,11 @@ ChannelManager — per-format channel configuration for multi-channel file forma
 Each file format that stores multiple channels (e.g. Nanonis .3ds, .sxm) can
 register a FormatChannelConfig that declares:
   - The logical channels the app cares about (display_name shown in workspace)
-  - An ordered alias list of substrings to search for in the raw file channel names
-  - Whether each channel is loaded by default (pre-checked in the picker dialog)
+  - An ordered alias list matched exactly against raw file channel names
+  - Whether each channel is loaded by default (pre-checked in the picker dialog
+    and rendered by the Data Browser)
+  - Whether a format automatically loads matched defaults instead of showing the
+    normal picker dialog
 
 The manager merges built-in defaults with user overrides stored in app config
 under  io.channel_manager.<format_id>  and is accessible on AppContext.

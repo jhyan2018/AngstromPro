@@ -122,12 +122,21 @@ plugins are skipped with a warning while the remaining supported items load.</p>
 <h2 id="channel-mappings-for-multichannel-formats">Channel mappings for multichannel formats</h2>
 <p>Some instrument formats contain multiple named channels. For those formats,
 channel mappings associate varying instrument labels with stable AngstromPro
-channel roles and control which channels load by default. Single-channel file
-formats do not require channel mapping.</p>
-<p>Configure mappings in Preferences. The same mapping is used by normal file
-opening and Data Browser thumbnail rendering. If a browser card reports that a
-channel was not found, add the actual instrument channel name as an alias or
-select a different default channel.</p>
+channel roles. The built-in <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> loaders use these
+mappings; single-channel formats do not require them.</p>
+<p>Each file format has two independent levels of configuration:</p>
+<ul>
+<li>A channel row marked <strong>Load by default</strong> is preselected in the normal
+  file-open dialog and is rendered by the Data Browser when an exact alias
+  matches.</li>
+<li><strong>Auto-load defaults for this format</strong> skips the normal selection dialog and
+  loads the matched default rows immediately. If a default alias does not
+  match, an <strong>Unmatched channels</strong> dialog still appears.</li>
+</ul>
+<p>Aliases are exact and case-sensitive, not partial searches. Configure them in
+Main Workbench or Data Browser Preferences; both locations edit the same
+application-wide Channel Manager. See
+<a href="preferences.html#channel-mappings">Preferences</a> for the full behavior table.</p>
 <h2 id="saving-and-exporting">Saving and exporting</h2>
 <p>Saving writes structured data through a registered format handler. Exporting
 creates a presentation artifact such as an image, video, or figure. Use saving

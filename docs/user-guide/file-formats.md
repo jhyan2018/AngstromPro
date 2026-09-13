@@ -44,13 +44,22 @@ plugins are skipped with a warning while the remaining supported items load.
 
 Some instrument formats contain multiple named channels. For those formats,
 channel mappings associate varying instrument labels with stable AngstromPro
-channel roles and control which channels load by default. Single-channel file
-formats do not require channel mapping.
+channel roles. The built-in `.3ds`, `.sxm`, and `.dat` loaders use these
+mappings; single-channel formats do not require them.
 
-Configure mappings in Preferences. The same mapping is used by normal file
-opening and Data Browser thumbnail rendering. If a browser card reports that a
-channel was not found, add the actual instrument channel name as an alias or
-select a different default channel.
+Each file format has two independent levels of configuration:
+
+- A channel row marked **Load by default** is preselected in the normal
+  file-open dialog and is rendered by the Data Browser when an exact alias
+  matches.
+- **Auto-load defaults for this format** skips the normal selection dialog and
+  loads the matched default rows immediately. If a default alias does not
+  match, an **Unmatched channels** dialog still appears.
+
+Aliases are exact and case-sensitive, not partial searches. Configure them in
+Main Workbench or Data Browser Preferences; both locations edit the same
+application-wide Channel Manager. See
+[Preferences](preferences.md#channel-mappings) for the full behavior table.
 
 ## Saving and exporting
 

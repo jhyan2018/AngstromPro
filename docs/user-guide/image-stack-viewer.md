@@ -34,6 +34,20 @@ Each panel provides colour-range and colormap controls. Use:
 Preferences control whether layer, cursor, picked points, and field-of-view
 zoom are synchronised between panels.
 
+### Preferences
+
+Open Preferences from this module to configure:
+
+- **Color map:** choose and order the palette shown by both panels.
+- **Sync:** independently synchronise layer, picked points, live cursor, and
+  field-of-view pan/zoom from Primary to Reference.
+- **Scale:** set histogram sigma scaling, FFT upper scaling, scale-button zoom,
+  and canvas wheel sensitivity.
+- **Canvas:** limit canvas size and configure the optional bias-value overlay.
+
+Use **Apply** for the current viewer and **Save as default** for future Image
+Stack Viewer instances.
+
 ## Annotations
 
 Right-click the image to pick points. The **Points** menu converts current

@@ -53,6 +53,17 @@ Preference schemas describe how those values appear in the common Preferences
 panel. Apply callbacks should update open widgets without performing slow work
 on the Qt thread.
 
+**Apply** changes an instance's in-memory configuration. **Save as default**
+also writes the module configuration so later instances inherit it. The Main
+Workbench owns application-wide groups such as `app`, `appearance`, `io`, and
+`plugins`; opening Preferences from another module edits that module's settings
+instead.
+
+The Channel Manager is a special application-wide control embedded in both the
+Main Workbench and Data Browser preference schemas. Its widget must preserve
+per-format drafts while users navigate between formats, and commit every draft
+when the enclosing Preferences panel collects its controls.
+
 ## Plugin configuration
 
 Plugins use `PluginConfig`, backed by one file per namespace under

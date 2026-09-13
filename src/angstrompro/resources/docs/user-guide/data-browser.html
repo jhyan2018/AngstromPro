@@ -46,8 +46,23 @@ used for its preview. From a card's context menu you can:</p>
 <li>Assign a rating from zero to five stars</li>
 <li>Re-render the thumbnail</li>
 </ul>
-<p>If a required channel cannot be matched, review the application-wide channel
-mappings in Preferences.</p>
+<h2 id="multichannel-thumbnails">Multichannel thumbnails</h2>
+<p>The Channel Manager shown under <strong>Preferences → Data Browser → Channels</strong> is
+application-wide; it edits the same mappings available in Main Workbench
+Preferences. For <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> files, the browser creates cards
+only for logical channels that:</p>
+<ol>
+<li>are marked <strong>Load by default</strong> for that file format, and</li>
+<li>have an exact, case-sensitive alias matching a raw channel in the file.</li>
+</ol>
+<p>The format-level <strong>Auto-load defaults</strong> checkbox does not control thumbnails.
+It controls whether interactive file opening skips the normal channel-selection
+dialog. See <a href="preferences.html#channel-mappings">Preferences</a> for the complete
+two-level behavior.</p>
+<p>If a card says that a channel was not found, add the raw instrument channel
+name as an exact alias. Existing cached cards are not replaced automatically;
+re-render the file or use <strong>Re-render all</strong> after changing mappings or default
+channels.</p>
 <h2 id="scene-templates-for-thumbnails">Scene templates for thumbnails</h2>
 <p>The Data Browser can use the same <code>.scet</code> scene templates saved by the Curve
 Stack Viewer. In <strong>Preferences → Data Browser → Thumbnails</strong>, choose a
@@ -70,9 +85,10 @@ by the Channel Manager to the logical display channel <code>Z</code>:</p>
 <p>This is display-only: it does not change the source file, cached UDS data, or
 data sent to another module. Other logical channels are never flattened.</p>
 <p>Changing the selected template affects newly generated thumbnails. Existing
-cached thumbnails also retain their current image when this background option
-changes. Re-render an individual card or use <strong>Re-render all</strong> in the Data
-Browser cache preferences to apply the new rendering settings.</p>
+cached thumbnails also retain their current image when the background option,
+channel mappings, or default-channel selection changes. Re-render an individual
+card or use <strong>Re-render all</strong> in the Data Browser cache preferences to apply the
+new rendering settings.</p>
 <h2 id="background-scanner">Background scanner</h2>
 <p>The scanner walks watch folders and pre-renders missing or stale thumbnails at
 low priority. Cached thumbnails make later browsing faster and survive an
@@ -89,4 +105,6 @@ render priority.</p>
 <li>Inspect, clean, or regenerate the thumbnail cache</li>
 </ul>
 <p>Disabling the scanner does not prevent thumbnails from being rendered when
-files become visible.</p></body></html>
+files become visible.</p>
+<p>Press <strong>Apply</strong> to use browser changes in the open module. Press <strong>Save as
+default</strong> to retain them for future browser instances and application sessions.</p></body></html>

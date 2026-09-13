@@ -219,6 +219,22 @@ curve stacks.
 - Use `.scet` style templates to apply consistent presentation settings to new
   plots.
 
+## Preferences
+
+Open **File → Preferences…** (`Ctrl+,`) in the window whose settings you want
+to edit. The Main Workbench exposes application-wide settings; each module
+window exposes preferences for that module type. **Apply** changes the current
+session, while **Save as default** also stores the values for future instances
+and later sessions. See the complete
+[Preferences guide](docs/user-guide/preferences.md).
+
+For multichannel `.3ds`, `.sxm`, and `.dat` files, **Load by default** is a
+per-channel setting: it preselects matched channels in the open dialog and
+chooses Data Browser thumbnails. **Auto-load defaults for this format** is a
+separate per-format setting that skips the normal selection dialog. Unmatched
+defaults still open a mapping dialog, and aliases match raw channel names
+exactly.
+
 ## Processes
 
 Processes are registered analysis operations that act on data in a module's
@@ -232,9 +248,10 @@ Each module also provides two tools in its **Process** menu:
 - **Process Browser…** (`Ctrl+B`) lists every registered process. Search by
   name, label, or category, then inspect its description, required inputs,
   outputs, and parameters.
-- **Configure Process Menu…** adds registered processes to a module's menu and
-  controls the order of user-added entries. Processes supplied in the module's
-  default menu remain visible as read-only defaults.
+- **Configure Process Menu…** creates user-named submenus, adds or removes
+  registered processes, and controls the order of both submenus and entries.
+  A new layout starts empty; every process remains available through Process
+  Browser.
 
 ## Supported file formats
 
