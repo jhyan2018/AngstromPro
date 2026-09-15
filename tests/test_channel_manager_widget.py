@@ -109,6 +109,26 @@ def test_channel_manager_labels_explain_the_two_default_levels(qapp) -> None:
     widget.close()
 
 
+def test_3ds_source_choice_is_kept_in_preferences_draft(qapp) -> None:
+    del qapp
+    manager = _ChannelManagerStub()
+    widget = ChannelManagerWidget(
+        context=SimpleNamespace(channel_manager=manager)
+    )
+    source_combo = widget._table.cellWidget(0, 2)
+    assert source_combo.isEnabled()
+    source_combo.setCurrentIndex(source_combo.findData("experiment_parameter"))
+    widget._fmt_list.setCurrentRow(1)
+    assert not widget._table.cellWidget(0, 2).isEnabled()
+    widget._fmt_list.setCurrentRow(0)
+    assert widget._table.cellWidget(0, 2).currentData() == "experiment_parameter"
+
+    widget.get_value()
+
+    assert manager.updated["nanonis_3ds"].channels[0].source == "experiment_parameter"
+    widget.close()
+
+
 def test_reset_updates_visible_values_and_can_be_saved(qapp) -> None:
     del qapp
     applied: list[dict] = []

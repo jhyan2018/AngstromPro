@@ -26,15 +26,34 @@ annotations, and processing history. Legacy binary `.uds` files are imported
 read-only; save the imported result as `.uds` to upgrade it to the current
 format.
 
+When saved from **File → Save…**, a native HDF5 item file also retains its
+workspace alias, item identity, and named annotations. This applies to
+installed plugin formats that write HDF5 files, without changing their usual
+extensions or payload versions. Older files without workspace-item metadata
+still open; their alias and annotations start empty, and they receive a new
+item identity. Reopening an item whose name or identity is already in the
+workspace keeps the existing item and gives the imported one a distinct name
+or identity. Plain `.npy` exports do not store workspace-item metadata.
+
 `.scplot` is also HDF5-based and stores complete `ScenePlot` data. Style-only
 `.scet` templates are created and managed by the Curve Stack Viewer and can be
 selected by both the Curve Stack Viewer and Data Browser when rendering fresh
 raw UDS data. They contain no scientific dataset and are not general workspace
 data files.
 
+Nanonis `.3ds` headers list swept **Channels** separately from per-pixel
+**Experiment parameters**. The file-open picker shows the source of each
+candidate. A selected experiment parameter, such as **Z (m)** or
+**Scan:Z (m)**, becomes a one-layer spatial UDS image; it does not acquire the
+bias-sweep axis. The loader locates it after the fixed parameters in each
+pixel's parameter block and checks that the listed fixed and experiment
+parameters agree with **# Parameters (4 byte)** before extraction. If fixed
+parameter names are absent, their count is inferred from that total and the
+experiment-parameter list.
+
 `.apws` is an HDF5 workspace archive. It stores all supported items from the
 current module workspace in their displayed order, together with item names,
-identities, aliases, source paths, and annotations. Core UDS and ScenePlot
+identities, aliases, and annotations. Core UDS and ScenePlot
 payloads are supported, and installed plugins can register their own archive
 payloads. Unsupported payload types are listed before saving and are skipped
 after confirmation. When opening an archive, payloads belonging to unavailable

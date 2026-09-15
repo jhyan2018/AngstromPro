@@ -49,6 +49,16 @@ register_io(
 <p>A reader accepts a <code>pathlib.Path</code> and returns <code>WorkspaceData</code>. A writer accepts
 the destination path and compatible data. Set <code>writable=False</code> for a read-only
 format; its writer may raise <code>NotImplementedError</code>.</p>
+<p>The payload-only <code>load(path)</code> and <code>save(path, data)</code> APIs remain unchanged.
+The module's single-item File menu uses <code>load_item(path)</code> and
+<code>save_item(path, workspace_item)</code> instead. For a registered writable HDF5
+format, those functions place a separately versioned <code>workspace_item</code> group
+at the file root containing the alias, item ID, and serialized annotations.
+The payload's own format version and extension remain unchanged. This shared
+step also covers plugin HDF5 formats registered with <code>register_io</code>; plugin
+readers and writers need not handle the group themselves. An older file
+without the group loads with default item fields. Non-HDF5 formats such as
+<code>.npy</code> do not support this item-metadata step.</p>
 <h2 id="make-a-payload-workspace-archive-compatible">Make a payload workspace-archive compatible</h2>
 <p>The standalone reader and writer above operate on complete files. To embed the
 same payload in <strong>Save Workspace…</strong>, also provide reader and writer functions
@@ -103,6 +113,15 @@ channel picker and selects Data Browser thumbnail channels. The enclosing
 format's <code>auto_load</code> flag is independent: it suppresses the normal picker while
 still invoking unmatched-channel resolution when a default alias cannot be
 resolved. Do not use <code>auto_load</code> to decide which thumbnails to render.</p>
+<p>The <code>.3ds</code> reader uses a typed <code>GridField</code> selection: <code>source="channel"</code>
+addresses a full sweep spectrum, while <code>source="experiment_parameter"</code>
+addresses one scalar in the per-pixel parameter block. Its zero-based
+experiment-parameter offset is the number of listed fixed parameters plus the
+index in <code>Experiment parameters</code>. The reader verifies the fixed-plus-experiment
+count against <code># Parameters (4 byte)</code> when fixed names are present; otherwise
+it infers the fixed count from that total. Channel Manager
+records a <code>.3ds</code> mapping's source, and both the interactive picker and the
+headless Data Browser renderer pass this typed selection to the reader.</p>
 <h2 id="persistence-rules">Persistence rules</h2>
 <ul>
 <li>Preserve axes, metadata, annotations, and processing records when the format

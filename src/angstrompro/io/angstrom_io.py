@@ -33,12 +33,19 @@ Extending
     )
 """
 
+from __future__ import annotations
+
 import logging
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from angstrompro.core.data.base import WorkspaceData
+
+if TYPE_CHECKING:
+    from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 
 log = logging.getLogger(__name__)
 
@@ -318,3 +325,60 @@ def save(path: Path, data: WorkspaceData) -> None:
         )
     _WRITERS[type_id](path, data)
     log.debug("Saved %s → %s", type_id, path.name)
+
+
+def save_item(path: Path, item: WorkspaceItem) -> None:
+    """Save a WorkspaceItem in its registered HDF5 format and extension.
+
+    The payload's native version is unchanged.  Its standalone file gains a
+    separately versioned ``workspace_item`` group.  A temporary file keeps an
+    existing target intact if either serialization step fails.
+    """
+    import h5py
+    from angstrompro.io import scene_plot_io, uds_io  # noqa: F401
+
+    path = Path(path)
+    format_info = _FORMATS.get(item.type_id)
+    if format_info is None or not format_info.writable:
+        raise TypeError(f"No writable format for workspace item type {item.type_id!r}")
+
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{path.stem}.", suffix=path.suffix, dir=path.parent,
+    )
+    os.close(fd)
+    temp_path = Path(temp_name)
+    try:
+        save(temp_path, item.payload)
+        if not _is_hdf5(temp_path):
+            raise TypeError(
+                f"Format {format_info.extension!r} cannot store workspace-item "
+                "metadata in its native file"
+            )
+        from angstrompro.io.workspace_io import write_single_item_metadata
+
+        with h5py.File(temp_path, "r+") as root:
+            write_single_item_metadata(root, item)
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def load_item(path: Path) -> WorkspaceItem:
+    """Load one item, defaulting wrapper fields for old or raw files.
+
+    The ordinary ``load`` function remains payload-only for existing callers.
+    """
+    from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+
+    path = Path(path)
+    payload = load(path)
+    if not isinstance(payload, WorkspaceData):
+        raise TypeError(f"{path.name} does not contain a single workspace item")
+    if not _is_hdf5(path):
+        return WorkspaceItem(payload=payload)
+
+    import h5py
+    from angstrompro.io.workspace_io import read_single_item_metadata
+
+    with h5py.File(path, "r") as root:
+        return read_single_item_metadata(root, payload)

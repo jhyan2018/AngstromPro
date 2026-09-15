@@ -22,6 +22,7 @@ Options dict (all optional)
     layer            int   3D layer index                     (default 0)
     channel_id       str   logical ChannelManager display name
     z_background_method str Off | Polynomial surface | Per scan line
+                            | Per image row (X)
     stack_threshold  int   max curves before colormap mode    (default 20)
     offset           float explicit stack offset; None = auto
     colormap         str   cmap for colormap/image mode       (default "RdBu_r")
@@ -139,7 +140,9 @@ def render_uds_3d(payload, *, rcparams_delta: dict | None = None,
             if bg_method == "Polynomial surface":
                 img = _bg_subtract_2d_plane(img, order=1)
             elif bg_method == "Per scan line":
-                img = _bg_subtract_per_line(img, order=1)
+                img = _bg_subtract_per_line(img, order=1, line_axis="Y")
+            elif bg_method == "Per image row (X)":
+                img = _bg_subtract_per_line(img, order=1, line_axis="X")
 
     with rc_overlay(rcparams_delta or {}):
         fig = Figure(figsize=figsize)

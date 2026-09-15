@@ -21,6 +21,10 @@ Some operations need annotations such as picked points, a region, or reference
 points. In the Image Stack Viewer, create these from the **Points** menu before
 running the process.
 
+For **Background Subtract 2D → PerLine**, choose **Per-line direction**: `Y`
+fits down each image column, while `X` fits across each row. The default is `Y`;
+select whichever direction follows the unwanted line background in your image.
+
 ## Process Browser
 
 Open **Process → Process Browser…** or press `Ctrl+B` to inspect every

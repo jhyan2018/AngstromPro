@@ -49,6 +49,7 @@ class ChannelConfig:
     display_name:    str
     aliases:         list[str]      # ordered substrings; first match wins
     load_by_default: bool = True
+    source:          str = "channel"  # .3ds: channel, experiment_parameter, or either
 
 
 @dataclass
@@ -103,6 +104,7 @@ def _builtin_from_defaults() -> dict[str, FormatChannelConfig]:
                 display_name    = name,
                 aliases         = list(info.get("aliases", [])),
                 load_by_default = bool(info.get("load_by_default", False)),
+                source          = info.get("source", "channel"),
             )
             for name, info in fmt_dict.items()
             if not name.startswith("__")
@@ -157,6 +159,7 @@ class ChannelManager:
                 cc.display_name: {
                     "aliases":         cc.aliases,
                     "load_by_default": cc.load_by_default,
+                    "source":          cc.source,
                 }
                 for cc in channels
             }
@@ -192,6 +195,7 @@ class ChannelManager:
                         display_name    = name,
                         aliases         = list(info.get("aliases", [])),
                         load_by_default = bool(info.get("load_by_default", False)),
+                        source          = info.get("source", "channel"),
                     )
                     for name, info in user_fmt.items()
                     if not name.startswith("__")
@@ -223,12 +227,14 @@ class ChannelManager:
                     display_name    = cc.display_name,
                     aliases         = user_aliases + existing,
                     load_by_default = bool(u.get("load_by_default", cc.load_by_default)),
+                    source          = u.get("source", cc.source),
                 ))
             else:
                 result.append(ChannelConfig(
                     display_name    = cc.display_name,
                     aliases         = list(cc.aliases),
                     load_by_default = cc.load_by_default,
+                    source          = cc.source,
                 ))
 
         for name, info in user_fmt.items():
@@ -239,6 +245,7 @@ class ChannelManager:
                     display_name    = name,
                     aliases         = list(info.get("aliases", [])),
                     load_by_default = bool(info.get("load_by_default", False)),
+                    source          = info.get("source", "channel"),
                 ))
 
         return FormatChannelConfig(builtin.format_id, result, auto_load)

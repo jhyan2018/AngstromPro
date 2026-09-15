@@ -5,11 +5,13 @@ Reader for Nanonis .3ds grid spectroscopy files.
 Header is ASCII key=value pairs terminated by ':HEADER_END:\n'.
 Data is big-endian float32.
 
-The loaded data has shape (n_points, y_pixels, x_pixels) using only the first
-spectroscopy channel (dI/dV or whichever appears first in 'channels').
-All channel names are available via the internal ``info['_channels']`` entry.
+Sweep channels produce a stack with one layer per sweep point. Experiment
+parameters produce a single-layer spatial map with one value per grid pixel.
+The two binary sources are selected independently.
 """
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 
@@ -20,6 +22,46 @@ from angstrompro.core.data.uds_data import (
     file_source,
 )
 from angstrompro.io.angstrom_io import register_io
+
+
+@dataclass(frozen=True)
+class GridField:
+    """A .3ds value's source and zero-based index within that source."""
+
+    source: Literal["channel", "experiment_parameter"]
+    index: int
+
+
+def _header_names(header: dict, key: str) -> list[str]:
+    raw = header.get(key, "")
+    if not raw:
+        return []
+    names = [name.strip() for name in raw.split(";")]
+    while names and not names[-1]:
+        names.pop()
+    if any(not name for name in names):
+        raise ValueError(f"Empty name in .3ds {key!r} list")
+    return names
+
+
+def field_names(header: dict) -> tuple[list[str], list[str]]:
+    """Return sweep channels and per-pixel experiment parameters separately."""
+    return (
+        _header_names(header, "channels"),
+        _header_names(header, "experiment parameters") or
+        _header_names(header, "experimental parameters"),
+    )
+
+
+def match_field(aliases: list[str], channels: list[str],
+                parameters: list[str], source: str = "channel") -> GridField | None:
+    """Resolve exact aliases without losing the field's binary source."""
+    for alias in aliases:
+        if source in ("channel", "either") and alias in channels:
+            return GridField("channel", channels.index(alias))
+        if source in ("experiment_parameter", "either") and alias in parameters:
+            return GridField("experiment_parameter", parameters.index(alias))
+    return None
 
 
 def parse_header(path: Path) -> tuple[dict, int]:
@@ -43,7 +85,8 @@ _parse_header = parse_header
 
 
 def load(path: Path, channel_index: int = 0,
-         channel_indices: list[int] | None = None) -> UdsDataStru | list[UdsDataStru]:
+         channel_indices: list[int] | None = None,
+         fields: list[GridField] | None = None) -> UdsDataStru | list[UdsDataStru]:
     path = Path(path)
     try:
         header, data_offset = parse_header(path)
@@ -56,8 +99,9 @@ def load(path: Path, channel_index: int = 0,
 
         par_num = int(header["# parameters (4 byte)"])
         n_points = int(header["points"])
-        channels = [c.strip() for c in header["channels"].split(";")]
+        channels, experiment_parameters = field_names(header)
         n_channels = len(channels)
+        fixed_parameters = _header_names(header, "fixed parameters")
 
         grid_settings = dict(zip(
             ("cx", "cy", "w", "h", "angle_deg"),
@@ -81,23 +125,18 @@ def load(path: Path, channel_index: int = 0,
         else:
             raw = raw[:expected]
 
-        data2D = raw.astype(np.float32).reshape(-1, stride)
+        data2D = raw.astype(np.float32).reshape(total_pixels, stride)
 
-        # Build 3D volume: (stride, x_pixels, y_pixels)
-        data3D = np.zeros((stride, x_pixels, y_pixels), dtype=np.float32)
+        # Pixel records run along X within each Y line.  Keep the established
+        # vertical flip while giving the two spatial axes their true sizes.
+        # This also handles rectangular grids, unlike the old square-only loop.
+        data3D = np.flip(
+            data2D.reshape(y_pixels, x_pixels, stride).transpose(2, 0, 1),
+            axis=1,
+        )  # (record value, y, x)
         if y_pixels == 1:
-            # data2D rows are the x_pixels spectra; columns are stride values
-            data3D[:, :, 0] = data2D[:x_pixels, :].T
-        else:
-            rows_per_line = data2D.shape[0] // x_pixels
-            last = data2D.shape[0] % x_pixels
-            for i in range(stride):
-                for j in range(rows_per_line):
-                    data3D[i, j, :] = data2D[j * x_pixels:(j + 1) * x_pixels, i]
-                if last:
-                    data3D[i, j + 1, :last] = data2D[(j + 1) * x_pixels:, i]
-
-        data3D = np.flip(data3D, axis=1)
+            # Preserve the old line-cut order, which flipped its X direction.
+            data3D = np.flip(data3D, axis=2)
 
         # Read sweep axis: prefer the sweep-signal channel stored in the data block
         # (present when Nanonis records the swept variable explicitly, e.g. non-linear sweeps).
@@ -114,7 +153,7 @@ def load(path: Path, channel_index: int = 0,
             sweep_vals = data3D[start:start + n_points, 0, 0].astype(np.float64)
         else:
             # Standard linear sweep: read start/end from fixed parameters
-            fixed_params = [p.strip() for p in header.get("fixed parameters", "").split(";")]
+            fixed_params = fixed_parameters
             fixed_params_lower = [p.lower() for p in fixed_params]
             sweep_start, sweep_end = 0.0, 0.0
             if "sweep start" in fixed_params_lower:
@@ -134,6 +173,8 @@ def load(path: Path, channel_index: int = 0,
         base_info: dict = {
             "source":         file_source(path),
             "_channels":      channels,
+            "_experiment_parameters": experiment_parameters,
+            "_fixed_parameters": fixed_parameters,
             "_n_points":      n_points,
             "_x_pixels":      x_pixels,
             "_y_pixels":      y_pixels,
@@ -154,15 +195,16 @@ def load(path: Path, channel_index: int = 0,
         def _extract(ch_idx: int) -> UdsDataStru:
             ci = max(0, min(ch_idx, n_channels - 1))
             start = par_num + ci * n_points
-            ch_data = data3D[start:start + n_points, :, :]   # (n_pts, x, y)
-            info = {**base_info, "channel_loaded": channels[ci], "_channel_index": ci}
+            ch_data = data3D[start:start + n_points, :, :]   # (n_pts, y, x)
+            info = {**base_info, "field_source": "channel",
+                    "channel_loaded": channels[ci], "_channel_index": ci}
             # Line-cut special case: y_pixels=1 means a single spatial line.
             # Squeeze the degenerate y-axis → 2D (n_pts, x_pixels) for CurveStackViewer.
             if y_pixels == 1:
-                ch_data = ch_data[:, :, 0].T   # (n_pts, x_pixels) → (x_pixels, n_pts)
+                ch_data = ch_data[:, 0, :].T   # (n_pts, x_pixels) → (x_pixels, n_pts)
                 axes = [ax_x, ax_bias]
             else:
-                axes = [ax_bias, ax_x, ax_y]
+                axes = [ax_bias, ax_y, ax_x]
             return UdsDataStru(
                 name=f"{path.stem}_{channels[ci]}",
                 data=ch_data.astype(np.float64),
@@ -172,8 +214,57 @@ def load(path: Path, channel_index: int = 0,
                 landmarks={},
             )
 
+        def _extract_parameter(param_idx: int) -> UdsDataStru:
+            if not 0 <= param_idx < len(experiment_parameters):
+                raise IndexError(f"Experiment parameter index {param_idx} is out of range")
+            if par_num < len(experiment_parameters) or (
+                fixed_parameters and
+                len(fixed_parameters) + len(experiment_parameters) != par_num
+            ):
+                raise ValueError(
+                    "Cannot locate experiment parameters: '# Parameters (4 byte)' "
+                    f"is {par_num}, but the header lists {len(fixed_parameters)} "
+                    f"fixed and {len(experiment_parameters)} experiment parameters"
+                )
+            raw_name = experiment_parameters[param_idx]
+            # If fixed names are omitted, the remaining parameter slots are
+            # still the fixed block preceding the listed experiment values.
+            fixed_count = (len(fixed_parameters) if fixed_parameters else
+                           par_num - len(experiment_parameters))
+            param_pos = fixed_count + param_idx
+            values = data3D[param_pos:param_pos + 1, :, :]
+            units = raw_name.rsplit("(", 1)[-1].rstrip(")").strip() \
+                if "(" in raw_name else ""
+            info = {**base_info, "field_source": "experiment_parameter",
+                    "experiment_parameter_loaded": raw_name,
+                    "experiment_parameter_index": param_idx,
+                    "fixed_parameter_count": fixed_count,
+                    "parameter_units": units}
+            name = f"{path.stem}_{raw_name.replace(':', '_')}"
+            return UdsDataStru(
+                name=name,
+                data=values.astype(np.float64),
+                axes=[Axis(values=np.array([0.0]), label="Layer"), ax_y, ax_x],
+                info=info,
+                proc_history=[],
+                landmarks={},
+            )
+
+        def _extract_field(field: GridField) -> UdsDataStru:
+            if field.source == "channel":
+                if not 0 <= field.index < n_channels:
+                    raise IndexError(f"Channel index {field.index} is out of range")
+                return _extract(field.index)
+            if field.source == "experiment_parameter":
+                return _extract_parameter(field.index)
+            raise ValueError(f"Unknown .3ds field source {field.source!r}")
+
     except Exception as exc:
         raise ValueError(f"Error reading {path.name}: {exc}") from exc
+
+    if fields is not None:
+        results = [_extract_field(field) for field in fields]
+        return results[0] if len(results) == 1 else results
 
     # Multi-channel load
     if channel_indices is not None:

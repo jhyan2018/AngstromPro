@@ -946,21 +946,32 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if not path:
             return
         from pathlib import Path
-        from angstrompro.io import load
+        from angstrompro.io import load_item
+        from angstrompro.io.angstrom_io import _is_hdf5
         p = Path(path)
         try:
             from angstrompro.gui.utils.file_loading import load_with_channel_picker
-            result = load_with_channel_picker(p, self._context, self)
+            result = (load_item(p) if _is_hdf5(p) else
+                      load_with_channel_picker(p, self._context, self))
             if result is None:
                 return  # user cancelled
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Open failed", str(exc))
             return
         payloads = result if isinstance(result, list) else [result]
-        for payload in payloads:
+        for loaded in payloads:
+            saved_item = loaded if isinstance(loaded, WorkspaceItem) else None
+            payload = saved_item.payload if saved_item else loaded
             if not payload.name:
                 payload.name = p.stem
-            self.workspace.add_item(payload=payload)
+            if saved_item:
+                self.workspace.add_item(
+                    payload=payload, alias=saved_item.alias,
+                    annotations=saved_item.annotations,
+                    item_id=saved_item.item_id,
+                )
+            else:
+                self.workspace.add_item(payload=payload)
 
     def _load_with_channel_picker(self, p):
         """Deprecated: use angstrompro.gui.utils.file_loading.load_with_channel_picker."""
@@ -988,15 +999,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         else:
             default_ext = ""
             filters = "All Files (*)"
+        suggested_name = item.alias or name
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Save Item", name + default_ext, filters
+            self, "Save Item", suggested_name + default_ext, filters
         )
         if not path:
             return
         from pathlib import Path
-        from angstrompro.io import save
+        from angstrompro.io import save_item
         try:
-            save(Path(path), item.payload)
+            save_item(Path(path), item)
         except Exception as exc:
             QtWidgets.QMessageBox.critical(self, "Save failed", str(exc))
 

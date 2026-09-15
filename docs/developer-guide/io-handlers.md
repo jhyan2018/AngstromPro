@@ -33,6 +33,17 @@ A reader accepts a `pathlib.Path` and returns `WorkspaceData`. A writer accepts
 the destination path and compatible data. Set `writable=False` for a read-only
 format; its writer may raise `NotImplementedError`.
 
+The payload-only `load(path)` and `save(path, data)` APIs remain unchanged.
+The module's single-item File menu uses `load_item(path)` and
+`save_item(path, workspace_item)` instead. For a registered writable HDF5
+format, those functions place a separately versioned `workspace_item` group
+at the file root containing the alias, item ID, and serialized annotations.
+The payload's own format version and extension remain unchanged. This shared
+step also covers plugin HDF5 formats registered with `register_io`; plugin
+readers and writers need not handle the group themselves. An older file
+without the group loads with default item fields. Non-HDF5 formats such as
+`.npy` do not support this item-metadata step.
+
 ## Make a payload workspace-archive compatible
 
 The standalone reader and writer above operate on complete files. To embed the
@@ -100,6 +111,16 @@ channel picker and selects Data Browser thumbnail channels. The enclosing
 format's `auto_load` flag is independent: it suppresses the normal picker while
 still invoking unmatched-channel resolution when a default alias cannot be
 resolved. Do not use `auto_load` to decide which thumbnails to render.
+
+The `.3ds` reader uses a typed `GridField` selection: `source="channel"`
+addresses a full sweep spectrum, while `source="experiment_parameter"`
+addresses one scalar in the per-pixel parameter block. Its zero-based
+experiment-parameter offset is the number of listed fixed parameters plus the
+index in `Experiment parameters`. The reader verifies the fixed-plus-experiment
+count against `# Parameters (4 byte)` when fixed names are present; otherwise
+it infers the fixed count from that total. Channel Manager
+records a `.3ds` mapping's source, and both the interactive picker and the
+headless Data Browser renderer pass this typed selection to the reader.
 
 ## Persistence rules
 

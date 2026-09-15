@@ -12,8 +12,9 @@ Registered processes
                     layer (least-squares) and subtract it.  Mean value of
                     the original layer is preserved.
 
-        PerLine   — fit and subtract a 1-D polynomial to each row
-                    independently, then remove each row's residual mean.
+        PerLine   — fit and subtract a 1-D polynomial to each column (Y)
+                    or row (X) independently, then remove each line's residual
+                    mean.  Column-wise fitting is the default.
                     Mean value of the original layer is preserved.
 """
 
@@ -64,29 +65,35 @@ def _bg_subtract_2d_plane(data2D: np.ndarray, order: int) -> np.ndarray:
     return data2D - Z_bg + np.mean(data2D)
 
 
-def _bg_subtract_per_line(data2D: np.ndarray, order: int) -> np.ndarray:
-    """Fit and subtract a 1-D polynomial row-by-row, then remove row mean.
+def _bg_subtract_per_line(data2D: np.ndarray, order: int,
+                          line_axis: str = "Y") -> np.ndarray:
+    """Remove a 1-D background independently along Y columns or X rows.
 
-    Column coordinates are normalised to [-1, 1] for numerical stability.
+    The selected line's coordinates are normalised to [-1, 1].  The input
+    retains its original array orientation regardless of the fitting axis.
     """
-    rows, cols = data2D.shape
+    if line_axis not in {"X", "Y"}:
+        raise ValueError(f"Unknown per-line axis: {line_axis!r}")
+    lines = data2D.T if line_axis == "Y" else data2D
+    line_count, line_length = lines.shape
     mean_orig = np.mean(data2D)
-    out = np.empty_like(data2D, dtype=np.float64)
+    out = np.empty_like(lines, dtype=np.float64)
 
-    # Normalised column coordinate, shared across all rows
-    Yn = 2.0 * np.arange(cols) / (cols - 1) - 1.0   # [-1, 1]
+    # Normalised coordinate, shared across all selected lines.
+    coordinate = np.linspace(-1.0, 1.0, line_length)
 
-    # 1-D polynomial terms in Yn only (per-line fit ignores row position)
+    # The 1-D fit ignores the selected line's position on the other axis.
     terms_1d = list(range(order + 1))
-    A = np.column_stack([Yn ** j for j in terms_1d])
+    A = np.column_stack([coordinate ** j for j in terms_1d])
 
-    for r in range(rows):
-        p, *_ = np.linalg.lstsq(A, data2D[r], rcond=None)
-        bg = sum(p[j] * Yn ** j for j in terms_1d)
-        row_sub = data2D[r] - bg
-        out[r] = row_sub - np.mean(row_sub)
+    for i in range(line_count):
+        p, *_ = np.linalg.lstsq(A, lines[i], rcond=None)
+        bg = sum(p[j] * coordinate ** j for j in terms_1d)
+        line_sub = lines[i] - bg
+        out[i] = line_sub - np.mean(line_sub)
 
-    return out + mean_orig
+    result = out.T if line_axis == "Y" else out
+    return result + mean_orig
 
 
 # ---------------------------------------------------------------------------
@@ -111,8 +118,17 @@ _SCHEMA = ProcessSchema(
             default     = "2DPlane",
             label       = "Method",
             description = "2DPlane: fit a 2-D polynomial surface per layer. "
-                          "PerLine: fit a 1-D polynomial to each row.",
+                          "PerLine: fit a 1-D polynomial to each selected line.",
             choices     = ["2DPlane", "PerLine"],
+        ),
+        ParameterSpec(
+            name        = "line_axis",
+            type        = str,
+            default     = "Y",
+            label       = "Per-line direction",
+            description = "Y: fit down each image column; X: fit across "
+                          "each image row. Used only for PerLine.",
+            choices     = ["Y", "X"],
         ),
         ParameterSpec(
             name        = "order",
@@ -154,7 +170,8 @@ def bg_subtract(inputs: dict, params: dict,
         if method == "2DPlane":
             out[i] = _bg_subtract_2d_plane(src.data[i], order)
         elif method == "PerLine":
-            out[i] = _bg_subtract_per_line(src.data[i], order)
+            out[i] = _bg_subtract_per_line(
+                src.data[i], order, params.get("line_axis", "Y"))
         else:
             raise ValueError(f"Unknown background subtraction method: {method!r}")
 

@@ -64,7 +64,8 @@ def channel_cfg_to_plain(fmt_cfg) -> list[dict]:
         return []
     return [{"display_name": cc.display_name,
              "aliases": list(cc.aliases),
-             "load_by_default": cc.load_by_default}
+             "load_by_default": cc.load_by_default,
+             "source": cc.source}
             for cc in fmt_cfg.channels]
 
 
@@ -88,18 +89,28 @@ def _resolve(channel_cfg: list[dict],
 # ── headless per-format loading ───────────────────────────────────────────────
 
 def _load_3ds(path: Path, channel_cfg: list[dict]):
-    from angstrompro.io.formats.nanonis_3ds import parse_header, load as load_3ds
+    from angstrompro.io.formats.nanonis_3ds import (
+        field_names, match_field, parse_header, load as load_3ds,
+    )
     header, _ = parse_header(path)
-    channels = [c.strip() for c in header.get("channels", "").split(";") if c.strip()]
-    resolved = _resolve(channel_cfg, channels)
-    matched = [(cc, i) for cc, i in resolved if cc["load_by_default"] and i is not None]
-    missing = [cc for cc, i in resolved if cc["load_by_default"] and i is None]
+    channels, parameters = field_names(header)
+    resolved = [
+        (cc, match_field(cc["aliases"], channels, parameters,
+                         cc.get("source", "channel")))
+        for cc in channel_cfg
+    ]
+    matched = [(cc, field) for cc, field in resolved
+               if cc["load_by_default"] and field is not None]
+    missing = [cc for cc, field in resolved
+               if cc["load_by_default"] and field is None]
     payloads = []
     if matched:
-        result = load_3ds(path, channel_indices=[i for _, i in matched])
+        result = load_3ds(path, fields=[field for _, field in matched])
         items = result if isinstance(result, list) else [result]
         payloads = list(zip((cc["display_name"] for cc, _ in matched), items))
-    return channels, payloads, [cc["display_name"] for cc in missing]
+    available = ([f"Channel: {name}" for name in channels] +
+                 [f"Experiment parameter: {name}" for name in parameters])
+    return available, payloads, [cc["display_name"] for cc in missing]
 
 
 def _load_sxm(path: Path, channel_cfg: list[dict]):

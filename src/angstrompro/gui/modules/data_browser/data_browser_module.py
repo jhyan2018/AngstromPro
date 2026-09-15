@@ -114,10 +114,11 @@ class DataBrowserModule(AGuiModule):
                      "Curve-stack template applied to thumbnail rendering"),
             PrefItem("thumbnails.z_background_method",
                      "Z thumbnail background", "dropdown",
-                     "Optional display-only background subtraction for the "
-                     "logical Z channel; source data is unchanged",
+                     "Display-only Z subtraction: Per scan line fits down "
+                     "columns (Y); Per image row fits across rows (X). "
+                     "Source data is unchanged",
                      kwargs={"choices": ["Off", "Polynomial surface",
-                                         "Per scan line"]}),
+                                         "Per scan line", "Per image row (X)"]}),
             PrefItem("thumbnails.pixmap_cache_size", "Pixmap cache", "number",
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
@@ -800,7 +801,7 @@ class DataBrowserModule(AGuiModule):
     # ------------------------------------------------------------------
 
     def _load_channel_payload(self, path: str, channel_id: str):
-        """Load one channel of *path* headlessly; returns payload or None."""
+        """Load one channel, retaining item metadata in standalone HDF5 files."""
         p = Path(path)
         loader = _LOADERS.get(p.suffix.lower())
         if loader is not None:
@@ -812,6 +813,10 @@ class DataBrowserModule(AGuiModule):
                 if payloads:
                     return payloads[0][1]
             return None
+        from angstrompro.io.angstrom_io import _is_hdf5
+        if _is_hdf5(p):
+            from angstrompro.io import load_item
+            return load_item(p)
         payloads = _load_generic(p)
         return payloads[0][1] if payloads else None
 
@@ -823,20 +828,30 @@ class DataBrowserModule(AGuiModule):
         try:
             QtWidgets.QApplication.setOverrideCursor(
                 QtCore.Qt.CursorShape.WaitCursor)
-            payload = self._load_channel_payload(path, channel_id)
+            loaded = self._load_channel_payload(path, channel_id)
         except Exception as exc:
             QtWidgets.QApplication.restoreOverrideCursor()
             QtWidgets.QMessageBox.critical(self, "Load failed", str(exc))
             return
         QtWidgets.QApplication.restoreOverrideCursor()
-        if payload is None:
+        if loaded is None:
             QtWidgets.QMessageBox.warning(
                 self, "Load failed", f"Could not load '{channel_id}' from\n{path}")
             return
+        from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+        saved_item = loaded if isinstance(loaded, WorkspaceItem) else None
+        payload = saved_item.payload if saved_item else loaded
         if not payload.name:
             payload.name = Path(path).stem
 
-        item = self.workspace.add_item(payload=payload)
+        if saved_item:
+            item = self.workspace.add_item(
+                payload=payload, alias=saved_item.alias,
+                annotations=saved_item.annotations,
+                item_id=saved_item.item_id,
+            )
+        else:
+            item = self.workspace.add_item(payload=payload)
         item_name = item.name if item is not None else payload.name
 
         from angstrompro.gui.dialogs.send_item_dialog import SendItemDialog
