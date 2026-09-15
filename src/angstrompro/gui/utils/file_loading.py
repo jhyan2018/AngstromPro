@@ -11,6 +11,7 @@ the generic module base class.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -37,20 +38,33 @@ def load_with_channel_picker(path: Path, context: "AppContext",
 
     # ------------------------------------------------------------------ .3ds
     if ext == ".3ds":
-        from angstrompro.io.formats.nanonis_3ds import parse_header, load as load_3ds
+        from angstrompro.io.formats.nanonis_3ds import (
+            GridField, field_names, match_field, parse_header, load as load_3ds,
+        )
         from angstrompro.gui.dialogs.channel_picker_dialog import ChannelPickerDialog
         header, _ = parse_header(path)
-        channels = [c.strip() for c in header.get("channels", "").split(";") if c.strip()]
-        if not channels:
-            return load(path)
+        channels, parameters = field_names(header)
         fmt_cfg = context.channel_manager.get("nanonis_3ds")
-        resolved = fmt_cfg.resolve(channels) if fmt_cfg else []
+        resolved = [
+            (cc, match_field(cc.aliases, channels, parameters, cc.source))
+            for cc in fmt_cfg.channels
+        ] if fmt_cfg else []
+        available_names = channels + parameters
+        available_fields = (
+            [GridField("channel", i) for i in range(len(channels))] +
+            [GridField("experiment_parameter", i) for i in range(len(parameters))]
+        )
         if fmt_cfg and fmt_cfg.auto_load:
-            pairs = _resolve_auto_load(fmt_cfg, resolved, channels, context, parent)
+            labels = ([f"Channel: {name}" for name in channels] +
+                      [f"Experiment parameter: {name}" for name in parameters])
+            pairs = _resolve_auto_load(
+                fmt_cfg, resolved, available_names, context, parent,
+                display_labels=labels,
+                index_mapper=lambda i: available_fields[i],
+            )
             if pairs is None:
                 return None
-            indices = [idx for _, idx in pairs]
-            result = load_3ds(path, channel_indices=indices or [0])
+            result = load_3ds(path, fields=[field for _, field in pairs])
             return _apply_display_names(result, pairs, path.stem)
         grid_dim = header.get("grid dim", "1x1").split("x")
         file_info = {
@@ -58,16 +72,26 @@ def load_with_channel_picker(path: Path, context: "AppContext",
             "y_pixels": int(grid_dim[1]) if len(grid_dim) > 1 else "?",
             "n_points": header.get("points", ""),
         }
-        dlg = ChannelPickerDialog(parent, path, channels, file_info, fmt_cfg)
+        dlg = ChannelPickerDialog(
+            parent, path, channels, file_info, fmt_cfg,
+            experiment_parameters=parameters,
+        )
         if dlg.exec() != _accepted():
             return None
-        indices = dlg.selected_indices()
-        if not indices:
+        fields = dlg.selected_fields()
+        if not fields:
             return None
-        idx_to_display = {idx: cc.display_name for cc, idx in resolved if idx is not None}
-        result = load_3ds(path, channel_indices=indices)
-        pairs = [(None, idx) for idx in indices]
-        return _apply_display_names(result, pairs, path.stem, idx_to_display)
+        field_to_display = {
+            field: cc.display_name for cc, field in resolved if field is not None
+        }
+        field_to_display.update({
+            field: (channels[field.index] if field.source == "channel"
+                    else parameters[field.index])
+            for field in fields if field not in field_to_display
+        })
+        result = load_3ds(path, fields=fields)
+        pairs = [(None, field) for field in fields]
+        return _apply_display_names(result, pairs, path.stem, field_to_display)
 
     # ------------------------------------------------------------------ .sxm
     if ext == ".sxm":
@@ -152,7 +176,8 @@ def _accepted():
 
 
 def _resolve_auto_load(fmt_cfg, resolved, file_channels, context: "AppContext",
-                       parent: "QtWidgets.QWidget | None"):
+                       parent: "QtWidgets.QWidget | None",
+                       display_labels=None, index_mapper=None):
     """
     For auto-load: collect matched default pairs; if any default channel is
     unmatched, show UnmatchedChannelsDialog.  Returns list of (cc, idx) pairs
@@ -164,22 +189,30 @@ def _resolve_auto_load(fmt_cfg, resolved, file_channels, context: "AppContext",
     unmatched = [cc for cc, idx in resolved if cc.load_by_default and idx is None]
 
     if unmatched:
-        dlg = UnmatchedChannelsDialog(parent, unmatched, file_channels)
+        dlg = UnmatchedChannelsDialog(
+            parent, unmatched, file_channels, display_labels=display_labels,
+        )
         if dlg.exec() != _accepted():
             return None
         new_aliases: dict[str, str] = {}
+        new_sources: dict[str, str] = {}
         for res in dlg.resolutions():
             if res.file_index is not None:
-                matched.append((res.channel_config, res.file_index))
+                field = (index_mapper(res.file_index) if index_mapper
+                         else res.file_index)
+                matched.append((res.channel_config, field))
             if res.save_alias and res.file_channel:
                 new_aliases[res.channel_config.display_name] = res.file_channel
+                if res.file_index is not None and index_mapper:
+                    new_sources[res.channel_config.display_name] = field.source
         if new_aliases:
-            _save_new_aliases(fmt_cfg, new_aliases, context)
+            _save_new_aliases(fmt_cfg, new_aliases, context, new_sources)
 
     return matched if matched else None
 
 
-def _save_new_aliases(fmt_cfg, new_aliases: dict[str, str], context: "AppContext") -> None:
+def _save_new_aliases(fmt_cfg, new_aliases: dict[str, str], context: "AppContext",
+                      new_sources: dict[str, str] | None = None) -> None:
     """Prepend newly discovered file channel names to the matching ChannelConfig alias lists."""
     from angstrompro.io.channel_manager import ChannelConfig
     updated = []
@@ -187,7 +220,10 @@ def _save_new_aliases(fmt_cfg, new_aliases: dict[str, str], context: "AppContext
         if cc.display_name in new_aliases:
             new_alias = new_aliases[cc.display_name]
             aliases = [new_alias] + [a for a in cc.aliases if a != new_alias]
-            updated.append(ChannelConfig(cc.display_name, aliases, cc.load_by_default))
+            updated.append(ChannelConfig(
+                cc.display_name, aliases, cc.load_by_default,
+                (new_sources or {}).get(cc.display_name, cc.source),
+            ))
         else:
             updated.append(cc)
     context.channel_manager.save_format(fmt_cfg.format_id, updated, auto_load=fmt_cfg.auto_load)
@@ -203,7 +239,8 @@ def _apply_display_names(result, pairs, stem: str, idx_to_display: dict | None =
             display = idx_to_display[idx]
         else:
             display = getattr(payload, "name", stem)
-        payload.name = f"{stem}_{display}"
+        safe_display = re.sub(r'[<>:"/\\|?*]', "_", display)
+        payload.name = f"{stem}_{safe_display}"
         if hasattr(payload, "info") and isinstance(payload.info, dict):
             payload.info["channel_display_name"] = display
     return result

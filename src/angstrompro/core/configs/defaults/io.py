@@ -7,7 +7,7 @@ DEFAULTS = {
             "dI/dV":      {"aliases": ["LI Demod"],                                 "load_by_default": True},
             "dI/dV (Y)":  {"aliases": ["LI Demod 1 Y", "LI Demod 2 Y"],            "load_by_default": False},
             "Current":    {"aliases": ["Current (A)", "Current", "I (A)"],          "load_by_default": False},
-            "Z":          {"aliases": ["Z (m)", "Topo"],                            "load_by_default": False},
+            "Z":          {"aliases": ["Z (m)", "Scan:Z (m)", "Topo"],           "load_by_default": False, "source": "either"},
         },
         "nanonis_sxm": {
             "__auto_load__": False,

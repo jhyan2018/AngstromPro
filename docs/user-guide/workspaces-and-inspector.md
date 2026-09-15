@@ -64,6 +64,15 @@ Mouse actions have different purposes:
 Sending moves the item from the source workspace by default. Preferences can
 keep the source item as well.
 
+Use **File → Save…** to save one selected item in its native format. Opening
+that HDF5 file again restores its alias, item identity, and named annotations
+as well as its data. This also works for installed plugin formats that write
+HDF5 files. When an alias is set, the Save dialog suggests it as the filename;
+the item's real name is unchanged. Older native files without item metadata
+still open with empty alias and annotations. If the item's name or identity is
+already present, AngstromPro keeps the existing item and gives the imported
+one a distinct name or identity.
+
 Use **File → Save Workspace…** to store all supported items from the current
 module workspace in one `.apws` HDF5 archive. If unsupported payload types are
 present, AngstromPro lists every skipped item; click **OK** to save the remaining

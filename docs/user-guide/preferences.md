@@ -57,6 +57,12 @@ Each table row describes one logical AngstromPro channel:
   thumbnails.
 - **Exact aliases** are semicolon-separated raw channel names. Matching is
   exact and case-sensitive; their order determines which match wins first.
+- **Source (.3ds)** distinguishes swept **Channels** from per-pixel
+  **Experiment parameters**. Choose the source of a logical row, or **Either**
+  when both are possible. This choice is used for file opening and Data Browser
+  thumbnails. **Either** prefers a Channel if the exact same alias exists in
+  both sources; choose **Experiment parameters** to force the per-pixel map.
+  Other formats continue to use their ordinary channel list.
 - **Auto-load defaults for this format** is a separate, format-level option.
   It skips the normal selection dialog and loads the matched default rows.
 
@@ -70,10 +76,17 @@ These two default controls work together as follows:
 | Unchecked | Either | The logical channel is not selected automatically. |
 
 During unmatched-channel resolution, select **Save alias** to prepend the raw
-channel name to that logical channel for future files. Switching between file
+channel name to that logical channel for future files. For `.3ds`, the dialog
+labels both sources; saving a chosen experiment parameter also remembers its
+source. Switching between file
 formats in Channel Manager preserves edits as drafts. Press **Apply** to use
 all edited formats for the current session, or **Save as default** to retain
 them after restarting.
+
+For `.3ds`, the normal selection dialog labels each source and lets you check
+multiple candidates, such as **Z (m)** and **Scan:Z (m)**, to compare them.
+Experiment parameters contain one value per grid pixel, so each loads as a
+single-layer image rather than a bias-sweep stack.
 
 The format-level auto-load option does not change thumbnail selection: Data
 Browser always renders matched channels marked **Load by default**. Existing

@@ -45,13 +45,18 @@ class UnmatchedChannelsDialog(QtWidgets.QDialog):
         parent: QtWidgets.QWidget | None,
         unmatched: list[ChannelConfig],
         file_channels: list[str],
+        display_labels: list[str] | None = None,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Unmatched channels")
+        self.setWindowTitle(
+            "Map default 3DS fields" if display_labels is not None
+            else "Unmatched channels"
+        )
         self.setMinimumWidth(520)
 
         self._unmatched = unmatched
         self._file_channels = file_channels
+        self._display_labels = display_labels or file_channels
         self._rows: list[tuple[QtWidgets.QComboBox, QtWidgets.QCheckBox]] = []
 
         layout = QtWidgets.QVBoxLayout(self)
@@ -59,6 +64,9 @@ class UnmatchedChannelsDialog(QtWidgets.QDialog):
 
         # ── Header ────────────────────────────────────────────────────
         hdr = QtWidgets.QLabel(
+            "<b>Some default fields were not found in this file.</b><br>"
+            "Select the matching file value for each, or skip."
+            if display_labels is not None else
             "<b>Some default channels were not found in this file.</b><br>"
             "Select the matching file channel for each, or skip."
         )
@@ -67,7 +75,7 @@ class UnmatchedChannelsDialog(QtWidgets.QDialog):
 
         # ── Available channels info ───────────────────────────────────
         avail_lbl = QtWidgets.QLabel(
-            "Available in file:  " + ",  ".join(file_channels)
+            "Available in file:  " + ",  ".join(self._display_labels)
         )
         avail_lbl.setObjectName("pref_row_desc")
         avail_lbl.setWordWrap(True)
@@ -84,8 +92,8 @@ class UnmatchedChannelsDialog(QtWidgets.QDialog):
 
             combo = QtWidgets.QComboBox()
             combo.addItem(_SKIP)
-            for fch in file_channels:
-                combo.addItem(fch)
+            for label in self._display_labels:
+                combo.addItem(label)
 
             save_cb = QtWidgets.QCheckBox("Save alias")
             save_cb.setToolTip(
@@ -115,10 +123,11 @@ class UnmatchedChannelsDialog(QtWidgets.QDialog):
         """Call after exec() == Accepted to get the user's choices."""
         result: list[UnmatchedResolution] = []
         for cc, (combo, save_cb) in zip(self._unmatched, self._rows):
-            text = combo.currentText()
-            if text == _SKIP:
+            idx = combo.currentIndex() - 1
+            if idx < 0:
                 result.append(UnmatchedResolution(cc, None, None, False))
             else:
-                idx = self._file_channels.index(text)
-                result.append(UnmatchedResolution(cc, text, idx, save_cb.isChecked()))
+                result.append(UnmatchedResolution(
+                    cc, self._file_channels[idx], idx, save_cb.isChecked(),
+                ))
         return result

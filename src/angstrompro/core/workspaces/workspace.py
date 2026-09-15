@@ -8,6 +8,7 @@ Created on Tue Jun 16 22:40:57 2026
 from __future__ import annotations
 
 from angstrompro.utils.qt_compat import QtCore, Signal
+from angstrompro.core.data.annotation_data import AnnotationData
 from angstrompro.core.data.base import WorkspaceData
 from .workspace_item import WorkspaceItem
 
@@ -40,6 +41,10 @@ class Workspace(QtCore.QObject):
     def add_item(
         self,
         payload:     WorkspaceData,
+        *,
+        alias:       str = "",
+        annotations: dict[str, AnnotationData] | None = None,
+        item_id:     str | None = None,
     ) -> WorkspaceItem:
         # Deduplicate by modifying payload.name directly
         base = payload.name or "item"
@@ -51,7 +56,12 @@ class Workspace(QtCore.QObject):
         name = payload.name
         item = WorkspaceItem(
             payload=payload,
+            alias=alias,
+            annotations=dict(annotations or {}),
         )
+        if item_id and all(existing.item_id != item_id
+                           for existing in self._items.values()):
+            item.item_id = item_id
         self._item_order.append(name)
         self._items[name] = item
         self.item_added.emit(name)

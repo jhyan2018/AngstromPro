@@ -38,7 +38,9 @@ Preferences. For `.3ds`, `.sxm`, and `.dat` files, the browser creates cards
 only for logical channels that:
 
 1. are marked **Load by default** for that file format, and
-2. have an exact, case-sensitive alias matching a raw channel in the file.
+2. have an exact, case-sensitive alias matching the configured source in the
+   file. For `.3ds`, that source may be **Channels** or **Experiment
+   parameters**.
 
 The format-level **Auto-load defaults** checkbox does not control thumbnails.
 It controls whether interactive file opening skips the normal channel-selection
@@ -49,6 +51,10 @@ If a card says that a channel was not found, add the raw instrument channel
 name as an exact alias. Existing cached cards are not replaced automatically;
 re-render the file or use **Re-render all** after changing mappings or default
 channels.
+
+A `.3ds` experiment-parameter card is a single-layer spatial image, not a
+spectroscopy stack. If you change its source or aliases in Channel Manager,
+re-render the cached card to apply the new mapping.
 
 ## Scene templates for thumbnails
 
@@ -69,8 +75,12 @@ by the Channel Manager to the logical display channel `Z`:
 - **Off** renders the raw image.
 - **Polynomial surface** subtracts a first-order 2D plane, making tilted
   topography easier to see.
-- **Per scan line** subtracts a first-order polynomial independently from every
-  image row, reducing line-by-line scan backgrounds.
+- **Per scan line** subtracts a first-order polynomial independently down every
+  image column (Y). This is the default per-line direction.
+- **Per image row (X)** applies the same operation across each image row.
+
+Choose the direction that follows the visible scan-line artifacts. Both
+directions preserve the image orientation and overall mean.
 
 This is display-only: it does not change the source file, cached UDS data, or
 data sent to another module. Other logical channels are never flattened.

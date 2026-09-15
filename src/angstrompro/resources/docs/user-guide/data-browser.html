@@ -53,7 +53,9 @@ Preferences. For <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> fil
 only for logical channels that:</p>
 <ol>
 <li>are marked <strong>Load by default</strong> for that file format, and</li>
-<li>have an exact, case-sensitive alias matching a raw channel in the file.</li>
+<li>have an exact, case-sensitive alias matching the configured source in the
+   file. For <code>.3ds</code>, that source may be <strong>Channels</strong> or <strong>Experiment
+   parameters</strong>.</li>
 </ol>
 <p>The format-level <strong>Auto-load defaults</strong> checkbox does not control thumbnails.
 It controls whether interactive file opening skips the normal channel-selection
@@ -63,6 +65,9 @@ two-level behavior.</p>
 name as an exact alias. Existing cached cards are not replaced automatically;
 re-render the file or use <strong>Re-render all</strong> after changing mappings or default
 channels.</p>
+<p>A <code>.3ds</code> experiment-parameter card is a single-layer spatial image, not a
+spectroscopy stack. If you change its source or aliases in Channel Manager,
+re-render the cached card to apply the new mapping.</p>
 <h2 id="scene-templates-for-thumbnails">Scene templates for thumbnails</h2>
 <p>The Data Browser can use the same <code>.scet</code> scene templates saved by the Curve
 Stack Viewer. In <strong>Preferences → Data Browser → Thumbnails</strong>, choose a
@@ -79,9 +84,12 @@ by the Channel Manager to the logical display channel <code>Z</code>:</p>
 <li><strong>Off</strong> renders the raw image.</li>
 <li><strong>Polynomial surface</strong> subtracts a first-order 2D plane, making tilted
   topography easier to see.</li>
-<li><strong>Per scan line</strong> subtracts a first-order polynomial independently from every
-  image row, reducing line-by-line scan backgrounds.</li>
+<li><strong>Per scan line</strong> subtracts a first-order polynomial independently down every
+  image column (Y). This is the default per-line direction.</li>
+<li><strong>Per image row (X)</strong> applies the same operation across each image row.</li>
 </ul>
+<p>Choose the direction that follows the visible scan-line artifacts. Both
+directions preserve the image orientation and overall mean.</p>
 <p>This is display-only: it does not change the source file, cached UDS data, or
 data sent to another module. Other logical channels are never flattened.</p>
 <p>Changing the selected template affects newly generated thumbnails. Existing

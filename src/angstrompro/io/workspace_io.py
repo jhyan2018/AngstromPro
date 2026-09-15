@@ -1,9 +1,7 @@
-"""HDF5 archive IO for one module workspace.
+"""HDF5 archive and shared single-file metadata IO for workspace items.
 
-The archive stores every supported WorkspaceItem in one file, including the
-item wrapper metadata that the ordinary single-payload save path does not own.
-Loading is intentionally additive: imported items are appended to the target
-workspace and name collisions receive numeric suffixes.
+Loading an archive is intentionally additive: imported items are appended to
+the target workspace and name collisions receive numeric suffixes.
 """
 
 from __future__ import annotations
@@ -27,6 +25,7 @@ if TYPE_CHECKING:
 
 _TYPE_ID = "workspace"
 _VERSION = 1
+_SINGLE_ITEM_METADATA_VERSION = 1
 
 
 @dataclass
@@ -122,6 +121,46 @@ def _attr_text(value, default: str = "") -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
     return str(value)
+
+
+def write_single_item_metadata(root, item: WorkspaceItem) -> None:
+    """Append versioned WorkspaceItem fields to a standalone HDF5 payload."""
+    group = root.create_group("workspace_item")
+    group.attrs["version"] = _SINGLE_ITEM_METADATA_VERSION
+    group.attrs["type_id"] = item.type_id
+    group.attrs["item_id"] = item.item_id
+    group.attrs["alias"] = item.alias
+    group.attrs["annotations"] = _annotations_to_json(item.annotations)
+
+
+def read_single_item_metadata(root, payload: WorkspaceData) -> WorkspaceItem:
+    """Read standalone item fields; files without them get fresh defaults."""
+    from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+
+    if "workspace_item" not in root:
+        return WorkspaceItem(payload=payload)
+    group = root["workspace_item"]
+    version = int(group.attrs.get("version", 1))
+    if version != _SINGLE_ITEM_METADATA_VERSION:
+        raise ValueError(
+            f"Unsupported workspace-item metadata version {version}; "
+            f"expected {_SINGLE_ITEM_METADATA_VERSION}"
+        )
+    stored_type = _attr_text(group.attrs.get("type_id"))
+    if stored_type and stored_type != payload.type_id:
+        raise ValueError(
+            f"Workspace-item type {stored_type!r} does not match "
+            f"payload type {payload.type_id!r}"
+        )
+    item = WorkspaceItem(payload=payload)
+    stored_id = _attr_text(group.attrs.get("item_id"))
+    if stored_id:
+        item.item_id = stored_id
+    item.alias = _attr_text(group.attrs.get("alias"))
+    item.annotations = _annotations_from_json(
+        _attr_text(group.attrs.get("annotations"), "{}")
+    )
+    return item
 
 
 def save_workspace(path: Path, workspace: Workspace) -> list[WorkspaceItem]:

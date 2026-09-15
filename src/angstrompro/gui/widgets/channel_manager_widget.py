@@ -80,15 +80,17 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         self._auto_load_cb.stateChanged.connect(lambda: setattr(self, "_dirty", True))
         right.addWidget(self._auto_load_cb)
 
-        self._table = QtWidgets.QTableWidget(0, 3)
+        self._table = QtWidgets.QTableWidget(0, 4)
         self._table.setHorizontalHeaderLabels(
-            ["Display name", "Load by default",
+            ["Display name", "Load by default", "Source (.3ds)",
              "Exact aliases  (semicolon-separated)"])
         self._table.horizontalHeader().setStretchLastSection(True)
         self._table.horizontalHeader().setSectionResizeMode(
             0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self._table.horizontalHeader().setSectionResizeMode(
             1, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self._table.horizontalHeader().setSectionResizeMode(
+            2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self._table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self._table.itemChanged.connect(self._on_table_changed)
@@ -157,11 +159,13 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         self._table.blockSignals(True)
         self._table.setRowCount(0)
         for cc in channels:
-            self._add_table_row(cc.display_name, cc.load_by_default, cc.aliases)
+            self._add_table_row(cc.display_name, cc.load_by_default,
+                                cc.aliases, cc.source)
         self._table.blockSignals(False)
         self._dirty = False
 
-    def _add_table_row(self, name: str, default: bool, aliases: list[str]) -> None:
+    def _add_table_row(self, name: str, default: bool, aliases: list[str],
+                       source: str = "channel") -> None:
         row = self._table.rowCount()
         self._table.insertRow(row)
         self._table.setItem(row, 0, QtWidgets.QTableWidgetItem(name))
@@ -176,7 +180,17 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         self._table.setCellWidget(row, 1, cb_widget)
 
-        self._table.setItem(row, 2, QtWidgets.QTableWidgetItem("; ".join(aliases)))
+        source_combo = QtWidgets.QComboBox()
+        source_combo.addItem("Channels", "channel")
+        source_combo.addItem("Experiment parameters", "experiment_parameter")
+        source_combo.addItem("Either", "either")
+        source_combo.setCurrentIndex(max(0, source_combo.findData(source)))
+        source_combo.setEnabled(self._current_format_id == "nanonis_3ds")
+        source_combo.currentIndexChanged.connect(
+            lambda: setattr(self, "_dirty", True))
+        self._table.setCellWidget(row, 2, source_combo)
+
+        self._table.setItem(row, 3, QtWidgets.QTableWidgetItem("; ".join(aliases)))
 
     def _on_table_changed(self, _item) -> None:
         self._dirty = True
@@ -206,7 +220,7 @@ class ChannelManagerWidget(QtWidgets.QWidget):
             self._table.setCurrentCell(row + 1, self._table.currentColumn())
 
     def _swap_rows(self, a: int, b: int) -> None:
-        for col in (0, 2):
+        for col in (0, 3):
             ia, ib = self._table.item(a, col), self._table.item(b, col)
             ta = ia.text() if ia else ""
             tb = ib.text() if ib else ""
@@ -218,6 +232,12 @@ class ChannelManagerWidget(QtWidgets.QWidget):
         cb_ = wb.findChild(QtWidgets.QCheckBox).isChecked() if wb else False
         if wa: wa.findChild(QtWidgets.QCheckBox).setChecked(cb_)
         if wb: wb.findChild(QtWidgets.QCheckBox).setChecked(ca)
+        sa = self._table.cellWidget(a, 2)
+        sb = self._table.cellWidget(b, 2)
+        if sa and sb:
+            source_a, source_b = sa.currentData(), sb.currentData()
+            sa.setCurrentIndex(sa.findData(source_b))
+            sb.setCurrentIndex(sb.findData(source_a))
         self._dirty = True
 
     def _collect_channels(self) -> list[ChannelConfig]:
@@ -229,10 +249,12 @@ class ChannelManagerWidget(QtWidgets.QWidget):
                 continue
             cb_w    = self._table.cellWidget(row, 1)
             default = cb_w.findChild(QtWidgets.QCheckBox).isChecked() if cb_w else False
-            alias_item = self._table.item(row, 2)
+            alias_item = self._table.item(row, 3)
             raw     = alias_item.text() if alias_item else ""
             aliases = [a.strip() for a in raw.split(";") if a.strip()]
-            channels.append(ChannelConfig(name, aliases, default))
+            source_combo = self._table.cellWidget(row, 2)
+            source = source_combo.currentData() if source_combo else "channel"
+            channels.append(ChannelConfig(name, aliases, default, source))
         return channels
 
     def _on_apply(self) -> None:
