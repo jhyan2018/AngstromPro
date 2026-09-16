@@ -11,6 +11,7 @@ The two binary sources are selected independently.
 """
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Literal
 
 import numpy as np
@@ -51,6 +52,39 @@ def field_names(header: dict) -> tuple[list[str], list[str]]:
         _header_names(header, "experiment parameters") or
         _header_names(header, "experimental parameters"),
     )
+
+
+def _field_stem(name: str) -> str:
+    """Normalise a header field name while ignoring a trailing unit."""
+    stem = re.sub(r"\s*\([^()]*\)\s*$", "", name.strip().casefold())
+    return stem.rsplit(">", 1)[-1].strip()
+
+
+def _find_sweep_channel(channels: list[str], sweep_signal: str) -> int | None:
+    """Find a sweep channel without arbitrarily taking an ambiguous match."""
+    signal = sweep_signal.strip().casefold()
+    exact = [i for i, channel in enumerate(channels)
+             if channel.strip().casefold() == signal]
+    if len(exact) == 1:
+        return exact[0]
+
+    signal_stem = _field_stem(sweep_signal)
+    stem_matches = [i for i, channel in enumerate(channels)
+                    if _field_stem(channel) == signal_stem]
+    if len(stem_matches) == 1:
+        return stem_matches[0]
+
+    # Retain compatibility with qualified channel names, but only when the
+    # loose relation identifies exactly one channel.
+    loose = [i for i, channel in enumerate(channels)
+             if signal in channel.casefold() or channel.casefold() in signal]
+    return loose[0] if len(loose) == 1 else None
+
+
+def _find_fixed_parameter(fixed_parameters: list[str], name: str) -> int | None:
+    target = _field_stem(name)
+    return next((i for i, parameter in enumerate(fixed_parameters)
+                 if _field_stem(parameter) == target), None)
 
 
 def match_field(aliases: list[str], channels: list[str],
@@ -120,7 +154,14 @@ def load(path: Path, channel_index: int = 0,
 
         total_pixels = x_pixels * y_pixels
         expected = total_pixels * stride
+        payload_floats = int(raw.size)
+        complete_pixels = min(total_pixels, payload_floats // stride)
+        trailing_floats = payload_floats % stride if payload_floats < expected else 0
         if raw.size < expected:
+            # Preserve the historical, plottable zero fill for pixels that
+            # were never acquired.  A partially written final record is not a
+            # valid pixel and is discarded before padding.
+            raw = raw[:complete_pixels * stride]
             raw = np.pad(raw, (0, expected - raw.size))
         else:
             raw = raw[:expected]
@@ -141,25 +182,42 @@ def load(path: Path, channel_index: int = 0,
         # Read sweep axis: prefer the sweep-signal channel stored in the data block
         # (present when Nanonis records the swept variable explicitly, e.g. non-linear sweeps).
         # Fall back to linspace(sweep_start, sweep_end, n_points) for standard linear sweeps.
-        channels_lower = [c.lower() for c in channels]
-        sweep_signal_lower = sweep_signal.lower()
-        sweep_ch_idx = next(
-            (i for i, c in enumerate(channels_lower)
-             if sweep_signal_lower in c or c in sweep_signal_lower),
-            None,
-        )
+        sweep_ch_idx = _find_sweep_channel(channels, sweep_signal)
+        sweep_axis_source = "unavailable"
+        sweep_axis_valid = False
         if sweep_ch_idx is not None:
             start = par_num + sweep_ch_idx * n_points
-            sweep_vals = data3D[start:start + n_points, 0, 0].astype(np.float64)
-        else:
+            # Read from a completed acquisition record, not data3D[*, 0, 0]:
+            # after the display Y flip that location belongs to the last scan
+            # row and is zero-filled in a partial file.
+            completed_axes = data2D[:complete_pixels, start:start + n_points]
+            usable = next((values for values in completed_axes
+                           if np.isfinite(values).all() and np.any(values != 0.0)),
+                          None)
+            if usable is not None:
+                sweep_vals = usable.astype(np.float64)
+                sweep_axis_source = "recorded_channel"
+                sweep_axis_valid = True
+            else:
+                sweep_ch_idx = None
+
+        if sweep_ch_idx is None:
             # Standard linear sweep: read start/end from fixed parameters
-            fixed_params = fixed_parameters
-            fixed_params_lower = [p.lower() for p in fixed_params]
             sweep_start, sweep_end = 0.0, 0.0
-            if "sweep start" in fixed_params_lower:
-                sweep_start = float(data3D[fixed_params_lower.index("sweep start"), 0, 0])
-            if "sweep end" in fixed_params_lower:
-                sweep_end = float(data3D[fixed_params_lower.index("sweep end"), 0, 0])
+            start_idx = _find_fixed_parameter(fixed_parameters, "sweep start")
+            end_idx = _find_fixed_parameter(fixed_parameters, "sweep end")
+            # Some writers omit the fixed-parameter names.  In the standard
+            # grid layout the first two fixed values are still start and end.
+            inferred_fixed_count = par_num - len(experiment_parameters)
+            if start_idx is None and inferred_fixed_count >= 2:
+                start_idx = 0
+            if end_idx is None and inferred_fixed_count >= 2:
+                end_idx = 1
+            if complete_pixels and start_idx is not None and end_idx is not None:
+                sweep_start = float(data2D[0, start_idx])
+                sweep_end = float(data2D[0, end_idx])
+                sweep_axis_source = "fixed_parameters"
+                sweep_axis_valid = True
             sweep_vals = np.linspace(sweep_start, sweep_end, n_points)
 
         sweep_units = sweep_signal.split("(")[-1].rstrip(")").strip() if "(" in sweep_signal else ""
@@ -178,7 +236,12 @@ def load(path: Path, channel_index: int = 0,
             "_n_points":      n_points,
             "_x_pixels":      x_pixels,
             "_y_pixels":      y_pixels,
+            "_complete_pixels": complete_pixels,
+            "_expected_pixels": total_pixels,
+            "_trailing_floats_discarded": trailing_floats,
+            "incomplete_acquisition": complete_pixels < total_pixels,
             "sweep_signal":   sweep_signal,
+            "sweep_axis_source": sweep_axis_source,
             "grid_settings":  grid_settings,
         }
         if "bias>bias (v)" in header:
@@ -193,6 +256,11 @@ def load(path: Path, channel_index: int = 0,
                 pass
 
         def _extract(ch_idx: int) -> UdsDataStru:
+            if not sweep_axis_valid:
+                raise ValueError(
+                    "Cannot determine the sweep axis from any completed pixel "
+                    "record or from Sweep Start/Sweep End parameters"
+                )
             ci = max(0, min(ch_idx, n_channels - 1))
             start = par_num + ci * n_points
             ch_data = data3D[start:start + n_points, :, :]   # (n_pts, y, x)

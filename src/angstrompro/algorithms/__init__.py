@@ -22,6 +22,7 @@ from . import lf_correction
 from . import math_ops
 from . import r_map
 from . import gap_map
+from . import coherence_peak_width
 from . import register
 from . import cross_correlation
 from . import extract_layer

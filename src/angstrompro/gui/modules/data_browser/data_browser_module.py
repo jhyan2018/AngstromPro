@@ -35,6 +35,7 @@ from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.tasks import TaskRequest
 from angstrompro.app.user_data_folder import user_data_subpath
+from angstrompro.gui.utils.file_manager import show_in_file_manager
 
 from .gallery_widget import (
     GalleryView, CardRow,
@@ -64,6 +65,13 @@ class _StayOpenMenu(QtWidgets.QMenu):
             act.trigger()   # toggle + emit, but keep the popup open
             return
         super().mouseReleaseEvent(event)
+
+
+def _filter_one_star_rows(rows: list[CardRow], enabled: bool) -> list[CardRow]:
+    """Return gallery rows with exactly one-star cards hidden when enabled."""
+    if not enabled:
+        return rows
+    return [row for row in rows if row.stars != 1]
 
 
 @register_module
@@ -122,6 +130,15 @@ class DataBrowserModule(AGuiModule):
             PrefItem("thumbnails.pixmap_cache_size", "Pixmap cache", "number",
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
+        ]),
+        PrefSection("Gallery navigation", "mouse", [
+            PrefItem("gallery.hide_one_star_cards", "Hide one-star cards",
+                     "checkbox", "Hide cards rated exactly one star. "
+                     "Unrated and 2–5-star cards remain visible."),
+            PrefItem("gallery.wheel_scroll_px", "Mouse-wheel step (px)",
+                     "integer", "Distance the gallery moves for one wheel "
+                     "notch. Smooth touchpad scrolling keeps its native speed.",
+                     kwargs={"min": 10, "max": 400}),
         ]),
         PrefSection("Channels — application-wide mappings; channels marked "
                     "Load by default are rendered as thumbnails", "settings", [
@@ -203,7 +220,10 @@ class DataBrowserModule(AGuiModule):
         self._sort_combo.currentIndexChanged.connect(self._rescan_current)
         bar.addWidget(self._sort_combo)
         rv.addLayout(bar)
-        self._gallery = GalleryView(thumb_size=int(self._cfg("thumbnails.size", 150)))
+        self._gallery = GalleryView(
+            thumb_size=int(self._cfg("thumbnails.size", 150)),
+            wheel_scroll_px=int(self._cfg("gallery.wheel_scroll_px", 80)),
+        )
         self._gallery.gallery_model().set_pixmap_cache_size(
             int(self._cfg("thumbnails.pixmap_cache_size", 200)))
         self._gallery.viewport_settled.connect(self._on_viewport_settled)
@@ -375,6 +395,8 @@ class DataBrowserModule(AGuiModule):
         """Live-apply from the preferences panel (base class hooks this in)."""
         self._reload_format_menu()
         self._gallery.set_thumb_size(int(self._cfg("thumbnails.size", 150)))
+        self._gallery.set_wheel_scroll_px(
+            int(self._cfg("gallery.wheel_scroll_px", 80)))
         self._gallery.gallery_model().set_pixmap_cache_size(
             int(self._cfg("thumbnails.pixmap_cache_size", 200)))
         self._reload_template_delta()
@@ -640,11 +662,13 @@ class DataBrowserModule(AGuiModule):
 
         rows: list[CardRow] = []
         n_cached = 0
+        hide_one_star = bool(
+            self._cfg("gallery.hide_one_star_cards", False))
         for path, mtime in files:
             file_rows = self._rows_for_file(path, mtime, folder)
             if file_rows and file_rows[0].state != STATE_LOADING:
                 n_cached += 1
-            rows.extend(file_rows)
+            rows.extend(_filter_one_star_rows(file_rows, hide_one_star))
         if sort_mode in ("stars_desc", "stars_asc"):
             # stars are per card — stable sort keeps the time order within
             # equal ratings
@@ -885,6 +909,8 @@ class DataBrowserModule(AGuiModule):
         act_send = menu.addAction("Send to module…")
         act_send.setEnabled(row is not None and
                             row.state not in (STATE_ERROR, STATE_NOT_FOUND))
+        act_reveal = menu.addAction("Show in File Manager")
+        act_reveal.setEnabled(Path(path).is_file())
         t = self._cache.get_thumbnail(path, channel_id) if channel_id != "?" else None
         act_layer = None
         if t is not None and t["layer_count"] > 1:
@@ -910,10 +936,23 @@ class DataBrowserModule(AGuiModule):
         if act in star_actions:
             stars = star_actions[act]
             self._cache.set_stars(path, channel_id, stars)
-            self._gallery.gallery_model().update_row(key, stars=stars)
+            if stars == 1 and bool(
+                    self._cfg("gallery.hide_one_star_cards", False)):
+                # Rebuild the rows so the newly rejected card disappears
+                # immediately. It remains in the cache and can be restored by
+                # disabling the preference.
+                self._rescan_current()
+            else:
+                self._gallery.gallery_model().update_row(key, stars=stars)
             return
         if act == act_send:
             self._on_send_card(key)
+        elif act == act_reveal:
+            if not show_in_file_manager(path):
+                QtWidgets.QMessageBox.warning(
+                    self, "File location unavailable",
+                    f"Could not show this file in the system file manager:\n{path}",
+                )
         elif act_layer is not None and act == act_layer:
             layer, ok = QtWidgets.QInputDialog.getInt(
                 self, "Thumbnail layer",

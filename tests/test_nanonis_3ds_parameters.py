@@ -24,7 +24,7 @@ from angstrompro.io.channel_manager import (
     ChannelConfig, ChannelManager, FormatChannelConfig,
 )
 from angstrompro.io.formats.nanonis_3ds import (
-    GridField, field_names, load, match_field, parse_header,
+    GridField, _find_sweep_channel, field_names, load, match_field, parse_header,
 )
 from angstrompro.utils.qt_compat import QtWidgets
 
@@ -148,6 +148,61 @@ def test_parameter_offset_can_be_inferred_without_fixed_names(
     z = load(path, fields=[GridField("experiment_parameter", 2)])
     np.testing.assert_allclose(z.data[0], [[204, 304], [4, 104]])
     assert z.info["fixed_parameter_count"] == 2
+
+    channel = load(path, fields=[GridField("channel", 0)])
+    np.testing.assert_allclose(channel.axes[0].values,
+                               np.linspace(0.0, 1.0, 21))
+
+
+def test_partial_grid_uses_completed_record_for_axis_and_zero_fills_pixels(
+        grid_file: Path, tmp_path: Path) -> None:
+    header, data_offset = parse_header(grid_file)
+    channels, _parameters = field_names(header)
+    stride = (int(header["# parameters (4 byte)"]) +
+              len(channels) * int(header["points"]))
+    path = tmp_path / "partial.3ds"
+    complete_pixels = 2
+    trailing_floats = 10
+    path.write_bytes(grid_file.read_bytes()[:
+        data_offset + (complete_pixels * stride + trailing_floats) * 4])
+
+    channel = load(path, fields=[GridField("channel", 0)])
+
+    np.testing.assert_allclose(channel.axes[0].values,
+                               np.linspace(0.0, 1.0, 21))
+    assert np.count_nonzero(np.any(channel.data != 0.0, axis=0)) == 2
+    assert channel.info["incomplete_acquisition"] is True
+    assert channel.info["_complete_pixels"] == 2
+    assert channel.info["_expected_pixels"] == 4
+    assert channel.info["_trailing_floats_discarded"] == trailing_floats
+    assert channel.info["sweep_axis_source"] == "fixed_parameters"
+
+
+def test_channel_load_rejects_file_without_a_complete_pixel(
+        grid_file: Path, tmp_path: Path) -> None:
+    _header, data_offset = parse_header(grid_file)
+    path = tmp_path / "header_only.3ds"
+    path.write_bytes(grid_file.read_bytes()[:data_offset])
+
+    with pytest.raises(ValueError, match="Cannot determine the sweep axis"):
+        load(path, fields=[GridField("channel", 0)])
+
+
+def test_sweep_parameter_names_accept_trailing_units(
+        grid_file: Path, tmp_path: Path) -> None:
+    path = tmp_path / "parameter_units.3ds"
+    path.write_bytes(grid_file.read_bytes().replace(
+        b'Fixed parameters="Sweep Start;Sweep End"',
+        b'Fixed parameters="Sweep Start (V);Sweep End (V)"',
+    ))
+    channel = load(path, fields=[GridField("channel", 0)])
+    np.testing.assert_allclose(channel.axes[0].values,
+                               np.linspace(0.0, 1.0, 21))
+
+
+def test_ambiguous_loose_sweep_channel_match_is_not_selected() -> None:
+    assert _find_sweep_channel(
+        ["Bias (V) forward", "Bias (V) backward"], "Bias (V)") is None
 
 
 def test_source_specific_matching_does_not_confuse_equal_names() -> None:

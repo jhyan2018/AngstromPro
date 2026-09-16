@@ -25,6 +25,31 @@ For **Background Subtract 2D → PerLine**, choose **Per-line direction**: `Y`
 fits down each image column, while `X` fits across each row. The default is `Y`;
 select whichever direction follows the unwanted line background in your image.
 
+**Gap Map 2D** returns two items. The `_gm` item contains the fitted peak
+energy, and `_R2` is the R² fit-quality map: values near 1 indicate that the
+selected polynomial describes the spectrum well. Empty, non-finite, or
+constant spectra have no defined peak or R² and are written as zero in both
+outputs. The fit is normalized internally, so the result does not depend on
+whether the signal is stored in A, nA, or pA. **Energy minimum** and **Energy
+maximum** use the physical values and units of the input layer axis; each bound
+is mapped to the nearest recorded layer. The full input range is selected when
+the dialog first opens, including for descending energy axes.
+
+**Coherence Peak Width 2D** measures the FWHM of one coherence peak inside a
+physical energy window. Its **Width method** choices are:
+
+- **Half-prominence** (default): model-free interpolated width after removing a
+  linear edge baseline.
+- **Gaussian**, **Lorentzian**, or **Voigt**: fit a linear baseline plus the
+  selected phenomenological line shape.
+
+The process returns `_peak_width` and `_peak_quality` items. Quality is a
+prominence-to-noise score for Half-prominence and clipped R² for the three fit
+methods; all quality values range from 0 to 1. A width and quality of zero mark
+a missing, constant, non-finite, edge-truncated, or failed peak. The fitted
+line shape is an estimator and does not by itself identify the physical
+broadening mechanism.
+
 ## Process Browser
 
 Open **Process → Process Browser…** or press `Ctrl+B` to inspect every

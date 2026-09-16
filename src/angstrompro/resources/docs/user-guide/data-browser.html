@@ -37,11 +37,21 @@ needed.</p>
 <p>The format checkboxes in the browser toolbar filter the current view. The
 watched-format selection in Preferences additionally controls which formats
 the background scanner processes.</p>
+<p>In <strong>Preferences → Data Browser → Gallery navigation</strong>, <strong>Mouse-wheel step
+(px)</strong> controls how far one wheel notch moves the thumbnail gallery. The
+default is 80 pixels, independent of how many cards are in the folder. Smooth
+touchpad gestures and dragging the scrollbar retain their native behavior.</p>
+<p>Enable <strong>Hide one-star cards</strong> in the same preference section to use a one-star
+rating as a hidden/rejected marker. The filter matches exactly one star:
+unrated cards and cards rated two through five stars remain visible. To review
+or change hidden ratings, disable the preference temporarily. The underlying
+ratings and cached thumbnails are never deleted.</p>
 <h2 id="thumbnail-cards">Thumbnail cards</h2>
 <p>A card represents a file and, for multichannel formats, the configured channel
 used for its preview. From a card's context menu you can:</p>
 <ul>
 <li>Send the data to a compatible module</li>
+<li>Show the source file in the system file manager</li>
 <li>Select a thumbnail layer for stack data</li>
 <li>Assign a rating from zero to five stars</li>
 <li>Re-render the thumbnail</li>
@@ -110,6 +120,8 @@ render priority.</p>
 <li>Set the delay between render requests</li>
 <li>Set the idle interval between complete passes</li>
 <li>Change thumbnail size and rendering options</li>
+<li>Hide cards rated exactly one star</li>
+<li>Adjust the mouse-wheel step for the gallery</li>
 <li>Inspect, clean, or regenerate the thumbnail cache</li>
 </ul>
 <p>Disabling the scanner does not prevent thumbnails from being rendered when

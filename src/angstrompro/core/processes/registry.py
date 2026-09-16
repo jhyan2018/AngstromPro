@@ -150,27 +150,33 @@ def _record_history(
     inputs:       dict,
     annotations:  dict | None = None,
 ) -> Any:
-    """Append a ProcRecord to the result if it is a WorkspaceData with proc_history."""
+    """Append a ProcRecord to every WorkspaceData contained in the result."""
     from angstrompro.core.data.base import ProcRecord, WorkspaceData
     from angstrompro.core.data.annotation_data import serialize_annotation
     from angstrompro.core.data.uds_data import (
         UdsDataStru,
         propagate_uds_source,
     )
-    if isinstance(result, WorkspaceData) and hasattr(result, "proc_history"):
-        def iter_uds(values):
-            for value in values:
-                if isinstance(value, UdsDataStru):
-                    yield value
-                elif isinstance(value, (list, tuple)):
-                    yield from iter_uds(value)
+    def iter_workspace_data(value):
+        if isinstance(value, WorkspaceData):
+            yield value
+        elif isinstance(value, (list, tuple)):
+            for child in value:
+                yield from iter_workspace_data(child)
 
-        if isinstance(result, UdsDataStru):
-            propagate_uds_source(
-                result,
-                list(iter_uds(inputs.values())),
-                generated_source=process_name,
-            )
+    def iter_uds(values):
+        for value in values:
+            if isinstance(value, UdsDataStru):
+                yield value
+            elif isinstance(value, (list, tuple)):
+                yield from iter_uds(value)
+
+    outputs = [
+        output for output in iter_workspace_data(result)
+        if hasattr(output, "proc_history")
+    ]
+    if outputs:
+        uds_inputs = list(iter_uds(inputs.values()))
         input_item_names = [
             getattr(v, "name", "")
             for v in inputs.values()
@@ -183,12 +189,20 @@ def _record_history(
                     serialized_annotations[role] = serialize_annotation(ann)
                 except TypeError:
                     pass
-        result.proc_history.append(ProcRecord(
-            step             = process_name,
-            params           = dict(params),
-            input_item_names = input_item_names,
-            annotations      = serialized_annotations,
-        ))
+
+        for output in outputs:
+            if isinstance(output, UdsDataStru):
+                propagate_uds_source(
+                    output,
+                    uds_inputs,
+                    generated_source=process_name,
+                )
+            output.proc_history.append(ProcRecord(
+                step             = process_name,
+                params           = dict(params),
+                input_item_names = input_item_names,
+                annotations      = serialized_annotations,
+            ))
     return result
 
 

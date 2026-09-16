@@ -62,10 +62,18 @@ class ParameterSpec:
     step:        Any        = None  # spinbox step; None = auto
     choices:     list       = field(default_factory=list)  # non-empty → combo-box
     description: str        = ""
+    decimals:    int | None = None  # float spinbox precision; None = 6
+    axis_input:  str        = ""    # input name supplying a dynamic axis range
+    axis_index:  int | None = None  # axis within axis_input; negative allowed
+    axis_default: str       = ""    # "min" | "max"; resolved by parameter dialog
 
     def __post_init__(self) -> None:
         if not self.label:
             self.label = self.name.replace("_", " ").title()
+        if self.axis_default not in ("", "min", "max"):
+            raise ValueError("axis_default must be '', 'min', or 'max'")
+        if self.axis_default and self.axis_index is None:
+            raise ValueError("axis_default requires axis_index")
 
 
 @dataclass

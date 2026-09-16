@@ -42,6 +42,29 @@ running the process.</p>
 <p>For <strong>Background Subtract 2D → PerLine</strong>, choose <strong>Per-line direction</strong>: <code>Y</code>
 fits down each image column, while <code>X</code> fits across each row. The default is <code>Y</code>;
 select whichever direction follows the unwanted line background in your image.</p>
+<p><strong>Gap Map 2D</strong> returns two items. The <code>_gm</code> item contains the fitted peak
+energy, and <code>_R2</code> is the R² fit-quality map: values near 1 indicate that the
+selected polynomial describes the spectrum well. Empty, non-finite, or
+constant spectra have no defined peak or R² and are written as zero in both
+outputs. The fit is normalized internally, so the result does not depend on
+whether the signal is stored in A, nA, or pA. <strong>Energy minimum</strong> and <strong>Energy
+maximum</strong> use the physical values and units of the input layer axis; each bound
+is mapped to the nearest recorded layer. The full input range is selected when
+the dialog first opens, including for descending energy axes.</p>
+<p><strong>Coherence Peak Width 2D</strong> measures the FWHM of one coherence peak inside a
+physical energy window. Its <strong>Width method</strong> choices are:</p>
+<ul>
+<li><strong>Half-prominence</strong> (default): model-free interpolated width after removing a
+  linear edge baseline.</li>
+<li><strong>Gaussian</strong>, <strong>Lorentzian</strong>, or <strong>Voigt</strong>: fit a linear baseline plus the
+  selected phenomenological line shape.</li>
+</ul>
+<p>The process returns <code>_peak_width</code> and <code>_peak_quality</code> items. Quality is a
+prominence-to-noise score for Half-prominence and clipped R² for the three fit
+methods; all quality values range from 0 to 1. A width and quality of zero mark
+a missing, constant, non-finite, edge-truncated, or failed peak. The fitted
+line shape is an estimator and does not by itself identify the physical
+broadening mechanism.</p>
 <h2 id="process-browser">Process Browser</h2>
 <p>Open <strong>Process → Process Browser…</strong> or press <code>Ctrl+B</code> to inspect every
 registered process. The browser can filter by name, label, or category and

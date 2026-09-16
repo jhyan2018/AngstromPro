@@ -106,6 +106,10 @@ cached thumbnails are not rewritten merely because mappings changed; use
 - **Thumbnails** controls card size, curve-to-colormap stack threshold, plot
   template, display-only Z background subtraction, and the in-memory pixmap
   cache.
+- **Gallery navigation** can hide cards rated exactly one star and sets the
+  gallery's mouse-wheel step in pixels per notch. Hiding does not affect
+  unrated or 2–5-star cards. The default wheel step is 80 pixels; touchpad
+  gestures are unaffected.
 - **Channels** edits the same application-wide Channel Manager described
   above. Auto-load affects interactive opening, not background rendering.
 - **Cache** controls orphan cleanup and provides cache inspection and

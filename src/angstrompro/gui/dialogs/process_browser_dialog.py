@@ -307,14 +307,25 @@ class ProcessBrowserDialog(PersistentDialog):
         for spec in entry.schema.params:
             row = self._tbl_params.rowCount()
             self._tbl_params.insertRow(row)
-            lo = spec.min if spec.min is not None else "—"
-            hi = spec.max if spec.max is not None else "—"
-            rng = f"{lo} … {hi}" if (spec.min is not None or spec.max is not None) else "—"
+            if spec.axis_index is not None:
+                axis_source = (spec.axis_input or "first input") + \
+                              f" axis[{spec.axis_index}]"
+                default = (f"{axis_source} {spec.axis_default}"
+                           if spec.axis_default else str(spec.default))
+                rng = axis_source
+                units = "input axis"
+            else:
+                lo = spec.min if spec.min is not None else "—"
+                hi = spec.max if spec.max is not None else "—"
+                rng = (f"{lo} … {hi}"
+                       if (spec.min is not None or spec.max is not None) else "—")
+                default = str(spec.default)
+                units = spec.units or "—"
             self._tbl_params.setItem(row, 0, _ro_item(spec.name))
             self._tbl_params.setItem(row, 1, _ro_item(spec.type.__name__))
-            self._tbl_params.setItem(row, 2, _ro_item(str(spec.default)))
+            self._tbl_params.setItem(row, 2, _ro_item(default))
             self._tbl_params.setItem(row, 3, _ro_item(rng))
-            self._tbl_params.setItem(row, 4, _ro_item(spec.units or "—"))
+            self._tbl_params.setItem(row, 4, _ro_item(units))
             self._tbl_params.setItem(row, 5, _ro_item(spec.description or spec.label))
         _resize_non_last_cols(self._tbl_params)
         if not entry.schema.params:
