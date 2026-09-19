@@ -27,11 +27,17 @@ plugins to introduce new payloads without creating parallel storage, transfer,
 or inspection mechanisms.</p>
 <h2 id="object-model">Object model</h2>
 <pre><code class="language-text">WorkspaceManager
-└── Workspace                         one per live module instance
-    └── WorkspaceItem                 runtime identity and annotations
+├── private Workspace                 one per live module instance
+│   └── WorkspaceItem                 runtime identity and annotations
+└── shared Workspace                  zero or more, application-owned
+    └── WorkspaceItem
         └── payload: WorkspaceData     arbitrary extensible data type
 </code></pre>
 <p><code>WorkspaceManager</code> registers live workspaces and forwards lifecycle signals.
+It also records the optional shared workspace attached to each module. A module
+can attach to at most one shared workspace, while one shared workspace can be
+used by any number of modules. Shared workspaces contain items only; process
+slots and viewer presentation state remain module-local.
 <code>Workspace</code> owns an ordered collection of items and emits add, remove, rename,
 and change signals. <code>WorkspaceItem</code> wraps a payload with an item ID, optional
 alias, source path, and named annotations.</p>
@@ -66,13 +72,17 @@ workspace row.</p>
 <p>Add a payload through the owning workspace:</p>
 <pre><code class="language-python">item = self.workspace.add_item(payload=result)
 </code></pre>
+<p><code>self.workspace</code> is the module's current output workspace. It refers to the
+private workspace normally and to the attached shared workspace while an
+attachment is active. <code>self.private_workspace</code> remains available throughout,
+and <code>accessible_workspaces()</code> returns both collections when attached.</p>
 <p>The workspace resolves duplicate display names and returns the new
-<code>WorkspaceItem</code>. Cross-module sending creates a destination item through
-<code>WorkspaceManager</code>. The application preference determines whether the source
-row is then removed, producing move-like behavior, or retained.</p>
-<p>Treat workspace payloads as live runtime objects. Consumers that require
-independent mutation should make an explicit copy rather than assuming that a
-send operation creates an independent payload.</p>
+<code>WorkspaceItem</code>. Cross-module sending creates an independent destination item
+through <code>WorkspaceManager</code>. The application preference determines whether the
+source row is then removed, producing move-like behavior, or retained.</p>
+<p>Items in a shared workspace are intentionally the same live runtime objects for
+every attached module. Mutations to an existing shared item should notify its
+owning workspace so all attached views can refresh.</p>
 <h2 id="generic-inspection">Generic inspection</h2>
 <p><code>WorkspaceItemInspector</code> renders the list returned by
 <code>WorkspaceData.inspect_fields()</code>. Supported node kinds are:</p>

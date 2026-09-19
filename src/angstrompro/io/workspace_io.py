@@ -182,7 +182,9 @@ def save_workspace(path: Path, workspace: Workspace) -> list[WorkspaceItem]:
         with h5py.File(temp_path, "w") as archive:
             archive.attrs["type_id"] = _TYPE_ID
             archive.attrs["version"] = _VERSION
-            archive.attrs["owner_id"] = workspace.owner_id
+            # Shared workspaces are application-owned and therefore have no
+            # module owner. HDF5 attributes cannot store Python ``None``.
+            archive.attrs["owner_id"] = workspace.owner_id or ""
             archive.attrs["label"] = workspace.label
             archive.attrs["item_count"] = len(supported)
 

@@ -14,7 +14,11 @@ from .workspace_item import WorkspaceItem
 
 
 class Workspace(QtCore.QObject):
-    """Named container owned by one module instance."""
+    """Named item container.
+
+    Private workspaces belong to one module instance.  Shared workspaces have
+    no owner and are managed at application level by :class:`WorkspaceManager`.
+    """
 
     item_added   = Signal(str)         # item_name
     item_removed = Signal(str)         # item_name
@@ -23,14 +27,24 @@ class Workspace(QtCore.QObject):
 
     def __init__(
         self,
-        owner_id: str,
+        owner_id: str | None,
         label:    str | None = None,
         parent:   QtCore.QObject | None = None,
+        *,
+        workspace_id: str | None = None,
+        is_shared: bool = False,
     ) -> None:
         super().__init__(parent)
         self.owner_id     = owner_id
-        self.workspace_id = f"ws_{owner_id}"
-        self.label        = label or owner_id
+        self.is_shared    = bool(is_shared)
+        if self.is_shared and owner_id is not None:
+            raise ValueError("A shared workspace cannot have a module owner")
+        if workspace_id is None:
+            if owner_id is None:
+                raise ValueError("workspace_id is required when owner_id is None")
+            workspace_id = f"ws_{owner_id}"
+        self.workspace_id = workspace_id
+        self.label        = label or owner_id or workspace_id
         self._items:      dict[str, WorkspaceItem] = {}
         self._item_order: list[str]                = []
 
@@ -101,14 +115,29 @@ class Workspace(QtCore.QObject):
     def get_item(self, name: str) -> WorkspaceItem:
         return self._items[name]
 
+    def get_item_by_id(self, item_id: str) -> WorkspaceItem:
+        item = self.find_item_by_id(item_id)
+        if item is None:
+            raise KeyError(f"No item with id {item_id!r}")
+        return item
+
     def find_item(self, name: str) -> "WorkspaceItem | None":
         return self._items.get(name)
+
+    def find_item_by_id(self, item_id: str) -> "WorkspaceItem | None":
+        return next(
+            (item for item in self._items.values() if item.item_id == item_id),
+            None,
+        )
 
     def get_payload(self, name: str) -> WorkspaceData:
         return self._items[name].payload
 
     def has_item(self, name: str) -> bool:
         return name in self._items
+
+    def has_item_id(self, item_id: str) -> bool:
+        return self.find_item_by_id(item_id) is not None
 
     def list_names(self) -> list[str]:
         return list(self._item_order)

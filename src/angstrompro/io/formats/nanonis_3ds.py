@@ -87,6 +87,45 @@ def _find_fixed_parameter(fixed_parameters: list[str], name: str) -> int | None:
                  if _field_stem(parameter) == target), None)
 
 
+def _find_header_sweep_value(
+    header: dict,
+    name: str,
+    sweep_signal: str,
+) -> float | None:
+    """Return an unambiguous textual sweep bound from a Nanonis header.
+
+    Newer Nanonis files commonly store values under keys such as
+    ``Bias Spectroscopy>Sweep Start (V)``. Prefer a section matching the sweep
+    signal and refuse an ambiguous unrelated match.
+    """
+    target = _field_stem(name)
+    candidates = [
+        (key, value)
+        for key, value in header.items()
+        if _field_stem(key) == target
+    ]
+    if not candidates:
+        return None
+
+    signal_stem = _field_stem(sweep_signal)
+    matching_section = [
+        candidate
+        for candidate in candidates
+        if signal_stem
+        and signal_stem in candidate[0].split(">", 1)[0].casefold()
+    ]
+    if len(matching_section) == 1:
+        candidates = matching_section
+    elif len(candidates) != 1:
+        return None
+
+    try:
+        value = float(candidates[0][1])
+    except (TypeError, ValueError):
+        return None
+    return value if np.isfinite(value) else None
+
+
 def match_field(aliases: list[str], channels: list[str],
                 parameters: list[str], source: str = "channel") -> GridField | None:
     """Resolve exact aliases without losing the field's binary source."""
@@ -219,6 +258,21 @@ def load(path: Path, channel_index: int = 0,
                 sweep_axis_source = "fixed_parameters"
                 sweep_axis_valid = True
             sweep_vals = np.linspace(sweep_start, sweep_end, n_points)
+
+            if not sweep_axis_valid:
+                # A file may contain a complete header but no complete binary
+                # pixel record (for example, an acquisition stopped before its
+                # first pixel). Nanonis still records the configured linear
+                # sweep in textual keys such as
+                # "Bias Spectroscopy>Sweep Start (V)".
+                header_start = _find_header_sweep_value(
+                    header, "sweep start", sweep_signal)
+                header_end = _find_header_sweep_value(
+                    header, "sweep end", sweep_signal)
+                if header_start is not None and header_end is not None:
+                    sweep_vals = np.linspace(header_start, header_end, n_points)
+                    sweep_axis_source = "header_parameters"
+                    sweep_axis_valid = True
 
         sweep_units = sweep_signal.split("(")[-1].rstrip(")").strip() if "(" in sweep_signal else ""
         ax_bias = Axis(values=sweep_vals, label=sweep_signal, units=sweep_units,

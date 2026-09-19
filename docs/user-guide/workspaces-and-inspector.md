@@ -1,8 +1,9 @@
 # Workspaces and the Inspector
 
 Workspaces are the common runtime layer connecting AngstromPro modules. Each
-live module owns its own workspace, shown in the **Workspace** dock. Open or
-hide the dock with **View → Workspace** (`Ctrl+1`).
+live module has a private workspace, shown in the **Workspace** dock, and can
+also attach to one application-level shared workspace. Open or hide the dock
+with **View → Workspace** (`Ctrl+1`).
 
 ### Make room for long item names
 
@@ -13,6 +14,27 @@ dock also prevents a wide workspace list from reducing the module's central
 viewing area. Drag it back to an edge of the module window when you want to dock
 it again, and use `Ctrl+1` at any time to show or hide it. This is particularly
 useful when comparing several datasets with similar long filenames.
+
+## Private and shared workspaces
+
+Use **Workspace → Shared Workspace Manager…** in the Main Workbench to create,
+rename, or delete shared workspaces and configure module attachments. The app
+can own any number of shared workspaces, while each module instance can attach
+to at most one of them. The manager can also save a selected shared workspace
+or import a `.apws` archive as a new shared workspace, including when no module
+is attached.
+
+An attached module continues to show and access its private items. Its
+Workspace dock displays separate **Private workspace** and **Shared** sections,
+with the shared section marked **Active output**. While attached, newly opened,
+imported, simulated, or processed items go to the shared workspace. Operations
+on an existing item, such as removing it or changing its annotations, still
+apply to the workspace that owns that item. Detaching returns new output to the
+private workspace; it does not delete either collection.
+
+Process input slots remain local to each module and can refer to items from
+either visible section. Shared workspaces persist at application level even
+when no module is attached, until they are explicitly deleted.
 
 ## Workspace items
 
@@ -62,7 +84,8 @@ Mouse actions have different purposes:
   from its context menu.
 
 Sending moves the item from the source workspace by default. Preferences can
-keep the source item as well.
+keep the source item as well. Sending is unnecessary when both modules already
+access the same shared workspace.
 
 Use **File → Save…** to save one selected item in its native format. Opening
 that HDF5 file again restores its alias, item identity, and named annotations
@@ -73,10 +96,15 @@ still open with empty alias and annotations. If the item's name or identity is
 already present, AngstromPro keeps the existing item and gives the imported
 one a distinct name or identity.
 
-Use **File → Save Workspace…** to store all supported items from the current
-module workspace in one `.apws` HDF5 archive. If unsupported payload types are
+Use **File → Save Workspace…** to store all supported items in one `.apws` HDF5
+archive. When the module is attached, choose either the shared workspace
+(default) or its private workspace; without an attachment, the private
+workspace is used directly. **File → Open Workspace…** uses the same choice and
+adds the archive items to that workspace. Importing into a shared workspace
+requires confirmation because every attached module sees the changes
+immediately. If unsupported payload types are
 present, AngstromPro lists every skipped item; click **OK** to save the remaining
-items. Use **File → Open Workspace…** to add an archive to the current workspace.
+items.
 Existing items are kept, and imported name conflicts are resolved with numeric
 suffixes such as `_2` and `_3`. Installed plugins can register their workspace
 payload formats. If a required plugin is unavailable when an archive is opened,

@@ -882,19 +882,31 @@ class DataBrowserModule(AGuiModule):
         dlg = SendItemDialog(self._context, exclude_instance_id=self.instance_id,
                              parent=self)
         sent = False
+        already_shared = False
         if dlg.exec() and dlg.selected_module:
             target = dlg.selected_module
-            self._context.workspace_manager.transfer_item(
-                src_workspace_id=self.workspace.workspace_id,
-                dst_workspace_id=target.workspace.workspace_id,
-                item_name=item_name,
-            )
-            sent = True
+            if target.workspace.workspace_id == self.workspace.workspace_id:
+                # Both modules already see the same shared workspace.  The
+                # newly loaded item is immediately available to the target.
+                sent = True
+                already_shared = True
+            else:
+                self._context.workspace_manager.transfer_item(
+                    src_workspace_id=self.workspace.workspace_id,
+                    dst_workspace_id=target.workspace.workspace_id,
+                    item_name=item_name,
+                )
+                sent = True
         # transfer_item COPIES.  Successful send follows the app-level
         # delete_after_send preference (same rule as every module); a
         # cancelled send always drops the temporary courier copy.
-        if sent:
+        if sent and not already_shared:
             self._after_send(item_name)
+        elif already_shared:
+            self.statusBar().showMessage(
+                "The target module already accesses this shared workspace.",
+                4000,
+            )
         elif self.workspace.has_item(item_name):
             self.workspace.remove_item(item_name)
 

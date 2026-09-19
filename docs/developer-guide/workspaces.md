@@ -9,12 +9,18 @@ or inspection mechanisms.
 
 ```text
 WorkspaceManager
-└── Workspace                         one per live module instance
-    └── WorkspaceItem                 runtime identity and annotations
+├── private Workspace                 one per live module instance
+│   └── WorkspaceItem                 runtime identity and annotations
+└── shared Workspace                  zero or more, application-owned
+    └── WorkspaceItem
         └── payload: WorkspaceData     arbitrary extensible data type
 ```
 
 `WorkspaceManager` registers live workspaces and forwards lifecycle signals.
+It also records the optional shared workspace attached to each module. A module
+can attach to at most one shared workspace, while one shared workspace can be
+used by any number of modules. Shared workspaces contain items only; process
+slots and viewer presentation state remain module-local.
 `Workspace` owns an ordered collection of items and emits add, remove, rename,
 and change signals. `WorkspaceItem` wraps a payload with an item ID, optional
 alias, source path, and named annotations.
@@ -61,14 +67,19 @@ Add a payload through the owning workspace:
 item = self.workspace.add_item(payload=result)
 ```
 
-The workspace resolves duplicate display names and returns the new
-`WorkspaceItem`. Cross-module sending creates a destination item through
-`WorkspaceManager`. The application preference determines whether the source
-row is then removed, producing move-like behavior, or retained.
+`self.workspace` is the module's current output workspace. It refers to the
+private workspace normally and to the attached shared workspace while an
+attachment is active. `self.private_workspace` remains available throughout,
+and `accessible_workspaces()` returns both collections when attached.
 
-Treat workspace payloads as live runtime objects. Consumers that require
-independent mutation should make an explicit copy rather than assuming that a
-send operation creates an independent payload.
+The workspace resolves duplicate display names and returns the new
+`WorkspaceItem`. Cross-module sending creates an independent destination item
+through `WorkspaceManager`. The application preference determines whether the
+source row is then removed, producing move-like behavior, or retained.
+
+Items in a shared workspace are intentionally the same live runtime objects for
+every attached module. Mutations to an existing shared item should notify its
+owning workspace so all attached views can refresh.
 
 ## Generic inspection
 

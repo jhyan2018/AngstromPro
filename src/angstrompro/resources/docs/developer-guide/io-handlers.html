@@ -127,7 +127,10 @@ The reader derives the sweep axis from a completed record before applying the
 display-axis flip, discards a partial trailing record, and zero-fills wholly
 missing pixels so interrupted grids remain plottable. Completion counts belong
 in the UDS metadata so callers can distinguish partial acquisition from real
-zero-valued measurements.</p>
+zero-valued measurements. If no complete record exists, a linear sweep may be
+reconstructed from unambiguous textual header keys such as
+<code>Bias Spectroscopy&gt;Sweep Start (V)</code> and <code>Sweep End (V)</code>; record this fallback as
+<code>sweep_axis_source="header_parameters"</code>.</p>
 <h2 id="persistence-rules">Persistence rules</h2>
 <ul>
 <li>Preserve axes, metadata, annotations, and processing records when the format

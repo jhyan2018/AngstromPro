@@ -97,6 +97,27 @@ class MainWorkbench(AGuiModule):
     # AGuiModule contract
     # ------------------------------------------------------------------
 
+    def _build_edit_menu(self) -> None:
+        pass
+
+    def _build_view_menu(self) -> None:
+        super()._build_view_menu()
+        menu = self.menuBar().addMenu("Workspace")
+        action = menu.addAction("Shared Workspace Manager…")
+        action.triggered.connect(self._show_shared_workspace_manager)
+
+    def _show_shared_workspace_manager(self) -> None:
+        from angstrompro.gui.dialogs.shared_workspace_manager_dialog import (
+            SharedWorkspaceManagerDialog,
+        )
+        dialog = getattr(self, "_shared_workspace_manager_dialog", None)
+        if dialog is None:
+            dialog = SharedWorkspaceManagerDialog(self._context, self)
+            self._shared_workspace_manager_dialog = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
     def _on_preferences(self) -> None:
         cfg = self._context.config
 

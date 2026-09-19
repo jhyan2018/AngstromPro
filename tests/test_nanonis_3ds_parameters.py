@@ -24,7 +24,8 @@ from angstrompro.io.channel_manager import (
     ChannelConfig, ChannelManager, FormatChannelConfig,
 )
 from angstrompro.io.formats.nanonis_3ds import (
-    GridField, _find_sweep_channel, field_names, load, match_field, parse_header,
+    GridField, _find_header_sweep_value, _find_sweep_channel,
+    field_names, load, match_field, parse_header,
 )
 from angstrompro.utils.qt_compat import QtWidgets
 
@@ -186,6 +187,57 @@ def test_channel_load_rejects_file_without_a_complete_pixel(
 
     with pytest.raises(ValueError, match="Cannot determine the sweep axis"):
         load(path, fields=[GridField("channel", 0)])
+
+
+def test_header_only_grid_uses_textual_sweep_bounds_and_renders_thumbnail(
+        grid_file: Path, tmp_path: Path) -> None:
+    path = tmp_path / "header_bounds_only.3ds"
+    content = grid_file.read_bytes().replace(
+        b":HEADER_END:\r\n",
+        b'Bias Spectroscopy>Sweep Start (V)="-1.6E-3"\r\n'
+        b'Bias Spectroscopy>Sweep End (V)="-1.4E-3"\r\n'
+        b":HEADER_END:\r\n",
+    )
+    path.write_bytes(content)
+    _header, data_offset = parse_header(path)
+    path.write_bytes(path.read_bytes()[:data_offset])
+
+    channel = load(path, fields=[GridField("channel", 0)])
+
+    np.testing.assert_allclose(
+        channel.axes[0].values,
+        np.linspace(-1.6e-3, -1.4e-3, 21),
+    )
+    assert np.count_nonzero(channel.data) == 0
+    assert channel.info["incomplete_acquisition"] is True
+    assert channel.info["_complete_pixels"] == 0
+    assert channel.info["sweep_axis_source"] == "header_parameters"
+
+    thumbnail_cache = tmp_path / "thumbnail-cache"
+    thumbnail_cache.mkdir()
+    rendered = render_file_task(
+        str(path),
+        str(thumbnail_cache),
+        channel_cfg=[{
+            "display_name": "Current",
+            "aliases": ["Current (A)"],
+            "load_by_default": True,
+            "source": "channel",
+        }],
+    )
+    assert rendered["thumbs"][0]["status"] == "ok"
+    assert Path(rendered["thumbs"][0]["png_path"]).exists()
+
+
+def test_textual_sweep_bound_prefers_matching_signal_section() -> None:
+    header = {
+        "bias spectroscopy>sweep start (v)": "-0.002",
+        "gate spectroscopy>sweep start (v)": "-1.0",
+    }
+    assert _find_header_sweep_value(
+        header, "sweep start", "Bias (V)") == pytest.approx(-0.002)
+    assert _find_header_sweep_value(
+        header, "sweep start", "Unknown (V)") is None
 
 
 def test_sweep_parameter_names_accept_trailing_units(

@@ -335,9 +335,9 @@ class ImageStackViewer(AGuiModule):
         sync = self._config.get("sync", {})
 
         if msg == "SELECT_USD_VARIABLE":
-            name = self._selected_item_name()
-            if name is not None:
-                self.load_item(self.workspace.get_item(name))
+            item = self._selected_workspace_item()
+            if item is not None:
+                self.load_item(item)
 
         elif msg == "SYNC_LAYER":
             if sync.get("layer", False):
@@ -388,12 +388,11 @@ class ImageStackViewer(AGuiModule):
             self._load_aux_from_workspace()
 
     def _load_aux_from_workspace(self) -> None:
-        name = self._selected_item_name()
-        if name is None:
+        item = self._selected_workspace_item()
+        if item is None:
             QtWidgets.QMessageBox.information(
                 self, "No selection", "Select a workspace item first.")
             return
-        item = self.workspace.get_item(name)
         if not self._check_ndim3(item):
             return
         self._aux_item = item
@@ -806,7 +805,7 @@ class ImageStackViewer(AGuiModule):
                 "No points picked in main panel. Right-click on canvas to pick points first.")
             return
         self._main_item.annotations["bragg_peaks"] = PointSetData(coords=coords)
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Bragg peaks set: {len(coords)} points on {self._main_item.name}", 3000)
 
@@ -826,11 +825,12 @@ class ImageStackViewer(AGuiModule):
 
         # Resolve target: strip _fft suffix to find the real-space item
         real_name = fft_source_name(self._aux_item.payload)
-        target = (self.workspace.find_item(real_name)
+        target = (self.find_accessible_item(
+                    real_name, preferred_item=self._aux_item)
                   if real_name else None) or self._aux_item
 
         target.annotations["bragg_peaks"] = PointSetData(coords=coords)
-        self.workspace.notify_changed(target.name)
+        self.notify_workspace_item_changed(target)
         self.statusBar().showMessage(
             f"Bragg peaks set: {len(coords)} points on {target.name}", 3000)
 
@@ -849,12 +849,13 @@ class ImageStackViewer(AGuiModule):
             return
         # Always store on the real-space item (strip _fft if main item is FFT)
         real_name = fft_source_name(self._main_item.payload)
-        target = (self.workspace.find_item(real_name)
+        target = (self.find_accessible_item(
+                    real_name, preferred_item=self._main_item)
                   if real_name else self._main_item)
         if target is None:
             target = self._main_item
         target.annotations["filter_points"] = PointSetData(coords=coords)
-        self.workspace.notify_changed(target.name)
+        self.notify_workspace_item_changed(target)
         self.statusBar().showMessage(
             f"Filter points set: {len(coords)} points on '{target.name}'", 3000)
 
@@ -872,7 +873,7 @@ class ImageStackViewer(AGuiModule):
                 "No points picked in main panel. Right-click on canvas to pick points first.")
             return
         self._main_item.annotations["register_points"] = PointSetData(coords=coords)
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Register src points set: {len(coords)} points on '{self._main_item.name}'", 3000)
 
@@ -890,7 +891,7 @@ class ImageStackViewer(AGuiModule):
                 "No points picked in aux panel. Right-click on canvas to pick points first.")
             return
         self._main_item.annotations["register_reference_points"] = PointSetData(coords=coords)
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Register ref points set: {len(coords)} points on '{self._main_item.name}'", 3000)
 
@@ -949,7 +950,11 @@ class ImageStackViewer(AGuiModule):
             return
 
         self._main_item.annotations[role] = PointSetData(coords=coords)
-        self.workspace.notify_changed(self._main_item.name)
+        notifier = getattr(self, "notify_workspace_item_changed", None)
+        if callable(notifier):
+            notifier(self._main_item)
+        else:
+            self.workspace.notify_changed(self._main_item.name)
         self.statusBar().showMessage(
             f"{source_label} points set: {len(coords)} points on "
             f"'{self._main_item.name}'",
@@ -970,7 +975,7 @@ class ImageStackViewer(AGuiModule):
                 "Pick exactly 2 points on the main canvas first: [0] centre, [1] edge.")
             return
         self._main_item.annotations["circle_cut_points"] = PointSetData(coords=coords[:2])
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Circle cut points set on '{self._main_item.name}'", 3000)
 
@@ -981,12 +986,11 @@ class ImageStackViewer(AGuiModule):
         if tree_item is None:
             return
         data = tree_item.data(0, _UserRole)
-        if not isinstance(data, tuple):
-            # Top-level item — delegate to base
+        kind, workspace, ws_item, role = self._workspace_tree_context(data)
+        if kind != "annotation" or workspace is None or ws_item is None:
             super()._on_ws_context_menu(pos)
             return
 
-        item_name, role = data
         menu = QtWidgets.QMenu(self)
         act_clear = menu.addAction(f"Clear '{role}'")
 
@@ -996,11 +1000,9 @@ class ImageStackViewer(AGuiModule):
 
         act = menu.exec(self._ws_list.viewport().mapToGlobal(pos))
         if act == act_clear:
-            ws_item = self.workspace.get_item(item_name)
             ws_item.annotations.pop(role, None)
-            self.workspace.notify_changed(item_name)
+            workspace.notify_changed(ws_item.name)
         elif act_restore is not None and act == act_restore:
-            ws_item = self.workspace.get_item(item_name)
             self._restore_bragg_peaks_to_aux(ws_item)
 
     def _restore_bragg_peaks_to_aux(self, ws_item: WorkspaceItem) -> None:
@@ -1032,7 +1034,7 @@ class ImageStackViewer(AGuiModule):
             row_min=min(rows), col_min=min(cols),
             row_max=max(rows), col_max=max(cols),
         )
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Crop region set on {self._main_item.name}", 3000)
 
@@ -1050,7 +1052,7 @@ class ImageStackViewer(AGuiModule):
         self._main_item.annotations["mask_center"] = PointSetData(
             coords=np.array([[coords[0][0], coords[0][1]]], dtype=float)
         )
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Mask center set on {self._main_item.name}", 3000)
 
@@ -1071,7 +1073,7 @@ class ImageStackViewer(AGuiModule):
         # Store on the real-space item (main panel), not on the FFT item
         self._main_item.annotations["lockin_peak"] = PointSetData(
             coords=np.array([[coords[0][0], coords[0][1]]], dtype=float))
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Lock-in peak set on {self._main_item.name} "
             f"(col={int(coords[0][1])}, row={int(coords[0][0])})", 3000)
@@ -1094,7 +1096,7 @@ class ImageStackViewer(AGuiModule):
             row_min=min(rows), col_min=min(cols),
             row_max=max(rows), col_max=max(cols),
         )
-        self.workspace.notify_changed(self._aux_item.name)
+        self.notify_workspace_item_changed(self._aux_item)
         self.statusBar().showMessage(
             f"Crop region set on {self._aux_item.name}", 3000)
 
@@ -1111,7 +1113,7 @@ class ImageStackViewer(AGuiModule):
         p1 = (float(coords[0][0]), float(coords[0][1]))
         p2 = (float(coords[1][0]), float(coords[1][1]))
         self._main_item.annotations["line_cut"] = LineData(p1=p1, p2=p2)
-        self.workspace.notify_changed(self._main_item.name)
+        self.notify_workspace_item_changed(self._main_item)
         self.statusBar().showMessage(
             f"Line profile set on {self._main_item.name}", 3000)
 
@@ -1130,14 +1132,14 @@ class ImageStackViewer(AGuiModule):
         p1 = (float(coords[0][0]), float(coords[0][1]))
         p2 = (float(coords[1][0]), float(coords[1][1]))
         self._aux_item.annotations["line_cut"] = LineData(p1=p1, p2=p2)
-        self.workspace.notify_changed(self._aux_item.name)
+        self.notify_workspace_item_changed(self._aux_item)
         self.statusBar().showMessage(
             f"Line profile set on {self._aux_item.name}", 3000)
 
     def _clear_annotation(self, role: str) -> None:
         if self._main_item and role in self._main_item.annotations:
             del self._main_item.annotations[role]
-            self.workspace.notify_changed(self._main_item.name)
+            self.notify_workspace_item_changed(self._main_item)
             self.statusBar().showMessage(
                 f"Cleared '{role}' on {self._main_item.name}", 3000)
 
