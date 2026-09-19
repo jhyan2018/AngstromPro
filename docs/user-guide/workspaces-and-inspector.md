@@ -79,7 +79,10 @@ Mouse actions have different purposes:
 - Use **Remove** to remove it from the current runtime workspace.
 - Right-click an item and choose **Set alias…** to give it a shorter display
   label. The alias does not change the item's real workspace name or processing
-  identity. Use **Clear alias** to show the real name again.
+  identity. Automatically named process outputs reuse this alias and append
+  their normal result suffix. If you set a new alias on an output, later
+  outputs continue from that shorter alias. Use **Clear alias** to show the real
+  name again.
 - Expand an item to see its named annotations; an annotation can be cleared
   from its context menu.
 

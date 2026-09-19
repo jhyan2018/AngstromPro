@@ -1423,8 +1423,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             group_id     = group_id,
         )
         handle.error.connect(self._on_process_error)
-        handle.result.connect(on_result if on_result is not None
-                              else self._on_process_result_default)
+        result_callback = (on_result if on_result is not None
+                           else self._on_process_result_default)
+        captured_inputs = list(input_items)
+        handle.result.connect(
+            lambda task_id, result, callback=result_callback,
+                   inputs=captured_inputs:
+            self._dispatch_process_result(
+                task_id, result, callback, inputs))
         if on_error is not None:
             handle.error.connect(on_error)
 
@@ -1448,6 +1454,70 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             lambda _tid, l=label: sb.showMessage(f"{l}: cancelled.", 5000), _Q)
 
         return handle
+
+    @staticmethod
+    def _derived_process_alias(
+            primary_item: WorkspaceItem | None, output_name: str) -> str:
+        """Build an output alias from a primary input's explicit alias.
+
+        Only exact-name and delimiter-prefixed suffix relationships are
+        accepted. This avoids inventing misleading aliases for outputs whose
+        names are unrelated to the primary input.
+        """
+        if primary_item is None or not primary_item.alias:
+            return ""
+        input_name = primary_item.name
+        if output_name == input_name:
+            return primary_item.alias
+        if not input_name or not output_name.startswith(input_name):
+            return ""
+        suffix = output_name[len(input_name):]
+        if not suffix.startswith(("_", "-", " ", ".", "[", "(")):
+            return ""
+        return primary_item.alias + suffix
+
+    def _dispatch_process_result(
+            self, task_id: str, result: Any, callback: Callable,
+            input_items: list[WorkspaceItem]) -> None:
+        """Run the result callback, then alias newly-added result items."""
+        before_ids = {
+            item.item_id
+            for workspace in self.accessible_workspaces()
+            for item in workspace.list_items()
+        }
+        callback(task_id, result)
+        added_items = [
+            item
+            for workspace in self.accessible_workspaces()
+            for item in workspace.list_items()
+            if item.item_id not in before_ids
+        ]
+        self._apply_process_result_aliases(input_items, result, added_items)
+
+    def _apply_process_result_aliases(
+            self, input_items: list[WorkspaceItem], result: Any,
+            added_items: list[WorkspaceItem]) -> None:
+        primary_item = next(
+            (item for item in input_items if item is not None), None)
+        if primary_item is None or not primary_item.alias:
+            return
+
+        from angstrompro.core.data.base import WorkspaceData
+        outputs = result if isinstance(result, list) else [result]
+        output_payload_ids = {
+            id(output) for output in outputs
+            if isinstance(output, WorkspaceData)
+        }
+        for item in added_items:
+            if item.alias or id(item.payload) not in output_payload_ids:
+                continue
+            alias = AGuiModule._derived_process_alias(primary_item, item.name)
+            if not alias:
+                continue
+            item.alias = alias
+            owner = self.workspace_containing_item(item)
+            if owner is not None:
+                owner.notify_changed(item.name)
 
     def _on_process_result_default(self, _task_id: str, result: Any) -> None:
         """
