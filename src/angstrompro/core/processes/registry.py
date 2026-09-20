@@ -62,6 +62,7 @@ from typing import Any
 
 from .param_schema import ProcessSchema
 from .process_entry import ProcessEntry
+from .process_result import ProcessResult, primary_process_data
 
 log = logging.getLogger(__name__)
 
@@ -158,8 +159,13 @@ def _record_history(
         propagate_uds_source,
     )
     def iter_workspace_data(value):
-        if isinstance(value, WorkspaceData):
+        if isinstance(value, ProcessResult):
+            yield from iter_workspace_data(value.data)
+        elif isinstance(value, WorkspaceData):
             yield value
+        elif isinstance(value, dict):
+            for child in value.values():
+                yield from iter_workspace_data(child)
         elif isinstance(value, (list, tuple)):
             for child in value:
                 yield from iter_workspace_data(child)
@@ -412,18 +418,20 @@ class ProcessRegistry:
 
         def _task_func():
             result  = None
+            current_data = None
             results = []
             for entry, step_inputs, full_params, step_ann in resolved:
                 if step_inputs:
                     effective_inputs = {
-                        k: (result if v == _PREV else v)
+                        k: (current_data if v == _PREV else v)
                         for k, v in step_inputs.items()
                     }
                 else:
-                    effective_inputs = {"data": result}
+                    effective_inputs = {"data": current_data}
                 result = entry.func(effective_inputs, full_params, annotations=step_ann)
                 result = _record_history(result, entry.name, full_params,
                                          effective_inputs, step_ann)
+                current_data = primary_process_data(result, current_data)
                 results.append(result)
             return results if return_all else result
 

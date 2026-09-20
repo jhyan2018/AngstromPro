@@ -52,14 +52,12 @@ class SharedWorkspaceManagerDialog(QtWidgets.QDialog):
         workspace_buttons.addWidget(self._rename_button)
         workspace_buttons.addWidget(self._delete_button)
         workspace_layout.addLayout(workspace_buttons)
-        archive_buttons = QtWidgets.QHBoxLayout()
         self._import_button = QtWidgets.QPushButton(
             "Import as New Shared Workspace…")
         self._save_button = QtWidgets.QPushButton(
             "Save Selected Shared Workspace…")
-        archive_buttons.addWidget(self._import_button)
-        archive_buttons.addWidget(self._save_button)
-        workspace_layout.addLayout(archive_buttons)
+        workspace_layout.addWidget(self._import_button)
+        workspace_layout.addWidget(self._save_button)
         splitter.addWidget(workspace_box)
 
         module_box = QtWidgets.QGroupBox("Module attachments")

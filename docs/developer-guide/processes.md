@@ -81,5 +81,13 @@ supported results. A process may return one workspace-data object or a nested
 list/tuple of workspace-data objects; source propagation and the new history
 record are applied to every returned object.
 
+Processes that need to produce annotations or scalar quality measurements may
+return `ProcessResult(data=..., annotations=..., metrics=...)`. Existing return
+values remain fully supported and are normalized as data-only results by
+workflow-aware callers. Annotation keys are workspace roles such as
+`"bragg_peaks"`; metrics are named scalar values. Declare these optional ports
+with `AnnotationOutputSpec` and `MetricOutputSpec` so workflow editors can
+discover them before execution.
+
 Use `register_simulation` for generators. Simulations may have no inputs and
 appear under **Simulate**, not **Process**.

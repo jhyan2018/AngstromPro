@@ -6,10 +6,15 @@ from types import SimpleNamespace
 from typing import ClassVar
 
 from angstrompro.core.data.base import WorkspaceData
+from angstrompro.core.modules.a_module_manager import AModuleManager
 from angstrompro.core.modules.module_mixin import ModuleMixin
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.workspaces.workspace_manager import WorkspaceManager
+from angstrompro.gui.dialogs.shared_workspace_manager_dialog import (
+    SharedWorkspaceManagerDialog,
+)
 from angstrompro.io.workspace_io import load_workspace, save_workspace
+from angstrompro.utils.qt_compat import QtWidgets
 
 
 @dataclass
@@ -156,3 +161,21 @@ def test_attached_module_archive_target_defaults_to_shared(monkeypatch) -> None:
     )
     assert AGuiModule._choose_workspace_archive_target(
         module, "Save") is private
+
+
+def test_shared_workspace_archive_actions_use_separate_rows() -> None:
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    context = SimpleNamespace(
+        workspace_manager=WorkspaceManager(),
+        module_manager=AModuleManager(),
+    )
+    dialog = SharedWorkspaceManagerDialog(context)
+    workspace_layout = dialog._import_button.parentWidget().layout()
+
+    import_row = workspace_layout.indexOf(dialog._import_button)
+    save_row = workspace_layout.indexOf(dialog._save_button)
+
+    assert import_row >= 0
+    assert save_row == import_row + 1
+    dialog.close()
+    assert app is not None

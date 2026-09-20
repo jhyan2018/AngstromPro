@@ -1486,6 +1486,15 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             for item in workspace.list_items()
         }
         callback(task_id, result)
+        from angstrompro.core.processes import normalize_process_result
+        structured = normalize_process_result(result)
+        primary_item = next(
+            (item for item in input_items if item is not None), None)
+        if primary_item is not None and structured.annotations:
+            primary_item.annotations.update(structured.annotations)
+            owner = self.workspace_containing_item(primary_item)
+            if owner is not None:
+                owner.notify_changed(primary_item.name)
         added_items = [
             item
             for workspace in self.accessible_workspaces()
@@ -1503,7 +1512,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             return
 
         from angstrompro.core.data.base import WorkspaceData
-        outputs = result if isinstance(result, list) else [result]
+        from angstrompro.core.processes import iter_process_data
+        outputs = list(iter_process_data(result))
         output_payload_ids = {
             id(output) for output in outputs
             if isinstance(output, WorkspaceData)
@@ -1531,7 +1541,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         should pass on_result= to submit_process() instead of overriding this.
         """
         from angstrompro.core.data.base import WorkspaceData
-        items = result if isinstance(result, list) else [result]
+        from angstrompro.core.processes import iter_process_data
+        items = list(iter_process_data(result))
         for item in items:
             if not isinstance(item, WorkspaceData):
                 log.warning(

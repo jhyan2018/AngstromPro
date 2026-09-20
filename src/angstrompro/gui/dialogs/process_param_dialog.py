@@ -54,7 +54,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
         self._workspace_items = workspace_items or []
         self._widgets:      dict[str, QtWidgets.QWidget] = {}
         self._input_combos: dict[str, QtWidgets.QComboBox] = {}
-        self._param_specs = _resolve_parameter_specs(
+        self._param_specs = resolve_parameter_specs(
             entry, self._input_items)
 
         self.setWindowTitle(entry.label)
@@ -189,7 +189,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
             form.setVerticalSpacing(6)
 
             for spec in self._param_specs:
-                widget = _make_widget(spec)
+                widget = make_parameter_widget(spec)
                 self._widgets[spec.name] = widget
 
                 row_label_text = spec.label or spec.name
@@ -258,7 +258,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
             value  = values.get(spec.name, spec.default)
             if widget is None:
                 continue
-            _set_widget_value(widget, spec, value)
+            set_parameter_widget_value(widget, spec, value)
 
     # ------------------------------------------------------------------
     # Result
@@ -281,7 +281,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
         for spec in self._param_specs:
             widget = self._widgets.get(spec.name)
             if widget is not None:
-                result[spec.name] = _get_widget_value(widget, spec)
+                result[spec.name] = parameter_widget_value(widget, spec)
         return result
 
     # ------------------------------------------------------------------
@@ -299,7 +299,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
 # Widget factory
 # ---------------------------------------------------------------------------
 
-def _make_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
+def make_parameter_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
     """Create the appropriate Qt widget for a ParameterSpec."""
 
     if spec.choices:
@@ -343,7 +343,7 @@ def _make_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
     return QtWidgets.QLineEdit()
 
 
-def _set_widget_value(
+def set_parameter_widget_value(
     widget: QtWidgets.QWidget,
     spec:   "ParameterSpec",
     value:  Any,
@@ -377,7 +377,10 @@ def _set_widget_value(
     widget.setText(str(value))
 
 
-def _get_widget_value(widget: QtWidgets.QWidget, spec: "ParameterSpec") -> Any:
+def parameter_widget_value(
+    widget: QtWidgets.QWidget,
+    spec: "ParameterSpec",
+) -> Any:
     if spec.choices:
         return widget.currentData()
 
@@ -401,7 +404,7 @@ def _get_widget_value(widget: QtWidgets.QWidget, spec: "ParameterSpec") -> Any:
 # Helper
 # ---------------------------------------------------------------------------
 
-def _resolve_parameter_specs(entry, input_items: list) -> list:
+def resolve_parameter_specs(entry, input_items: list) -> list:
     """Return per-dialog specs with input-axis-derived bounds and defaults.
 
     The registered schema remains immutable. This matters because one process

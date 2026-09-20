@@ -4,7 +4,7 @@ Created on Sat Jun 28 2026
 
 @author: jiahaoYan
 
-ProcessBrowserDialog — browse all registered processes by category.
+ProcessBrowserDialog — browse or select registered processes by category.
 
 Shows a filterable tree of every @register_process entry grouped by
 category. Selecting an entry populates a detail panel with its description,
@@ -14,6 +14,16 @@ Usage
 -----
     dlg = ProcessBrowserDialog(context, parent=self)
     dlg.exec()
+
+    picker = ProcessBrowserDialog(
+        context,
+        parent=self,
+        selection_mode=True,
+        accept_label="Add process",
+        title="Add Registered Process",
+    )
+    if picker.exec():
+        entry = picker.selected_entry()
 """
 
 from __future__ import annotations
@@ -32,11 +42,24 @@ class ProcessBrowserDialog(PersistentDialog):
 
     _settings_key = "ProcessBrowserDialog"
 
-    def __init__(self, context: "AppContext", parent=None) -> None:
+    def __init__(
+        self,
+        context: "AppContext",
+        parent=None,
+        *,
+        selection_mode: bool = False,
+        accept_label: str = "Select",
+        title: str | None = None,
+    ) -> None:
         super().__init__(parent, default_size=(820, 560))
         self._context = context
-        self.setWindowTitle("Process Browser")
+        self._selection_mode = bool(selection_mode)
+        self._selected_process_name: str | None = None
+        self._select_button = None
+        self.setWindowTitle(title or "Process Browser")
         self._setup_ui()
+        if self._selection_mode and self._select_button is not None:
+            self._select_button.setText(accept_label)
         self._populate()
 
     # ------------------------------------------------------------------
@@ -81,6 +104,8 @@ class ProcessBrowserDialog(PersistentDialog):
         self._tree.setColumnCount(1)
         self._tree.setMinimumWidth(220)
         self._tree.currentItemChanged.connect(self._on_selection_changed)
+        if self._selection_mode:
+            self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         splitter.addWidget(self._tree)
 
         # right: detail panel inside a scroll area
@@ -160,17 +185,26 @@ class ProcessBrowserDialog(PersistentDialog):
         splitter.setSizes([240, 560])
         root.addWidget(splitter, 1)
 
-        # --- close button + hint on same row ---
+        # --- action buttons + hint on same row ---
         bottom_row = QtWidgets.QHBoxLayout()
         self._hint = QtWidgets.QLabel("")
         from angstrompro.gui.appearance.typography import SECONDARY, set_typography_role
         set_typography_role(self._hint, SECONDARY)
         bottom_row.addWidget(self._hint)
         bottom_row.addStretch()
-        btn_box = QtWidgets.QDialogButtonBox(
-            QtWidgets.QDialogButtonBox.StandardButton.Close)
-        btn_box.rejected.connect(self.reject)
-        bottom_row.addWidget(btn_box)
+        if self._selection_mode:
+            self._button_box = QtWidgets.QDialogButtonBox(
+                QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+            self._select_button = self._button_box.addButton(
+                "Select", QtWidgets.QDialogButtonBox.ButtonRole.AcceptRole)
+            self._select_button.setEnabled(False)
+            self._button_box.accepted.connect(self._accept_selection)
+            self._button_box.rejected.connect(self.reject)
+        else:
+            self._button_box = QtWidgets.QDialogButtonBox(
+                QtWidgets.QDialogButtonBox.StandardButton.Close)
+            self._button_box.rejected.connect(self.reject)
+        bottom_row.addWidget(self._button_box)
         root.addLayout(bottom_row)
 
     # ------------------------------------------------------------------
@@ -238,6 +272,7 @@ class ProcessBrowserDialog(PersistentDialog):
 
     def _on_selection_changed(self, current, _previous) -> None:
         if current is None:
+            self._set_selected_process(None)
             self._clear_detail()
             return
         _role = (QtCore.Qt.ItemDataRole.UserRole
@@ -245,10 +280,38 @@ class ProcessBrowserDialog(PersistentDialog):
                  else QtCore.Qt.UserRole)
         name = current.data(0, _role)
         if not name:
+            self._set_selected_process(None)
             self._clear_detail()
             return
+        self._set_selected_process(str(name))
         entry = self._context.processes.get(name)
         self._show_entry(entry)
+
+    def _set_selected_process(self, name: str | None) -> None:
+        self._selected_process_name = name
+        if self._select_button is not None:
+            self._select_button.setEnabled(name is not None)
+
+    def selected_entry(self) -> "ProcessEntry | None":
+        """Return the selected process entry, or ``None`` for a category/no selection."""
+        if self._selected_process_name is None:
+            return None
+        try:
+            return self._context.processes.get(self._selected_process_name)
+        except KeyError:
+            return None
+
+    def _accept_selection(self) -> None:
+        if self.selected_entry() is not None:
+            self.accept()
+
+    def _on_item_double_clicked(self, item, _column: int) -> None:
+        role = (QtCore.Qt.ItemDataRole.UserRole
+                if hasattr(QtCore.Qt.ItemDataRole, "UserRole")
+                else QtCore.Qt.UserRole)
+        if item.data(0, role):
+            self._tree.setCurrentItem(item)
+            self._accept_selection()
 
     def _clear_detail(self) -> None:
         self._lbl_label.setText("—")

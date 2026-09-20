@@ -18,6 +18,8 @@ Folder layout under the user data folder
   cache/
   colormaps/
     *.cmap.json         ← User-defined anchor-based colormaps
+  workflows/
+    *.apworkflow.json   ← Saved Workflow Studio definitions
   logs/
 
 Public API

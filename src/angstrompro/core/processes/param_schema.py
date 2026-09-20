@@ -31,6 +31,32 @@ class AnnotationSpec:
 
 
 @dataclass
+class AnnotationOutputSpec:
+    """Declares an annotation role produced for the primary process input."""
+    role:        str
+    type_id:     str
+    label:       str = ""
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.label:
+            self.label = self.role.replace("_", " ").title()
+
+
+@dataclass
+class MetricOutputSpec:
+    """Declares a named scalar measurement produced by a process."""
+    name:        str
+    label:       str = ""
+    units:       str = ""
+    description: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.label:
+            self.label = self.name.replace("_", " ").title()
+
+
+@dataclass
 class InputSpec:
     """Describes one named data input of a process function."""
     name:        str
@@ -109,11 +135,15 @@ class ProcessSchema:
         outputs:     list[OutputSpec]     | None = None,
         params:      list[ParameterSpec]  | None = None,
         annotations: list[AnnotationSpec] | None = None,
+        annotation_outputs: list[AnnotationOutputSpec] | None = None,
+        metric_outputs: list[MetricOutputSpec] | None = None,
     ) -> None:
         self._inputs:      list[InputSpec]      = inputs or []
         self._outputs:     list[OutputSpec]     = outputs or []
         self._params:      list[ParameterSpec]  = params or []
         self._annotations: list[AnnotationSpec] = annotations or []
+        self._annotation_outputs = annotation_outputs or []
+        self._metric_outputs = metric_outputs or []
         self._params_by_name = {p.name: p for p in self._params}
 
     @property
@@ -138,6 +168,14 @@ class ProcessSchema:
     @property
     def annotations(self) -> list[AnnotationSpec]:
         return self._annotations
+
+    @property
+    def annotation_outputs(self) -> list[AnnotationOutputSpec]:
+        return self._annotation_outputs
+
+    @property
+    def metric_outputs(self) -> list[MetricOutputSpec]:
+        return self._metric_outputs
 
     def input_type_ids(self) -> list[str]:
         """Return the type_id of every input port."""
