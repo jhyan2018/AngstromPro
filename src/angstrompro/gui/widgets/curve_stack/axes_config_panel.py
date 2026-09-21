@@ -17,6 +17,7 @@ from the active axes whenever the target changes.
 from __future__ import annotations
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
+from .si_scale import DISPLAY_FACTORS, factor_prefix, format_factor
 
 
 class AxesConfigPanel(QtWidgets.QWidget):
@@ -64,6 +65,7 @@ class AxesConfigPanel(QtWidgets.QWidget):
                     and self._context.y_side == "right")
         left_only = [
             self._title, self._xlabel,
+            self._xfactor,
             self._xmin, self._xmax,
             self._xscale,
             self._grid, self._grid_which,
@@ -99,6 +101,17 @@ class AxesConfigPanel(QtWidgets.QWidget):
             lambda: self._emit_text("xlabel", self._xlabel))
         self._ylabel.editingFinished.connect(
             lambda: self._emit_text("ylabel", self._ylabel))
+
+        # Display factors — discrete engineering powers.  The parenthesized
+        # prefix is the unit produced after multiplying raw SI values.
+        self._xfactor = self._factor_combo()
+        self._yfactor = self._factor_combo()
+        form.addRow("X factor:", self._xfactor)
+        form.addRow("Y factor:", self._yfactor)
+        self._xfactor.currentIndexChanged.connect(
+            lambda _index: self._emit_factor("x_factor", self._xfactor))
+        self._yfactor.currentIndexChanged.connect(
+            lambda _index: self._emit_factor("y_factor", self._yfactor))
 
         # limits — each bound (min/max) on its own row
         self._xmin = QtWidgets.QLineEdit(); self._xmin.setPlaceholderText("auto")
@@ -158,6 +171,15 @@ class AxesConfigPanel(QtWidgets.QWidget):
         layout.addStretch()   # dock: keep form at the top
         self.setMinimumWidth(320)
 
+    @staticmethod
+    def _factor_combo() -> QtWidgets.QComboBox:
+        combo = QtWidgets.QComboBox()
+        for factor in DISPLAY_FACTORS:
+            prefix = factor_prefix(factor) or "base"
+            combo.addItem(f"{format_factor(factor)}  ({prefix})", factor)
+        combo.setCurrentIndex(combo.findData(1.0))
+        return combo
+
     # ── Emit helpers ──────────────────────────────────────────────────────
 
     def _emit(self, patch: dict) -> None:
@@ -173,6 +195,23 @@ class AxesConfigPanel(QtWidgets.QWidget):
             return   # editingFinished fires on focus-out even without changes
         self._loaded[field] = val
         self.config_changed.emit({field: val})
+
+    def _emit_factor(self, field: str, widget: QtWidgets.QComboBox) -> None:
+        if self._loading:
+            return
+        value = float(widget.currentData())
+        if value == self._loaded.get(field):
+            return
+        self._loaded[field] = value
+        self.config_changed.emit({field: value})
+
+    @staticmethod
+    def _set_factor(widget: QtWidgets.QComboBox, value: float) -> float:
+        index = widget.findData(float(value))
+        if index < 0:
+            index = widget.findData(1.0)
+        widget.setCurrentIndex(max(0, index))
+        return float(widget.currentData())
 
     def _emit_lim(self, field: str, lo: QtWidgets.QLineEdit,
                   hi: QtWidgets.QLineEdit) -> None:
@@ -211,6 +250,8 @@ class AxesConfigPanel(QtWidgets.QWidget):
             self._loaded["title"]  = ax.get_title()
             self._loaded["xlabel"] = ax.get_xlabel()
             self._loaded["ylabel"] = ax.get_ylabel()
+            self._loaded["x_factor"] = self._set_factor(self._xfactor, 1.0)
+            self._loaded["y_factor"] = self._set_factor(self._yfactor, 1.0)
 
             xmin, xmax = ax.get_xlim()
             ymin, ymax = ax.get_ylim()
@@ -264,5 +305,11 @@ class AxesConfigPanel(QtWidgets.QWidget):
                 self._legend_loc.setCurrentText(d["legend_loc"])
             if "aspect" in d and d["aspect"] in ("auto", "equal"):
                 self._aspect.setCurrentText(d["aspect"])
+            if "x_factor" in d:
+                self._loaded["x_factor"] = self._set_factor(
+                    self._xfactor, float(d["x_factor"]))
+            if "y_factor" in d:
+                self._loaded["y_factor"] = self._set_factor(
+                    self._yfactor, float(d["y_factor"]))
         finally:
             self._loading = False

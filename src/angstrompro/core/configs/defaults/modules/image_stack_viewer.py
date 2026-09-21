@@ -21,6 +21,12 @@ DEFAULTS = {
         "layer": False,
         "canvas_view_zoom": False,
     },
+    "curve_preview": {
+        # Loaded once for each Image Stack Viewer instance, then retained
+        # across data changes.  The same .scet catalog is managed by the full
+        # Curve Stack Viewer module.
+        "default_template": "",
+    },
     "lock": {
         "data_scale_fixed_main": False,
         "data_scale_fixed_slave": False,

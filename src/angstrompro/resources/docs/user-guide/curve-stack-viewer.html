@@ -33,6 +33,35 @@ as a matplotlib figure containing a stack of curves.</p>
 <p>Use the Curve Style dock to edit individual artists and the Axes dock to change
 labels, limits, scales, and grid settings. Both docks can be shown or hidden
 from the <strong>View</strong> menu.</p>
+<h3 id="error-bars">Error bars</h3>
+<p>Right-click a plotted dataset in the <strong>Datasets / Curves</strong> tree and choose
+<strong>Configure Error Bars…</strong>. Select an accessible UDS containing symmetric
+Y-error magnitudes, then set cap size, error-line width, color, and the spacing
+between drawn bars. Choose <strong>Remove Error Bars</strong> from the same menu to detach
+them.</p>
+<p>For a 1D curve, the error UDS must also be 1D with the same number of points.
+For a 2D curve stack, it must have the same <code>(curves, points)</code> shape. Sweep-axis
+values and units must match, and error magnitudes must be finite and
+non-negative. Curves and errors use the same axis-level display factor, so they
+always remain in the same displayed unit.</p>
+<p>The Axes dock shows editable <strong>X factor</strong> and <strong>Y factor</strong> fields. These are
+discrete engineering multipliers such as <code>1e3</code>, <code>1</code>, and <code>1e−3</code>, chosen
+automatically when the first dataset is added and then kept fixed. AngstromPro
+uses the corresponding SI prefix in the generated label: multiplying volts by
+<code>1e3</code> produces millivolts and <code>Bias (mV)</code>; multiplying amperes by <code>1e12</code>
+produces picoamperes and <code>Current (pA)</code>. Automatic factors are bounded by the
+named prefixes tera (<code>T</code>) and atto (<code>a</code>). Factors are stored with the scene,
+including a separate Y factor for the right-hand axis.</p>
+<p>The <strong>Average Spectrum 2D</strong> registered process creates an average spectrum and
+a directly compatible error UDS. Its <strong>Error quantity</strong> option defaults to
+standard deviation, which shows spatial variation. Choose standard error when
+you instead want the uncertainty of the mean; it is smaller by the square root
+of the number of spatial pixels.</p>
+<p>Error bars are displayed in <strong>Stack</strong> mode. Colormap mode continues to show the
+central values and retains the error association when switching back. Saving a
+<code>ScenePlot</code> embeds the selected error UDS and its styling, so the saved scene
+does not depend on the original workspace item. Saving the curve as an
+individual UDS does not include this plot-only relationship.</p>
 <h2 id="scenes-and-templates">Scenes and templates</h2>
 <p>A scene and a template serve different purposes:</p>
 <ul>

@@ -580,6 +580,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
             'CANVAS_MOUSE_PRESSED',
             'CANVAS_MOUSE_RELEASED',
             'CANVAS_WHEALED',
+            'IMAGE_DATA_TYPE_CHANGED',
         ]
 
         self.selected_data_pt_x = 0
@@ -606,7 +607,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.mouse_left_button_released  = True
         self.mouse_right_button_released = True
 
-        self.var_data_type_list = ['Abs', 'Angle', 'Real', 'Image']
+        self.var_data_type_list = ['Abs', 'Angle', 'Real', 'Imag']
 
         self.img_color_map_builtin_list  = pyplot.colormaps()
         self.img_is_rt_cmp_on            = False
@@ -958,6 +959,14 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         elif idx == 3:
             self.uds_variable_dataCopy = np.imag(self.uds_variable.data)
         self.imageLayerChanged()
+        self.sendMsgSignalEmit(
+            self.msg_type.index('IMAGE_DATA_TYPE_CHANGED'))
+
+    def currentDataRepresentation(self):
+        """Return the full stack represented by the current Type choice."""
+        if isinstance(self.uds_variable_dataCopy, np.ndarray):
+            return self.uds_variable_dataCopy
+        return None
 
     def _current_scale_data(self):
         """Return the current layer's autoscale sample.

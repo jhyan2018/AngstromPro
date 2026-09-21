@@ -71,11 +71,20 @@ def render_uds_2d(payload, *, rcparams_delta: dict | None = None,
     case, extras["colormap"] the many-curves case."""
     import matplotlib as mpl
     from angstrompro.gui.widgets.curve_stack.prepare import prepare_entry
+    from angstrompro.gui.widgets.curve_stack.axis_format import (
+        apply_scientific_y_formatter,
+    )
+    from angstrompro.gui.widgets.curve_stack.si_scale import (
+        scaled_axis_label,
+        si_scale,
+    )
 
     options = options or {}
     extras_all = options.get("widget_extras") or {}
     entry = prepare_entry(getattr(payload, "name", ""), payload)
     x, y_arr = entry["x"], entry["y"]
+    x_factor = float(si_scale(x)[1]) if x.size else 1.0
+    y_factor = float(si_scale(y_arr)[1]) if y_arr.size else 1.0
     n = y_arr.shape[0]
     threshold = int(options.get("stack_threshold", 10))
 
@@ -95,7 +104,7 @@ def render_uds_2d(payload, *, rcparams_delta: dict | None = None,
                 kw = {}
                 if cmap is not None:
                     kw["color"] = cmap(i / max(n - 1, 1))
-                ax.plot(x, y_arr[i] + i * offset, **kw)
+                ax.plot(x * x_factor, y_arr[i] * y_factor + i * offset, **kw)
         else:
             ex = extras_all.get("colormap", {})
             cmap = _rt_cmap(ex) or ex.get("colormap") \
@@ -109,8 +118,14 @@ def render_uds_2d(payload, *, rcparams_delta: dict | None = None,
                 vmax = float(np.nanmax(z))
             ax.pcolormesh(z, cmap=cmap, vmin=vmin, vmax=vmax, shading="auto")
 
-        ax.set_xlabel(entry.get("x_label", ""))
-        ax.set_ylabel(entry.get("y_label", ""))
+        ax.set_xlabel(scaled_axis_label(
+            entry.get("x_label_base", ""), entry.get("x_units", ""),
+            x_factor))
+        ax.set_ylabel(scaled_axis_label(
+            entry.get("y_label_base", ""), entry.get("y_units", ""),
+            y_factor))
+        if n <= threshold:
+            apply_scientific_y_formatter(ax)
         fig.tight_layout(pad=0.3)
     return fig
 

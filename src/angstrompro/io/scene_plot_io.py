@@ -29,7 +29,7 @@ from angstrompro.io.uds_io import (
 
 log = logging.getLogger(__name__)
 
-_VERSION = 1
+_VERSION = 3
 
 
 # ── rcParams serialisation ────────────────────────────────────────────────────
@@ -112,6 +112,8 @@ def _artist_to_dict(a: ArtistSpec) -> dict:
         "extra":   a.extra,
         "data":    _uds_to_dict(a.data) if a.data is not None else None,
         "style":   _style_to_dict(a.kind, a.style),
+        "errorbar": (_style_to_dict("errorbar", a.errorbar)
+                     if a.errorbar is not None else None),
     }
 
 
@@ -120,10 +122,14 @@ def _dict_to_artist(d: dict) -> ArtistSpec:
     raw   = d.get("data")
     data  = _dict_to_uds(raw) if raw is not None else None
     style = _dict_to_style(kind, d.get("style", {}))
+    raw_errorbar = d.get("errorbar")
+    errorbar = (_dict_to_style("errorbar", raw_errorbar)
+                if raw_errorbar is not None else None)
     row   = d.get("row")
     return ArtistSpec(
         kind    = kind,
         style   = style,
+        errorbar = errorbar,
         data    = data,
         label   = d.get("label", ""),
         visible = d.get("visible", True),
@@ -144,6 +150,8 @@ def _axescfg_to_dict(c: AxesConfig) -> dict:
         "ylabel":     c.ylabel,
         "xlim":       list(c.xlim) if c.xlim else None,
         "ylim":       list(c.ylim) if c.ylim else None,
+        "x_factor":   c.x_factor,
+        "y_factor":   c.y_factor,
         "xscale":     c.xscale,
         "yscale":     c.yscale,
         "grid":       c.grid,
@@ -169,6 +177,8 @@ def _dict_to_axescfg(d: dict) -> AxesConfig:
         ylabel     = d.get("ylabel", ""),
         xlim       = _lim(d.get("xlim")),
         ylim       = _lim(d.get("ylim")),
+        x_factor   = float(d.get("x_factor", 1.0)),
+        y_factor   = float(d.get("y_factor", 1.0)),
         xscale     = d.get("xscale", "linear"),
         yscale     = d.get("yscale", "linear"),
         grid       = d.get("grid"),        # None = untouched → delta rules
@@ -318,9 +328,11 @@ def _embed_arrays(grp, scene: ScenePlot) -> None:
             if artist.data is None:
                 continue
             _write_uds(ag.create_group(f"artist_{ji}"), artist.data)
-            # errorbar secondary UDS
-            if artist.kind == "errorbar":
-                st = artist.style
+            # errorbar secondary UDS — either a standalone errorbar artist or
+            # an uncertainty overlay attached to a normal line artist.
+            st = (artist.style if artist.kind == "errorbar"
+                  else artist.errorbar)
+            if st is not None:
                 if st.yerr_data is not None:
                     _write_uds(ag.create_group(f"artist_{ji}_yerr"), st.yerr_data)
                 if st.xerr_data is not None:

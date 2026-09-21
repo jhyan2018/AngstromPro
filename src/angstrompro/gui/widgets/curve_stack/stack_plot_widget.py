@@ -24,6 +24,8 @@ from .nav_toolbar import NavToolbar
 from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
 
 from .base_plot_widget import BasePlotWidget
+from .axis_format import apply_scientific_y_formatter
+from .si_scale import scaled_axis_label
 
 # ── color mode helpers ────────────────────────────────────────────────────────
 
@@ -53,6 +55,7 @@ class StackPlotWidget(BasePlotWidget):
     def __init__(self, config: dict | None = None, parent=None) -> None:
         super().__init__(config, parent)
         self._lines:             dict[tuple[str, int], object] = {}
+        self._errorbars:         dict[tuple[str, int], object] = {}
         self._line_order:        list[tuple[str, int]]         = []
         self._ax2             = None   # right twin Y axis, created on demand
         # provider: () -> dict[str, "left"|"right"] — set by viewer widget
@@ -255,10 +258,36 @@ class StackPlotWidget(BasePlotWidget):
     def _y_assignments(self) -> dict[str, str]:
         return self.y_axis_provider() if self.y_axis_provider else {}
 
+    def _left_axes_config(self):
+        return self.axes_config_provider() if self.axes_config_provider else None
+
+    def _right_axes_config(self):
+        provider = self.axes_config_provider_right
+        return provider() if provider is not None else None
+
+    def _x_factor(self) -> float:
+        cfg = self._left_axes_config()
+        return float(getattr(cfg, "x_factor", 1.0) or 1.0)
+
+    def _y_factor(self, side: str) -> float:
+        cfg = self._right_axes_config() if side == "right" else self._left_axes_config()
+        return float(getattr(cfg, "y_factor", 1.0) or 1.0)
+
+    def _x_label(self, entry: dict) -> str:
+        return scaled_axis_label(
+            entry.get("x_label_base", ""), entry.get("x_units", ""),
+            self._x_factor())
+
+    def _y_label(self, entry: dict, side: str) -> str:
+        return scaled_axis_label(
+            entry.get("y_label_base", ""), entry.get("y_units", ""),
+            self._y_factor(side))
+
     def clear(self) -> None:
         self._xhair_h = None
         self._xhair_v = None
         self._lines.clear()
+        self._errorbars.clear()
         self._line_order.clear()
         self._datasets.clear()
         self._checked.clear()
@@ -279,18 +308,20 @@ class StackPlotWidget(BasePlotWidget):
         self._datasets[name] = entry
         self._checked[name]  = checked_list
 
-        if _needs_lc(self.color_mode):
+        if (_needs_lc(self.color_mode)
+                or any(e.get("yerr") is not None
+                       for e in self._datasets.values())):
             # global norm must be recomputed over all lines including the new one
             self._rebuild_plot()
             return
 
         with self._rc():
             offset      = self._offset_spin.value()
-            x_arr       = entry["x"]
-            y_arr       = entry["y"]
-            n           = y_arr.shape[0]
+            x_arr       = entry["x"] * self._x_factor()
             start       = len(self._line_order)
             side        = self._y_assignments().get(name, "left")
+            y_arr       = entry["y"] * self._y_factor(side)
+            n           = y_arr.shape[0]
             target      = self._get_or_create_ax2() if side == "right" else self._ax
 
             for i, vis in enumerate(checked_list):
@@ -302,8 +333,8 @@ class StackPlotWidget(BasePlotWidget):
                 self._lines[(name, i)] = line
                 self._line_order.append((name, i))
 
-            x_label = entry.get("x_label", "")
-            y_label = entry.get("y_label", "")
+            x_label = self._x_label(entry)
+            y_label = self._y_label(entry, side)
             if x_label and not self._ax.get_xlabel():
                 self._ax.set_xlabel(x_label)
             if side == "right":
@@ -315,11 +346,18 @@ class StackPlotWidget(BasePlotWidget):
 
             self._assign_colors(self._lines)
             self._apply_row_style_pins()
+            self._draw_all_errorbars()
             self._apply_axes_config()
+            apply_scientific_y_formatter(self._ax)
+            apply_scientific_y_formatter(self._ax2)
             self._fig.tight_layout()
             if self._ax2 is not None:
                 self._ax2.set_position(self._ax.get_position())
         self._capture_background()
+        # Incremental insertion changes the effective axes state just like a
+        # full rebuild (limits, labels, and inferred display factors).  Notify
+        # bound panels so an already-open Axes dock re-pulls the scene values.
+        self.artists_rebuilt.emit()
 
     def remove_lines(self, name: str) -> None:
         self._datasets.pop(name, None)
@@ -332,6 +370,7 @@ class StackPlotWidget(BasePlotWidget):
         artist = self._lines.get((name, idx))
         if artist is not None:
             artist.set_visible(visible)
+            self._set_errorbar_visible((name, idx), visible)
             self._capture_background()
 
     def set_all_visible(self, name: str, visible: bool) -> None:
@@ -343,6 +382,7 @@ class StackPlotWidget(BasePlotWidget):
             artist = self._lines.get((name, i))
             if artist is not None:
                 artist.set_visible(visible)
+                self._set_errorbar_visible((name, i), visible)
         self._capture_background()
 
     # ── Scene helpers ─────────────────────────────────────────────────────
@@ -362,7 +402,98 @@ class StackPlotWidget(BasePlotWidget):
         """Re-pull per-line pins from the scene and reapply (cheap, no rebuild)."""
         self._apply_row_style_pins()
         self._assign_colors(self._lines)
+        self._sync_errorbar_colors()
         self._capture_background()
+
+    @staticmethod
+    def _errorbar_children(container) -> list:
+        if container is None:
+            return []
+        try:
+            return [child for child in container.get_children()
+                    if child is not None]
+        except Exception:
+            return []
+
+    def _set_errorbar_visible(self, key: tuple[str, int], visible: bool) -> None:
+        for child in self._errorbar_children(self._errorbars.get(key)):
+            child.set_visible(visible)
+
+    @staticmethod
+    def _resolved_error_color(line, configured: str):
+        if configured:
+            return configured
+        try:
+            color = line.get_color()
+            arr = np.asarray(color)
+            if arr.ndim > 1 and len(arr):
+                return arr[0]
+            return color
+        except Exception:
+            return "0.35"
+
+    def _draw_all_errorbars(self) -> None:
+        """Overlay symmetric Y errors after central-line colors are final."""
+        self._errorbars.clear()
+        drew_any = False
+        offset = self._offset_spin.value()
+        assignments = self._y_assignments()
+        for global_idx, (name, row) in enumerate(self._line_order):
+            entry = self._datasets.get(name)
+            if entry is None or entry.get("yerr") is None:
+                continue
+            errors = entry["yerr"]
+            if row >= errors.shape[0]:
+                continue
+            style = entry.get("errorbar_style")
+            if style is None:
+                continue
+            line = self._lines.get((name, row))
+            visible = self._checked.get(name, [True] * (row + 1))[row]
+            target = (self._get_or_create_ax2()
+                      if assignments.get(name, "left") == "right"
+                      else self._ax)
+            side = assignments.get(name, "left")
+            y_factor = self._y_factor(side)
+            kwargs = {
+                "yerr": errors[row] * y_factor,
+                "fmt": "none",
+                "ecolor": self._resolved_error_color(line, style.ecolor),
+                "capsize": float(style.capsize or 0.0),
+                "errorevery": max(1, int(style.errorevery or 1)),
+                "visible": visible,
+                "label": "_nolegend_",
+            }
+            if style.linewidth is not None:
+                kwargs["elinewidth"] = float(style.linewidth)
+            container = target.errorbar(
+                entry["x"] * self._x_factor(),
+                entry["y"][row] * y_factor + global_idx * offset,
+                **kwargs,
+            )
+            self._errorbars[(name, row)] = container
+            drew_any = True
+        if drew_any:
+            self._ax.autoscale_view()
+            if self._ax2 is not None:
+                self._ax2.autoscale_view()
+
+    def _sync_errorbar_colors(self) -> None:
+        for key, container in self._errorbars.items():
+            name, _row = key
+            entry = self._datasets.get(name, {})
+            style = entry.get("errorbar_style")
+            line = self._lines.get(key)
+            if style is None or line is None:
+                continue
+            color = self._resolved_error_color(line, style.ecolor)
+            for child in self._errorbar_children(container):
+                setter = getattr(child, "set_color", None)
+                if setter is not None:
+                    try:
+                        setter(color)
+                    except Exception:
+                        pass
 
     def _apply_row_style_pins(self) -> None:
         """Apply scene row-style pins to live artists.
@@ -454,6 +585,7 @@ class StackPlotWidget(BasePlotWidget):
             self._rebuild_plot()
         else:
             self._assign_colors(self._lines)
+            self._sync_errorbar_colors()
             self._capture_background()
             self.artists_rebuilt.emit()   # colors changed — panels re-pull
 
@@ -503,6 +635,7 @@ class StackPlotWidget(BasePlotWidget):
             self._rebuild_plot()
         else:
             self._assign_colors(self._lines)
+            self._sync_errorbar_colors()
             self._capture_background()
 
     # ── Drawing ───────────────────────────────────────────────────────────
@@ -515,6 +648,7 @@ class StackPlotWidget(BasePlotWidget):
             self._remove_ax2()   # recreated lazily in _rebuild_line2d if needed
             self._ax.clear()
             self._lines.clear()
+            self._errorbars.clear()
             self._line_order.clear()
             self._apply_fig_style()
 
@@ -525,7 +659,10 @@ class StackPlotWidget(BasePlotWidget):
 
             # scene is the single truth: re-apply per-line pins and axes config
             self._apply_row_style_pins()
+            self._draw_all_errorbars()
             self._apply_axes_config()
+            apply_scientific_y_formatter(self._ax)
+            apply_scientific_y_formatter(self._ax2)
 
             # face/edge style is not re-read from rcParams by ax.clear()
             self._apply_axes_face_style(self._ax)
@@ -549,11 +686,11 @@ class StackPlotWidget(BasePlotWidget):
         assignments = self._y_assignments()
 
         for name, entry in self._datasets.items():
-            y_arr   = entry["y"]
-            x_arr   = entry["x"]
-            checked = self._checked.get(name, [True] * y_arr.shape[0])
-            n       = y_arr.shape[0]
             side    = assignments.get(name, "left")
+            y_arr   = entry["y"] * self._y_factor(side)
+            x_arr   = entry["x"] * self._x_factor()
+            n       = y_arr.shape[0]
+            checked = self._checked.get(name, [True] * n)
             target  = self._get_or_create_ax2() if side == "right" else self._ax
 
             for i, vis in enumerate(checked):
@@ -565,11 +702,11 @@ class StackPlotWidget(BasePlotWidget):
                 self._line_order.append((name, i))
                 global_idx += 1
 
-            x_label = entry.get("x_label", "") or x_label
+            x_label = self._x_label(entry) or x_label
             if side == "right":
-                y_label_r = entry.get("y_label", "") or y_label_r
+                y_label_r = self._y_label(entry, side) or y_label_r
             else:
-                y_label_l = entry.get("y_label", "") or y_label_l
+                y_label_l = self._y_label(entry, side) or y_label_l
 
         if x_label:
             self._ax.set_xlabel(x_label)
@@ -593,11 +730,13 @@ class StackPlotWidget(BasePlotWidget):
         lw        = mpl.rcParams.get("lines.linewidth", 1.0)
         x_label   = ""
         y_label   = ""
+        assignments = self._y_assignments()
 
-        # For global mode: compute norm over ALL visible raw y values first
+        # For global mode: compute the norm in the displayed axis units.
         if is_global:
             all_vals = [
-                entry["y"][i]
+                entry["y"][i] * self._y_factor(
+                    assignments.get(name, "left"))
                 for name, entry in self._datasets.items()
                 for i, vis in enumerate(
                     self._checked.get(name, [True] * entry["y"].shape[0]))
@@ -614,15 +753,14 @@ class StackPlotWidget(BasePlotWidget):
 
         global_idx  = 0
         last_lc     = None   # track last collection for colorbar
-        assignments = self._y_assignments()
         y_label_r   = ""
 
         for name, entry in self._datasets.items():
-            y_arr   = entry["y"]
-            x_arr   = entry["x"]
-            checked = self._checked.get(name, [True] * y_arr.shape[0])
-            n       = y_arr.shape[0]
             side    = assignments.get(name, "left")
+            y_arr   = entry["y"] * self._y_factor(side)
+            x_arr   = entry["x"] * self._x_factor()
+            n       = y_arr.shape[0]
+            checked = self._checked.get(name, [True] * n)
             target  = self._get_or_create_ax2() if side == "right" else self._ax
 
             for i, vis in enumerate(checked):
@@ -640,11 +778,11 @@ class StackPlotWidget(BasePlotWidget):
                 global_idx += 1
                 last_lc = lc
 
-            x_label = entry.get("x_label", "") or x_label
+            x_label = self._x_label(entry) or x_label
             if side == "right":
-                y_label_r = entry.get("y_label", "") or y_label_r
+                y_label_r = self._y_label(entry, side) or y_label_r
             else:
-                y_label = entry.get("y_label", "") or y_label
+                y_label = self._y_label(entry, side) or y_label
 
         # Collections don't auto-scale axes
         self._ax.autoscale_view()

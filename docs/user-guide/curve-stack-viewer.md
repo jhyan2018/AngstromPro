@@ -14,6 +14,41 @@ Use the Curve Style dock to edit individual artists and the Axes dock to change
 labels, limits, scales, and grid settings. Both docks can be shown or hidden
 from the **View** menu.
 
+### Error bars
+
+Right-click a plotted dataset in the **Datasets / Curves** tree and choose
+**Configure Error Bars…**. Select an accessible UDS containing symmetric
+Y-error magnitudes, then set cap size, error-line width, color, and the spacing
+between drawn bars. Choose **Remove Error Bars** from the same menu to detach
+them.
+
+For a 1D curve, the error UDS must also be 1D with the same number of points.
+For a 2D curve stack, it must have the same `(curves, points)` shape. Sweep-axis
+values and units must match, and error magnitudes must be finite and
+non-negative. Curves and errors use the same axis-level display factor, so they
+always remain in the same displayed unit.
+
+The Axes dock shows editable **X factor** and **Y factor** fields. These are
+discrete engineering multipliers such as `1e3`, `1`, and `1e−3`, chosen
+automatically when the first dataset is added and then kept fixed. AngstromPro
+uses the corresponding SI prefix in the generated label: multiplying volts by
+`1e3` produces millivolts and `Bias (mV)`; multiplying amperes by `1e12`
+produces picoamperes and `Current (pA)`. Automatic factors are bounded by the
+named prefixes tera (`T`) and atto (`a`). Factors are stored with the scene,
+including a separate Y factor for the right-hand axis.
+
+The **Average Spectrum 2D** registered process creates an average spectrum and
+a directly compatible error UDS. Its **Error quantity** option defaults to
+standard deviation, which shows spatial variation. Choose standard error when
+you instead want the uncertainty of the mean; it is smaller by the square root
+of the number of spatial pixels.
+
+Error bars are displayed in **Stack** mode. Colormap mode continues to show the
+central values and retains the error association when switching back. Saving a
+`ScenePlot` embeds the selected error UDS and its styling, so the saved scene
+does not depend on the original workspace item. Saving the curve as an
+individual UDS does not include this plot-only relationship.
+
 ## Scenes and templates
 
 A scene and a template serve different purposes:

@@ -5,7 +5,8 @@ Created on Sun Jun 29 2026
 @author: jiahaoYan
 
 ImageStackViewer — module for visualizing and processing ndim=3 UDS data
-as a stack of 2D images (Primary + Reference panels).
+as a stack of 2D images. The right-hand area keeps a Reference image and an
+ephemeral Curve Preview in persistent tabs.
 
 Each panel is an ImageStackViewerWidget which provides:
   - matplotlib canvas with pan / zoom / pick-points interactions
@@ -21,6 +22,7 @@ Sync options (View menu):
 on_item_loaded strategy:
   - Double-click workspace item → loads into Primary, stages [item]
   - "Load selected → Reference" button → loads into Reference, stages [primary, reference]
+  - Curve Preview → live point spectra, line cuts, or circle cuts; no workspace output
 """
 
 from __future__ import annotations
@@ -40,6 +42,78 @@ if TYPE_CHECKING:
     from angstrompro.app.context import AppContext
 
 log = logging.getLogger(__name__)
+
+_CURVE_PREVIEW_DATASET = "Live preview"
+
+
+def _compute_curve_preview(
+    source,
+    preview_kind: str,
+    points: list[tuple[float, float]],
+    orientation: str,
+    method: str,
+    interpolation_order: int,
+    line_width: int,
+    num_points: int,
+    display_data=None,
+    cancel_token=None,
+):
+    """Build one ephemeral preview UDS away from the GUI thread."""
+    import copy
+
+    from angstrompro.algorithms.line_circle_cut import (
+        build_circle_cut_uds,
+        build_line_cut_uds,
+        build_point_spectra_uds,
+    )
+
+    if cancel_token is not None and cancel_token.is_cancelled():
+        return None
+    preview_source = source
+    if display_data is not None:
+        # Preserve axes and metadata while sampling exactly the real-valued
+        # representation selected in the Primary panel (Abs/Angle/Real/Imag).
+        preview_source = copy.copy(source)
+        preview_source.data = display_data
+    if preview_kind == "points":
+        uds = build_point_spectra_uds(
+            preview_source, points, name=_CURVE_PREVIEW_DATASET)
+        summary = (
+            "1 point spectrum" if len(points) == 1
+            else f"{len(points)} point spectra"
+        )
+    elif preview_kind == "line":
+        uds = build_line_cut_uds(
+            preview_source,
+            points[0],
+            points[1],
+            orientation=orientation,
+            method=method,
+            interpolation_order=interpolation_order,
+            line_width=line_width,
+            num_points=num_points,
+            name=_CURVE_PREVIEW_DATASET,
+            copy_process_history=False,
+        )
+        summary = f"Line preview: {uds.data.shape[0]} × {uds.data.shape[1]}"
+    elif preview_kind == "circle":
+        uds = build_circle_cut_uds(
+            preview_source,
+            points[0],
+            points[1],
+            orientation=orientation,
+            interpolation_order=interpolation_order,
+            line_width=line_width,
+            num_points=num_points,
+            name=_CURVE_PREVIEW_DATASET,
+            copy_process_history=False,
+        )
+        summary = f"Circle preview: {uds.data.shape[0]} × {uds.data.shape[1]}"
+    else:
+        raise ValueError(f"Unknown curve preview type: {preview_kind!r}")
+    if cancel_token is not None and cancel_token.is_cancelled():
+        return None
+    return uds, summary
 
 
 class _VideoExportProgressDialog(QtWidgets.QDialog):
@@ -152,9 +226,23 @@ class ImageStackViewer(AGuiModule):
             PrefItem("canvas.bias_text_color", "Bias text color", "dropdown", "Color of the bias annotation",
                      kwargs={"choices": ["Red", "Green", "Blue", "Yellow", "Black", "White"]}),
         ]),
+        PrefSection("Curve preview", "chart-line", [
+            PrefItem(
+                "curve_preview.default_template",
+                "Default scene template",
+                "template_picker",
+                "Template created in Curve Stack Viewer and loaded once by "
+                "this Image Stack Viewer instance. Choose '(none)' for "
+                "default plotting behavior.",
+            ),
+        ]),
     ]
 
     def __init__(self, context: "AppContext", parent=None) -> None:
+        self._curve_preview_template_name: str | None = None
+        self._curve_preview_generation = 0
+        self._curve_preview_has_data = False
+        self._curve_preview_dirty = True
         super().__init__(context, parent)
         self._main_item: WorkspaceItem | None = None
         self._aux_item:  WorkspaceItem | None = None
@@ -197,8 +285,15 @@ class ImageStackViewer(AGuiModule):
             p.setBiasTextColor(canvas.get("bias_text_color", "Red"))
             p.setBiasTextShown(canvas.get("bias_text", False))
 
+        preview = getattr(self, "_curve_preview_viewer", None)
+        if preview is not None:
+            preview.set_cmap_palette(cmap_list)
+            self._apply_curve_preview_template(cfg)
+
     def build_ui(self) -> None:
         from angstrompro.gui.widgets.image_stack_viewer_widget import ImageStackViewerWidget
+        from angstrompro.gui.widgets.curve_stack import CurveStackViewerWidget
+        from angstrompro.gui.widgets.curve_stack.runtime_scene import RuntimeScene
         from angstrompro.gui.appearance.colormap_catalog import register_all
         register_all()
 
@@ -216,6 +311,26 @@ class ImageStackViewer(AGuiModule):
         self._panel_aux.ui_pb_img_clean_mode.toggled.connect(
             self._save_clean_label_state)
 
+        self._curve_preview_scene = RuntimeScene()
+        self._curve_preview_viewer = CurveStackViewerWidget(
+            config={}, allow_extract=False)
+        self._curve_preview_viewer.set_runtime_scene(
+            self._curve_preview_scene)
+        self._curve_preview_page = self._build_curve_preview_page()
+
+        self._reference_tabs = QtWidgets.QTabWidget()
+        self._reference_tabs.addTab(self._panel_aux, "Reference Image")
+        self._reference_tabs.addTab(
+            self._curve_preview_page, "Curve Preview")
+        self._reference_tabs.currentChanged.connect(
+            self._on_reference_mode_changed)
+
+        self._curve_preview_timer = QtCore.QTimer(self)
+        self._curve_preview_timer.setSingleShot(True)
+        self._curve_preview_timer.setInterval(120)
+        self._curve_preview_timer.timeout.connect(
+            self._start_curve_preview_update)
+
         self._apply_config_to_panels(self._config)
 
         self._splitter = QtWidgets.QSplitter(
@@ -224,7 +339,7 @@ class ImageStackViewer(AGuiModule):
             else QtCore.Qt.Horizontal
         )
         self._splitter.addWidget(self._panel_main)
-        self._splitter.addWidget(self._panel_aux)
+        self._splitter.addWidget(self._reference_tabs)
         self._splitter.setChildrenCollapsible(False)
         self._splitter.setSizes([600, 600])
 
@@ -236,6 +351,274 @@ class ImageStackViewer(AGuiModule):
 
         self._add_sync_actions()
         self._build_annotate_menu()
+
+    def _build_curve_preview_page(self) -> QtWidgets.QWidget:
+        page = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        controls = QtWidgets.QWidget()
+        controls_layout = QtWidgets.QVBoxLayout(controls)
+        controls_layout.setContentsMargins(6, 6, 6, 4)
+        controls_layout.setSpacing(4)
+
+        top_row = QtWidgets.QHBoxLayout()
+        top_row.addWidget(QtWidgets.QLabel("Preview:"))
+        self._curve_preview_kind = QtWidgets.QComboBox()
+        self._curve_preview_kind.addItem("Point spectra", "points")
+        self._curve_preview_kind.addItem("Line cut", "line")
+        self._curve_preview_kind.addItem("Circle cut", "circle")
+        top_row.addWidget(self._curve_preview_kind)
+        self._curve_preview_status = QtWidgets.QLabel(
+            "Pick one or more points in Primary.")
+        self._curve_preview_status.setWordWrap(True)
+        top_row.addWidget(self._curve_preview_status, 1)
+        controls_layout.addLayout(top_row)
+
+        self._curve_line_controls = QtWidgets.QWidget()
+        line_grid = QtWidgets.QGridLayout(self._curve_line_controls)
+        line_grid.setContentsMargins(0, 0, 0, 0)
+        line_grid.setHorizontalSpacing(4)
+        line_grid.setVerticalSpacing(3)
+
+        line_grid.addWidget(QtWidgets.QLabel("X axis:"), 0, 0)
+        self._curve_preview_orientation = QtWidgets.QComboBox()
+        self._curve_preview_orientation.addItem(
+            "Distance", "layer_vs_distance")
+        self._curve_preview_orientation.addItem(
+            "Layer / energy", "distance_vs_layer")
+        line_grid.addWidget(self._curve_preview_orientation, 0, 1)
+
+        line_grid.addWidget(QtWidgets.QLabel("Sampling:"), 0, 2)
+        self._curve_preview_method = QtWidgets.QComboBox()
+        self._curve_preview_method.addItem("Interpolated", "interpolated")
+        self._curve_preview_method.addItem("Bresenham", "bresenham")
+        line_grid.addWidget(self._curve_preview_method, 0, 3)
+
+        line_grid.addWidget(QtWidgets.QLabel("Order:"), 1, 0)
+        self._curve_preview_order = QtWidgets.QSpinBox()
+        self._curve_preview_order.setRange(0, 3)
+        self._curve_preview_order.setValue(1)
+        self._curve_preview_order.setToolTip(
+            "Interpolation order; ignored for Bresenham sampling")
+        line_grid.addWidget(self._curve_preview_order, 1, 1)
+
+        line_grid.addWidget(QtWidgets.QLabel("Width:"), 1, 2)
+        self._curve_preview_width = QtWidgets.QSpinBox()
+        self._curve_preview_width.setRange(1, 999)
+        self._curve_preview_width.setValue(1)
+        self._curve_preview_width.setSuffix(" px")
+        line_grid.addWidget(self._curve_preview_width, 1, 3)
+
+        line_grid.addWidget(QtWidgets.QLabel("Samples:"), 2, 0)
+        self._curve_preview_samples = QtWidgets.QSpinBox()
+        self._curve_preview_samples.setRange(0, 1000000)
+        self._curve_preview_samples.setValue(0)
+        self._curve_preview_samples.setSpecialValueText("Auto")
+        line_grid.addWidget(self._curve_preview_samples, 2, 1)
+        line_grid.setColumnStretch(4, 1)
+        controls_layout.addWidget(self._curve_line_controls)
+        self._curve_line_controls.setVisible(False)
+
+        self._curve_circle_controls = QtWidgets.QWidget()
+        circle_grid = QtWidgets.QGridLayout(self._curve_circle_controls)
+        circle_grid.setContentsMargins(0, 0, 0, 0)
+        circle_grid.setHorizontalSpacing(4)
+        circle_grid.setVerticalSpacing(3)
+
+        circle_grid.addWidget(QtWidgets.QLabel("X axis:"), 0, 0)
+        self._curve_circle_orientation = QtWidgets.QComboBox()
+        self._curve_circle_orientation.addItem("Angle", "layer_vs_theta")
+        self._curve_circle_orientation.addItem(
+            "Layer / energy", "theta_vs_layer")
+        circle_grid.addWidget(self._curve_circle_orientation, 0, 1)
+
+        circle_grid.addWidget(QtWidgets.QLabel("Order:"), 0, 2)
+        self._curve_circle_order = QtWidgets.QSpinBox()
+        self._curve_circle_order.setRange(0, 3)
+        self._curve_circle_order.setValue(1)
+        self._curve_circle_order.setToolTip(
+            "Interpolation order: 0=nearest, 1=bilinear, 3=bicubic")
+        circle_grid.addWidget(self._curve_circle_order, 0, 3)
+
+        circle_grid.addWidget(QtWidgets.QLabel("Radial width:"), 1, 0)
+        self._curve_circle_width = QtWidgets.QSpinBox()
+        self._curve_circle_width.setRange(1, 999)
+        self._curve_circle_width.setValue(1)
+        self._curve_circle_width.setSuffix(" px")
+        circle_grid.addWidget(self._curve_circle_width, 1, 1)
+
+        circle_grid.addWidget(QtWidgets.QLabel("Samples:"), 1, 2)
+        self._curve_circle_samples = QtWidgets.QSpinBox()
+        self._curve_circle_samples.setRange(0, 1000000)
+        self._curve_circle_samples.setValue(0)
+        self._curve_circle_samples.setSpecialValueText("Auto")
+        circle_grid.addWidget(self._curve_circle_samples, 1, 3)
+        circle_grid.setColumnStretch(4, 1)
+        controls_layout.addWidget(self._curve_circle_controls)
+        self._curve_circle_controls.setVisible(False)
+
+        self._curve_preview_kind.currentIndexChanged.connect(
+            self._on_curve_preview_controls_changed)
+        self._curve_preview_orientation.currentIndexChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_preview_method.currentIndexChanged.connect(
+            self._on_curve_preview_method_changed)
+        self._curve_preview_order.valueChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_preview_width.valueChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_preview_samples.valueChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_circle_orientation.currentIndexChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_circle_order.valueChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_circle_width.valueChanged.connect(
+            self._schedule_curve_preview_update)
+        self._curve_circle_samples.valueChanged.connect(
+            self._schedule_curve_preview_update)
+
+        layout.addWidget(controls)
+        layout.addWidget(self._curve_preview_viewer, 1)
+        return page
+
+    def _apply_curve_preview_template(self, cfg: dict) -> None:
+        """Apply the selected template only when that preference changes."""
+        name = str(
+            cfg.get("curve_preview", {}).get("default_template", "") or "")
+        if name == self._curve_preview_template_name:
+            return
+        if name:
+            self._curve_preview_viewer.apply_preload_template(name)
+        else:
+            self._curve_preview_viewer.reset_template_style()
+        self._curve_preview_template_name = name
+
+    def _on_curve_preview_controls_changed(self, *_args) -> None:
+        kind = self._curve_preview_kind.currentData()
+        is_line = kind == "line"
+        self._curve_line_controls.setVisible(is_line)
+        self._curve_circle_controls.setVisible(kind == "circle")
+        self._schedule_curve_preview_update()
+
+    def _on_curve_preview_method_changed(self, *_args) -> None:
+        interpolated = (
+            self._curve_preview_method.currentData() == "interpolated")
+        self._curve_preview_order.setEnabled(interpolated)
+        self._curve_preview_width.setEnabled(interpolated)
+        self._schedule_curve_preview_update()
+
+    def _on_reference_mode_changed(self, _index: int) -> None:
+        if (self._reference_tabs.currentWidget() is self._curve_preview_page
+                and self._curve_preview_dirty):
+            self._schedule_curve_preview_update()
+
+    def _schedule_curve_preview_update(self, *_args) -> None:
+        """Debounce point dragging and invalidate any older preview task."""
+        self._curve_preview_dirty = True
+        self._curve_preview_generation += 1
+        group_id = f"{self.instance_id}:curve-preview"
+        self._context.tasks.cancel_group(group_id)
+        if (not hasattr(self, "_reference_tabs")
+                or self._reference_tabs.currentWidget()
+                is not self._curve_preview_page):
+            return
+        self._curve_preview_timer.start()
+
+    def _clear_curve_preview(self, message: str) -> None:
+        if self._curve_preview_has_data:
+            self._curve_preview_viewer.remove_dataset(
+                _CURVE_PREVIEW_DATASET)
+            self._curve_preview_has_data = False
+        self._curve_preview_dirty = False
+        self._curve_preview_status.setText(message)
+
+    def _start_curve_preview_update(self) -> None:
+        source_item = self._main_item
+        if source_item is None:
+            self._clear_curve_preview("Load a Primary image stack.")
+            return
+
+        coords = self._get_picked_coords(self._panel_main)
+        kind = self._curve_preview_kind.currentData()
+        required = 2 if kind in {"line", "circle"} else 1
+        if coords is None or len(coords) < required:
+            if kind == "circle":
+                message = "Pick centre point 0 and edge point 1 in Primary."
+            elif kind == "line":
+                message = "Pick points 0 and 1 in Primary."
+            else:
+                message = "Pick one or more points in Primary."
+            self._clear_curve_preview(message)
+            return
+
+        points = [tuple(map(float, point)) for point in coords]
+        if kind in {"line", "circle"}:
+            points = points[:2]
+
+        if kind == "circle":
+            orientation = self._curve_circle_orientation.currentData()
+            interpolation_order = self._curve_circle_order.value()
+            line_width = self._curve_circle_width.value()
+            num_points = self._curve_circle_samples.value()
+        else:
+            orientation = self._curve_preview_orientation.currentData()
+            interpolation_order = self._curve_preview_order.value()
+            line_width = self._curve_preview_width.value()
+            num_points = self._curve_preview_samples.value()
+
+        from angstrompro.core.tasks import TaskRequest
+        generation = self._curve_preview_generation
+        request = TaskRequest(
+            task_func=_compute_curve_preview,
+            source_id=self.instance_id,
+            task_type="curve_preview",
+            kwargs={
+                "source": source_item.payload,
+                "preview_kind": kind,
+                "points": points,
+                "orientation": orientation,
+                "method": self._curve_preview_method.currentData(),
+                "interpolation_order": interpolation_order,
+                "line_width": line_width,
+                "num_points": num_points,
+                "display_data": self._panel_main.currentDataRepresentation(),
+            },
+            backend="compute",
+            cancellable=True,
+            priority="low",
+            group_id=f"{self.instance_id}:curve-preview",
+            silent=True,
+        )
+        handle = self._context.tasks.submit(request)
+        handle.result.connect(
+            lambda _task_id, result, expected=generation:
+            self._on_curve_preview_result(expected, result))
+        handle.error.connect(
+            lambda _task_id, error, expected=generation:
+            self._on_curve_preview_error(expected, error))
+        self._curve_preview_dirty = False
+        self._curve_preview_status.setText("Updating…")
+
+    def _on_curve_preview_result(self, generation: int, result) -> None:
+        if generation != self._curve_preview_generation or result is None:
+            return
+        uds, summary = result
+        self._curve_preview_viewer.add_dataset(
+            _CURVE_PREVIEW_DATASET, uds)
+        self._curve_preview_has_data = True
+        self._curve_preview_status.setText(summary)
+
+    def _on_curve_preview_error(self, generation: int, error: str) -> None:
+        if generation != self._curve_preview_generation:
+            return
+        details = [line.strip() for line in str(error).splitlines()
+                   if line.strip()]
+        message = details[-1] if details else "Preview calculation failed."
+        self._clear_curve_preview(message)
+        log.warning("Curve preview failed:\n%s", error)
 
     def _restore_clean_label_state(self) -> None:
         from angstrompro.app.user_data_folder import get_qsettings
@@ -285,6 +668,7 @@ class ImageStackViewer(AGuiModule):
         self._refresh_slots_panel()
         self.statusBar().showMessage(
             f"Primary: {item.name}  shape={item.payload.data.shape}", 4000)
+        self._schedule_curve_preview_update()
 
         if not is_fft_uds(item.payload):
             self._auto_fft(item)
@@ -333,6 +717,13 @@ class ImageStackViewer(AGuiModule):
     def _on_msg_from_main(self, msg_idx: int) -> None:
         msg  = self._panel_main.msg_type[msg_idx]
         sync = self._config.get("sync", {})
+
+        if msg in {
+            "CANVAS_MOUSE_PRESSED",
+            "REMOVE_SYNC_PICKED_POINTS",
+            "IMAGE_DATA_TYPE_CHANGED",
+        }:
+            self._schedule_curve_preview_update()
 
         if msg == "SELECT_USD_VARIABLE":
             item = self._selected_workspace_item()

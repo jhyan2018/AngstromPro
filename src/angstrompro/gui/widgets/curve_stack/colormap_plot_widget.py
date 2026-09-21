@@ -24,6 +24,8 @@ from .nav_toolbar import NavToolbar
 from angstrompro.utils.qt_compat import QtWidgets
 
 from .base_plot_widget import BasePlotWidget
+from .axis_format import apply_scientific_colorbar_formatter
+from .si_scale import scaled_axis_label
 
 _CMAPS = [
     "RdBu_r", "seismic", "bwr",
@@ -147,10 +149,14 @@ class ColormapPlotWidget(BasePlotWidget):
             y_label     = ""
             row_label   = ""
             has_row_axis = True   # stays True only when every entry has matching row_values
+            axes_cfg = (self.axes_config_provider()
+                        if self.axes_config_provider else None)
+            x_factor = float(getattr(axes_cfg, "x_factor", 1.0) or 1.0)
+            y_factor = float(getattr(axes_cfg, "y_factor", 1.0) or 1.0)
 
             for name, entry in self._datasets.items():
                 y_data   = entry["y"]
-                x_data   = entry["x"]
+                x_data   = entry["x"] * x_factor
                 rv       = entry.get("row_values")   # np.ndarray or None
                 checked  = self._checked.get(name, [True] * y_data.shape[0])
                 n        = y_data.shape[0]
@@ -160,16 +166,20 @@ class ColormapPlotWidget(BasePlotWidget):
                         continue
                     rows.append(y_data[i])
                     if rv is not None and i < len(rv):
-                        row_vals.append(float(rv[i]))
+                        row_vals.append(float(rv[i]) * y_factor)
                     else:
                         has_row_axis = False
 
                 if x_arr is None:
                     x_arr = x_data
-                x_label   = entry.get("x_label", "")
+                x_label   = scaled_axis_label(
+                    entry.get("x_label_base", ""),
+                    entry.get("x_units", ""), x_factor)
                 y_label   = entry.get("y_label", "")
                 if not row_label:
-                    row_label = entry.get("row_label", "")
+                    row_label = scaled_axis_label(
+                        entry.get("row_label_base", ""),
+                        entry.get("row_units", ""), y_factor)
 
             if not rows or x_arr is None:
                 self._canvas.draw_idle()
@@ -210,6 +220,7 @@ class ColormapPlotWidget(BasePlotWidget):
 
             self._colorbar = self._fig.colorbar(mesh, ax=self._ax)
             self._colorbar.set_label(y_label)
+            apply_scientific_colorbar_formatter(self._colorbar)
 
             self._ax.set_xlabel(x_label)
             self._ax.set_ylabel(y_axis_label)

@@ -141,6 +141,8 @@ class CurveStackViewer(AGuiModule):
         self._viewer = CurveStackViewerWidget(config=self._config)
         self._viewer.set_runtime_scene(self._scene)
         self._viewer.extract_requested.connect(self._on_extract_requested)
+        self._viewer.errorbars_requested.connect(
+            self._on_configure_error_bars)
         self._viewer.cleared.connect(self._on_viewer_cleared)
 
         # any scene mutation → dirty flag
@@ -315,6 +317,72 @@ class CurveStackViewer(AGuiModule):
         for name, uds in dlg.result_pairs():
             uds.name = name
             self.workspace.add_item(payload=uds)
+
+    def _on_configure_error_bars(self, dataset_name: str) -> None:
+        """Choose a compatible accessible UDS as symmetric Y uncertainty."""
+        from angstrompro.gui.dialogs.error_bar_dialog import ErrorBarDialog
+
+        target_entry = self._viewer._datasets.get(dataset_name)
+        if target_entry is None:
+            return
+        target_payload = target_entry.get("uds")
+        current = self._viewer.get_y_error_style(dataset_name)
+        candidates: list[tuple[str, object]] = []
+        seen_ids: set[str] = set()
+
+        for workspace in self.accessible_workspaces():
+            for item in workspace.list_items():
+                if (item.type_id != "uds" or item.payload is target_payload
+                        or item.item_id in seen_ids):
+                    continue
+                try:
+                    self._viewer.validate_y_error_data(
+                        dataset_name, item.payload)
+                except (TypeError, ValueError):
+                    continue
+                seen_ids.add(item.item_id)
+                display = item.display_name
+                if item.alias:
+                    display = f"{item.alias} ({item.name})"
+                candidates.append(
+                    (f"{display} — {workspace.label}", item.payload))
+
+        # A restored ScenePlot embeds its uncertainty.  Keep that source
+        # selectable even when the original workspace item is not present.
+        current_data = getattr(current, "yerr_data", None)
+        if (current_data is not None
+                and not any(getattr(payload, "name", None) == current_data.name
+                            for _label, payload in candidates)):
+            candidates.insert(
+                0, (f"{current_data.name} — embedded in scene", current_data))
+
+        if not candidates:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No Compatible Error Data",
+                "No accessible UDS has the same shape and sweep axis as "
+                f"'{dataset_name}'.\n\n"
+                "Add a non-negative uncertainty UDS to this module's private "
+                "or attached shared workspace first.",
+            )
+            return
+
+        dialog = ErrorBarDialog(
+            dataset_name, candidates, current_style=current, parent=self)
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        try:
+            self._viewer.set_y_error_data(
+                dataset_name,
+                dialog.selected_error_data(),
+                **dialog.settings(),
+            )
+        except (TypeError, ValueError) as exc:
+            QtWidgets.QMessageBox.warning(
+                self, "Cannot Apply Error Bars", str(exc))
+            return
+        self.statusBar().showMessage(
+            f"Y-error bars configured for {dataset_name}.", 4000)
 
     def _on_save_scene(self) -> None:
         name, ok = QtWidgets.QInputDialog.getText(

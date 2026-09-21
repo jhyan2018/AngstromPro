@@ -34,6 +34,12 @@ from __future__ import annotations
 import logging
 import numpy as np
 
+from angstrompro.gui.widgets.curve_stack.axis_format import (
+    apply_scientific_colorbar_formatter,
+    apply_scientific_y_formatter,
+)
+from angstrompro.gui.widgets.curve_stack.si_scale import scaled_axis_label
+
 log = logging.getLogger(__name__)
 
 
@@ -62,6 +68,7 @@ def render_axes_spec(ax_spec, ax) -> None:
     else:
         _render_stack(ax_spec, ax)
     _apply_axes_config(ax_spec.config, ax)
+    apply_scientific_y_formatter(ax)
 
 
 def render_scene_to_axes(scene_plot, axes_map: dict) -> None:
@@ -92,6 +99,14 @@ def _render_stack(ax_spec, ax) -> None:
     offset     = float(extras.get("offset", 0.0))
     is_lc_mode = color_mode.startswith("cmap_value")
     rt_cmap    = _rt_cmap_from_extras(extras)   # None unless RT is enabled
+    configs = ax_spec.extra.get("axes_config_by_mode", {})
+    left_config = configs.get("stack", {})
+    right_config = configs.get("stack_right", {})
+    x_factor = float(left_config.get(
+        "x_factor", getattr(ax_spec.config, "x_factor", 1.0)) or 1.0)
+    y_factor_l = float(left_config.get(
+        "y_factor", getattr(ax_spec.config, "y_factor", 1.0)) or 1.0)
+    y_factor_r = float(right_config.get("y_factor", 1.0) or 1.0)
 
     ax2 = None   # right twin-Y axis, created lazily
 
@@ -120,27 +135,38 @@ def _render_stack(ax_spec, ax) -> None:
 
     lines_l = []   # (artist_obj, g_idx) on left  — for color assignment
     lines_r = []   # (artist_obj, g_idx) on right
+    rendered = []  # data needed for optional error-bar overlays
     x_label = y_label_l = y_label_r = ""
 
     for artist, entry, row_i, g_idx, vis, side in entries:
         s      = artist.style
-        x      = entry["x"]
+        x      = entry["x"] * x_factor
         y_2d   = entry["y"]
-        y_raw  = y_2d[row_i] if y_2d.ndim > 1 else y_2d
+        y_factor = y_factor_r if side == "right" else y_factor_l
+        y_raw_unscaled = y_2d[row_i] if y_2d.ndim > 1 else y_2d
+        y_raw  = y_raw_unscaled * y_factor
         y_row  = y_raw + g_idx * offset
         label  = artist.label if row_i == 0 else "_"
         target = ax2 if (side == "right" and ax2 is not None) else ax
-        x_label = x_label or entry.get("x_label", "")
+        x_label = x_label or scaled_axis_label(
+            entry.get("x_label_base", ""), entry.get("x_units", ""),
+            x_factor)
         if side == "right":
-            y_label_r = y_label_r or entry.get("y_label", "")
+            y_label_r = y_label_r or scaled_axis_label(
+                entry.get("y_label_base", ""), entry.get("y_units", ""),
+                y_factor_r)
         else:
-            y_label_l = y_label_l or entry.get("y_label", "")
+            y_label_l = y_label_l or scaled_axis_label(
+                entry.get("y_label_base", ""), entry.get("y_units", ""),
+                y_factor_l)
 
         if is_lc_mode:
             lc = _make_lc(x, y_row, y_raw, color_mode,
                           norm=None, lw=None, visible=vis, rt_cmap=rt_cmap)
             target.add_collection(lc)
             (lines_r if side == "right" else lines_l).append((lc, g_idx))
+            rendered.append((artist, entry, row_i, g_idx, vis, target, lc,
+                             x_factor, y_factor))
         else:
             kw = dict(label=label, visible=vis)
             if s.color:       kw["color"]      = s.color
@@ -155,6 +181,8 @@ def _render_stack(ax_spec, ax) -> None:
             else:
                 ln, = target.plot(x, y_row, **kw)
             (lines_r if side == "right" else lines_l).append((ln, g_idx))
+            rendered.append((artist, entry, row_i, g_idx, vis, target, ln,
+                             x_factor, y_factor))
 
     # axis labels
     if x_label and not ax.get_xlabel():
@@ -173,9 +201,57 @@ def _render_stack(ax_spec, ax) -> None:
     else:
         _apply_line_colors(all_lines, color_mode, rt_cmap=rt_cmap)
 
+    _render_curve_errorbars(rendered, offset)
+    apply_scientific_y_formatter(ax)
+    apply_scientific_y_formatter(ax2)
+
     # sync twin position after tight_layout (caller handles tight_layout)
     if ax2 is not None:
         ax2.set_position(ax.get_position())
+
+
+def _render_curve_errorbars(rendered: list, offset: float) -> None:
+    """Render uncertainty overlays attached to CurveStack line artists."""
+    from angstrompro.gui.widgets.curve_stack.prepare import prepare_y_error
+
+    for (artist, entry, row, global_idx, visible, target, line,
+         x_factor, y_factor) in rendered:
+        style = getattr(artist, "errorbar", None)
+        if style is None or style.yerr_data is None:
+            continue
+        try:
+            errors = prepare_y_error(style.yerr_data, entry)
+        except ValueError as exc:
+            log.warning("Skipping invalid Y errors for %r: %s",
+                        artist.label, exc)
+            continue
+        if row >= errors.shape[0]:
+            continue
+        color = style.ecolor
+        if not color:
+            try:
+                color = line.get_color()
+                color_array = np.asarray(color)
+                if color_array.ndim > 1 and len(color_array):
+                    color = color_array[0]
+            except Exception:
+                color = "0.35"
+        kwargs = {
+            "yerr": errors[row] * y_factor,
+            "fmt": "none",
+            "ecolor": color,
+            "capsize": float(style.capsize or 0.0),
+            "errorevery": max(1, int(style.errorevery or 1)),
+            "visible": visible,
+            "label": "_nolegend_",
+        }
+        if style.linewidth is not None:
+            kwargs["elinewidth"] = float(style.linewidth)
+        target.errorbar(
+            entry["x"] * x_factor,
+            entry["y"][row] * y_factor + global_idx * offset,
+            **kwargs,
+        )
 
 
 def _rt_cmap_from_extras(extras: dict):
@@ -273,6 +349,12 @@ def _render_colormap(ax_spec, ax) -> None:
     # RT anchor-based colormap takes priority over the palette name
     cmap_name = (_rt_cmap_from_extras(extras)
                  or extras.get("colormap", "RdBu_r"))
+    mode_config = ax_spec.extra.get(
+        "axes_config_by_mode", {}).get("colormap", {})
+    x_factor = float(mode_config.get(
+        "x_factor", getattr(ax_spec.config, "x_factor", 1.0)) or 1.0)
+    y_factor = float(mode_config.get(
+        "y_factor", getattr(ax_spec.config, "y_factor", 1.0)) or 1.0)
 
     rows       = []
     row_vals   = []
@@ -293,14 +375,18 @@ def _render_colormap(ax_spec, ax) -> None:
                 continue
             rows.append(y_2d[i] if y_2d.ndim > 1 else y_2d)
             if rv is not None and i < len(rv):
-                row_vals.append(float(rv[i]))
+                row_vals.append(float(rv[i]) * y_factor)
             else:
                 has_row_ax = False
         if x_arr is None:
-            x_arr = entry["x"]
-        x_label  = x_label  or entry.get("x_label", "")
+            x_arr = entry["x"] * x_factor
+        x_label  = x_label or scaled_axis_label(
+            entry.get("x_label_base", ""), entry.get("x_units", ""),
+            x_factor)
         y_label  = y_label  or entry.get("y_label", "")
-        row_label = row_label or entry.get("row_label", "")
+        row_label = row_label or scaled_axis_label(
+            entry.get("row_label_base", ""), entry.get("row_units", ""),
+            y_factor)
 
     if not rows or x_arr is None:
         return
@@ -335,6 +421,7 @@ def _render_colormap(ax_spec, ax) -> None:
                          cmap=cmap_name, vmin=vmin, vmax=vmax, shading="flat")
     cb = ax.get_figure().colorbar(mesh, ax=ax)
     cb.set_label(y_label)
+    apply_scientific_colorbar_formatter(cb)
 
     if x_label:
         ax.set_xlabel(x_label)
@@ -469,6 +556,7 @@ def _render_errorbar(artist, ax) -> None:
     if s.capsize:   kw["capsize"]  = s.capsize
     if s.ecolor:    kw["ecolor"]   = s.ecolor
     if s.markersize:kw["markersize"]= s.markersize
+    if s.errorevery:kw["errorevery"] = max(1, int(s.errorevery))
     if artist.alpha:kw["alpha"]    = artist.alpha
     ax.errorbar(d[:, s.x_col], d[:, s.y_col], **kw)
 

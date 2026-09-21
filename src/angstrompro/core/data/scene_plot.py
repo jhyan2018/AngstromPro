@@ -105,6 +105,7 @@ class ErrorBarStyle:
     ecolor:        str         = ""
     marker:        str         = "o"
     markersize:    float | None = None
+    errorevery:     int         = 1
 
 
 @dataclass
@@ -149,6 +150,11 @@ class ArtistSpec:
     kind:    str
     style:   (LineStyle | ScatterStyle | ImageStyle | ContourStyle |
                FillStyle | BarStyle | ErrorBarStyle | TextStyle | PatchStyle)
+    # Optional uncertainty overlay for line artists.  The central curve keeps
+    # its LineStyle while this companion stores symmetric X/Y uncertainty and
+    # its presentation.  Keeping the relationship in the scene avoids adding
+    # viewer-specific arrays to UDS metadata.
+    errorbar: ErrorBarStyle | None = None
     data:    UdsDataStru | None = None
     label:   str                = ""
     visible: bool               = True
@@ -171,6 +177,8 @@ class AxesConfig:
     ylabel:     str          = ""
     xlim:       tuple | None = None
     ylim:       tuple | None = None
+    x_factor:   float        = 1.0   # display multiplier applied to raw X data
+    y_factor:   float        = 1.0   # display multiplier applied to raw Y data
     xscale:     str          = "linear"   # "linear"|"log"|"symlog"|"logit"
     yscale:     str          = "linear"
     # None = "never touched" → the rcParams delta (axes.grid / grid.*) rules;
@@ -284,6 +292,8 @@ class ScenePlot(WorkspaceData):
                     ("ylim",       str(cfg.ylim)),
                     ("xscale",     cfg.xscale),
                     ("yscale",     cfg.yscale),
+                    ("x_factor",   cfg.x_factor),
+                    ("y_factor",   cfg.y_factor),
                     ("grid",       cfg.grid),
                     ("legend",     cfg.legend),
                     ("projection", ax_spec.projection),

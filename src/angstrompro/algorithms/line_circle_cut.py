@@ -28,7 +28,7 @@ import copy
 
 import numpy as np
 
-from angstrompro.core.data.uds_data import Axis, UdsDataStru
+from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
 from angstrompro.core.processes import (
     InputSpec,
     OutputSpec,
@@ -162,7 +162,235 @@ class _CircleCut:
         return averaged  # (L, N)
 
 
-_OUT_2D = [OutputSpec(type_id="uds", ndim=2, label="Curve Stack", description="ndim=2 UDS (curves × points).")]
+_OUT_2D = [OutputSpec(
+    type_id="uds",
+    ndim=2,
+    label="Curve Stack",
+    description="ndim=2 UDS (curves × points).",
+)]
+
+
+def build_point_spectra_uds(
+    src: UdsDataStru,
+    points,
+    *,
+    name: str | None = None,
+) -> UdsDataStru:
+    """Build a temporary curve stack from spatial points in a 3-D UDS.
+
+    ``points`` are ``(row, col)`` coordinates.  Each output row is the
+    spectrum through every layer at one point, so the final axis is always
+    the source layer/energy axis used by CurveStackViewer.
+    """
+    data = np.asarray(src.data)
+    if data.ndim != 3:
+        raise ValueError(
+            f"Point spectra require 3-D data; got {data.ndim}-D data.")
+
+    coords = np.asarray(points, dtype=float)
+    if coords.ndim != 2 or coords.shape[1] != 2 or len(coords) == 0:
+        raise ValueError("Point spectra require at least one (row, col) point.")
+    if not np.all(np.isfinite(coords)):
+        raise ValueError("Point coordinates must be finite.")
+
+    # ImageStackViewer annotations use pixel coordinates.  Keep preview
+    # sampling consistent with the permanent point annotations by selecting
+    # the containing integer pixel.
+    rows = coords[:, 0].astype(int)
+    cols = coords[:, 1].astype(int)
+    height, width = data.shape[-2:]
+    if (np.any(rows < 0) or np.any(rows >= height)
+            or np.any(cols < 0) or np.any(cols >= width)):
+        raise ValueError("One or more picked points lie outside the image.")
+
+    spectra = np.real(data[:, rows, cols].T).astype(np.float64, copy=False)
+    if src.axes and len(src.axes[0].values) == data.shape[0]:
+        layer_axis = copy.deepcopy(src.axes[0])
+    else:
+        layer_axis = Axis(
+            values=np.arange(data.shape[0], dtype=float),
+            label="Layer",
+            axis_type=AxisType.INDEX,
+        )
+    point_axis = Axis(
+        values=np.arange(len(coords), dtype=float),
+        label="Point",
+        axis_type=AxisType.INDEX,
+        ticks={float(i): f"P{i}" for i in range(len(coords))},
+    )
+    return UdsDataStru(
+        name=name or src.name + "_points",
+        data=spectra,
+        axes=[point_axis, layer_axis],
+        info=copy.deepcopy(src.info),
+    )
+
+
+def build_line_cut_uds(
+    src: UdsDataStru,
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    *,
+    orientation: str = "layer_vs_distance",
+    method: str = "interpolated",
+    interpolation_order: int = 1,
+    line_width: int = 1,
+    num_points: int = 0,
+    name: str | None = None,
+    copy_process_history: bool = True,
+) -> UdsDataStru:
+    """Build the line-cut UDS used by both preview and registered process.
+
+    Points use the annotation convention ``(row, col)``.  Keeping UDS
+    construction here ensures that the live preview and permanent process
+    output use identical sampling, axes, and orientation rules.
+    """
+    data = np.asarray(src.data)
+    if data.ndim != 3:
+        raise ValueError(f"Line cut requires 3-D data; got {data.ndim}-D data.")
+    if orientation not in {"layer_vs_distance", "distance_vs_layer"}:
+        raise ValueError(f"Unknown line-cut orientation: {orientation!r}")
+    if method not in {"interpolated", "bresenham"}:
+        raise ValueError(f"Unknown line-cut sampling method: {method!r}")
+    if not 0 <= int(interpolation_order) <= 3:
+        raise ValueError("Interpolation order must be between 0 and 3.")
+    if int(line_width) < 1:
+        raise ValueError("Line width must be at least 1 pixel.")
+    if int(num_points) < 0:
+        raise ValueError("Number of points cannot be negative.")
+
+    y1, x1 = map(float, p1)
+    y2, x2 = map(float, p2)
+    if not all(np.isfinite((x1, y1, x2, y2))):
+        raise ValueError("Line-cut endpoints must be finite.")
+
+    cut = _LineCut(
+        data, x1, y1, x2, y2,
+        order=int(interpolation_order),
+        num_points=int(num_points) or None,
+    )
+    if method == "bresenham":
+        values, _ = cut.bresenham_line()
+    elif int(line_width) > 1:
+        values = cut.linecut_with_width_average(int(line_width))
+    else:
+        values = cut.linecut_interpolated()
+    values = np.real(values).astype(np.float64, copy=False)  # (L, N)
+
+    if src.axes and len(src.axes[0].values) == data.shape[0]:
+        layer_axis = copy.deepcopy(src.axes[0])
+    else:
+        layer_axis = Axis(
+            values=np.arange(data.shape[0], dtype=float),
+            label="Layer",
+            axis_type=AxisType.INDEX,
+        )
+    distance = np.hypot(x2 - x1, y2 - y1)
+    distance_axis = Axis(
+        values=np.linspace(0.0, distance, values.shape[1]),
+        label="Distance",
+        units="px",
+    )
+
+    if orientation == "layer_vs_distance":
+        output_data = values
+        axes = [layer_axis, distance_axis]
+    else:
+        output_data = values.T
+        axes = [distance_axis, layer_axis]
+
+    return UdsDataStru(
+        name=name or src.name + "_lc",
+        data=output_data,
+        axes=axes,
+        info=copy.deepcopy(src.info),
+        proc_history=(
+            [copy.deepcopy(record) for record in src.proc_history]
+            if copy_process_history else []
+        ),
+    )
+
+
+def build_circle_cut_uds(
+    src: UdsDataStru,
+    centre: tuple[float, float],
+    edge: tuple[float, float],
+    *,
+    orientation: str = "layer_vs_theta",
+    interpolation_order: int = 1,
+    line_width: int = 1,
+    num_points: int = 0,
+    name: str | None = None,
+    copy_process_history: bool = True,
+) -> UdsDataStru:
+    """Build the circle-cut UDS used by preview and registered process.
+
+    ``centre`` and ``edge`` use the annotation convention ``(row, col)``.
+    The edge point sets the radius; sampling begins on the positive X side
+    and covers a complete circle from 0 to 2π.
+    """
+    data = np.asarray(src.data)
+    if data.ndim != 3:
+        raise ValueError(
+            f"Circle cut requires 3-D data; got {data.ndim}-D data.")
+    if orientation not in {"layer_vs_theta", "theta_vs_layer"}:
+        raise ValueError(f"Unknown circle-cut orientation: {orientation!r}")
+    if not 0 <= int(interpolation_order) <= 3:
+        raise ValueError("Interpolation order must be between 0 and 3.")
+    if int(line_width) < 1:
+        raise ValueError("Radial width must be at least 1 pixel.")
+    if int(num_points) < 0:
+        raise ValueError("Number of points cannot be negative.")
+
+    cy, cx = map(float, centre)
+    ey, ex = map(float, edge)
+    if not all(np.isfinite((cx, cy, ex, ey))):
+        raise ValueError("Circle centre and edge points must be finite.")
+    if np.hypot(ex - cx, ey - cy) == 0:
+        raise ValueError("Circle centre and edge points must be different.")
+
+    cut = _CircleCut(
+        data, cx, cy, ex, ey,
+        order=int(interpolation_order),
+        num_points=int(num_points) or None,
+    )
+    if int(line_width) > 1:
+        values = cut.circlecut_with_width_average(int(line_width))
+    else:
+        values = cut.circlecut_interpolated()
+    values = np.real(values).astype(np.float64, copy=False)  # (L, N)
+
+    if src.axes and len(src.axes[0].values) == data.shape[0]:
+        layer_axis = copy.deepcopy(src.axes[0])
+    else:
+        layer_axis = Axis(
+            values=np.arange(data.shape[0], dtype=float),
+            label="Layer",
+            axis_type=AxisType.INDEX,
+        )
+    theta_axis = Axis(
+        values=np.linspace(0.0, 2 * np.pi, values.shape[1]),
+        label="θ",
+        units="rad",
+    )
+
+    if orientation == "layer_vs_theta":
+        output_data = values
+        axes = [layer_axis, theta_axis]
+    else:
+        output_data = values.T
+        axes = [theta_axis, layer_axis]
+
+    return UdsDataStru(
+        name=name or src.name + "_cc",
+        data=output_data,
+        axes=axes,
+        info=copy.deepcopy(src.info),
+        proc_history=(
+            [copy.deepcopy(record) for record in src.proc_history]
+            if copy_process_history else []
+        ),
+    )
 
 # ---------------------------------------------------------------------------
 # Registered process: spectral.line_cut
@@ -257,49 +485,15 @@ def line_cut(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
             "Set a line annotation on the item first."
         )
 
-    p1 = ann.p1  # (row, col)
-    p2 = ann.p2
-    x1, y1 = float(p1[1]), float(p1[0])   # x=col, y=row
-    x2, y2 = float(p2[1]), float(p2[0])
-
-    orientation = params["orientation"]
-    method      = params["method"]
-    order       = params["interpolation_order"]
-    width       = params["line_width"]
-    n_pts       = params["num_points"] or None
-
-    lc = _LineCut(src.data, x1, y1, x2, y2, order=order, num_points=n_pts)
-
-    if method == "bresenham":
-        values, _ = lc.bresenham_line()
-    elif width > 1:
-        values = lc.linecut_with_width_average(width)
-    else:
-        values = lc.linecut_interpolated()
-    # values: (L, N)
-
-    energy_ax   = copy.deepcopy(src.axes[0])
-    dist_px     = np.hypot(x2 - x1, y2 - y1)
-    distance_ax = Axis(values=np.linspace(0.0, dist_px, values.shape[1]),
-                       label="Distance", units="px")
-
-    if orientation == "layer_vs_distance":
-        # (L, N): axis[0]=energy, axis[1]=distance
-        data2d = values
-        axes   = [energy_ax, distance_ax]
-        suffix = "_lc"
-    else:
-        # (N, L): axis[0]=distance, axis[1]=energy
-        data2d = values.T
-        axes   = [distance_ax, energy_ax]
-        suffix = "_lc"
-
-    return UdsDataStru(
-        name         = src.name + suffix,
-        data         = data2d.astype(np.float64),
-        axes         = axes,
-        info         = dict(src.info),
-        proc_history = [copy.deepcopy(r) for r in src.proc_history],
+    return build_line_cut_uds(
+        src,
+        ann.p1,
+        ann.p2,
+        orientation=params["orientation"],
+        method=params["method"],
+        interpolation_order=params["interpolation_order"],
+        line_width=params["line_width"],
+        num_points=params["num_points"],
     )
 
 
@@ -391,41 +585,12 @@ def circle_cut(inputs: dict, params: dict, *, annotations=None) -> UdsDataStru:
             f"got {ann.coords.shape[0]}."
         )
 
-    centre = ann.coords[0]  # [row, col]
-    edge   = ann.coords[1]
-    cx, cy = float(centre[1]), float(centre[0])   # x=col, y=row
-    ex, ey = float(edge[1]),   float(edge[0])
-
-    orientation = params["orientation"]
-    order       = params["interpolation_order"]
-    width       = params["line_width"]
-    n_pts       = params["num_points"] or None
-
-    cc = _CircleCut(src.data, cx, cy, ex, ey, order=order, num_points=n_pts)
-
-    if width > 1:
-        values = cc.circlecut_with_width_average(width)
-    else:
-        values = cc.circlecut_interpolated()
-    # values: (L, N)
-
-    energy_ax = copy.deepcopy(src.axes[0])
-    theta_ax  = Axis(values=np.linspace(0.0, 2 * np.pi, values.shape[1]),
-                     label="θ", units="rad")
-
-    if orientation == "layer_vs_theta":
-        # (L, N): axis[0]=energy, axis[1]=θ
-        data2d = values
-        axes   = [energy_ax, theta_ax]
-    else:
-        # (N, L): axis[0]=θ, axis[1]=energy
-        data2d = values.T
-        axes   = [theta_ax, energy_ax]
-
-    return UdsDataStru(
-        name         = src.name + "_cc",
-        data         = data2d.astype(np.float64),
-        axes         = axes,
-        info         = dict(src.info),
-        proc_history = [copy.deepcopy(r) for r in src.proc_history],
+    return build_circle_cut_uds(
+        src,
+        ann.coords[0],
+        ann.coords[1],
+        orientation=params["orientation"],
+        interpolation_order=params["interpolation_order"],
+        line_width=params["line_width"],
+        num_points=params["num_points"],
     )

@@ -48,8 +48,11 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
     ----------------------------------
     add_dataset(name, uds)   — add / replace a dataset
     remove_dataset(name)     — remove a dataset
+    set_y_error_data(...)    — attach symmetric Y uncertainty to a dataset
+    remove_y_error_data(name)— remove a dataset's uncertainty overlay
     clear()                  — remove all datasets
     apply_config(cfg)        — push new preferences dict down to active plot widget
+    reset_template_style()   — restore template-controlled plotting defaults
     save_scene(name)         — capture current state as ScenePlot
     restore_scene(scene)     — restore full state from ScenePlot
 
@@ -60,9 +63,11 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
     """
 
     extract_requested = Signal(list)   # list[(str, UdsDataStru)]
+    errorbars_requested = Signal(str)  # plotted dataset name
     cleared           = Signal()        # emitted when Clear All is pressed
 
-    def __init__(self, config: dict | None = None, parent=None) -> None:
+    def __init__(self, config: dict | None = None, parent=None,
+                 *, allow_extract: bool = True) -> None:
         super().__init__(parent)
         from .viewer_context import ViewerContext
         self._config:   dict            = config or {}
@@ -75,6 +80,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._runtime_scene = None                    # set via set_runtime_scene()
         self._current_mode: str = "stack"             # active plot mode
         self._bulk_update: bool = False               # suppress per-child refreshes
+        self._allow_extract = bool(allow_extract)
         self.view_context = ViewerContext(self)       # identity of active view objects
         from .scene_bus import SceneBus
         self.scene_bus = SceneBus(self)               # scene-mutation notifications
@@ -112,6 +118,14 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         axes.artists.append(spec)
         return spec
 
+    def _find_artist_spec(self, ds_name: str):
+        axes = (self._runtime_scene.active_axes
+                if self._runtime_scene is not None else None)
+        if axes is None:
+            return None
+        return next(
+            (spec for spec in axes.artists if spec.label == ds_name), None)
+
     # ── Y-axis assignment (twin axes) ─────────────────────────────────────
 
     def _ds_yaxis(self, ds_name: str) -> str:
@@ -132,12 +146,48 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         return {spec.label: spec.extra.get("y_axis", "left")
                 for spec in axes.artists}
 
+    def _ensure_display_factors(self, entry: dict, side: str = "left") -> None:
+        """Persist first-dataset engineering factors into the scene.
+
+        Factors are initialized only when absent.  Adding or replacing later
+        datasets therefore never silently changes an axis selected by the
+        user.  Stack left/right Y axes keep independent factors; Colormap mode
+        scales its physical row axis separately.
+        """
+        from .si_scale import si_scale
+
+        axes = self._active_axes()
+        if axes is None:
+            return
+        configs = axes.extra.setdefault("axes_config_by_mode", {})
+        stack = configs.setdefault("stack", {})
+        stack_right = configs.setdefault("stack_right", {})
+        colormap = configs.setdefault("colormap", {})
+
+        x_factor = float(si_scale(entry["x"])[1]) if entry["x"].size else 1.0
+        stack.setdefault("x_factor", x_factor)
+        stack_right.setdefault("x_factor", stack["x_factor"])
+        colormap.setdefault("x_factor", x_factor)
+
+        y_values = entry["y"]
+        y_factor = float(si_scale(y_values)[1]) if y_values.size else 1.0
+        y_config = stack_right if side == "right" else stack
+        y_config.setdefault("y_factor", y_factor)
+
+        row_values = entry.get("row_values")
+        row_factor = (float(si_scale(row_values)[1])
+                      if row_values is not None and row_values.size else 1.0)
+        colormap.setdefault("y_factor", row_factor)
+
     def set_dataset_yaxis(self, ds_name: str, side: str) -> None:
         """Assign dataset to left or right Y axis and trigger a rebuild."""
         spec = self._artist_spec(ds_name)
         if spec is None:
             return
         spec.extra["y_axis"] = side
+        entry = self._datasets.get(ds_name)
+        if entry is not None:
+            self._ensure_display_factors(entry, side)
         self._rebuild_tree()
         if self._plot_widget is not None:
             self._plot_widget.refresh(self._datasets, self._checked)
@@ -173,6 +223,14 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         if current_side != "left":
             act = menu.addAction("Move to Left Y axis")
             act.triggered.connect(lambda: self.set_dataset_yaxis(ds_name, "left"))
+        menu.addSeparator()
+        act_error = menu.addAction("Configure Error Bars…")
+        act_error.triggered.connect(
+            lambda: self.errorbars_requested.emit(ds_name))
+        if self.get_y_error_style(ds_name) is not None:
+            act_remove_error = menu.addAction("Remove Error Bars")
+            act_remove_error.triggered.connect(
+                lambda: self.remove_y_error_data(ds_name))
         menu.exec(self._tree.viewport().mapToGlobal(pos))
 
     # scene providers pulled by the plot widgets (see BasePlotWidget)
@@ -193,6 +251,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             ylabel     = d.get("ylabel", ""),
             xlim       = _lim(d.get("xlim")),
             ylim       = _lim(d.get("ylim")),
+            x_factor   = float(d.get("x_factor", 1.0)),
+            y_factor   = float(d.get("y_factor", 1.0)),
             xscale     = d.get("xscale", "linear"),
             yscale     = d.get("yscale", "linear"),
             grid       = d.get("grid"),        # None = untouched → delta rules
@@ -292,12 +352,13 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         btn_row.addWidget(btn_none)
         ll.addLayout(btn_row)
 
-        btn_extract = QtWidgets.QPushButton("Extract to workspace")
-        btn_extract.setToolTip(
-            "Extract selected curves as individual WorkspaceItems.\n"
-            "Select items in the tree above, then click here.")
-        btn_extract.clicked.connect(self._on_extract)
-        ll.addWidget(btn_extract)
+        if self._allow_extract:
+            btn_extract = QtWidgets.QPushButton("Extract to workspace")
+            btn_extract.setToolTip(
+                "Extract selected curves as individual WorkspaceItems.\n"
+                "Select items in the tree above, then click here.")
+            btn_extract.clicked.connect(self._on_extract)
+            ll.addWidget(btn_extract)
 
         self._tree.itemSelectionChanged.connect(self._on_tree_selection_changed)
 
@@ -375,6 +436,24 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             log.warning(
                 "Pre-load template %r is configured but could not be "
                 "loaded — using matplotlib defaults", name)
+
+    def reset_template_style(self) -> None:
+        """Return template-controlled appearance to plotting defaults.
+
+        This is primarily used by embedded curve previews when their template
+        preference changes to ``(none)``.  Dataset and visibility state stay
+        intact; only rcParams and cached plot-widget extras are reset.
+        """
+        if self._runtime_scene is not None:
+            self._runtime_scene.scene.rcparams_delta = {}
+        self._widget_extras = {
+            mode: dict(extra)
+            for mode, extra in tmgr.WIDGET_EXTRA_DEFAULTS.items()
+        }
+        for mode, widget in self._plot_widgets.items():
+            self._apply_widget_extra(widget, mode)
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(self._datasets, self._checked)
 
     def _harvest_widget_extras(self) -> dict[str, dict]:
         """Toolbar state of ALL cached widgets (hidden modes included)."""
@@ -468,6 +547,85 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
 
     # ── Public API ────────────────────────────────────────────────────────
 
+    def get_y_error_style(self, name: str):
+        spec = self._find_artist_spec(name)
+        if spec is None:
+            return None
+        style = getattr(spec, "errorbar", None)
+        if style is None or style.yerr_data is None:
+            return None
+        return style
+
+    def validate_y_error_data(self, name: str, error_uds) -> None:
+        from .prepare import prepare_y_error
+
+        entry = self._datasets.get(name)
+        if entry is None:
+            raise ValueError(f"No plotted dataset named {name!r}.")
+        prepare_y_error(error_uds, entry)
+
+    def _apply_errorbar_to_entry(self, name: str, entry: dict, spec) -> None:
+        from .prepare import prepare_y_error
+
+        style = getattr(spec, "errorbar", None) if spec is not None else None
+        if style is None or style.yerr_data is None:
+            entry.pop("yerr", None)
+            entry.pop("errorbar_style", None)
+            return
+        entry["yerr"] = prepare_y_error(style.yerr_data, entry)
+        entry["errorbar_style"] = style
+
+    def set_y_error_data(
+        self,
+        name: str,
+        error_uds,
+        *,
+        capsize: float = 3.0,
+        linewidth: float = 1.0,
+        ecolor: str = "",
+        errorevery: int = 1,
+    ) -> None:
+        """Attach a shape-matched symmetric Y-error UDS to one dataset."""
+        from angstrompro.core.data.scene_plot import ErrorBarStyle
+        from .prepare import prepare_y_error
+
+        entry = self._datasets.get(name)
+        if entry is None:
+            raise ValueError(f"No plotted dataset named {name!r}.")
+        # Validate before mutating the scene.  The embedded copy makes a saved
+        # ScenePlot independent of later workspace renames/removals/edits.
+        prepare_y_error(error_uds, entry)
+        error_copy = copy.deepcopy(error_uds)
+        style = ErrorBarStyle(
+            yerr_data=error_copy,
+            capsize=max(0.0, float(capsize)),
+            linewidth=max(0.1, float(linewidth)),
+            ecolor=str(ecolor or ""),
+            marker="",
+            errorevery=max(1, int(errorevery)),
+        )
+        spec = self._artist_spec(name, entry["uds"])
+        spec.errorbar = style
+        self._apply_errorbar_to_entry(name, entry, spec)
+        self._rebuild_tree()
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(self._datasets, self._checked)
+        self.scene_bus.artists_changed.emit()
+
+    def remove_y_error_data(self, name: str) -> None:
+        spec = self._find_artist_spec(name)
+        if spec is None or getattr(spec, "errorbar", None) is None:
+            return
+        spec.errorbar = None
+        entry = self._datasets.get(name)
+        if entry is not None:
+            entry.pop("yerr", None)
+            entry.pop("errorbar_style", None)
+        self._rebuild_tree()
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(self._datasets, self._checked)
+        self.scene_bus.artists_changed.emit()
+
     def add_dataset(self, name: str, uds) -> None:
         try:
             entry = prepare_entry(name, uds)
@@ -483,10 +641,27 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         spec = self._artist_spec(name, uds)
         if spec is not None:
             spec.data = uds
+            self._ensure_display_factors(
+                entry, spec.extra.get("y_axis", "left"))
+            try:
+                self._apply_errorbar_to_entry(name, entry, spec)
+            except ValueError as exc:
+                log.warning(
+                    "CurveStackViewer: removing incompatible Y errors from "
+                    "%r after data replacement: %s", name, exc)
+                spec.errorbar = None
+                entry.pop("yerr", None)
+                entry.pop("errorbar_style", None)
         self._rebuild_tree()
         if is_replace:
-            self._plot_widget.remove_lines(name)
-        self._plot_widget.add_lines(name, entry, self._checked[name])
+            # Plot widgets retain the container's dataset/visibility mappings
+            # after a full refresh.  Removing a same-named dataset first would
+            # therefore also delete it from ``self._checked``.  Replace the
+            # plot atomically instead; this is also the correct operation when
+            # a live dataset changes its number of curves.
+            self._plot_widget.refresh(self._datasets, self._checked)
+        else:
+            self._plot_widget.add_lines(name, entry, self._checked[name])
         self.scene_bus.artists_changed.emit()
 
     def remove_dataset(self, name: str) -> None:
@@ -597,6 +772,15 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
                 continue
             ds_name = artist.label or artist.data.name
             self._datasets[ds_name] = prepare_entry(ds_name, artist.data)
+            self._ensure_display_factors(
+                self._datasets[ds_name], artist.extra.get("y_axis", "left"))
+            try:
+                self._apply_errorbar_to_entry(
+                    ds_name, self._datasets[ds_name], artist)
+            except ValueError as exc:
+                log.warning(
+                    "CurveStackViewer: invalid saved Y errors for %r: %s",
+                    ds_name, exc)
             n       = self._datasets[ds_name]["y"].shape[0]
             checked = artist.extra.get("row_visibility", [artist.visible] * n)
             if len(checked) != n:
@@ -723,8 +907,22 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             # store lists (JSON-safe); tuples round-trip as lists through JSON
             if k in ("xlim", "ylim") and v is not None:
                 v = list(v)
+            if k in ("x_factor", "y_factor"):
+                v = float(v)
+                old_factor = float(cfg.get(k, 1.0) or 1.0)
+                limit_key = "xlim" if k == "x_factor" else "ylim"
+                if cfg.get(limit_key) and old_factor > 0:
+                    ratio = v / old_factor
+                    cfg[limit_key] = [
+                        float(bound) * ratio for bound in cfg[limit_key]]
             cfg[k] = v
-        self._apply_axes_patch_live(patch)
+            if k == "x_factor" and self._axes_config_key() == "stack":
+                by_mode.setdefault("stack_right", {})["x_factor"] = v
+        if patch.keys() & {"x_factor", "y_factor"}:
+            if self._plot_widget is not None:
+                self._plot_widget.refresh(self._datasets, self._checked)
+        else:
+            self._apply_axes_patch_live(patch)
         self.scene_bus.axes_config_changed.emit()
 
     def _current_mode_cfg(self) -> dict:
@@ -778,6 +976,9 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
                         leg.remove()
             elif k == "aspect":
                 ax.set_aspect(v or "auto")
+        if self._current_mode == "stack":
+            from .axis_format import apply_scientific_y_formatter
+            apply_scientific_y_formatter(ax)
         # margins were computed before this text existed — a new/changed
         # title or label needs a re-layout or it clips at the figure edge
         if patch.keys() & {"title", "xlabel", "ylabel"}:
@@ -880,7 +1081,12 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         for name, entry in self._datasets.items():
             n_curves = entry["y"].shape[0]
             checked  = self._checked.get(name, [True] * n_curves)
-            label    = f"{name} [R]" if self._ds_yaxis(name) == "right" else name
+            badges = []
+            if self._ds_yaxis(name) == "right":
+                badges.append("R")
+            if self.get_y_error_style(name) is not None:
+                badges.append("Y±")
+            label = f"{name} [{' '.join(badges)}]" if badges else name
 
             top = QtWidgets.QTreeWidgetItem([label])
             top.setData(0, _ITEM_ROLE, ("dataset", name))

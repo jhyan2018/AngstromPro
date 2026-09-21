@@ -126,6 +126,9 @@ rewrite already cached images. Re-render the affected cards to see the change.
 - **Scale** controls histogram sigma scaling, FFT upper scaling, scale-button
   zoom, and canvas wheel sensitivity.
 - **Canvas** controls maximum canvas size and the optional bias-value overlay.
+- **Curve preview** selects a scene template created in Curve Stack Viewer.
+  Each Image Stack Viewer loads it once and retains the resulting preview style
+  across primary-data changes; choosing a different template reapplies it.
 
 ### Curve Stack Viewer
 
