@@ -194,6 +194,9 @@ class AModuleManager(QtCore.QObject):
         instances = self._instances.get(module_id, [])
         if instance in instances:
             instances.remove(instance)
+        dispose_workspaces = getattr(instance, "_dispose_module_workspaces", None)
+        if callable(dispose_workspaces):
+            dispose_workspaces()
         instance.deleteLater()
         self.module_removed.emit(module_id)
         log.debug("Module removed: %s (instance_id=%s)", module_id, instance.instance_id)

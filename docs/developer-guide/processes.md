@@ -52,6 +52,14 @@ process. Never mutate the input merely to avoid allocating a result.
 Axis hints inform users and can produce warnings; they do not replace explicit
 validation required by a scientific algorithm.
 
+For a numeric parameter whose valid range comes from an input axis, set
+`axis_input`, `axis_index`, and `axis_default` (`"min"` or `"max"`). The
+parameter dialog creates a per-dialog copy of that specification, derives its
+bounds, initial value, units, and step from the staged input, and leaves the
+registered schema unchanged. `decimals` controls the precision of float
+spinboxes. The process backend must still support the schema's static default,
+because headless callers do not open the parameter dialog.
+
 ## Registration and discovery
 
 Decorators append entries during module import. Built-in algorithms are
@@ -69,7 +77,17 @@ GUI callers should use `ProcessRunner` or registry submission rather than call
 expensive functions on the Qt thread. The runner resolves inputs and
 annotations, validates parameters, submits a task, and routes successful
 results back to the source module. The registry adds processing history to
-supported results.
+supported results. A process may return one workspace-data object or a nested
+list/tuple of workspace-data objects; source propagation and the new history
+record are applied to every returned object.
+
+Processes that need to produce annotations or scalar quality measurements may
+return `ProcessResult(data=..., annotations=..., metrics=...)`. Existing return
+values remain fully supported and are normalized as data-only results by
+workflow-aware callers. Annotation keys are workspace roles such as
+`"bragg_peaks"`; metrics are named scalar values. Declare these optional ports
+with `AnnotationOutputSpec` and `MetricOutputSpec` so workflow editors can
+discover them before execution.
 
 Use `register_simulation` for generators. Simulations may have no inputs and
 appear under **Simulate**, not **Process**.

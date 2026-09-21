@@ -24,7 +24,10 @@ Usage
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
+
+import numpy as np
 
 from angstrompro.utils.qt_compat import QtCore, QtWidgets
 
@@ -51,6 +54,8 @@ class ProcessParamDialog(QtWidgets.QDialog):
         self._workspace_items = workspace_items or []
         self._widgets:      dict[str, QtWidgets.QWidget] = {}
         self._input_combos: dict[str, QtWidgets.QComboBox] = {}
+        self._param_specs = resolve_parameter_specs(
+            entry, self._input_items)
 
         self.setWindowTitle(entry.label)
         self.setMinimumWidth(420)
@@ -176,15 +181,15 @@ class ProcessParamDialog(QtWidgets.QDialog):
             root.addWidget(_hline())
 
         # parameter form
-        if self._entry.schema.params:
+        if self._param_specs:
             form_widget = QtWidgets.QWidget()
             form = QtWidgets.QFormLayout(form_widget)
             form.setContentsMargins(0, 0, 0, 0)
             form.setHorizontalSpacing(16)
             form.setVerticalSpacing(6)
 
-            for spec in self._entry.schema.params:
-                widget = _make_widget(spec)
+            for spec in self._param_specs:
+                widget = make_parameter_widget(spec)
                 self._widgets[spec.name] = widget
 
                 row_label_text = spec.label or spec.name
@@ -239,20 +244,21 @@ class ProcessParamDialog(QtWidgets.QDialog):
 
     def _load_values(self) -> None:
         """Populate widgets from ParamHistoryManager (falls back to schema defaults)."""
-        defaults = self._entry.schema.defaults()
+        defaults = {spec.name: spec.default for spec in self._param_specs}
         values   = self._context.param_history.get(self._entry.name, defaults)
         self._apply_values(values)
 
     def _reset_to_defaults(self) -> None:
-        self._apply_values(self._entry.schema.defaults())
+        self._apply_values({spec.name: spec.default
+                            for spec in self._param_specs})
 
     def _apply_values(self, values: dict[str, Any]) -> None:
-        for spec in self._entry.schema.params:
+        for spec in self._param_specs:
             widget = self._widgets.get(spec.name)
             value  = values.get(spec.name, spec.default)
             if widget is None:
                 continue
-            _set_widget_value(widget, spec, value)
+            set_parameter_widget_value(widget, spec, value)
 
     # ------------------------------------------------------------------
     # Result
@@ -272,10 +278,10 @@ class ProcessParamDialog(QtWidgets.QDialog):
     def params(self) -> dict[str, Any]:
         """Return the current param values as a plain dict."""
         result: dict[str, Any] = {}
-        for spec in self._entry.schema.params:
+        for spec in self._param_specs:
             widget = self._widgets.get(spec.name)
             if widget is not None:
-                result[spec.name] = _get_widget_value(widget, spec)
+                result[spec.name] = parameter_widget_value(widget, spec)
         return result
 
     # ------------------------------------------------------------------
@@ -293,7 +299,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
 # Widget factory
 # ---------------------------------------------------------------------------
 
-def _make_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
+def make_parameter_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
     """Create the appropriate Qt widget for a ParameterSpec."""
 
     if spec.choices:
@@ -317,7 +323,7 @@ def _make_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
 
     if spec.type is float:
         w = QtWidgets.QDoubleSpinBox()
-        w.setDecimals(6)
+        w.setDecimals(spec.decimals if spec.decimals is not None else 6)
         w.setRange(
             float(spec.min) if spec.min is not None else -1e18,
             float(spec.max) if spec.max is not None else  1e18,
@@ -337,7 +343,7 @@ def _make_widget(spec: "ParameterSpec") -> QtWidgets.QWidget:
     return QtWidgets.QLineEdit()
 
 
-def _set_widget_value(
+def set_parameter_widget_value(
     widget: QtWidgets.QWidget,
     spec:   "ParameterSpec",
     value:  Any,
@@ -371,7 +377,10 @@ def _set_widget_value(
     widget.setText(str(value))
 
 
-def _get_widget_value(widget: QtWidgets.QWidget, spec: "ParameterSpec") -> Any:
+def parameter_widget_value(
+    widget: QtWidgets.QWidget,
+    spec: "ParameterSpec",
+) -> Any:
     if spec.choices:
         return widget.currentData()
 
@@ -394,6 +403,77 @@ def _get_widget_value(widget: QtWidgets.QWidget, spec: "ParameterSpec") -> Any:
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
+
+def resolve_parameter_specs(entry, input_items: list) -> list:
+    """Return per-dialog specs with input-axis-derived bounds and defaults.
+
+    The registered schema remains immutable. This matters because one process
+    registry serves dialogs opened for datasets with different axis ranges.
+    """
+    input_by_name = {
+        input_spec.name: item
+        for input_spec, item in zip(entry.schema.inputs, input_items)
+        if item is not None
+    }
+    resolved_specs = []
+    for spec in entry.schema.params:
+        if spec.axis_index is None:
+            resolved_specs.append(spec)
+            continue
+
+        input_name = spec.axis_input
+        if not input_name and entry.schema.inputs:
+            input_name = entry.schema.inputs[0].name
+        item = input_by_name.get(input_name)
+        payload = getattr(item, "payload", item)
+        axes = getattr(payload, "axes", None)
+        if not axes:
+            resolved_specs.append(spec)
+            continue
+
+        index = spec.axis_index
+        if index < 0:
+            index += len(axes)
+        if index < 0 or index >= len(axes):
+            resolved_specs.append(spec)
+            continue
+
+        axis = axes[index]
+        try:
+            values = np.asarray(axis.values, dtype=np.float64).reshape(-1)
+        except (TypeError, ValueError):
+            resolved_specs.append(spec)
+            continue
+        values = values[np.isfinite(values)]
+        if values.size == 0:
+            resolved_specs.append(spec)
+            continue
+
+        lower = float(np.min(values))
+        upper = float(np.max(values))
+        default = spec.default
+        if spec.axis_default == "min":
+            default = lower
+        elif spec.axis_default == "max":
+            default = upper
+
+        step = spec.step
+        if step is None and values.size > 1:
+            unique = np.unique(values)
+            spacings = np.diff(unique)
+            spacings = spacings[spacings > 0]
+            if spacings.size:
+                step = float(np.median(spacings))
+
+        resolved_specs.append(replace(
+            spec,
+            default=default,
+            min=lower,
+            max=upper,
+            step=step,
+            units=str(getattr(axis, "units", "") or spec.units),
+        ))
+    return resolved_specs
 
 def _hline() -> QtWidgets.QFrame:
     line = QtWidgets.QFrame()

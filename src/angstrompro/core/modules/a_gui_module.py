@@ -371,7 +371,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             return
 
         pre_staged   = self.process_inputs[:len(entry.schema.inputs)]
-        ws_items     = self.workspace.list_items()
+        ws_items     = self.accessible_workspace_items()
         dlg = ProcessParamDialog(
             entry, self._context, parent=self,
             input_items=pre_staged, workspace_items=ws_items,
@@ -560,19 +560,51 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         from angstrompro.utils.qt_compat import QtGui
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
 
-        # Build a map: item.name → badge label for staged (processing) items
+        # Build a map keyed by stable item id so duplicate names in the private
+        # and shared workspaces remain unambiguous.
         staged_map: dict[str, str] = {}
         for idx, ws_item in enumerate(self._process_inputs):
             if ws_item is None:
                 continue
             if idx < len(self.staged_labels):
-                staged_map[ws_item.name] = self.staged_labels[idx]
+                staged_map[ws_item.item_id] = self.staged_labels[idx]
 
         self._ws_list.clear()
-        for item in self.workspace.list_items():
-            top = QtWidgets.QTreeWidgetItem(self._ws_list)
+        if self.shared_workspace is None:
+            self._populate_workspace_tree_items(
+                self._ws_list, self.private_workspace, staged_map, _UserRole,
+            )
+        else:
+            for workspace, title in (
+                (self.private_workspace, "Private workspace"),
+                (self.shared_workspace,
+                 f"Shared: {self.shared_workspace.label}  [Active output]"),
+            ):
+                group = QtWidgets.QTreeWidgetItem(self._ws_list)
+                group.setText(0, title)
+                group.setText(1, f"{workspace.count()} item(s)")
+                group.setData(
+                    0, _UserRole, ("workspace", workspace.workspace_id),
+                )
+                font = group.font(0)
+                font.setBold(True)
+                group.setFont(0, font)
+                self._populate_workspace_tree_items(
+                    group, workspace, staged_map, _UserRole,
+                )
+                group.setExpanded(True)
 
-            badge = staged_map.get(item.name)
+        self._refresh_slots_panel()
+
+    def _populate_workspace_tree_items(
+            self, parent, workspace, staged_map: dict[str, str],
+            user_role) -> None:
+        from angstrompro.utils.qt_compat import QtGui
+
+        for item in workspace.list_items():
+            top = QtWidgets.QTreeWidgetItem(parent)
+
+            badge = staged_map.get(item.item_id)
             display_color = self._get_display_color(item.name)
 
             # Name text: badge prefix when in a processing slot
@@ -592,7 +624,10 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     f"Workspace name: {item.name}\nAlias: {item.alias}",
                 )
 
-            top.setData(0, _UserRole, item.name)
+            top.setData(
+                0, user_role,
+                ("item", workspace.workspace_id, item.item_id),
+            )
 
             # Shape / type info
             shape = getattr(getattr(item.payload, 'data', None), 'shape', None)
@@ -606,19 +641,60 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 child = QtWidgets.QTreeWidgetItem(top)
                 child.setText(0, role)
                 child.setText(1, self._ann_summary(ann))
-                child.setData(0, _UserRole, (item.name, role))
+                child.setData(
+                    0, user_role,
+                    ("annotation", workspace.workspace_id, item.item_id, role),
+                )
             top.setExpanded(True)
 
-    def _selected_item_name(self) -> str | None:
+    def _workspace_tree_context(self, data):
+        """Resolve tree data to ``(kind, workspace, item, role)``."""
+        manager = self._context.workspace_manager
+        if isinstance(data, tuple) and data:
+            kind = data[0]
+            if kind == "workspace" and len(data) == 2:
+                try:
+                    return kind, manager.get_workspace(data[1]), None, None
+                except KeyError:
+                    return None, None, None, None
+            if kind in {"item", "annotation"} and len(data) >= 3:
+                try:
+                    workspace = manager.get_workspace(data[1])
+                except KeyError:
+                    return None, None, None, None
+                item = workspace.find_item_by_id(data[2])
+                role = data[3] if kind == "annotation" and len(data) > 3 else None
+                return kind, workspace, item, role
+        # Compatibility for tree data produced by older subclasses.
+        if isinstance(data, str):
+            item = self.workspace.find_item(data)
+            return "item", self.workspace, item, None
+        if isinstance(data, tuple) and len(data) == 2:
+            item = self.workspace.find_item(data[0])
+            return "annotation", self.workspace, item, data[1]
+        return None, None, None, None
+
+    def _selected_workspace_item(self) -> WorkspaceItem | None:
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
         tree_item = self._ws_list.currentItem()
         if tree_item is None:
             return None
-        data = tree_item.data(0, _UserRole)
-        # Top-level items store str; child items store (name, role) tuple
-        if isinstance(data, tuple):
-            return data[0]
-        return data
+        kind, _workspace, item, _role = self._workspace_tree_context(
+            tree_item.data(0, _UserRole))
+        return item if kind in {"item", "annotation"} else None
+
+    def _selected_item_workspace(self):
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+        tree_item = self._ws_list.currentItem()
+        if tree_item is None:
+            return None
+        kind, workspace, _item, _role = self._workspace_tree_context(
+            tree_item.data(0, _UserRole))
+        return workspace if kind in {"item", "annotation"} else None
+
+    def _selected_item_name(self) -> str | None:
+        item = self._selected_workspace_item()
+        return item.name if item is not None else None
 
     def _on_ws_item_double_clicked(self, tree_item: QtWidgets.QTreeWidgetItem, column: int) -> None:
         _LeftButton = QtCore.Qt.MouseButton.LeftButton if IS_QT6 else QtCore.Qt.LeftButton
@@ -626,15 +702,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             return
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
         data = tree_item.data(0, _UserRole)
-        # Only activate on top-level items (str name), not annotation children
-        if not isinstance(data, str):
-            return
-        name = data
-        item = self.workspace.find_item(name)
-        if item is None:
-            # stale tree row — the item was removed/renamed behind the panel's
-            # back (e.g. snapshot cache replacement); resync instead of crashing
-            self._refresh_workspace_panel()
+        kind, _workspace, item, _role = self._workspace_tree_context(data)
+        if kind != "item" or item is None:
             return
         try:
             self.load_item(item)
@@ -647,43 +716,37 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if tree_item is None:
             return
         data = tree_item.data(0, _UserRole)
-        if isinstance(data, tuple):
+        kind, workspace, ws_item, role = self._workspace_tree_context(data)
+        if kind == "annotation" and workspace is not None and ws_item is not None:
             # Annotation child — show Clear action
-            item_name, role = data
             menu = QtWidgets.QMenu(self)
             act_clear = menu.addAction(f"Clear '{role}'")
             act = menu.exec(self._ws_list.viewport().mapToGlobal(pos))
             if act == act_clear:
-                ws_item = self.workspace.find_item(item_name)
-                if ws_item is None:
-                    self._refresh_workspace_panel()
-                    return
                 ws_item.annotations.pop(role, None)
-                self.workspace.notify_changed(item_name)
-        elif isinstance(data, str):
-            ws_item = self.workspace.find_item(data)
-            if ws_item is None:
-                self._refresh_workspace_panel()
-                return
+                workspace.notify_changed(ws_item.name)
+        elif kind == "item" and workspace is not None and ws_item is not None:
             menu = QtWidgets.QMenu(self)
             self._populate_ws_item_context_menu(menu, ws_item)
             if not menu.isEmpty():
                 menu.addSeparator()
             act_set_alias = menu.addAction("Set alias…")
             act_set_alias.triggered.connect(
-                lambda _checked=False: self._set_workspace_item_alias(ws_item))
+                lambda _checked=False, w=workspace:
+                self._set_workspace_item_alias(ws_item, w))
             if ws_item.alias:
                 act_clear_alias = menu.addAction("Clear alias")
                 act_clear_alias.triggered.connect(
-                    lambda _checked=False: self._clear_workspace_item_alias(
-                        ws_item))
+                    lambda _checked=False, w=workspace:
+                    self._clear_workspace_item_alias(ws_item, w))
             menu.exec(self._ws_list.viewport().mapToGlobal(pos))
 
     def _populate_ws_item_context_menu(
             self, menu: "QtWidgets.QMenu", item: "WorkspaceItem") -> None:
         """Hook for subclasses to add actions to the workspace item context menu."""
 
-    def _set_workspace_item_alias(self, item: "WorkspaceItem") -> None:
+    def _set_workspace_item_alias(
+            self, item: "WorkspaceItem", workspace=None) -> None:
         """Prompt for a display-only alias without changing item identity."""
 
         echo_mode_type = getattr(
@@ -704,24 +767,30 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if alias == item.alias:
             return
         item.alias = alias
-        self.workspace.notify_changed(item.name)
+        owner_lookup = getattr(self, "workspace_containing_item", None)
+        owner = owner_lookup(item) if callable(owner_lookup) else None
+        (workspace or owner or self.workspace).notify_changed(item.name)
 
-    def _clear_workspace_item_alias(self, item: "WorkspaceItem") -> None:
+    def _clear_workspace_item_alias(
+            self, item: "WorkspaceItem", workspace=None) -> None:
         """Remove an item's display alias while preserving its real name."""
 
         if not item.alias:
             return
         item.alias = ""
-        self.workspace.notify_changed(item.name)
+        owner_lookup = getattr(self, "workspace_containing_item", None)
+        owner = owner_lookup(item) if callable(owner_lookup) else None
+        (workspace or owner or self.workspace).notify_changed(item.name)
 
 
     def _on_remove_item(self) -> None:
-        name = self._selected_item_name()
-        if name:
-            if not self.workspace.has_item(name):
-                self._refresh_workspace_panel()   # stale tree row
+        item = self._selected_workspace_item()
+        workspace = self._selected_item_workspace()
+        if item is not None and workspace is not None:
+            if not workspace.has_item_id(item.item_id):
+                self._refresh_workspace_panel()
                 return
-            self.workspace.remove_item(name)
+            workspace.remove_item(item.name)
 
     def _on_default_toggled(self, checked: bool) -> None:
         if not checked:
@@ -747,10 +816,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self._send_default_cb.blockSignals(False)
 
     def _on_send_item(self) -> None:
-        name = self._selected_item_name()
-        if not name:
+        item = self._selected_workspace_item()
+        source_workspace = self._selected_item_workspace()
+        if item is None or source_workspace is None:
             QtWidgets.QMessageBox.warning(self, "No item selected", "Select an item to send.")
             return
+        name = item.name
         sent = False
         if self._send_default_cb.isChecked():
             targets = self._context.module_manager.get_default_targets(self.instance_id)
@@ -761,8 +832,10 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 )
                 return
             for target in targets:
+                if target.workspace.workspace_id == source_workspace.workspace_id:
+                    continue
                 self._context.workspace_manager.transfer_item(
-                    src_workspace_id=self.workspace.workspace_id,
+                    src_workspace_id=source_workspace.workspace_id,
                     dst_workspace_id=target.workspace.workspace_id,
                     item_name=name,
                 )
@@ -772,23 +845,28 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             dlg = SendItemDialog(self._context, exclude_instance_id=self.instance_id, parent=self)
             if dlg.exec() and dlg.selected_module:
                 target = dlg.selected_module
-                self._context.workspace_manager.transfer_item(
-                    src_workspace_id=self.workspace.workspace_id,
-                    dst_workspace_id=target.workspace.workspace_id,
-                    item_name=name,
-                )
-                sent = True
+                if target.workspace.workspace_id == source_workspace.workspace_id:
+                    self.statusBar().showMessage(
+                        "The target module already accesses this workspace.", 4000)
+                else:
+                    self._context.workspace_manager.transfer_item(
+                        src_workspace_id=source_workspace.workspace_id,
+                        dst_workspace_id=target.workspace.workspace_id,
+                        item_name=name,
+                    )
+                    sent = True
         if sent:
-            self._after_send(name)
+            self._after_send(name, source_workspace)
 
-    def _after_send(self, item_name: str) -> None:
+    def _after_send(self, item_name: str, source_workspace=None) -> None:
         """App-level send semantics: transfer_item copies, so with
         delete_after_send=True (default) the sender's copy is removed —
         a send reads as *move*.  Safe because the receiver deep-copies /
         takes ownership at the accept boundary."""
+        source_workspace = source_workspace or self.workspace
         if self._context.config.get("app", "delete_after_send", True):
-            if self.workspace.has_item(item_name):
-                self.workspace.remove_item(item_name)
+            if source_workspace.has_item(item_name):
+                source_workspace.remove_item(item_name)
 
     # ------------------------------------------------------------------
     # File menu
@@ -979,12 +1057,18 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         return load_with_channel_picker(p, self._context, self)
 
     def _on_file_save(self) -> None:
-        name = self._selected_item_name()
-        if not name:
+        selected_item = getattr(self, "_selected_workspace_item", None)
+        item = selected_item() if callable(selected_item) else None
+        if item is None:
+            # Compatibility for lightweight callers and older subclasses that
+            # only provide the name-based selection helper.
+            name = self._selected_item_name()
+            item = self.workspace.find_item(name) if name else None
+        if item is None:
             QtWidgets.QMessageBox.warning(self, "No item selected",
                                           "Select a workspace item to save.")
             return
-        item = self.workspace.get_item(name)
+        name = item.name
         if not self._confirm_standalone_uds_save(item):
             return
         from angstrompro.io import uds_io, scene_plot_io  # noqa: F401 — ensure all formats registered
@@ -1073,15 +1157,58 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         return SkippedWorkspaceItemsDialog.confirm(
             heading, lines, parent=self, allow_cancel=allow_cancel)
 
+    def _choose_workspace_archive_target(self, operation: str):
+        """Choose private or shared archive target; shared is the default."""
+        if self.shared_workspace is None:
+            return self.private_workspace
+        choices = [
+            f"Shared — {self.shared_workspace.label} (active output)",
+            f"Private — {self.private_workspace.label}",
+        ]
+        selected, accepted = QtWidgets.QInputDialog.getItem(
+            self,
+            f"{operation} Workspace",
+            "Choose the workspace:",
+            choices,
+            0,
+            False,
+        )
+        if not accepted:
+            return None
+        return (self.shared_workspace
+                if selected == choices[0] else self.private_workspace)
+
+    def _confirm_shared_workspace_import(self, workspace) -> bool:
+        attached_count = len(
+            self._context.workspace_manager.attached_module_ids(
+                workspace.workspace_id))
+        answer = QtWidgets.QMessageBox.question(
+            self,
+            "Import into Shared Workspace?",
+            f"Import items into shared workspace '{workspace.label}'?\n\n"
+            f"The changes will be visible immediately to {attached_count} "
+            "attached module(s).",
+            QtWidgets.QMessageBox.StandardButton.Ok
+            | QtWidgets.QMessageBox.StandardButton.Cancel,
+            QtWidgets.QMessageBox.StandardButton.Cancel,
+        )
+        return answer == QtWidgets.QMessageBox.StandardButton.Ok
+
     def _on_workspace_save(self) -> None:
         from angstrompro.io.workspace_io import (
             save_workspace, split_supported_items,
         )
 
-        items = self.workspace.list_items()
+        chooser = getattr(self, "_choose_workspace_archive_target", None)
+        workspace = chooser("Save") if callable(chooser) else self.workspace
+        if workspace is None:
+            return
+
+        items = workspace.list_items()
         if not items:
             QtWidgets.QMessageBox.information(
-                self, "Empty workspace", "There are no workspace items to save.")
+                self, "Empty workspace",
+                f"Workspace '{workspace.label}' has no items to save.")
             return
 
         supported, unsupported = split_supported_items(items)
@@ -1095,7 +1222,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 "None of the workspace items have a supported payload type.")
             return
 
-        start_dir = self._context.config.get("io", "default_open_dir") or ""
+        start_dir = (
+            self._context.config.get("io", "default_save_dir")
+            or self._context.config.get("io", "default_open_dir")
+            or ""
+        )
         from pathlib import Path
         suggested = (
             str(Path(start_dir) / "workspace.apws")
@@ -1103,7 +1234,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         )
         path, _ = QtWidgets.QFileDialog.getSaveFileName(
             self,
-            "Save Workspace",
+            f"Save Workspace — {workspace.label}",
             suggested,
             "AngstromPro Workspace (*.apws);;HDF5 (*.h5 *.hdf5)",
         )
@@ -1114,9 +1245,10 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             archive_path = archive_path.with_suffix(".apws")
 
         try:
-            save_workspace(archive_path, self.workspace)
+            save_workspace(archive_path, workspace)
             self.statusBar().showMessage(
-                f"Workspace saved: {len(supported)} item(s) → {archive_path}",
+                f"Workspace '{workspace.label}' saved: "
+                f"{len(supported)} item(s) → {archive_path}",
                 5000,
             )
         except Exception as exc:
@@ -1128,10 +1260,15 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             import_workspace, load_workspace,
         )
 
+        chooser = getattr(self, "_choose_workspace_archive_target", None)
+        workspace = chooser("Open") if callable(chooser) else self.workspace
+        if workspace is None:
+            return
+
         start_dir = self._context.config.get("io", "default_open_dir") or ""
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
-            "Open Workspace",
+            f"Open Workspace — {workspace.label}",
             start_dir,
             "AngstromPro Workspace (*.apws *.h5 *.hdf5);;All Files (*)",
         )
@@ -1160,8 +1297,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 "The workspace archive contains no supported items.")
             return
 
-        imported, renamed = import_workspace(archive, self.workspace)
-        message = f"Loaded {len(imported)} workspace item(s) from {archive_path}"
+        if workspace.is_shared:
+            confirmer = getattr(self, "_confirm_shared_workspace_import", None)
+            if callable(confirmer) and not confirmer(workspace):
+                return
+
+        imported, renamed = import_workspace(archive, workspace)
+        message = (
+            f"Loaded {len(imported)} item(s) into workspace "
+            f"'{workspace.label}' from {archive_path}"
+        )
         if renamed:
             message += f"; {len(renamed)} renamed to avoid name conflicts"
         self.statusBar().showMessage(message, 6000)
@@ -1171,11 +1316,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     # ------------------------------------------------------------------
 
     def _connect_signals(self) -> None:
-        wid = self.workspace.workspace_id
         wm  = self._context.workspace_manager
 
         def _guard(ws_id, *_args):
-            if ws_id == wid:
+            accessible_ids = {
+                workspace.workspace_id
+                for workspace in self.accessible_workspaces()
+            }
+            if ws_id in accessible_ids:
                 self._refresh_workspace_panel()
                 self.on_workspace_changed()
 
@@ -1183,6 +1331,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         wm.item_removed.connect(_guard)
         wm.item_renamed.connect(_guard)
         wm.item_changed.connect(_guard)
+        wm.workspace_renamed.connect(_guard)
 
         self._ws_list.currentItemChanged.connect(self._on_ws_selection_changed)  # type: ignore[attr-defined]
 
@@ -1195,10 +1344,23 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self._inspector.set_item(None)
             return
         data = current.data(0, _UserRole)
-        # Resolve name from both top-level (str) and child (tuple) items
-        name = data[0] if isinstance(data, tuple) else data
-        item = self.workspace.get_item(name) if self.workspace.has_item(name) else None
+        _kind, _workspace, item, _role = self._workspace_tree_context(data)
         self._inspector.set_item(item)
+
+    def on_workspace_attachment_changed(self) -> None:
+        """Refresh module chrome after its shared-workspace attachment changes."""
+        if hasattr(self, "_ws_list"):
+            self._refresh_workspace_panel()
+            self.on_workspace_changed()
+        if hasattr(self, "statusBar"):
+            if self.shared_workspace is None:
+                message = "Detached from shared workspace; outputs now go to the private workspace."
+            else:
+                message = (
+                    f"Attached to shared workspace '{self.shared_workspace.label}'; "
+                    "new outputs go there."
+                )
+            self.statusBar().showMessage(message, 5000)
 
     # ------------------------------------------------------------------
     # Public API
@@ -1261,8 +1423,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             group_id     = group_id,
         )
         handle.error.connect(self._on_process_error)
-        handle.result.connect(on_result if on_result is not None
-                              else self._on_process_result_default)
+        result_callback = (on_result if on_result is not None
+                           else self._on_process_result_default)
+        captured_inputs = list(input_items)
+        handle.result.connect(
+            lambda task_id, result, callback=result_callback,
+                   inputs=captured_inputs:
+            self._dispatch_process_result(
+                task_id, result, callback, inputs))
         if on_error is not None:
             handle.error.connect(on_error)
 
@@ -1287,6 +1455,80 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         return handle
 
+    @staticmethod
+    def _derived_process_alias(
+            primary_item: WorkspaceItem | None, output_name: str) -> str:
+        """Build an output alias from a primary input's explicit alias.
+
+        Only exact-name and delimiter-prefixed suffix relationships are
+        accepted. This avoids inventing misleading aliases for outputs whose
+        names are unrelated to the primary input.
+        """
+        if primary_item is None or not primary_item.alias:
+            return ""
+        input_name = primary_item.name
+        if output_name == input_name:
+            return primary_item.alias
+        if not input_name or not output_name.startswith(input_name):
+            return ""
+        suffix = output_name[len(input_name):]
+        if not suffix.startswith(("_", "-", " ", ".", "[", "(")):
+            return ""
+        return primary_item.alias + suffix
+
+    def _dispatch_process_result(
+            self, task_id: str, result: Any, callback: Callable,
+            input_items: list[WorkspaceItem]) -> None:
+        """Run the result callback, then alias newly-added result items."""
+        before_ids = {
+            item.item_id
+            for workspace in self.accessible_workspaces()
+            for item in workspace.list_items()
+        }
+        callback(task_id, result)
+        from angstrompro.core.processes import normalize_process_result
+        structured = normalize_process_result(result)
+        primary_item = next(
+            (item for item in input_items if item is not None), None)
+        if primary_item is not None and structured.annotations:
+            primary_item.annotations.update(structured.annotations)
+            owner = self.workspace_containing_item(primary_item)
+            if owner is not None:
+                owner.notify_changed(primary_item.name)
+        added_items = [
+            item
+            for workspace in self.accessible_workspaces()
+            for item in workspace.list_items()
+            if item.item_id not in before_ids
+        ]
+        self._apply_process_result_aliases(input_items, result, added_items)
+
+    def _apply_process_result_aliases(
+            self, input_items: list[WorkspaceItem], result: Any,
+            added_items: list[WorkspaceItem]) -> None:
+        primary_item = next(
+            (item for item in input_items if item is not None), None)
+        if primary_item is None or not primary_item.alias:
+            return
+
+        from angstrompro.core.data.base import WorkspaceData
+        from angstrompro.core.processes import iter_process_data
+        outputs = list(iter_process_data(result))
+        output_payload_ids = {
+            id(output) for output in outputs
+            if isinstance(output, WorkspaceData)
+        }
+        for item in added_items:
+            if item.alias or id(item.payload) not in output_payload_ids:
+                continue
+            alias = AGuiModule._derived_process_alias(primary_item, item.name)
+            if not alias:
+                continue
+            item.alias = alias
+            owner = self.workspace_containing_item(item)
+            if owner is not None:
+                owner.notify_changed(item.name)
+
     def _on_process_result_default(self, _task_id: str, result: Any) -> None:
         """
         Default result handler: add the returned WorkspaceData to this module's workspace.
@@ -1299,7 +1541,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         should pass on_result= to submit_process() instead of overriding this.
         """
         from angstrompro.core.data.base import WorkspaceData
-        items = result if isinstance(result, list) else [result]
+        from angstrompro.core.processes import iter_process_data
+        items = list(iter_process_data(result))
         for item in items:
             if not isinstance(item, WorkspaceData):
                 log.warning(

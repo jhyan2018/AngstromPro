@@ -156,6 +156,10 @@ cached thumbnails are not rewritten merely because mappings changed; use
 <li><strong>Thumbnails</strong> controls card size, curve-to-colormap stack threshold, plot
   template, display-only Z background subtraction, and the in-memory pixmap
   cache.</li>
+<li><strong>Gallery navigation</strong> can hide cards rated exactly one star and sets the
+  gallery's mouse-wheel step in pixels per notch. Hiding does not affect
+  unrated or 2–5-star cards. The default wheel step is 80 pixels; touchpad
+  gestures are unaffected.</li>
 <li><strong>Channels</strong> edits the same application-wide Channel Manager described
   above. Auto-load affects interactive opening, not background rendering.</li>
 <li><strong>Cache</strong> controls orphan cleanup and provides cache inspection and
@@ -171,6 +175,9 @@ rewrite already cached images. Re-render the affected cards to see the change.</
 <li><strong>Scale</strong> controls histogram sigma scaling, FFT upper scaling, scale-button
   zoom, and canvas wheel sensitivity.</li>
 <li><strong>Canvas</strong> controls maximum canvas size and the optional bias-value overlay.</li>
+<li><strong>Curve preview</strong> selects a scene template created in Curve Stack Viewer.
+  Each Image Stack Viewer loads it once and retains the resulting preview style
+  across primary-data changes; choosing a different template reapplies it.</li>
 </ul>
 <h3 id="curve-stack-viewer">Curve Stack Viewer</h3>
 <ul>

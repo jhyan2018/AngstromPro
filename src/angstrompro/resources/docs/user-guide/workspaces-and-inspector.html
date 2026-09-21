@@ -22,8 +22,9 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="workspaces-and-the-inspector">Workspaces and the Inspector</h1>
 <p>Workspaces are the common runtime layer connecting AngstromPro modules. Each
-live module owns its own workspace, shown in the <strong>Workspace</strong> dock. Open or
-hide the dock with <strong>View → Workspace</strong> (<code>Ctrl+1</code>).</p>
+live module has a private workspace, shown in the <strong>Workspace</strong> dock, and can
+also attach to one application-level shared workspace. Open or hide the dock
+with <strong>View → Workspace</strong> (<code>Ctrl+1</code>).</p>
 <h3 id="make-room-for-long-item-names">Make room for long item names</h3>
 <p>Workspace item names can be longer than the dock's default width. Drag the
 <strong>Workspace</strong> dock by its title bar out of the module window to make it a
@@ -32,6 +33,23 @@ dock also prevents a wide workspace list from reducing the module's central
 viewing area. Drag it back to an edge of the module window when you want to dock
 it again, and use <code>Ctrl+1</code> at any time to show or hide it. This is particularly
 useful when comparing several datasets with similar long filenames.</p>
+<h2 id="private-and-shared-workspaces">Private and shared workspaces</h2>
+<p>Use <strong>Workspace → Shared Workspace Manager…</strong> in the Main Workbench to create,
+rename, or delete shared workspaces and configure module attachments. The app
+can own any number of shared workspaces, while each module instance can attach
+to at most one of them. The manager can also save a selected shared workspace
+or import a <code>.apws</code> archive as a new shared workspace, including when no module
+is attached.</p>
+<p>An attached module continues to show and access its private items. Its
+Workspace dock displays separate <strong>Private workspace</strong> and <strong>Shared</strong> sections,
+with the shared section marked <strong>Active output</strong>. While attached, newly opened,
+imported, simulated, or processed items go to the shared workspace. Operations
+on an existing item, such as removing it or changing its annotations, still
+apply to the workspace that owns that item. Detaching returns new output to the
+private workspace; it does not delete either collection.</p>
+<p>Process input slots remain local to each module and can refer to items from
+either visible section. Shared workspaces persist at application level even
+when no module is attached, until they are explicitly deleted.</p>
 <h2 id="workspace-items">Workspace items</h2>
 <p>Every row in a workspace is a <code>WorkspaceItem</code>. The item provides runtime
 identity and transport information around a data payload:</p>
@@ -87,12 +105,16 @@ thumbnail.</p>
 <li>Use <strong>Remove</strong> to remove it from the current runtime workspace.</li>
 <li>Right-click an item and choose <strong>Set alias…</strong> to give it a shorter display
   label. The alias does not change the item's real workspace name or processing
-  identity. Use <strong>Clear alias</strong> to show the real name again.</li>
+  identity. Automatically named process outputs reuse this alias and append
+  their normal result suffix. If you set a new alias on an output, later
+  outputs continue from that shorter alias. Use <strong>Clear alias</strong> to show the real
+  name again.</li>
 <li>Expand an item to see its named annotations; an annotation can be cleared
   from its context menu.</li>
 </ul>
 <p>Sending moves the item from the source workspace by default. Preferences can
-keep the source item as well.</p>
+keep the source item as well. Sending is unnecessary when both modules already
+access the same shared workspace.</p>
 <p>Use <strong>File → Save…</strong> to save one selected item in its native format. Opening
 that HDF5 file again restores its alias, item identity, and named annotations
 as well as its data. This also works for installed plugin formats that write
@@ -101,10 +123,15 @@ the item's real name is unchanged. Older native files without item metadata
 still open with empty alias and annotations. If the item's name or identity is
 already present, AngstromPro keeps the existing item and gives the imported
 one a distinct name or identity.</p>
-<p>Use <strong>File → Save Workspace…</strong> to store all supported items from the current
-module workspace in one <code>.apws</code> HDF5 archive. If unsupported payload types are
+<p>Use <strong>File → Save Workspace…</strong> to store all supported items in one <code>.apws</code> HDF5
+archive. When the module is attached, choose either the shared workspace
+(default) or its private workspace; without an attachment, the private
+workspace is used directly. <strong>File → Open Workspace…</strong> uses the same choice and
+adds the archive items to that workspace. Importing into a shared workspace
+requires confirmation because every attached module sees the changes
+immediately. If unsupported payload types are
 present, AngstromPro lists every skipped item; click <strong>OK</strong> to save the remaining
-items. Use <strong>File → Open Workspace…</strong> to add an archive to the current workspace.
+items.
 Existing items are kept, and imported name conflicts are resolved with numeric
 suffixes such as <code>_2</code> and <code>_3</code>. Installed plugins can register their workspace
 payload formats. If a required plugin is unavailable when an archive is opened,

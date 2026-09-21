@@ -121,6 +121,15 @@ count against `# Parameters (4 byte)` when fixed names are present; otherwise
 it infers the fixed count from that total. Channel Manager
 records a `.3ds` mapping's source, and both the interactive picker and the
 headless Data Browser renderer pass this typed selection to the reader.
+For a short binary payload, only whole pixel records count as acquired data.
+The reader derives the sweep axis from a completed record before applying the
+display-axis flip, discards a partial trailing record, and zero-fills wholly
+missing pixels so interrupted grids remain plottable. Completion counts belong
+in the UDS metadata so callers can distinguish partial acquisition from real
+zero-valued measurements. If no complete record exists, a linear sweep may be
+reconstructed from unambiguous textual header keys such as
+`Bias Spectroscopy>Sweep Start (V)` and `Sweep End (V)`; record this fallback as
+`sweep_axis_source="header_parameters"`.
 
 ## Persistence rules
 

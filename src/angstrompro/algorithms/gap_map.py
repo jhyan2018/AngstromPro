@@ -29,48 +29,111 @@ from angstrompro.core.processes import (
 
 _OUT_GAP = [
     OutputSpec(type_id="uds", ndim=3, label="Gap Map", description="Gap energy map (1 × H × W)."),
-    OutputSpec(type_id="uds", ndim=3, label="Peak Map", description="Peak amplitude map (1 × H × W)."),
+    OutputSpec(
+        type_id="uds",
+        ndim=3,
+        label="R² Fit Quality Map",
+        description="Coefficient-of-determination map for the polynomial fit (1 × H × W).",
+    ),
 ]
 
 
-def _gap_map_core(data3d: np.ndarray, energies: np.ndarray,
-                  order: int, energy_start: int, energy_end: int):
-    """Return (gapmap, R2map) as (1, H, W) float64 arrays."""
-    if energy_end == -1:
-        energy_end = len(energies) - 1
+def _energy_value_range_to_indices(
+    energies: np.ndarray,
+    energy_min: float | None,
+    energy_max: float | None,
+) -> tuple[int, int]:
+    """Map physical energy bounds to the nearest inclusive layer range."""
+    if energies.size == 0:
+        raise ValueError("Gap-map layer axis has no energy values.")
+    if energy_min is None and energy_max is None:
+        return 0, energies.size - 1
 
+    lower = float(np.min(energies)) if energy_min is None else float(energy_min)
+    upper = float(np.max(energies)) if energy_max is None else float(energy_max)
+    if not np.isfinite(lower) or not np.isfinite(upper):
+        raise ValueError("Gap-map energy bounds must be finite.")
+    lower, upper = sorted((lower, upper))
+    lower_index = int(np.argmin(np.abs(energies - lower)))
+    upper_index = int(np.argmin(np.abs(energies - upper)))
+    return min(lower_index, upper_index), max(lower_index, upper_index)
+
+
+def _gap_map_core(data3d: np.ndarray, energies: np.ndarray,
+                  order: int, energy_min: float | None,
+                  energy_max: float | None):
+    """Return (gapmap, R2map) as (1, H, W) float64 arrays."""
+    energies = np.asarray(energies, dtype=np.float64)
+    if energies.ndim != 1:
+        raise ValueError("Gap-map energies must be a one-dimensional array.")
+    if data3d.ndim != 3 or data3d.shape[0] != energies.size:
+        raise ValueError(
+            "Gap-map data must have shape (energy, height, width) matching "
+            "the energy axis."
+        )
+    if not np.all(np.isfinite(energies)):
+        raise ValueError("Gap-map energy values must all be finite.")
+
+    energy_start, energy_end = _energy_value_range_to_indices(
+        energies, energy_min, energy_max)
     e_slice = slice(energy_start, energy_end + 1)
     energy  = energies[e_slice]
-    H, W    = data3d.shape[-2], data3d.shape[-1]
+    if energy.size < order + 1:
+        raise ValueError(
+            f"Polynomial order {order} requires at least {order + 1} "
+            "energy points in the selected range."
+        )
+    if np.unique(energy).size < order + 1:
+        raise ValueError(
+            f"Polynomial order {order} requires at least {order + 1} "
+            "distinct energy values."
+        )
 
-    # Build Vandermonde matrix once (energy_points × (order+1))
-    A = np.column_stack([energy ** k for k in range(order + 1)])
+    H, W    = data3d.shape[-2], data3d.shape[-1]
 
     gapmap = np.zeros((H, W), dtype=np.float64)
     R2map  = np.zeros((H, W), dtype=np.float64)
+    variance_tol = np.finfo(np.float64).eps * max(1, energy.size) * 16.0
 
     for X, Y in itertools.product(range(H), range(W)):
         dIdV = data3d[e_slice, X, Y].astype(np.float64)
+        if not np.all(np.isfinite(dIdV)):
+            continue
 
-        p, *_ = np.linalg.lstsq(A, dIdV, rcond=None)
+        # Scale the signal before fitting so R² and the constant-spectrum test
+        # do not depend on whether the channel is stored in A, nA, or pA.
+        signal_scale = np.max(np.abs(dIdV))
+        if not np.isfinite(signal_scale) or signal_scale == 0.0:
+            continue
+        normalized = dIdV / signal_scale
 
-        # R²
-        dIdV_pred = A @ p
-        ss_res = np.sum((dIdV - dIdV_pred) ** 2)
-        ss_tot = np.sum((dIdV - dIdV.mean()) ** 2)
-        R2map[X, Y] = (
-            (1.0 - ss_res / ss_tot) if ss_tot >= 1e-15
-            else (1.0 if ss_res < 1e-15 else 0.0)
-        )
+        centered = normalized - normalized.mean()
+        ss_tot = float(np.dot(centered, centered))
+        if ss_tot <= variance_tol:
+            # R² and a peak position are undefined for a constant spectrum.
+            continue
+
+        # Polynomial.fit maps the physical energy coordinate to a stable
+        # internal interval, avoiding the ill-conditioned raw-energy
+        # Vandermonde matrix used previously.
+        fitted = np.polynomial.Polynomial.fit(energy, normalized, order)
+        predicted = fitted(energy)
+        residual = normalized - predicted
+        ss_res = float(np.dot(residual, residual))
+        R2map[X, Y] = 1.0 - ss_res / ss_tot
 
         # Find local maximum of fitted polynomial
-        fitted     = np.poly1d(p[::-1])
-        d1         = np.polyder(fitted, 1)
-        d2         = np.polyder(fitted, 2)
-        real_roots = [r.real for r in d1.r
-                      if np.isreal(r)
-                      and energy.min() <= r.real <= energy.max()
-                      and d2(r.real) < 0]
+        d1 = fitted.deriv(1)
+        d2 = fitted.deriv(2)
+        root_tol = np.finfo(np.float64).eps * 64.0
+        real_roots = []
+        for root in d1.roots():
+            root = complex(root)
+            if abs(root.imag) > root_tol * max(1.0, abs(root.real)):
+                continue
+            position = root.real
+            if energy.min() <= position <= energy.max() and d2(position) < 0:
+                real_roots.append(position)
 
         if real_roots:
             max_root = max(real_roots, key=lambda r: fitted(r))
@@ -110,20 +173,26 @@ def _gap_map_core(data3d: np.ndarray, energies: np.ndarray,
                 max         = 10,
             ),
             ParameterSpec(
-                name        = "energy_start",
-                type        = int,
-                default     = 0,
-                label       = "Energy start (layer index)",
-                description = "First layer index included in the fit (0 = first layer).",
-                min         = 0,
+                name        = "energy_min",
+                type        = float,
+                default     = None,
+                label       = "Energy minimum",
+                description = "Lower physical energy bound. The nearest recorded layer is used.",
+                decimals    = 9,
+                axis_input  = "data",
+                axis_index  = 0,
+                axis_default = "min",
             ),
             ParameterSpec(
-                name        = "energy_end",
-                type        = int,
-                default     = -1,
-                label       = "Energy end (layer index)",
-                description = "Last layer index included in the fit (-1 = last layer).",
-                min         = -1,
+                name        = "energy_max",
+                type        = float,
+                default     = None,
+                label       = "Energy maximum",
+                description = "Upper physical energy bound. The nearest recorded layer is used.",
+                decimals    = 9,
+                axis_input  = "data",
+                axis_index  = 0,
+                axis_default = "max",
             ),
         ],
     ),
@@ -143,14 +212,15 @@ def gap_map(inputs: dict, params: dict, *, annotations=None) -> list:
     gm_data, r2_data = _gap_map_core(
         src.data, energies,
         params["order"],
-        params["energy_start"],
-        params["energy_end"],
+        params.get("energy_min"),
+        params.get("energy_max"),
     )
 
     gm = UdsDataStru(
         name         = src.name + "_gm",
         data         = gm_data,
-        axes         = [Axis(values=np.array([0.0]), label="Gap", units="V"),
+        axes         = [Axis(values=np.array([0.0]), label="Gap",
+                             units=src.axes[0].units),
                         copy.deepcopy(src.axes[1]),
                         copy.deepcopy(src.axes[2])],
         info         = dict(src.info),

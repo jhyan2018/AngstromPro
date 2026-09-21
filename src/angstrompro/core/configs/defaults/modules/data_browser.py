@@ -20,6 +20,10 @@ DEFAULTS = {
         "z_background_method": "Polynomial surface",
         "pixmap_cache_size": 200,   # decoded thumbnails kept in memory
     },
+    "gallery": {
+        "hide_one_star_cards": False,  # hide exactly 1-star cards; unrated remain visible
+        "wheel_scroll_px": 80,         # pixels per mouse-wheel notch; touchpads stay native
+    },
     "cache": {
         "cleanup_orphans": True,    # sweep crash-leftover PNGs at startup
     },

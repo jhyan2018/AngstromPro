@@ -51,6 +51,16 @@ parameters agree with **# Parameters (4 byte)** before extraction. If fixed
 parameter names are absent, their count is inferred from that total and the
 experiment-parameter list.
 
+An interrupted `.3ds` grid remains loadable when it contains at least one
+complete pixel record. AngstromPro derives the sweep axis from completed data,
+keeps unrecorded spatial pixels at zero so the partial map can still be plotted,
+and records the completed and expected pixel counts in the UDS information.
+For a header-only acquisition stopped before its first pixel, the reader can
+instead reconstruct a linear axis from textual **Sweep Start** and **Sweep
+End** header settings. Any incomplete trailing pixel record is discarded rather
+than interpreted as measurement data. The missing spectra were never stored in
+the source file and cannot be recovered by the loader.
+
 `.apws` is an HDF5 workspace archive. It stores all supported items from the
 current module workspace in their displayed order, together with item names,
 identities, aliases, and annotations. Core UDS and ScenePlot

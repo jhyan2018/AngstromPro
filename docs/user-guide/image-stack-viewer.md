@@ -1,8 +1,10 @@
 # Image Stack Viewer
 
 The Image Stack Viewer is intended for three-dimensional data such as
-energy-resolved maps. It presents **Primary** and **Reference** images side by
-side and maintains a workspace for source data and results.
+energy-resolved maps. It presents the **Primary** image beside a persistent
+right-hand area that switches between **Reference Image** and **Curve Preview**
+without clearing either view. It also maintains a workspace for source data
+and results.
 
 ## Load data
 
@@ -34,6 +36,24 @@ Each panel provides colour-range and colormap controls. Use:
 Preferences control whether layer, cursor, picked points, and field-of-view
 zoom are synchronised between panels.
 
+### Curve preview
+
+Open the **Curve Preview** tab on the right for a temporary live view derived
+from points picked in Primary. **Point spectra** plots every picked position
+against the stack's layer or energy axis. **Line cut** uses points 0 and 1 and
+can place either distance or layer/energy on the X axis. Its sampling method,
+interpolation order, width, and number of samples can be adjusted above the
+plot. **Circle cut** also uses points 0 and 1 as the centre and radius endpoint;
+it can place either angle or layer/energy on the X axis and exposes
+interpolation order, radial averaging width, and angular sample count.
+All preview modes use the Primary panel's current **Type** representation, so
+switching among Abs, Angle, Real, and Imag updates the plotted curves.
+
+The preview updates after points are added, removed, or moved. It does not add
+a workspace item or process-history entry; run the registered process when a
+permanent result is required. Reference Image and Curve Preview retain their
+own state when switching tabs.
+
 ### Preferences
 
 Open Preferences from this module to configure:
@@ -44,6 +64,10 @@ Open Preferences from this module to configure:
 - **Scale:** set histogram sigma scaling, FFT upper scaling, scale-button zoom,
   and canvas wheel sensitivity.
 - **Canvas:** limit canvas size and configure the optional bias-value overlay.
+- **Curve preview:** select a scene template created by Curve Stack Viewer.
+  The template is loaded once when this Image Stack Viewer instance is created
+  and is retained across primary-data changes. It is reloaded only when this
+  preference changes.
 
 Use **Apply** for the current viewer and **Save as default** for future Image
 Stack Viewer instances.

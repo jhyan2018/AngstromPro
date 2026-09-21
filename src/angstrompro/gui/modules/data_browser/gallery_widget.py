@@ -28,6 +28,7 @@ GalleryView (QListView, IconMode)
 from __future__ import annotations
 
 import logging
+import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
@@ -288,7 +289,8 @@ class GalleryView(QtWidgets.QListView):
 
     SETTLE_MS = 200
 
-    def __init__(self, thumb_size: int = 150, parent=None) -> None:
+    def __init__(self, thumb_size: int = 150, parent=None,
+                 wheel_scroll_px: int = 80) -> None:
         super().__init__(parent)
         self._model = GalleryModel(parent=self)
         self._delegate = CardDelegate(thumb_size, parent=self)
@@ -304,6 +306,9 @@ class GalleryView(QtWidgets.QListView):
             QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.setVerticalScrollMode(
             QtWidgets.QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self._wheel_scroll_px = 80
+        self._wheel_remainder = 0.0
+        self.set_wheel_scroll_px(wheel_scroll_px)
 
         self._settle = QtCore.QTimer(self)
         self._settle.setSingleShot(True)
@@ -325,6 +330,34 @@ class GalleryView(QtWidgets.QListView):
     def set_thumb_size(self, px: int) -> None:
         self._delegate.set_thumb_size(px)
         self._model.layoutChanged.emit()
+
+    def set_wheel_scroll_px(self, pixels: int) -> None:
+        """Set a folder-size-independent distance per mouse-wheel notch."""
+        self._wheel_scroll_px = max(10, min(400, int(pixels)))
+        self._wheel_remainder = 0.0
+
+    def wheelEvent(self, event) -> None:
+        # Qt's automatic per-pixel singleStep follows the card height, so a
+        # mouse-wheel notch can skip nearly a viewport. Keep touchpad pixel
+        # gestures and horizontal wheels under Qt's native handling.
+        angle = event.angleDelta()
+        if not event.pixelDelta().isNull() or not angle.y() or angle.x():
+            super().wheelEvent(event)
+            return
+
+        distance = (-angle.y() * self._wheel_scroll_px / 120.0
+                    + self._wheel_remainder)
+        whole = math.trunc(distance)
+        self._wheel_remainder = distance - whole
+        bar = self.verticalScrollBar()
+        before = bar.value()
+        if whole:
+            bar.setValue(before + whole)
+            if bar.value() == before:
+                self._wheel_remainder = 0.0
+                event.ignore()
+                return
+        event.accept()
 
     def set_show_rel_path(self, show: bool) -> None:
         self._delegate.show_rel_path = bool(show)
