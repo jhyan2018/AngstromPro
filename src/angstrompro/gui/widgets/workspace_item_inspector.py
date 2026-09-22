@@ -105,6 +105,16 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         self._lbl_source.setText(str(source) if source is not None else "—")
         self._tree.clear()
         has_array = self._render(item.payload)
+        if item.metadata:
+            def metadata_node(label, value):
+                if isinstance(value, dict):
+                    return {"kind": "group", "label": str(label), "summary": f"{len(value)} entries",
+                            "children": [metadata_node(k, v) for k, v in value.items()]}
+                if isinstance(value, (list, tuple)):
+                    return {"kind": "group", "label": str(label), "summary": f"{len(value)} entries",
+                            "children": [metadata_node(i, v) for i, v in enumerate(value)]}
+                return {"kind": "value", "label": str(label), "value": str(value)}
+            self._build_tree_item(self._tree, metadata_node("Item metadata", item.metadata))
         self._tree.expandToDepth(1)
         self._hint.setVisible(has_array)
 

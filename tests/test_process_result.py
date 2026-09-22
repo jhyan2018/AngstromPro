@@ -95,3 +95,15 @@ def test_default_gui_result_handling_unwraps_data_and_applies_annotations() -> N
 
     assert workspace.get_item("source_result").payload is output
     assert source.annotations["bragg_peaks"] is peaks
+    assert source.metadata["process_results"][0]["values"]["quality"] == 1.0
+
+
+def test_values_and_metrics_share_a_namespace_without_new_payloads():
+    from angstrompro.core.processes import ValueOutputSpec
+    result = ProcessResult(metrics={"quality": .99}, values={"periods": [13.4, 20.7]},
+                           value_units={"periods": "px"})
+    schema = ProcessSchema(metric_outputs=[MetricOutputSpec("quality")],
+                           value_outputs=[ValueOutputSpec("periods", units="px", sequence=True)])
+    assert result.data is None
+    assert result.values == {"quality": .99, "periods": [13.4, 20.7]}
+    assert [spec.name for spec in schema.value_outputs] == ["quality", "periods"]

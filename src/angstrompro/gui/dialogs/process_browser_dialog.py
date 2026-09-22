@@ -8,7 +8,7 @@ ProcessBrowserDialog — browse or select registered processes by category.
 
 Shows a filterable tree of every @register_process entry grouped by
 category. Selecting an entry populates a detail panel with its description,
-input ports, and parameter specifications.
+input ports, output ports, declared metrics, and parameter specifications.
 
 Usage
 -----
@@ -163,6 +163,14 @@ class ProcessBrowserDialog(PersistentDialog):
         self._tbl_outputs.setHorizontalHeaderLabels(["Type", "ndim", "Description"])
         _setup_table(self._tbl_outputs)
         detail_layout.addWidget(self._tbl_outputs)
+
+        # scalar measurements available to workflows and repeat conditions
+        detail_layout.addWidget(QtWidgets.QLabel("Numerical Outputs (usable as metrics):"))
+        self._tbl_metrics = _AutoHeightTable(4)
+        self._tbl_metrics.setHorizontalHeaderLabels(
+            ["Name", "Label", "Units", "Description"])
+        _setup_table(self._tbl_metrics)
+        detail_layout.addWidget(self._tbl_metrics)
 
         # params table
         detail_layout.addWidget(QtWidgets.QLabel("Parameters:"))
@@ -320,11 +328,17 @@ class ProcessBrowserDialog(PersistentDialog):
         self._txt_description.setText("")
         self._tbl_inputs.setRowCount(0)
         self._tbl_outputs.setRowCount(0)
+        self._tbl_metrics.setRowCount(0)
         self._tbl_params.setRowCount(0)
         QtCore.QTimer.singleShot(0, self._refit_table_rows)
 
     def _refit_table_rows(self) -> None:
-        for tbl in (self._tbl_inputs, self._tbl_outputs, self._tbl_params):
+        for tbl in (
+            self._tbl_inputs,
+            self._tbl_outputs,
+            self._tbl_metrics,
+            self._tbl_params,
+        ):
             tbl.resizeRowsToContents()
             tbl.updateGeometry()
 
@@ -364,6 +378,20 @@ class ProcessBrowserDialog(PersistentDialog):
         if not entry.schema.outputs:
             self._tbl_outputs.setRowCount(1)
             self._tbl_outputs.setItem(0, 0, _ro_item("(inferred)"))
+
+        # metrics
+        self._tbl_metrics.setRowCount(0)
+        for spec in entry.schema.value_outputs:
+            row = self._tbl_metrics.rowCount()
+            self._tbl_metrics.insertRow(row)
+            self._tbl_metrics.setItem(row, 0, _ro_item(spec.name))
+            self._tbl_metrics.setItem(row, 1, _ro_item(spec.label))
+            self._tbl_metrics.setItem(row, 2, _ro_item(spec.units or "—"))
+            self._tbl_metrics.setItem(row, 3, _ro_item(spec.description or "—"))
+        _resize_non_last_cols(self._tbl_metrics)
+        if not entry.schema.value_outputs:
+            self._tbl_metrics.setRowCount(1)
+            self._tbl_metrics.setItem(0, 0, _ro_item("(none)"))
 
         # params
         self._tbl_params.setRowCount(0)

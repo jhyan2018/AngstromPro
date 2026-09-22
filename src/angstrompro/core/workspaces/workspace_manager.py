@@ -215,7 +215,11 @@ class WorkspaceManager(QtCore.QObject):
             payload=payload,
             alias=item.alias,
             annotations=deepcopy(item.annotations),
+            metadata=deepcopy(item.metadata),
         )
+        from .item_metadata import remap_item_references
+        new_item.metadata = remap_item_references(
+            new_item.metadata, {item.item_id: new_item.item_id})
         log.debug("Transferred %r: %s → %s", item.name,
                   src_workspace_id, dst_workspace_id)
         self.item_transferred.emit(src_workspace_id, dst_workspace_id, new_item.name)

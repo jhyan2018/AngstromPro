@@ -9,6 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from angstrompro.core.processes.param_schema import (
     InputSpec,
+    MetricOutputSpec,
     ParameterSpec,
     ProcessSchema,
 )
@@ -45,6 +46,12 @@ def _entry() -> ProcessEntry:
         schema=ProcessSchema(
             inputs=[InputSpec("data", "uds")],
             params=[ParameterSpec("mode", str, "fast", choices=["fast", "exact"])],
+            metric_outputs=[MetricOutputSpec(
+                "quality_score",
+                label="Quality Score",
+                units="a.u.",
+                description="Scalar quality available to workflow conditions.",
+            )],
         ),
     )
 
@@ -70,6 +77,16 @@ def test_process_browser_selection_mode_returns_selected_entry(qapp) -> None:
 
     assert dialog.selected_entry() is entry
     assert dialog._select_button.isEnabled()
+    assert dialog._tbl_metrics.rowCount() == 1
+    assert [
+        dialog._tbl_metrics.item(0, column).text()
+        for column in range(4)
+    ] == [
+        "quality_score",
+        "Quality Score",
+        "a.u.",
+        "Scalar quality available to workflow conditions.",
+    ]
 
     dialog._select_button.click()
     accepted = (

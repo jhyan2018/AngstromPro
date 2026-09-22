@@ -1046,6 +1046,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 self.workspace.add_item(
                     payload=payload, alias=saved_item.alias,
                     annotations=saved_item.annotations,
+                    metadata=saved_item.metadata,
                     item_id=saved_item.item_id,
                 )
             else:
@@ -1490,6 +1491,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         structured = normalize_process_result(result)
         primary_item = next(
             (item for item in input_items if item is not None), None)
+        if primary_item is not None and structured.values:
+            from copy import deepcopy
+            primary_item.metadata.setdefault("process_results", []).append({
+                "task_id": task_id,
+                "values": deepcopy(structured.values),
+                "units": dict(structured.value_units),
+            })
+            owner = self.workspace_containing_item(primary_item)
+            if owner is not None:
+                owner.notify_changed(primary_item.name)
         if primary_item is not None and structured.annotations:
             primary_item.annotations.update(structured.annotations)
             owner = self.workspace_containing_item(primary_item)
