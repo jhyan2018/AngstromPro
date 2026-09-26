@@ -50,6 +50,25 @@ a missing, constant, non-finite, edge-truncated, or failed peak. The fitted
 line shape is an estimator and does not by itself identify the physical
 broadening mechanism.
 
+## Perfect Lattice 2D
+
+Under **Lattice & Registration**, **Perfect Lattice 2D** corrects a real-space
+image stack using the first two points of its `bragg_peaks` annotation. The
+points are shifted-FFT pixel coordinates, even though their owner remains the
+real-space item. Workflows can explicitly select a separate annotation owner.
+
+Choose **Lattice type: hexagonal** (default) or **square**. Both support the
+same **Interpolation** and **Padding** options. Hexagonal correction expects
+Q2 clockwise from Q1 at approximately 60 degrees; square correction targets
+orthogonal equal-length Q-vectors. Results and processing history record the
+chosen lattice type, and the input data and annotations are not changed.
+
+This replaces the separate square and hexagonal correction registrations.
+Update old workflow steps and configured process-menu shortcuts to the unified
+entry, choosing the appropriate lattice type. Saved user files are not changed
+automatically. The similarly named **Perfect Lattice 2D** in **Simple Simulations** remains a
+separate data generator.
+
 ## Process Browser
 
 Open **Process → Process Browser…** or press `Ctrl+B` to inspect every

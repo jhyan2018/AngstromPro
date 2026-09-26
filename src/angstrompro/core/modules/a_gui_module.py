@@ -200,6 +200,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         dock.setWidget(container)
         self.addDockWidget(_DockArea, dock)
         self._workspace_dock = dock
+        self._workspace_destination_buttons = {}
+        self._workspace_destination_group = None
         # module types listed in app.hide_workspace_dock start hidden;
         # the View menu toggle (Ctrl+1) re-opens the dock any time
         if self.module_id in (self._context.config.get(
@@ -569,6 +571,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             if idx < len(self.staged_labels):
                 staged_map[ws_item.item_id] = self.staged_labels[idx]
 
+        if self._workspace_destination_group is not None:
+            self._workspace_destination_group.deleteLater()
+        self._workspace_destination_group = QtWidgets.QButtonGroup(self._ws_list)
+        self._workspace_destination_group.setExclusive(True)
+        self._workspace_destination_buttons = {}
         self._ws_list.clear()
         if self.shared_workspace is None:
             self._populate_workspace_tree_items(
@@ -578,10 +585,16 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             for workspace, title in (
                 (self.private_workspace, "Private workspace"),
                 (self.shared_workspace,
-                 f"Shared: {self.shared_workspace.label}  [Active output]"),
+                 f"Shared: {self.shared_workspace.label}"),
             ):
                 group = QtWidgets.QTreeWidgetItem(self._ws_list)
-                group.setText(0, title)
+                # The embedded radio button is the sole painter of the title.
+                # Qt stylesheets can disable its auto-filled background, so
+                # model display text here would show through and overlap it.
+                accessible_role = (QtCore.Qt.ItemDataRole.AccessibleTextRole
+                                   if IS_QT6 else QtCore.Qt.AccessibleTextRole)
+                group.setData(0, accessible_role, title)
+                group.setToolTip(0, title)
                 group.setText(1, f"{workspace.count()} item(s)")
                 group.setData(
                     0, _UserRole, ("workspace", workspace.workspace_id),
@@ -589,12 +602,38 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 font = group.font(0)
                 font.setBold(True)
                 group.setFont(0, font)
+                selector = QtWidgets.QRadioButton(title)
+                selector.setAutoFillBackground(True)
+                selector.setObjectName(f"workspace_destination_{workspace.workspace_id}")
+                selector.setFont(font)
+                selector.setToolTip(
+                    "Active destination for incoming items, opened data and new process outputs. "
+                    "Both workspaces remain accessible. Running processes keep their destination."
+                )
+                selector.setAccessibleName(f"Active destination: {title}")
+                self._workspace_destination_group.addButton(selector)
+                selector.setChecked(workspace is self.active_workspace)
+                selector.toggled.connect(
+                    lambda checked, wid=workspace.workspace_id:
+                    self.set_active_workspace(wid) if checked else None)
+                self._workspace_destination_buttons[workspace.workspace_id] = selector
+                self._ws_list.setItemWidget(group, 0, selector)
                 self._populate_workspace_tree_items(
                     group, workspace, staged_map, _UserRole,
                 )
                 group.setExpanded(True)
 
         self._refresh_slots_panel()
+
+    def on_active_workspace_changed(self) -> None:
+        """Update destination indicators without rebuilding or deselecting items."""
+        for workspace_id, button in self._workspace_destination_buttons.items():
+            blocked = button.blockSignals(True)
+            button.setChecked(workspace_id == self.active_workspace.workspace_id)
+            button.blockSignals(blocked)
+        kind = "Shared" if self.active_workspace.is_shared else "Private"
+        self.statusBar().showMessage(
+            f"Active destination: {kind} — {self.active_workspace.label}", 5000)
 
     def _populate_workspace_tree_items(
             self, parent, workspace, staged_map: dict[str, str],
@@ -832,11 +871,12 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 )
                 return
             for target in targets:
-                if target.workspace.workspace_id == source_workspace.workspace_id:
+                destination = target.active_workspace
+                if destination.workspace_id == source_workspace.workspace_id:
                     continue
                 self._context.workspace_manager.transfer_item(
                     src_workspace_id=source_workspace.workspace_id,
-                    dst_workspace_id=target.workspace.workspace_id,
+                    dst_workspace_id=destination.workspace_id,
                     item_name=name,
                 )
                 sent = True
@@ -845,13 +885,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             dlg = SendItemDialog(self._context, exclude_instance_id=self.instance_id, parent=self)
             if dlg.exec() and dlg.selected_module:
                 target = dlg.selected_module
-                if target.workspace.workspace_id == source_workspace.workspace_id:
+                destination = target.active_workspace
+                if destination.workspace_id == source_workspace.workspace_id:
                     self.statusBar().showMessage(
                         "The target module already accesses this workspace.", 4000)
                 else:
                     self._context.workspace_manager.transfer_item(
                         src_workspace_id=source_workspace.workspace_id,
-                        dst_workspace_id=target.workspace.workspace_id,
+                        dst_workspace_id=destination.workspace_id,
                         item_name=name,
                     )
                     sent = True
@@ -1013,6 +1054,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         dlg.show()
 
     def _on_file_open(self) -> None:
+        destination = self.active_workspace
         from angstrompro.io.angstrom_io import registered_formats
         formats = registered_formats()
         format_filters = ";;".join(
@@ -1043,14 +1085,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             if not payload.name:
                 payload.name = p.stem
             if saved_item:
-                self.workspace.add_item(
+                destination.add_item(
                     payload=payload, alias=saved_item.alias,
                     annotations=saved_item.annotations,
                     metadata=saved_item.metadata,
                     item_id=saved_item.item_id,
                 )
             else:
-                self.workspace.add_item(payload=payload)
+                destination.add_item(payload=payload)
 
     def _load_with_channel_picker(self, p):
         """Deprecated: use angstrompro.gui.utils.file_loading.load_with_channel_picker."""
@@ -1159,25 +1201,27 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             heading, lines, parent=self, allow_cancel=allow_cancel)
 
     def _choose_workspace_archive_target(self, operation: str):
-        """Choose private or shared archive target; shared is the default."""
+        """Choose an archive target, defaulting to the active destination."""
         if self.shared_workspace is None:
             return self.private_workspace
+        workspaces = [self.shared_workspace, self.private_workspace]
+        active = self.active_workspace
         choices = [
-            f"Shared — {self.shared_workspace.label} (active output)",
-            f"Private — {self.private_workspace.label}",
+            f"{'Shared' if ws.is_shared else 'Private'} — {ws.label}"
+            + (" (active destination)" if ws is active else "")
+            for ws in workspaces
         ]
         selected, accepted = QtWidgets.QInputDialog.getItem(
             self,
             f"{operation} Workspace",
             "Choose the workspace:",
             choices,
-            0,
+            workspaces.index(active),
             False,
         )
         if not accepted:
             return None
-        return (self.shared_workspace
-                if selected == choices[0] else self.private_workspace)
+        return workspaces[choices.index(selected)]
 
     def _confirm_shared_workspace_import(self, workspace) -> bool:
         attached_count = len(
@@ -1359,7 +1403,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             else:
                 message = (
                     f"Attached to shared workspace '{self.shared_workspace.label}'; "
-                    "new outputs go there."
+                    f"active destination: {self.active_workspace.label}."
                 )
             self.statusBar().showMessage(message, 5000)
 
@@ -1415,6 +1459,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         """
         entry  = self._context.processes.get(process_name)
         label  = entry.label
+        destination = self.workspace
 
         handle = self.process_runner.run(
             process_name = process_name,
@@ -1429,9 +1474,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         captured_inputs = list(input_items)
         handle.result.connect(
             lambda task_id, result, callback=result_callback,
-                   inputs=captured_inputs:
+                   inputs=captured_inputs, workspace=destination:
             self._dispatch_process_result(
-                task_id, result, callback, inputs))
+                task_id, result, callback, inputs, output_workspace=workspace))
         if on_error is not None:
             handle.error.connect(on_error)
 
@@ -1479,11 +1524,30 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
     def _dispatch_process_result(
             self, task_id: str, result: Any, callback: Callable,
-            input_items: list[WorkspaceItem]) -> None:
+            input_items: list[WorkspaceItem], *, output_workspace=None) -> None:
         """Run the result callback, then alias newly-added result items."""
+        if output_workspace is not None:
+            manager = self._context.workspace_manager
+            if manager.workspaces.get(output_workspace.workspace_id) is not output_workspace:
+                message = (
+                    f"The process finished, but its destination workspace "
+                    f"'{output_workspace.label}' was removed. No output items were saved."
+                )
+                self._on_process_error(task_id, message)
+                QtWidgets.QMessageBox.warning(self, "Process destination removed", message)
+                return
+            # Re-enter with the captured destination, including custom callbacks
+            # that add items through self.workspace. Never switch the UI target.
+            with self._process_output_scope(output_workspace):
+                self._dispatch_process_result(task_id, result, callback, input_items)
+            return
+        workspaces = list(self.accessible_workspaces())
+        captured = getattr(self, "_process_output_workspace", None)
+        if captured is not None and captured not in workspaces:
+            workspaces.append(captured)
         before_ids = {
             item.item_id
-            for workspace in self.accessible_workspaces()
+            for workspace in workspaces
             for item in workspace.list_items()
         }
         callback(task_id, result)
@@ -1508,7 +1572,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 owner.notify_changed(primary_item.name)
         added_items = [
             item
-            for workspace in self.accessible_workspaces()
+            for workspace in workspaces
             for item in workspace.list_items()
             if item.item_id not in before_ids
         ]

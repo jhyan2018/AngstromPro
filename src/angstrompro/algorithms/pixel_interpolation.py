@@ -76,8 +76,10 @@ class PixelInterpolation:
 
         self.offset_x        = padding_size
         self.offset_y        = padding_size
+        # Constant padding defaults to zero. Its constant_values keyword is not
+        # accepted by reflect/edge/wrap/symmetric padding.
         self.src_data_padded = np.pad(
-            self.src_data, padding_size, self.pad_method, constant_values=0
+            self.src_data, padding_size, self.pad_method
         )
 
     def dataMapping(self) -> np.ndarray:

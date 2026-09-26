@@ -67,10 +67,23 @@ Add a payload through the owning workspace:
 item = self.workspace.add_item(payload=result)
 ```
 
-`self.workspace` is the module's current output workspace. It refers to the
-private workspace normally and to the attached shared workspace while an
-attachment is active. `self.private_workspace` remains available throughout,
-and `accessible_workspaces()` returns both collections when attached.
+`self.active_workspace` is the per-instance destination for incoming items and
+new outputs. Set it with `set_active_workspace(workspace_id)`; the workspace
+must be the module's private workspace or its attached shared workspace.
+First attachment selects shared by default. Selecting private does not detach
+shared, and replacing an attachment preserves an explicitly selected private
+destination. Detaching or deleting the attachment returns the destination to
+private. `accessible_workspaces()` continues to return both when attached.
+
+`self.workspace` remains the source-compatible output API. Normally it refers
+to `active_workspace`. `AGuiModule.submit_process()` captures this destination
+at submission and scopes `self.workspace` to it while dispatching the result,
+including synchronous custom callbacks. Changing the active destination or
+detaching while the task runs does not redirect its output. Annotation/value
+updates still belong to the original input item. Deferred work scheduled by a
+custom callback must capture its own destination; the scope ends with the
+callback. Explicitly managed execution workspaces (such as plugin workflow
+runs) remain separate from this generic process routing.
 
 The workspace resolves duplicate display names and returns the new
 `WorkspaceItem`. Cross-module sending creates an independent destination item

@@ -84,6 +84,8 @@ class MainWorkbench(AGuiModule):
                      "Built-in defaults (🔒) can have their count changed but not removed. "
                      "Add extra modules with the + button.",
                      full_width=True),
+            PrefItem("app.startup_workspaces", "", "startup_workspace_list",
+                     full_width=True),
         ]),
     ]
 

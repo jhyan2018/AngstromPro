@@ -224,6 +224,7 @@ def test_file_menu_saves_and_opens_complete_item(
     target_workspace = Workspace("target")
     target_module = SimpleNamespace(
         workspace=target_workspace,
+        active_workspace=target_workspace,
         _context=SimpleNamespace(config=SimpleNamespace(get=lambda *_args: "")),
     )
     monkeypatch.setattr(

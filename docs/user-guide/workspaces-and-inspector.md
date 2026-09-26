@@ -26,8 +26,12 @@ is attached.
 
 An attached module continues to show and access its private items. Its
 Workspace dock displays separate **Private workspace** and **Shared** sections,
-with the shared section marked **Active output**. While attached, newly opened,
-imported, simulated, or processed items go to the shared workspace. Operations
+with radio buttons beside the headings. Select one as the **active destination**
+for incoming items, newly opened data, and new process or simulation outputs.
+Shared is selected on first attachment; you can select Private without
+detaching. The choice is independent for each module instance, and switching it
+does not move existing data or change input slots. A running process retains
+the destination chosen when it was submitted. Operations
 on an existing item, such as removing it or changing its annotations, still
 apply to the workspace that owns that item. Detaching returns new output to the
 private workspace; it does not delete either collection.
@@ -87,8 +91,10 @@ Mouse actions have different purposes:
   from its context menu.
 
 Sending moves the item from the source workspace by default. Preferences can
-keep the source item as well. Sending is unnecessary when both modules already
-access the same shared workspace.
+keep the source item as well. Send uses the receiving module's active
+destination, shown in the target picker. No copy is made if that destination
+already owns the selected item. Both modules may remain attached to the same
+shared workspace while receiving new items in their own private workspaces.
 
 Use **File → Save…** to save one selected item in its native format. Opening
 that HDF5 file again restores its alias, item identity, and named annotations
@@ -100,8 +106,8 @@ already present, AngstromPro keeps the existing item and gives the imported
 one a distinct name or identity.
 
 Use **File → Save Workspace…** to store all supported items in one `.apws` HDF5
-archive. When the module is attached, choose either the shared workspace
-(default) or its private workspace; without an attachment, the private
+archive. When the module is attached, choose either workspace, with the active
+destination selected by default; without an attachment, the private
 workspace is used directly. **File → Open Workspace…** uses the same choice and
 adds the archive items to that workspace. Importing into a shared workspace
 requires confirmation because every attached module sees the changes

@@ -845,6 +845,7 @@ class DataBrowserModule(AGuiModule):
         return payloads[0][1] if payloads else None
 
     def _on_send_card(self, key: tuple) -> None:
+        source_workspace = self.active_workspace
         path, channel_id = key
         row = self._gallery.gallery_model().row_for_key(key)
         if row is not None and row.state in (STATE_ERROR, STATE_NOT_FOUND):
@@ -869,13 +870,13 @@ class DataBrowserModule(AGuiModule):
             payload.name = Path(path).stem
 
         if saved_item:
-            item = self.workspace.add_item(
+            item = source_workspace.add_item(
                 payload=payload, alias=saved_item.alias,
                 annotations=saved_item.annotations,
                 item_id=saved_item.item_id,
             )
         else:
-            item = self.workspace.add_item(payload=payload)
+            item = source_workspace.add_item(payload=payload)
         item_name = item.name if item is not None else payload.name
 
         from angstrompro.gui.dialogs.send_item_dialog import SendItemDialog
@@ -885,15 +886,16 @@ class DataBrowserModule(AGuiModule):
         already_shared = False
         if dlg.exec() and dlg.selected_module:
             target = dlg.selected_module
-            if target.workspace.workspace_id == self.workspace.workspace_id:
+            destination = target.active_workspace
+            if destination.workspace_id == source_workspace.workspace_id:
                 # Both modules already see the same shared workspace.  The
                 # newly loaded item is immediately available to the target.
                 sent = True
                 already_shared = True
             else:
                 self._context.workspace_manager.transfer_item(
-                    src_workspace_id=self.workspace.workspace_id,
-                    dst_workspace_id=target.workspace.workspace_id,
+                    src_workspace_id=source_workspace.workspace_id,
+                    dst_workspace_id=destination.workspace_id,
                     item_name=item_name,
                 )
                 sent = True
@@ -901,14 +903,14 @@ class DataBrowserModule(AGuiModule):
         # delete_after_send preference (same rule as every module); a
         # cancelled send always drops the temporary courier copy.
         if sent and not already_shared:
-            self._after_send(item_name)
+            self._after_send(item_name, source_workspace)
         elif already_shared:
             self.statusBar().showMessage(
                 "The target module already accesses this shared workspace.",
                 4000,
             )
-        elif self.workspace.has_item(item_name):
-            self.workspace.remove_item(item_name)
+        elif source_workspace.has_item(item_name):
+            source_workspace.remove_item(item_name)
 
     # ------------------------------------------------------------------
     # Card context menu
