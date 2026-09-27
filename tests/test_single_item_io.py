@@ -38,9 +38,15 @@ def test_native_single_item_round_trip(
         tmp_path: Path, payload: WorkspaceData, extension: str) -> None:
     item = WorkspaceItem(payload=payload, alias="reference")
     item.annotations = {
-        "primary_points": PointSetData(coords=np.asarray([[3.5, 4.0]])),
-        "interest_region": RegionData(1, 2, 3, 4),
-        "line_cut": LineData((1.0, 2.0), (3.0, 4.0), 10),
+        "primary_points": PointSetData(coords=np.asarray(
+            [[np.float32(3.5), np.int64(4)]], dtype=object)),
+        "interest_region": RegionData(
+            np.int64(1), np.int32(2), np.int64(3), np.int32(4)),
+        "line_cut": LineData(
+            (np.float32(1.0), np.float64(2.0)),
+            (np.int64(3), np.int32(4)),
+            np.int64(10),
+        ),
     }
     path = tmp_path / f"item{extension}"
 
