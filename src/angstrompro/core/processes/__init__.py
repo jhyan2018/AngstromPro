@@ -15,7 +15,11 @@ from .param_schema import (
     ParameterSpec,
     ProcessSchema,
 )
-from .process_entry import ProcessEntry
+from .process_entry import (
+    ProcessEntry,
+    ProcessRequirement,
+    ProcessUnavailableError,
+)
 from .process_result import (
     ProcessResult,
     iter_process_data,
@@ -43,6 +47,8 @@ __all__ = [
     "primary_process_data",
     "named_process_data",
     "ProcessEntry",
+    "ProcessRequirement",
+    "ProcessUnavailableError",
     "ProcessRegistry",
     "register_process",
     "register_simulation",

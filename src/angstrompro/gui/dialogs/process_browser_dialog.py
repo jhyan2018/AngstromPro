@@ -149,6 +149,20 @@ class ProcessBrowserDialog(PersistentDialog):
             " padding: 4px; background: palette(base); }")
         detail_layout.addWidget(self._txt_description)
 
+        self._lbl_availability = QtWidgets.QLabel("Available")
+        self._lbl_availability.setWordWrap(True)
+        detail_layout.addWidget(self._lbl_availability)
+        self._requirements_heading = QtWidgets.QLabel("Requirements:")
+        detail_layout.addWidget(self._requirements_heading)
+        self._tbl_requirements = _AutoHeightTable(3)
+        self._tbl_requirements.setHorizontalHeaderLabels(
+            ["Requirement", "Status", "Details"])
+        _setup_table(self._tbl_requirements)
+        detail_layout.addWidget(self._tbl_requirements)
+        self._lbl_availability.hide()
+        self._requirements_heading.hide()
+        self._tbl_requirements.hide()
+
         # inputs table
         detail_layout.addWidget(QtWidgets.QLabel("Input Ports:"))
         self._tbl_inputs = _AutoHeightTable(5)
@@ -298,6 +312,9 @@ class ProcessBrowserDialog(PersistentDialog):
     def _set_selected_process(self, name: str | None) -> None:
         self._selected_process_name = name
         if self._select_button is not None:
+            # Selection remains available so parameter-dependent requirements
+            # (for example, choosing a trained model) can be configured next.
+            # Execution and Workflow Check enforce the displayed status.
             self._select_button.setEnabled(name is not None)
 
     def selected_entry(self) -> "ProcessEntry | None":
@@ -326,6 +343,11 @@ class ProcessBrowserDialog(PersistentDialog):
         self._lbl_name.setText("—")
         self._lbl_category.setText("—")
         self._txt_description.setText("")
+        self._lbl_availability.setText("—")
+        self._lbl_availability.hide()
+        self._requirements_heading.hide()
+        self._tbl_requirements.hide()
+        self._tbl_requirements.setRowCount(0)
         self._tbl_inputs.setRowCount(0)
         self._tbl_outputs.setRowCount(0)
         self._tbl_metrics.setRowCount(0)
@@ -335,6 +357,7 @@ class ProcessBrowserDialog(PersistentDialog):
     def _refit_table_rows(self) -> None:
         for tbl in (
             self._tbl_inputs,
+            self._tbl_requirements,
             self._tbl_outputs,
             self._tbl_metrics,
             self._tbl_params,
@@ -347,6 +370,26 @@ class ProcessBrowserDialog(PersistentDialog):
         self._lbl_name.setText(entry.name)
         self._lbl_category.setText(entry.category)
         self._txt_description.setText(entry.description or "")
+
+        statuses = entry.requirement_statuses(entry.schema.defaults())
+        issues = entry.requirement_issues(entry.schema.defaults())
+        self._lbl_availability.setVisible(bool(statuses))
+        self._requirements_heading.setVisible(bool(statuses))
+        self._tbl_requirements.setVisible(bool(statuses))
+        self._lbl_availability.setText(
+            "Unavailable — " + "; ".join(issues) if issues else "Available"
+        )
+        self._tbl_requirements.setRowCount(0)
+        for requirement, available, detail in statuses:
+            row = self._tbl_requirements.rowCount()
+            self._tbl_requirements.insertRow(row)
+            self._tbl_requirements.setItem(
+                row, 0, _ro_item(requirement.label or requirement.name))
+            self._tbl_requirements.setItem(
+                row, 1, _ro_item("Available" if available else "Unavailable"))
+            self._tbl_requirements.setItem(
+                row, 2, _ro_item(detail or "—"))
+        _resize_non_last_cols(self._tbl_requirements)
 
         # inputs
         self._tbl_inputs.setRowCount(0)

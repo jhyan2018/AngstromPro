@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import Any
 
 from .param_schema import ProcessSchema
-from .process_entry import ProcessEntry
+from .process_entry import ProcessEntry, ProcessRequirement
 from .process_result import ProcessResult, primary_process_data
 
 log = logging.getLogger(__name__)
@@ -80,6 +80,7 @@ def register_process(
     schema:      ProcessSchema,
     description: str = "",
     kind:        str = "process",
+    requirements: list[ProcessRequirement] | tuple[ProcessRequirement, ...] | None = None,
 ):
     """
     Decorator that registers a process function into the registry.
@@ -113,6 +114,7 @@ def register_process(
             schema      = schema,
             description = description,
             kind        = kind,
+            requirements= tuple(requirements or ()),
         ))
         return func
     return decorator
@@ -124,6 +126,7 @@ def register_simulation(
     category:    str,
     schema:      ProcessSchema,
     description: str = "",
+    requirements: list[ProcessRequirement] | tuple[ProcessRequirement, ...] | None = None,
 ):
     """Convenience alias for register_process with kind='simulation'.
 
@@ -137,6 +140,7 @@ def register_simulation(
         schema      = schema,
         description = description,
         kind        = "simulation",
+        requirements= requirements,
     )
 
 
@@ -327,8 +331,9 @@ class ProcessRegistry:
             annotations: dict | None = None) -> Any:
         """Direct synchronous call — no threading, no progress."""
         entry       = self.get(name)
-        _check_axis_types(entry, inputs)
         full_params = {**entry.schema.defaults(), **params}
+        entry.ensure_available(full_params)
+        _check_axis_types(entry, inputs)
         result      = entry.func(inputs, full_params, annotations=annotations or {})
         return _record_history(result, name, full_params, inputs, annotations)
 
@@ -355,6 +360,7 @@ class ProcessRegistry:
         resolved_annotations = annotations or {}
 
         def _task_func():
+            entry.ensure_available(full_params)
             _check_axis_types(entry, inputs)
             result = entry.func(inputs, full_params, annotations=resolved_annotations)
             return _record_history(result, process_name, full_params, inputs, resolved_annotations)
@@ -421,6 +427,7 @@ class ProcessRegistry:
             current_data = None
             results = []
             for entry, step_inputs, full_params, step_ann in resolved:
+                entry.ensure_available(full_params)
                 if step_inputs:
                     effective_inputs = {
                         k: (current_data if v == _PREV else v)

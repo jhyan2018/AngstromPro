@@ -110,6 +110,29 @@ def test_radio_selection_is_independent_without_moving_or_deselecting_items(modu
     assert first._workspace_destination_buttons[shared.workspace_id].isChecked()
 
 
+def test_workspace_groups_expand_collapse_and_keep_state_across_refreshes(modules):
+    first, _, shared, context = modules
+    private = first.private_workspace
+    private.add_item(ExampleData("private_item"))
+    shared.add_item(ExampleData("shared_item"))
+    private_group = first._ws_list.topLevelItem(0)
+    shared_group = first._ws_list.topLevelItem(1)
+
+    private_group.setExpanded(False)
+    shared_group.setExpanded(False)
+    shared.add_item(ExampleData("another_shared_item"))
+
+    assert not first._ws_list.topLevelItem(0).isExpanded()
+    assert not first._ws_list.topLevelItem(1).isExpanded()
+
+    first._ws_list.topLevelItem(0).setExpanded(True)
+    context.workspace_manager.rename_shared_workspace(
+        shared.workspace_id, "Expanded-state test"
+    )
+    assert first._ws_list.topLevelItem(0).isExpanded()
+    assert not first._ws_list.topLevelItem(1).isExpanded()
+
+
 @pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("font_size", [10, 16])
 def test_workspace_headings_have_one_text_painter_under_app_stylesheet(
@@ -176,6 +199,13 @@ def test_destination_validation_and_attachment_lifecycle(modules):
     assert first.workspace is private
     assert first.shared_workspace is None
     assert first._workspace_destination_buttons == {}
+    private_group = first._ws_list.topLevelItem(0)
+    assert private_group.text(0) == "Private workspace"
+    assert private_group.data(0, (
+        QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+    )) == ("workspace", private.workspace_id)
+    private_group.setExpanded(False)
+    assert not private_group.isExpanded()
 
 
 @pytest.mark.parametrize("default_send", [False, True])

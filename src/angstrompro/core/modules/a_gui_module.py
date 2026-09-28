@@ -202,6 +202,7 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._workspace_dock = dock
         self._workspace_destination_buttons = {}
         self._workspace_destination_group = None
+        self._workspace_expansion = {}
         # module types listed in app.hide_workspace_dock start hidden;
         # the View menu toggle (Ctrl+1) re-opens the dock any time
         if self.module_id in (self._context.config.get(
@@ -562,6 +563,14 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         from angstrompro.utils.qt_compat import QtGui
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
 
+        # Workspace rows are rebuilt after every mutation. Remember their
+        # disclosure state so a collapsed workspace stays collapsed.
+        for index in range(self._ws_list.topLevelItemCount()):
+            row = self._ws_list.topLevelItem(index)
+            data = row.data(0, _UserRole)
+            if isinstance(data, tuple) and len(data) == 2 and data[0] == "workspace":
+                self._workspace_expansion[data[1]] = row.isExpanded()
+
         # Build a map keyed by stable item id so duplicate names in the private
         # and shared workspaces remain unambiguous.
         staged_map: dict[str, str] = {}
@@ -577,51 +586,65 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._workspace_destination_group.setExclusive(True)
         self._workspace_destination_buttons = {}
         self._ws_list.clear()
-        if self.shared_workspace is None:
-            self._populate_workspace_tree_items(
-                self._ws_list, self.private_workspace, staged_map, _UserRole,
+        workspaces = [(self.private_workspace, "Private workspace")]
+        if self.shared_workspace is not None:
+            workspaces.append((
+                self.shared_workspace,
+                f"Shared: {self.shared_workspace.label}",
+            ))
+        multiple = len(workspaces) > 1
+        indicator = (
+            QtWidgets.QTreeWidgetItem.ChildIndicatorPolicy.ShowIndicator
+            if IS_QT6 else QtWidgets.QTreeWidgetItem.ShowIndicator
+        )
+        for workspace, title in workspaces:
+            group = QtWidgets.QTreeWidgetItem(self._ws_list)
+            group.setChildIndicatorPolicy(indicator)
+            accessible_role = (
+                QtCore.Qt.ItemDataRole.AccessibleTextRole
+                if IS_QT6 else QtCore.Qt.AccessibleTextRole
             )
-        else:
-            for workspace, title in (
-                (self.private_workspace, "Private workspace"),
-                (self.shared_workspace,
-                 f"Shared: {self.shared_workspace.label}"),
-            ):
-                group = QtWidgets.QTreeWidgetItem(self._ws_list)
+            group.setData(0, accessible_role, title)
+            group.setToolTip(0, title)
+            group.setText(1, f"{workspace.count()} item(s)")
+            group.setData(
+                0, _UserRole, ("workspace", workspace.workspace_id),
+            )
+            font = group.font(0)
+            font.setBold(True)
+            group.setFont(0, font)
+            if multiple:
                 # The embedded radio button is the sole painter of the title.
                 # Qt stylesheets can disable its auto-filled background, so
                 # model display text here would show through and overlap it.
-                accessible_role = (QtCore.Qt.ItemDataRole.AccessibleTextRole
-                                   if IS_QT6 else QtCore.Qt.AccessibleTextRole)
-                group.setData(0, accessible_role, title)
-                group.setToolTip(0, title)
-                group.setText(1, f"{workspace.count()} item(s)")
-                group.setData(
-                    0, _UserRole, ("workspace", workspace.workspace_id),
-                )
-                font = group.font(0)
-                font.setBold(True)
-                group.setFont(0, font)
                 selector = QtWidgets.QRadioButton(title)
                 selector.setAutoFillBackground(True)
-                selector.setObjectName(f"workspace_destination_{workspace.workspace_id}")
+                selector.setObjectName(
+                    f"workspace_destination_{workspace.workspace_id}"
+                )
                 selector.setFont(font)
                 selector.setToolTip(
-                    "Active destination for incoming items, opened data and new process outputs. "
-                    "Both workspaces remain accessible. Running processes keep their destination."
+                    "Active destination for incoming items, opened data and new "
+                    "process outputs. Both workspaces remain accessible. Running "
+                    "processes keep their destination."
                 )
                 selector.setAccessibleName(f"Active destination: {title}")
                 self._workspace_destination_group.addButton(selector)
                 selector.setChecked(workspace is self.active_workspace)
                 selector.toggled.connect(
                     lambda checked, wid=workspace.workspace_id:
-                    self.set_active_workspace(wid) if checked else None)
+                    self.set_active_workspace(wid) if checked else None
+                )
                 self._workspace_destination_buttons[workspace.workspace_id] = selector
                 self._ws_list.setItemWidget(group, 0, selector)
-                self._populate_workspace_tree_items(
-                    group, workspace, staged_map, _UserRole,
-                )
-                group.setExpanded(True)
+            else:
+                group.setText(0, title)
+            self._populate_workspace_tree_items(
+                group, workspace, staged_map, _UserRole,
+            )
+            group.setExpanded(
+                self._workspace_expansion.get(workspace.workspace_id, True)
+            )
 
         self._refresh_slots_panel()
 
