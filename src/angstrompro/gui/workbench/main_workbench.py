@@ -17,7 +17,7 @@ from angstrompro.gui.widgets.log_panel import LogPanel
 from angstrompro.gui.widgets.live_modules_panel import LiveModulesPanel
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem, PreferencesPanel
 import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
-import angstrompro.gui.widgets.channel_manager_widget  # registers channel_manager widget type
+import angstrompro.gui.widgets.channel_manager_widget  # noqa: F401 - registers widget type
 
 
 @register_module
@@ -156,7 +156,6 @@ class MainWorkbench(AGuiModule):
 
         def _reset() -> dict:
             from angstrompro.core.configs.defaults import DEFAULTS
-            from angstrompro.core.configs.config_manager import _merge_startup_modules
             io_defaults = copy.deepcopy(DEFAULTS.get("io", {}))
             io_defaults.pop("channel_manager", None)
             app_defaults = copy.deepcopy(DEFAULTS.get("app", {}))
@@ -322,6 +321,12 @@ class MainWorkbench(AGuiModule):
             self.restoreGeometry(geom)
         if not (state and self.restoreState(state)):
             self._apply_default_layout()
+        if self._context.plugin_load_failures:
+            # A saved layout may normally keep the Log dock hidden.  Startup
+            # plugin failures need to be visible without an interrupting modal
+            # dialog, so override that visibility for this launch.
+            self._dock_log.show()
+            self._dock_log.raise_()
 
     def showEvent(self, event) -> None:
         super().showEvent(event)

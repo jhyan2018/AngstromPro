@@ -69,6 +69,11 @@ def _get_handler() -> _QtLogHandler:
     return _handler
 
 
+def install_log_capture() -> None:
+    """Start buffering application logs before startup plugins are imported."""
+    _get_handler()
+
+
 # ── colours per level ─────────────────────────────────────────────────────────
 
 _LEVEL_COLOR = {
@@ -86,6 +91,19 @@ _LEVEL_LABEL = {
     logging.ERROR:    "ERR",
     logging.CRITICAL: "CRT",
 }
+
+
+def _format_record_text(record: logging.LogRecord) -> str:
+    """Format a record for the UI, including exception tracebacks."""
+    label = _LEVEL_LABEL.get(record.levelno, "???")
+    name = record.name.split(".")[-1]
+    ts = time.strftime("%H:%M:%S", time.localtime(record.created))
+    text = f"[{label} {ts}] {name}: {record.getMessage()}"
+    if record.exc_info:
+        traceback_text = logging.Formatter().formatException(record.exc_info)
+        if traceback_text:
+            text = f"{text}\n{traceback_text}"
+    return text
 
 
 # ── widget ────────────────────────────────────────────────────────────────────
@@ -142,11 +160,8 @@ class LogPanel(QtWidgets.QWidget):
     def _append(self, record: logging.LogRecord) -> None:
         if record.levelno < self._min_level:
             return
-        label = _LEVEL_LABEL.get(record.levelno, "???")
         color = _LEVEL_COLOR.get(record.levelno, "#cccccc")
-        name  = record.name.split(".")[-1]
-        ts    = time.strftime("%H:%M:%S", time.localtime(record.created))
-        text  = f"[{label} {ts}] {name}: {record.getMessage()}"
+        text = _format_record_text(record)
         item  = QtWidgets.QListWidgetItem(text)
         item.setForeground(QtGui.QColor(color))
         self._list.addItem(item)
