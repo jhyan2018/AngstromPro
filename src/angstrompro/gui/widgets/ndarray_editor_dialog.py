@@ -7,6 +7,9 @@ Edits are written back in-place on OK; Cancel discards all changes.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import numpy as np
 
 from angstrompro.utils.qt_compat import Action, QtCore, QtGui, QtWidgets
@@ -93,6 +96,16 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
             QtWidgets.QDialogButtonBox.StandardButton.Ok |
             QtWidgets.QDialogButtonBox.StandardButton.Cancel
         )
+        export_button = btn_box.addButton(
+            "Export current slice…",
+            QtWidgets.QDialogButtonBox.ButtonRole.ActionRole
+            if hasattr(QtWidgets.QDialogButtonBox, "ButtonRole")
+            else QtWidgets.QDialogButtonBox.ActionRole,
+        )
+        export_button.setToolTip(
+            "Export the displayed values as a tab-delimited text file"
+        )
+        export_button.clicked.connect(self._export_current_slice)
         btn_box.accepted.connect(self._on_ok)
         btn_box.rejected.connect(self.reject)
         root.addWidget(btn_box)
@@ -103,7 +116,10 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
 
     def _current_slice(self) -> tuple:
         """Build the index tuple for the current 2D slice."""
-        outer = tuple(sb.value() for sb in self._spinboxes)
+        # The stored indices identify the table currently on screen. A spin box
+        # has already adopted its new value when valueChanged is emitted, so
+        # reading the widgets here would flush the old cells into the new slice.
+        outer = tuple(self._slice_indices)
         return outer + (slice(None), slice(None)) if self._array.ndim > 2 else (
             (slice(None),) if self._array.ndim == 1 else (slice(None), slice(None))
         )
@@ -115,7 +131,16 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
         return sliced  # 2D
 
     def _on_slice_changed(self) -> None:
-        self._flush_table_to_pending()
+        if not self._flush_table_to_pending():
+            # Invalid visible edits keep the user on the current slice. Revert
+            # every selector without recursively triggering this slot.
+            for sb, index in zip(self._spinboxes, self._slice_indices):
+                previous = sb.blockSignals(True)
+                try:
+                    sb.setValue(index)
+                finally:
+                    sb.blockSignals(previous)
+            return
         for dim, sb in enumerate(self._spinboxes):
             self._slice_indices[dim] = sb.value()
         self._refresh_table()
@@ -146,6 +171,7 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
 
         self._table.blockSignals(False)
         self._table.resizeColumnsToContents()
+        self._status.clear()
 
     def _fmt(self, val) -> str:
         if np.issubdtype(self._array.dtype, np.complexfloating):
@@ -179,6 +205,43 @@ class NdarrayEditorDialog(QtWidgets.QDialog):
             lines.append("\t".join(values))
 
         QtWidgets.QApplication.clipboard().setText("\n".join(lines))
+
+    def _export_current_slice(self) -> None:
+        """Export the displayed 1D/2D view as tab-delimited text."""
+        if not self._flush_table_to_pending():
+            return
+
+        safe_label = re.sub(r'[<>:"/\\|?*]+', "_", self._label).strip(" ._")
+        safe_label = safe_label or "array"
+        if self._array.ndim > 2:
+            indices = "_".join(str(index) for index in self._slice_indices)
+            safe_label = f"{safe_label}_slice_{indices}"
+        suggested = f"{safe_label}.txt"
+        filename, _selected_filter = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Export current array slice",
+            suggested,
+            "Text files (*.txt);;All files (*)",
+        )
+        if not filename:
+            return
+
+        path = Path(filename)
+        if not path.suffix:
+            path = path.with_suffix(".txt")
+        try:
+            # %s uses NumPy's round-trip-friendly scalar representation and
+            # also supports integer and complex UDS arrays.
+            np.savetxt(path, self._get_2d_view(), delimiter="\t", fmt="%s")
+        except (OSError, TypeError, ValueError) as exc:
+            QtWidgets.QMessageBox.critical(
+                self,
+                "Array export failed",
+                str(exc),
+            )
+            return
+
+        self._status.setText(f"Exported current slice to {path}")
 
     # ------------------------------------------------------------------
     # Flush table edits → _pending

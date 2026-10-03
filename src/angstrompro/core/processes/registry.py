@@ -55,6 +55,7 @@ Usage
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import logging
 import sys
 from pathlib import Path
@@ -328,13 +329,20 @@ class ProcessRegistry:
     # ------------------------------------------------------------------
 
     def run(self, name: str, inputs: dict, params: dict,
-            annotations: dict | None = None) -> Any:
-        """Direct synchronous call — no threading, no progress."""
+            annotations: dict | None = None, *, cancel_token=None,
+            progress_callback=None) -> Any:
+        """Direct call with optional cooperative cancellation and progress."""
         entry       = self.get(name)
         full_params = {**entry.schema.defaults(), **params}
         entry.ensure_available(full_params)
         _check_axis_types(entry, inputs)
-        result      = entry.func(inputs, full_params, annotations=annotations or {})
+        signature = inspect.signature(entry.func)
+        execution_kwargs = {"annotations": annotations or {}}
+        if "cancel_token" in signature.parameters:
+            execution_kwargs["cancel_token"] = cancel_token
+        if "progress_callback" in signature.parameters:
+            execution_kwargs["progress_callback"] = progress_callback
+        result = entry.func(inputs, full_params, **execution_kwargs)
         return _record_history(result, name, full_params, inputs, annotations)
 
     # ------------------------------------------------------------------
@@ -359,10 +367,19 @@ class ProcessRegistry:
         full_params = {**entry.schema.defaults(), **params}
         resolved_annotations = annotations or {}
 
-        def _task_func():
+        signature = inspect.signature(entry.func)
+        supports_cancel = "cancel_token" in signature.parameters
+        supports_progress = "progress_callback" in signature.parameters
+
+        def _task_func(*, cancel_token=None, progress_callback=None):
             entry.ensure_available(full_params)
             _check_axis_types(entry, inputs)
-            result = entry.func(inputs, full_params, annotations=resolved_annotations)
+            execution_kwargs = {"annotations": resolved_annotations}
+            if supports_cancel:
+                execution_kwargs["cancel_token"] = cancel_token
+            if supports_progress:
+                execution_kwargs["progress_callback"] = progress_callback
+            result = entry.func(inputs, full_params, **execution_kwargs)
             return _record_history(result, process_name, full_params, inputs, resolved_annotations)
 
         return task_manager.submit(TaskRequest(
@@ -370,6 +387,8 @@ class ProcessRegistry:
             source_id = source_id,
             task_type = process_name,
             group_id  = group_id,
+            cancellable=supports_cancel,
+            has_progress=supports_progress,
         ))
 
     def submit_pipeline(

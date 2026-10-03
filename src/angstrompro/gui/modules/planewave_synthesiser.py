@@ -31,8 +31,9 @@ from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 from angstrompro.gui.widgets.image_stack_viewer_widget import ImageStackViewerWidget
+from angstrompro.gui.widgets.math_label import MathLabel
 from angstrompro.gui.widgets.preferences import PrefSection, PrefItem
-import angstrompro.gui.widgets.preferences.widgets  # registers custom widget types
+import angstrompro.gui.widgets.preferences.widgets  # noqa: F401 - registers widgets
 
 # reuse the inlined kernel from simulate.py — no duplication
 from angstrompro.algorithms.simulate import _sinusoidal2d
@@ -41,6 +42,11 @@ from angstrompro.algorithms.simulate import _sinusoidal2d
 _SOURCE = "planewave_synthesiser"
 _RECIPE_INFO_KEY = "planewave"
 _RECIPE_SCHEMA_VERSION = 1
+_SYNTHESIS_EQUATION = (
+    r"$f(x,y)=\sum_j A_j\cos\!\left["
+    r"\frac{2\pi}{N}\left(q_{x,j}x+q_{y,j}y\right)-\phi_j"
+    r"\right]$"
+)
 
 
 @dataclass(frozen=True)
@@ -478,12 +484,14 @@ class PlanewaveSynthesiser(AGuiModule):
         vbox.setContentsMargins(6, 6, 6, 6)
         vbox.setSpacing(6)
 
-        # formula label
-        eq = QtWidgets.QLabel("f(x,y) = Σ  A<sub>j</sub> · cos(2π(qx<sub>j</sub>·X + qy<sub>j</sub>·Y)/size − φ<sub>j</sub>)")
-        eq.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        eq.setWordWrap(True)
-        vbox.addWidget(QtWidgets.QLabel("<b>─── Function ───</b>"))
-        vbox.addWidget(eq)
+        # Keep the governing equation at the top of the controls. MathText
+        # provides proper sums, fractions, subscripts, and Greek glyphs.
+        self._equation_label = MathLabel(_SYNTHESIS_EQUATION)
+        self._equation_label.setToolTip("N is the image size in pixels.")
+        self._equation_label.setAccessibleDescription(
+            "Plane-wave synthesis equation; N is the image size in pixels."
+        )
+        vbox.addWidget(self._equation_label)
 
         # size + buttons row
         size_row = QtWidgets.QHBoxLayout()
