@@ -294,6 +294,10 @@ class UdsDataStru(WorkspaceData):
                     {"kind": "value", "label": "method",      "value": r.method},
                     {"kind": "value", "label": "layer_index", "value": str(r.layer_index)},
                     {"kind": "value", "label": "source_axes", "value": str(r.source_axes)},
+                    {"kind": "value", "label": "coordinate_axes",
+                     "value": str(r.coordinate_axes)},
+                    {"kind": "value", "label": "selector_indices",
+                     "value": str(r.selector_indices)},
                 ]
                 from angstrompro.core.data.isocontour_data import (
                     IsopointResult, IsolineResult, IsosurfaceResult)

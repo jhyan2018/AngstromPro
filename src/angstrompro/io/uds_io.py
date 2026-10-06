@@ -121,6 +121,10 @@ def _isocontour_to_group(ig, result: IsocontourResult) -> None:
     ig.attrs["level"]        = result.level
     ig.attrs["method"]       = result.method
     ig.attrs["source_axes"]  = _jdumps(list(result.source_axes))
+    ig.attrs["coordinate_axes"] = _jdumps(list(result.coordinate_axes))
+    ig.attrs["selector_indices"] = _jdumps(
+        [list(pair) for pair in result.selector_indices]
+    )
     ig.attrs["layer_index"]  = result.layer_index
     ig.attrs["notes"]        = result.notes
 
@@ -145,11 +149,24 @@ def _isocontour_from_group(ig) -> IsocontourResult:
     level       = float(ig.attrs.get("level", 0.0))
     method      = str(ig.attrs.get("method", ""))
     source_axes = tuple(json.loads(ig.attrs.get("source_axes", "[]")))
+    coordinate_axes = tuple(
+        int(value)
+        for value in json.loads(ig.attrs.get("coordinate_axes", "[]"))
+    )
+    selector_indices = tuple(
+        (int(axis_index), int(value_index))
+        for axis_index, value_index in json.loads(
+            ig.attrs.get("selector_indices", "[]")
+        )
+    )
     layer_index = int(ig.attrs.get("layer_index", 0))
     notes       = str(ig.attrs.get("notes", ""))
 
     base_kwargs = dict(kind=kind, level=level, method=method,
-                       source_axes=source_axes, layer_index=layer_index, notes=notes)
+                       source_axes=source_axes,
+                       coordinate_axes=coordinate_axes,
+                       selector_indices=selector_indices,
+                       layer_index=layer_index, notes=notes)
 
     if kind == "isopoint":
         return IsopointResult(

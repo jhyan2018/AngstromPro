@@ -8,10 +8,10 @@ Isocontour extraction processes for UdsDataStru.
 
 Convention
 ----------
-axis[0] is always the "layer" axis (mathematically generic — no physics meaning
-attached here).  The remaining axes are the spatial axes used for extraction.
-Higher-level processes (e.g. in myplugin) may interpret layer_index as band
-index, spin channel, orbital, etc.
+Each result records the source axes used for extraction and the fixed index of
+every remaining selector axis.  The default axes preserve the original
+layer/spatial behavior, while higher-dimensional UDS inputs may select any two
+axes for iso-line extraction.
 
 Registered processes
 --------------------
@@ -21,9 +21,9 @@ Registered processes
       Appends one IsopointResult per (layer, level).
 
   isocontour.isoline_2D
-      ndim=3  (layer, y, x)
-      For each layer: extract iso-contour polylines where f(y,x) = level.
-      Appends one IsolineResult per (layer, level).
+      ndim>=2; two chosen axes define (y, x).
+      Extract iso-contour polylines for every remaining-axis selection.
+      Appends one IsolineResult per (selector combination, level).
 
   isocontour.isosurface_3D
       ndim=4  (layer, z, y, x)
@@ -73,6 +73,39 @@ def _parse_levels(levels_str: str) -> list[float]:
         raise ValueError(
             f"Could not parse levels {levels_str!r} — use scientific notation "
             f"e.g. '0.0, 1.5e-9, -0.5'") from exc
+
+
+def _parse_source_axes(value, ndim: int, count: int) -> tuple[int, ...]:
+    """Return distinct, normalized source axes in original array order."""
+    if isinstance(value, str):
+        raw = [part.strip() for part in value.split(",") if part.strip()]
+    else:
+        try:
+            raw = list(value)
+        except TypeError as exc:
+            raise ValueError("Contour axes must be comma-separated indices.") from exc
+    if len(raw) != count:
+        raise ValueError(f"Exactly {count} contour axes are required.")
+    try:
+        axes = [int(axis_index) for axis_index in raw]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Contour axes must be integer UDS axis indices.") from exc
+    normalized = [axis_index if axis_index >= 0 else ndim + axis_index
+                  for axis_index in axes]
+    if any(axis_index < 0 or axis_index >= ndim for axis_index in normalized):
+        raise ValueError(
+            f"Contour axes {tuple(axes)} are outside a {ndim}-D UDS."
+        )
+    if len(set(normalized)) != count:
+        raise ValueError("Contour axes must be distinct.")
+    return tuple(sorted(normalized))
+
+
+def _cancelled(cancel_token) -> bool:
+    return bool(
+        cancel_token is not None
+        and getattr(cancel_token, "is_cancelled", lambda: False)()
+    )
 
 
 def _copy_uds(src: UdsDataStru, suffix: str) -> UdsDataStru:
@@ -201,7 +234,7 @@ def isopoint_1d(inputs: dict, params: dict,
 
 
 # ---------------------------------------------------------------------------
-# isocontour.isoline_2D    ndim=3  (layer, y, x)
+# isocontour.isoline_2D    ndim>=2, two selected source axes
 # ---------------------------------------------------------------------------
 
 @register_process(
@@ -209,16 +242,20 @@ def isopoint_1d(inputs: dict, params: dict,
     label       = "Iso-line 2-D",
     category    = "Contours & Surfaces",
     description = (
-        "Extract iso-contour polylines where f(y,x) = level, for each layer in a 3-D UDS.\n\n"
-        "Input shape: (n_layers, ny, nx)  —  axis[0] = layer, axis[1] = y, axis[2] = x.\n\n"
+        "Extract iso-contour polylines where f(y,x) = level across two selected "
+        "UDS axes. Every remaining axis is iterated as a selector.\n\n"
+        "The default axes are the final two axes, preserving the legacy "
+        "(layer, y, x) behavior.\n\n"
         "Methods:\n"
         "  'marching_squares' (default) — sub-pixel accurate via skimage\n"
         "  'contour'                    — matplotlib contour path extraction\n\n"
-        "Appends one IsolineResult per (layer_index, level) to uds.isocontours. "
+        "Appends one IsolineResult per (selector combination, level) to "
+        "uds.isocontours. "
         "Output name: input_name + '_isoc'."
     ),
     schema=ProcessSchema(
-        inputs  = [InputSpec(name="data", type_id="uds", ndim=3, label="3-D data (layer, y, x)")],
+        inputs  = [InputSpec(name="data", type_id="uds", ndim=None,
+                             label="UDS with at least two contour axes")],
         outputs = [_OUT],
         params  = [
             _LEVELS_PARAM,
@@ -228,38 +265,80 @@ def isopoint_1d(inputs: dict, params: dict,
                 choices=["marching_squares", "contour"],
                 description="Algorithm for iso-line extraction.",
             ),
+            ParameterSpec(
+                name="plane_axes", type=str, default="-2,-1",
+                label="Contour axes",
+                description=(
+                    "Two comma-separated UDS axis indices. Other axes are "
+                    "retained as selector coordinates."
+                ),
+            ),
         ] + _INTERP_PARAMS,
     ),
 )
 def isoline_2d(inputs: dict, params: dict,
-               *, annotations: dict | None = None) -> UdsDataStru:
+               *, annotations: dict | None = None, cancel_token=None,
+               progress_callback=None) -> UdsDataStru:
     src    = inputs["data"]
     levels = _parse_levels(params["levels"])
     method = params["method"]
     interp = bool(params["interpolate"])
     factor = int(params["interp_factor"])
 
-    raw_data = src.data.astype(np.float64)           # (n_layers, ny, nx)
-    ax_y     = src.axes[1].values.astype(np.float64)
-    ax_x     = src.axes[2].values.astype(np.float64)
+    raw_data = np.asarray(src.data, dtype=np.float64)
+    if raw_data.ndim < 2:
+        raise ValueError("Iso-line extraction requires a UDS with at least two axes.")
+    if len(src.axes) != raw_data.ndim:
+        raise ValueError("The UDS must provide one coordinate axis per data axis.")
+    plane_axes = _parse_source_axes(
+        params.get("plane_axes", "-2,-1"), raw_data.ndim, 2
+    )
+    row_axis, column_axis = plane_axes
+    ax_y = src.axes[row_axis].values.astype(np.float64)
+    ax_x = src.axes[column_axis].values.astype(np.float64)
+    selector_axes = tuple(
+        axis_index for axis_index in range(raw_data.ndim)
+        if axis_index not in plane_axes
+    )
+    selector_shape = tuple(raw_data.shape[axis_index]
+                           for axis_index in selector_axes)
+    selector_values = np.ndindex(selector_shape) if selector_shape else [()]
+    total = int(np.prod(selector_shape, dtype=np.int64) if selector_shape else 1)
+    total *= len(levels)
+    completed = 0
 
     dst = _copy_uds(src, "_isoc")
 
-    for layer_i in range(raw_data.shape[0]):
-        data = raw_data[layer_i]
+    for selector_value in selector_values:
+        if _cancelled(cancel_token):
+            break
+        selection = [slice(None)] * raw_data.ndim
+        for axis_index, value_index in zip(selector_axes, selector_value):
+            selection[axis_index] = value_index
+        data = raw_data[tuple(selection)]
         ay, ax = ax_y, ax_x
         if interp:
             data, ay, ax = _upsample_2d(data, ay, ax, factor)
 
         for level in levels:
+            if _cancelled(cancel_token):
+                break
             contours = _extract_isolines(data, ay, ax, level, method)
             dst.isocontours.append(IsolineResult(
                 level       = level,
                 method      = method,
-                source_axes = (1, 2),
-                layer_index = layer_i,
+                source_axes = plane_axes,
+                coordinate_axes = (column_axis, row_axis),
+                selector_indices = tuple(zip(selector_axes, selector_value)),
+                layer_index = (
+                    int(np.ravel_multi_index(selector_value, selector_shape))
+                    if selector_shape else 0
+                ),
                 contours    = contours,
             ))
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(completed, total)
 
     return dst
 

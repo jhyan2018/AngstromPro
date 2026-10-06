@@ -35,7 +35,13 @@ class IsocontourResult:
     kind:         str   = ""       # set by each subclass as class default
     level:        float = 0.0     # the iso-value that was extracted
     method:       str   = ""      # algorithm used, e.g. "marching_squares"
-    source_axes:  tuple = ()      # which UDS axis indices were used, e.g. (1, 2)
+    source_axes:  tuple[int, ...] = ()  # UDS axes used, e.g. (1, 2)
+    coordinate_axes: tuple[int, ...] = field(default=(), kw_only=True)
+    # Source axis represented by each stored coordinate column.
+    selector_indices: tuple[tuple[int, int], ...] = field(
+        default=(), kw_only=True
+    )
+    # Fixed source-axis indices, e.g. ((0, 2), (1, 4)).
     layer_index:  int   = 0       # index along axis[0] of the source UDS
     notes:        str   = ""      # free-text; physics meaning added by caller
 
