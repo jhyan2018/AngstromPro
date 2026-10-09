@@ -107,6 +107,7 @@ def _render_stack(ax_spec, ax) -> None:
     y_factor_l = float(left_config.get(
         "y_factor", getattr(ax_spec.config, "y_factor", 1.0)) or 1.0)
     y_factor_r = float(right_config.get("y_factor", 1.0) or 1.0)
+    data_component = ax_spec.extra.get("data_component", "real")
 
     ax2 = None   # right twin-Y axis, created lazily
 
@@ -117,7 +118,7 @@ def _render_stack(ax_spec, ax) -> None:
         if artist.kind != "line" or artist.data is None:
             _render_artist(artist, ax)
             continue
-        entry   = _prepare(artist)
+        entry   = _prepare(artist, data_component)
         y_2d    = entry["y"]
         row_vis = artist.extra.get("row_visibility", None)
         side    = artist.extra.get("y_axis", "left")
@@ -355,6 +356,7 @@ def _render_colormap(ax_spec, ax) -> None:
         "x_factor", getattr(ax_spec.config, "x_factor", 1.0)) or 1.0)
     y_factor = float(mode_config.get(
         "y_factor", getattr(ax_spec.config, "y_factor", 1.0)) or 1.0)
+    data_component = ax_spec.extra.get("data_component", "real")
 
     rows       = []
     row_vals   = []
@@ -365,7 +367,7 @@ def _render_colormap(ax_spec, ax) -> None:
     for artist in ax_spec.artists:
         if artist.kind != "line" or artist.data is None:
             continue
-        entry   = _prepare(artist)
+        entry   = _prepare(artist, data_component)
         y_2d    = entry["y"]
         rv      = entry.get("row_values")
         checked = artist.extra.get("row_visibility",
@@ -454,9 +456,13 @@ def _render_artist(artist, ax) -> None:
         _render_patch(artist, ax)
 
 
-def _prepare(artist) -> dict:
+def _prepare(artist, data_component: str = "real") -> dict:
     from angstrompro.gui.widgets.curve_stack.prepare import prepare_entry
-    return prepare_entry(artist.label or artist.data.name, artist.data)
+    return prepare_entry(
+        artist.label or artist.data.name,
+        artist.data,
+        data_component,
+    )
 
 
 def _render_scatter(artist, ax) -> None:

@@ -42,6 +42,12 @@ running the process.</p>
 <p>For <strong>Background Subtract 2D → PerLine</strong>, choose <strong>Per-line direction</strong>: <code>Y</code>
 fits down each image column, while <code>X</code> fits across each row. The default is <code>Y</code>;
 select whichever direction follows the unwanted line background in your image.</p>
+<p><strong>FFT 1D</strong> transforms every row of a <code>(curves, points)</code> UDS independently along
+its last axis. It preserves the curve axis and replaces the point axis with a
+shifted reciprocal-frequency axis. Choose no window or Hann, Hamming, Tukey,
+Blackman, or Blackman–Harris tapering; optional normalization divides by the
+number of points. The output remains complex so the Curve Stack Viewer can
+switch between its real, imaginary, magnitude, and phase components.</p>
 <p><strong>Gap Map 2D</strong> returns two items. The <code>_gm</code> item contains the fitted peak
 energy, and <code>_R2</code> is the R² fit-quality map: values near 1 indicate that the
 selected polynomial describes the spectrum well. Empty, non-finite, or

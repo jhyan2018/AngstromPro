@@ -166,6 +166,18 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         self._ws_list = QtWidgets.QTreeWidget()
         self._ws_list.setColumnCount(2)
         self._ws_list.setHeaderLabels(["Name", "Info"])
+        _ExtendedSelection = (
+            QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection
+            if IS_QT6 else
+            QtWidgets.QAbstractItemView.ExtendedSelection
+        )
+        _SelectRows = (
+            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
+            if IS_QT6 else
+            QtWidgets.QAbstractItemView.SelectRows
+        )
+        self._ws_list.setSelectionMode(_ExtendedSelection)
+        self._ws_list.setSelectionBehavior(_SelectRows)
         _Interactive = (QtWidgets.QHeaderView.ResizeMode.Interactive
                         if IS_QT6 else QtWidgets.QHeaderView.Interactive)
         self._ws_list.header().setStretchLastSection(True)
@@ -182,16 +194,17 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
         # item action buttons
         btn_row = QtWidgets.QHBoxLayout()
-        btn_remove = QtWidgets.QPushButton("Remove")
-        btn_send   = QtWidgets.QPushButton("Send…")
+        self._btn_remove = QtWidgets.QPushButton("Remove")
+        self._btn_send   = QtWidgets.QPushButton("Send…")
         self._send_default_cb = QtWidgets.QCheckBox("Default")
-        btn_remove.clicked.connect(self._on_remove_item)
-        btn_send.clicked.connect(self._on_send_item)
+        self._btn_remove.clicked.connect(self._on_remove_item)
+        self._btn_send.clicked.connect(self._on_send_item)
         self._send_default_cb.toggled.connect(self._on_default_toggled)
-        btn_row.addWidget(btn_remove)
-        btn_row.addWidget(btn_send)
+        btn_row.addWidget(self._btn_remove)
+        btn_row.addWidget(self._btn_send)
         btn_row.addWidget(self._send_default_cb)
         vbox.addLayout(btn_row)
+        self._update_workspace_selection_actions()
 
         # active slots panel — shown below action buttons whenever staged_labels is defined
         if self.staged_labels:
@@ -563,6 +576,19 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         from angstrompro.utils.qt_compat import QtGui
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
 
+        # Workspace rows are rebuilt after every mutation.  Preserve both the
+        # multi-selection and its single focused/current row by stable IDs.
+        selected_data = {
+            tree_item.data(0, _UserRole)
+            for tree_item in self._ws_list.selectedItems()
+            if tree_item.data(0, _UserRole) is not None
+        }
+        current_tree_item = self._ws_list.currentItem()
+        current_data = (
+            current_tree_item.data(0, _UserRole)
+            if current_tree_item is not None else None
+        )
+
         # Workspace rows are rebuilt after every mutation. Remember their
         # disclosure state so a collapsed workspace stays collapsed.
         for index in range(self._ws_list.topLevelItemCount()):
@@ -646,7 +672,39 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                 self._workspace_expansion.get(workspace.workspace_id, True)
             )
 
+        selected_matches = []
+        current_match = None
+        pending = [
+            self._ws_list.topLevelItem(index)
+            for index in range(self._ws_list.topLevelItemCount())
+        ]
+        while pending:
+            row = pending.pop(0)
+            data = row.data(0, _UserRole)
+            if data in selected_data:
+                selected_matches.append(row)
+            if data == current_data:
+                current_match = row
+            pending[0:0] = [row.child(i) for i in range(row.childCount())]
+
+        blocked = self._ws_list.blockSignals(True)
+        self._ws_list.clearSelection()
+        for row in selected_matches:
+            row.setSelected(True)
+        if current_match is None and selected_matches:
+            current_match = selected_matches[-1]
+        if current_match is not None:
+            _NoUpdate = (
+                QtCore.QItemSelectionModel.SelectionFlag.NoUpdate
+                if IS_QT6 else QtCore.QItemSelectionModel.NoUpdate
+            )
+            self._ws_list.selectionModel().setCurrentIndex(
+                self._ws_list.indexFromItem(current_match), _NoUpdate)
+        self._ws_list.blockSignals(blocked)
+
         self._refresh_slots_panel()
+        self._on_ws_selection_changed(current_match, None)
+        self._update_workspace_selection_actions()
 
     def on_active_workspace_changed(self) -> None:
         """Update destination indicators without rebuilding or deselecting items."""
@@ -744,6 +802,52 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         kind, _workspace, item, _role = self._workspace_tree_context(
             tree_item.data(0, _UserRole))
         return item if kind in {"item", "annotation"} else None
+
+    def _selected_workspace_entries(self) -> list[tuple[Any, WorkspaceItem]]:
+        """Return selected real item rows as ``(workspace, item)`` pairs.
+
+        Workspace headings and annotation child rows are deliberately not
+        bulk-action targets.  Stable item IDs prevent duplicate entries.
+        """
+        _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+        entries: list[tuple[Any, WorkspaceItem]] = []
+        seen: set[tuple[str, str]] = set()
+        for tree_item in self._ws_list.selectedItems():
+            kind, workspace, item, _role = self._workspace_tree_context(
+                tree_item.data(0, _UserRole))
+            if kind != "item" or workspace is None or item is None:
+                continue
+            key = (workspace.workspace_id, item.item_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            entries.append((workspace, item))
+        return entries
+
+    def _bulk_entries_or_legacy_current(self) -> list[tuple[Any, WorkspaceItem]]:
+        """Selected item rows, with a compatibility fallback for old callers."""
+        entries = self._selected_workspace_entries()
+        if entries or self._ws_list.currentItem() is not None:
+            return entries
+        # Some lightweight callers and subclasses provide only the older
+        # current-item helpers and no real tree selection.
+        item = self._selected_workspace_item()
+        workspace = self._selected_item_workspace()
+        return [(workspace, item)] if item is not None and workspace is not None else []
+
+    def _update_workspace_selection_actions(self) -> None:
+        if not hasattr(self, "_btn_remove"):
+            return
+        count = len(self._selected_workspace_entries())
+        enabled = count > 0
+        self._btn_remove.setEnabled(enabled)
+        self._btn_send.setEnabled(enabled)
+        self._btn_remove.setText(f"Remove ({count})" if count > 1 else "Remove")
+        self._btn_send.setText(f"Send ({count})…" if count > 1 else "Send…")
+        hint = (f"Apply to {count} selected workspace item(s)"
+                if count else "Select one or more workspace items")
+        self._btn_remove.setToolTip(hint)
+        self._btn_send.setToolTip(hint)
 
     def _selected_item_workspace(self):
         _UserRole = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
@@ -846,13 +950,28 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
 
     def _on_remove_item(self) -> None:
-        item = self._selected_workspace_item()
-        workspace = self._selected_item_workspace()
-        if item is not None and workspace is not None:
-            if not workspace.has_item_id(item.item_id):
-                self._refresh_workspace_panel()
+        entries = self._bulk_entries_or_legacy_current()
+        if not entries:
+            return
+        if len(entries) > 1:
+            answer = QtWidgets.QMessageBox.question(
+                self,
+                "Remove workspace items?",
+                f"Remove {len(entries)} selected workspace items?",
+                QtWidgets.QMessageBox.StandardButton.Yes |
+                QtWidgets.QMessageBox.StandardButton.No,
+                QtWidgets.QMessageBox.StandardButton.No,
+            )
+            if answer != QtWidgets.QMessageBox.StandardButton.Yes:
                 return
-            workspace.remove_item(item.name)
+        removed = 0
+        for workspace, item in entries:
+            if workspace.has_item_id(item.item_id):
+                workspace.remove_item(item.name)
+                removed += 1
+        if removed:
+            self.statusBar().showMessage(
+                f"Removed {removed} workspace item(s).", 4000)
 
     def _on_default_toggled(self, checked: bool) -> None:
         if not checked:
@@ -878,13 +997,10 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             self._send_default_cb.blockSignals(False)
 
     def _on_send_item(self) -> None:
-        item = self._selected_workspace_item()
-        source_workspace = self._selected_item_workspace()
-        if item is None or source_workspace is None:
+        entries = self._bulk_entries_or_legacy_current()
+        if not entries:
             QtWidgets.QMessageBox.warning(self, "No item selected", "Select an item to send.")
             return
-        name = item.name
-        sent = False
         if self._send_default_cb.isChecked():
             targets = self._context.module_manager.get_default_targets(self.instance_id)
             if not targets:
@@ -893,34 +1009,76 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                     "Default targets are gone. Uncheck Default to pick manually."
                 )
                 return
-            for target in targets:
-                destination = target.active_workspace
-                if destination.workspace_id == source_workspace.workspace_id:
-                    continue
-                self._context.workspace_manager.transfer_item(
-                    src_workspace_id=source_workspace.workspace_id,
-                    dst_workspace_id=destination.workspace_id,
-                    item_name=name,
-                )
-                sent = True
         else:
             from angstrompro.gui.dialogs.send_item_dialog import SendItemDialog
             dlg = SendItemDialog(self._context, exclude_instance_id=self.instance_id, parent=self)
             if dlg.exec() and dlg.selected_module:
-                target = dlg.selected_module
-                destination = target.active_workspace
+                targets = [dlg.selected_module]
+            else:
+                return
+
+        # Multiple target modules may share one destination workspace.  Copy
+        # into that workspace once, not once per attached module.
+        destinations = []
+        seen_destinations = set()
+        for target in targets:
+            destination = target.active_workspace
+            if destination.workspace_id in seen_destinations:
+                continue
+            seen_destinations.add(destination.workspace_id)
+            destinations.append(destination)
+
+        transfer_count = 0
+        sent_items = 0
+        skipped_count = 0
+        deletable: list[tuple[Any, WorkspaceItem]] = []
+        failures: list[str] = []
+        for source_workspace, item in entries:
+            succeeded = 0
+            failed = False
+            for destination in destinations:
                 if destination.workspace_id == source_workspace.workspace_id:
-                    self.statusBar().showMessage(
-                        "The target module already accesses this workspace.", 4000)
-                else:
+                    skipped_count += 1
+                    continue
+                try:
                     self._context.workspace_manager.transfer_item(
                         src_workspace_id=source_workspace.workspace_id,
                         dst_workspace_id=destination.workspace_id,
-                        item_name=name,
+                        item_name=item.name,
                     )
-                    sent = True
-        if sent:
-            self._after_send(name, source_workspace)
+                except Exception as exc:
+                    failed = True
+                    failures.append(f"{item.display_name}: {exc}")
+                else:
+                    succeeded += 1
+                    transfer_count += 1
+            if succeeded:
+                sent_items += 1
+                if not failed:
+                    deletable.append((source_workspace, item))
+
+        # Complete all copies before applying the app's move-like preference;
+        # otherwise the first destination could remove a source needed by the
+        # remaining destinations.
+        for source_workspace, item in deletable:
+            self._after_send(item.name, source_workspace)
+
+        if failures:
+            details = "\n".join(failures[:8])
+            if len(failures) > 8:
+                details += f"\n…and {len(failures) - 8} more."
+            QtWidgets.QMessageBox.warning(
+                self, "Some items were not sent", details)
+        if transfer_count:
+            message = f"Sent {sent_items} item(s) in {transfer_count} transfer(s)."
+            if skipped_count:
+                message += f" Skipped {skipped_count} already-shared destination(s)."
+            self.statusBar().showMessage(message, 5000)
+        elif skipped_count and not failures:
+            self.statusBar().showMessage(
+                "The selected item(s) already belong to the target workspace.",
+                4000,
+            )
 
     def _after_send(self, item_name: str, source_workspace=None) -> None:
         """App-level send semantics: transfer_item copies, so with
@@ -1402,6 +1560,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         wm.workspace_renamed.connect(_guard)
 
         self._ws_list.currentItemChanged.connect(self._on_ws_selection_changed)  # type: ignore[attr-defined]
+        self._ws_list.itemSelectionChanged.connect(
+            self._on_ws_selection_set_changed)
 
         self._context.signals.status_message.connect(self.statusBar().showMessage)
         self._context.signals.processes_updated.connect(self._rebuild_process_submenu)
@@ -1414,6 +1574,11 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         data = current.data(0, _UserRole)
         _kind, _workspace, item, _role = self._workspace_tree_context(data)
         self._inspector.set_item(item)
+        self._update_workspace_selection_actions()
+
+    def _on_ws_selection_set_changed(self) -> None:
+        """Update bulk-action scope without changing the focused inspector item."""
+        self._update_workspace_selection_actions()
 
     def on_workspace_attachment_changed(self) -> None:
         """Refresh module chrome after its shared-workspace attachment changes."""

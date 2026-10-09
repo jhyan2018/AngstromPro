@@ -14,6 +14,12 @@ Use the Curve Style dock to edit individual artists and the Axes dock to change
 labels, limits, scales, and grid settings. Both docks can be shown or hidden
 from the **View** menu.
 
+For complex-valued curves, use the **Type** selector above the plot to display
+**Real**, **Imaginary**, **Abs**, or **Phase**. FFT results initially use
+**Abs**. Real-valued datasets are unchanged when plotted alongside complex
+data. The selected component and its display factor are preserved in saved
+scenes; the original complex UDS data is never replaced.
+
 ### Error bars
 
 Right-click a plotted dataset in the **Datasets / Curves** tree and choose

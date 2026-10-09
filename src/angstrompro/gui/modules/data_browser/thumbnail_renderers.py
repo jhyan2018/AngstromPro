@@ -23,6 +23,7 @@ Options dict (all optional)
     channel_id       str   logical ChannelManager display name
     z_background_method str Off | Polynomial surface | Per scan line
                             | Per image row (X)
+    sigma            float  image scale width, mean +/- sigma*std/2 (default 5)
     stack_threshold  int   max curves before colormap mode    (default 20)
     offset           float explicit stack offset; None = auto
     colormap         str   cmap for colormap/image mode       (default "RdBu_r")
@@ -51,6 +52,21 @@ def payload_type_and_ndim(payload) -> tuple[str, int | None]:
     data = getattr(payload, "data", None)
     ndim = getattr(data, "ndim", None) if data is not None else None
     return type_id, ndim
+
+
+def _sigma_scale_limits(data: np.ndarray, sigma: float) -> tuple[float, float] | None:
+    """Return ImageStackViewer-compatible limits from finite image values."""
+    finite = np.asarray(data, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    if finite.size == 0:
+        return None
+    sigma = max(1.0, min(10.0, float(sigma)))
+    mean = float(np.mean(finite))
+    std = float(np.std(finite))
+    if not np.isfinite(mean) or not np.isfinite(std) or std <= 0.0:
+        return None
+    half_width = sigma * std / 2.0
+    return mean - half_width, mean + half_width
 
 
 # ── uds ndim=2 — curve stack / colormap ──────────────────────────────────────
@@ -162,10 +178,13 @@ def render_uds_3d(payload, *, rcparams_delta: dict | None = None,
     with rc_overlay(rcparams_delta or {}):
         fig = Figure(figsize=figsize)
         ax = fig.add_subplot(111)
+        limits = _sigma_scale_limits(img, options.get("sigma", 5.0))
+        scale_kwargs = ({"vmin": limits[0], "vmax": limits[1]}
+                        if limits is not None else {})
         # cmap=None → matplotlib's own default (rcParams "image.cmap",
         # overridable via the template delta)
         ax.imshow(img, cmap=options.get("colormap"), origin="upper",
-                  aspect="equal", interpolation="nearest")
+                  aspect="equal", interpolation="nearest", **scale_kwargs)
         fig.tight_layout(pad=0.1)
     return fig
 

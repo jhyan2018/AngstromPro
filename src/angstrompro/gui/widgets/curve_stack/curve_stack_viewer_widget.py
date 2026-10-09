@@ -39,6 +39,13 @@ _MODES: list[tuple[str, str]] = [
     ("colormap", "Colormap"),
 ]
 
+_DATA_COMPONENTS: list[tuple[str, str]] = [
+    ("real", "Real"),
+    ("imaginary", "Imaginary"),
+    ("abs", "Abs"),
+    ("phase", "Phase"),
+]
+
 
 class CurveStackViewerWidget(QtWidgets.QWidget):
     """
@@ -79,6 +86,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._widget_extras: dict[str, dict] = {}     # mode → restored scene extras
         self._runtime_scene = None                    # set via set_runtime_scene()
         self._current_mode: str = "stack"             # active plot mode
+        self._data_component: str = "real"            # complex-data representation
         self._bulk_update: bool = False               # suppress per-child refreshes
         self._allow_extract = bool(allow_extract)
         self.view_context = ViewerContext(self)       # identity of active view objects
@@ -190,7 +198,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             self._ensure_display_factors(entry, side)
         self._rebuild_tree()
         if self._plot_widget is not None:
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_manual_view=True)
         self.scene_bus.artists_changed.emit()
 
     def _axes_config_key(self) -> str:
@@ -274,7 +283,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             return
         self._runtime_scene.scene.rcparams_delta = tmgr.sanitize_delta(delta)
         if self._plot_widget is not None:
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_view=True)
 
     def _get_row_styles(self) -> dict:
         """{(ds_name, row): props} across all artists of the active axes."""
@@ -377,9 +387,114 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             lambda _: self._set_mode(self._mode_combo.currentData()))
         bar.addWidget(self._mode_combo)
 
+        bar.addSpacing(8)
+        bar.addWidget(QtWidgets.QLabel("Type:"))
+        self._component_combo = QtWidgets.QComboBox()
+        for key, label in _DATA_COMPONENTS:
+            self._component_combo.addItem(label, key)
+        self._component_combo.setEnabled(False)
+        self._component_combo.currentIndexChanged.connect(
+            lambda _: self.set_data_component(
+                self._component_combo.currentData()))
+        self._component_combo.setToolTip(
+            "Displayed component for complex curve data. Real-valued datasets "
+            "are unchanged."
+        )
+        bar.addWidget(self._component_combo)
+
         bar.addStretch()
 
         return bar
+
+    # ── Complex-data representation ─────────────────────────────────────
+
+    @property
+    def data_component(self) -> str:
+        return self._data_component
+
+    def _set_component_combo(self, component: str) -> None:
+        index = self._component_combo.findData(component)
+        if index < 0:
+            return
+        blocked = self._component_combo.blockSignals(True)
+        self._component_combo.setCurrentIndex(index)
+        self._component_combo.blockSignals(blocked)
+
+    def _has_complex_datasets(self) -> bool:
+        return any(
+            np.iscomplexobj(entry["uds"].data)
+            for entry in self._datasets.values()
+        )
+
+    def _update_component_control(self) -> None:
+        has_complex = self._has_complex_datasets()
+        self._component_combo.setEnabled(has_complex)
+        if not has_complex and self._data_component != "real":
+            self._data_component = "real"
+            self._set_component_combo("real")
+
+    def _cache_component_y_factors(self, component: str) -> None:
+        axes = self._active_axes()
+        if axes is None:
+            return
+        configs = axes.extra.setdefault("axes_config_by_mode", {})
+        cache = axes.extra.setdefault("data_component_y_factors", {})
+        cache[component] = {
+            "left": float(configs.get("stack", {}).get("y_factor", 1.0)),
+            "right": float(
+                configs.get("stack_right", {}).get("y_factor", 1.0)),
+        }
+
+    def _apply_component_y_factors(self, component: str) -> None:
+        """Restore or infer Stack Y factors for one complex component."""
+        axes = self._active_axes()
+        if axes is None or not self._datasets:
+            return
+        configs = axes.extra.setdefault("axes_config_by_mode", {})
+        cache = axes.extra.setdefault("data_component_y_factors", {})
+        factors = cache.get(component)
+        if factors is None:
+            from .si_scale import si_scale
+
+            factors = {}
+            assignments = self._get_y_axis_assignments()
+            for name, entry in self._datasets.items():
+                side = assignments.get(name, "left")
+                if side not in factors and np.asarray(entry["y"]).size:
+                    factors[side] = float(si_scale(entry["y"])[1])
+            cache[component] = dict(factors)
+        if "left" in factors:
+            configs.setdefault("stack", {})["y_factor"] = float(
+                factors["left"])
+        if "right" in factors:
+            configs.setdefault("stack_right", {})["y_factor"] = float(
+                factors["right"])
+
+    def set_data_component(self, component: str) -> None:
+        component = str(component or "real").strip().lower()
+        valid = {key for key, _label in _DATA_COMPONENTS}
+        if component not in valid:
+            raise ValueError(f"Unknown curve data component: {component!r}.")
+        self._set_component_combo(component)
+        if component == self._data_component:
+            return
+
+        self._cache_component_y_factors(self._data_component)
+        self._data_component = component
+        rebuilt: dict[str, dict] = {}
+        for name, old_entry in self._datasets.items():
+            entry = prepare_entry(name, old_entry["uds"], component)
+            spec = self._find_artist_spec(name)
+            if spec is not None:
+                self._apply_errorbar_to_entry(name, entry, spec)
+            rebuilt[name] = entry
+        self._datasets.clear()
+        self._datasets.update(rebuilt)
+        self._apply_component_y_factors(component)
+        if self._plot_widget is not None:
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_manual_view=True)
+        self.scene_bus.axes_config_changed.emit()
 
     # ── Template ──────────────────────────────────────────────────────────
 
@@ -415,7 +530,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             self._apply_widget_extra(w, m)
 
         if self._plot_widget is not None:
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_view=True)
         return True
 
     def apply_template_by_name(self, name: str) -> None:
@@ -453,7 +569,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         for mode, widget in self._plot_widgets.items():
             self._apply_widget_extra(widget, mode)
         if self._plot_widget is not None:
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_view=True)
 
     def _harvest_widget_extras(self) -> dict[str, dict]:
         """Toolbar state of ALL cached widgets (hidden modes included)."""
@@ -508,6 +625,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
     def _set_mode(self, mode: str) -> None:
         self._current_mode = mode
         widget = self._plot_widgets.get(mode)
+        existing_widget = widget is not None
         if widget is None:
             widget = self._create_plot_widget(mode)
             widget.apply_config(self._config)
@@ -533,8 +651,14 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
 
         self._plot_widget = widget
         self._plot_stack.setCurrentWidget(widget)
-        # data may have changed while this widget was hidden — resync
-        self._plot_widget.refresh(self._datasets, self._checked)
+        # Data may have changed while this widget was hidden.  A newly-created
+        # mode gets its normal initial fit; returning to a cached mode retains
+        # any manual navigation while auto axes remain free to follow changes.
+        self._plot_widget.refresh(
+            self._datasets,
+            self._checked,
+            preserve_manual_view=existing_widget,
+        )
         self.view_context.set_plot_widget(self._plot_widget)
 
     def _create_plot_widget(self, mode: str) -> BasePlotWidget:
@@ -609,7 +733,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._apply_errorbar_to_entry(name, entry, spec)
         self._rebuild_tree()
         if self._plot_widget is not None:
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_manual_view=True)
         self.scene_bus.artists_changed.emit()
 
     def remove_y_error_data(self, name: str) -> None:
@@ -623,12 +748,19 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             entry.pop("errorbar_style", None)
         self._rebuild_tree()
         if self._plot_widget is not None:
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_manual_view=True)
         self.scene_bus.artists_changed.emit()
 
     def add_dataset(self, name: str, uds) -> None:
+        from angstrompro.core.data.uds_data import is_fft_uds
+
+        if (not self._has_complex_datasets() and np.iscomplexobj(uds.data)
+                and is_fft_uds(uds)):
+            self._data_component = "abs"
+            self._set_component_combo("abs")
         try:
-            entry = prepare_entry(name, uds)
+            entry = prepare_entry(name, uds, self._data_component)
         except Exception as exc:
             log.warning("CurveStackViewer: cannot display %r: %s", name, exc)
             return
@@ -659,9 +791,11 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             # therefore also delete it from ``self._checked``.  Replace the
             # plot atomically instead; this is also the correct operation when
             # a live dataset changes its number of curves.
-            self._plot_widget.refresh(self._datasets, self._checked)
+            self._plot_widget.refresh(
+                self._datasets, self._checked, preserve_manual_view=True)
         else:
             self._plot_widget.add_lines(name, entry, self._checked[name])
+        self._update_component_control()
         self.scene_bus.artists_changed.emit()
 
     def remove_dataset(self, name: str) -> None:
@@ -671,7 +805,11 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         if axes is not None:
             axes.artists = [s for s in axes.artists if s.label != name]
         self._rebuild_tree()
-        self._plot_widget.remove_lines(name)
+        if not self._has_complex_datasets() and self._data_component != "real":
+            self.set_data_component("real")
+        else:
+            self._plot_widget.remove_lines(name)
+        self._update_component_control()
         self.scene_bus.artists_changed.emit()
 
     def clear(self) -> None:
@@ -679,6 +817,9 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         self._checked.clear()
         self._tree.clear()
         self._widget_extras = {}
+        self._data_component = "real"
+        self._set_component_combo("real")
+        self._component_combo.setEnabled(False)
         for w in self._plot_widgets.values():
             w.clear()
         self.view_context.set_selected_key(None)
@@ -723,6 +864,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
 
         row_styles_all = self._get_row_styles()
         ax_spec.extra["plot_mode"]     = self._mode_combo.currentData()
+        ax_spec.extra["data_component"] = self._data_component
         ax_spec.extra["widget_extras"] = widget_extras
         ax_spec.extra["has_manual_colors"] = any(
             props.get("color") for props in row_styles_all.values())
@@ -752,6 +894,18 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         ax_spec = scene.figure.axes_list[0]
         extra   = ax_spec.extra
 
+        component = str(extra.get("data_component", "")).strip().lower()
+        if component not in {key for key, _label in _DATA_COMPONENTS}:
+            from angstrompro.core.data.uds_data import is_fft_uds
+            component = "abs" if any(
+                artist.data is not None
+                and np.iscomplexobj(artist.data.data)
+                and is_fft_uds(artist.data)
+                for artist in ax_spec.artists
+            ) else "real"
+        self._data_component = component
+        self._set_component_combo(component)
+
         # switch mode
         mode = extra.get("plot_mode", "stack")
         idx  = next((i for i in range(self._mode_combo.count())
@@ -771,7 +925,8 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             if artist.kind != "line" or artist.data is None:
                 continue
             ds_name = artist.label or artist.data.name
-            self._datasets[ds_name] = prepare_entry(ds_name, artist.data)
+            self._datasets[ds_name] = prepare_entry(
+                ds_name, artist.data, self._data_component)
             self._ensure_display_factors(
                 self._datasets[ds_name], artist.extra.get("y_axis", "left"))
             try:
@@ -787,6 +942,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
                 checked = [artist.visible] * n
             self._checked[ds_name] = list(checked)
 
+        self._update_component_control()
         self._rebuild_tree()
         # refresh pulls per-line pins and axes config straight from the scene
         self._plot_widget.refresh(self._datasets, self._checked)
@@ -903,6 +1059,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             return
         by_mode = axes.extra.setdefault("axes_config_by_mode", {})
         cfg = by_mode.setdefault(self._axes_config_key(), {})
+        factor_limits: dict[str, list[float]] = {}
         for k, v in patch.items():
             # store lists (JSON-safe); tuples round-trip as lists through JSON
             if k in ("xlim", "ylim") and v is not None:
@@ -911,16 +1068,36 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
                 v = float(v)
                 old_factor = float(cfg.get(k, 1.0) or 1.0)
                 limit_key = "xlim" if k == "x_factor" else "ylim"
-                if cfg.get(limit_key) and old_factor > 0:
+                live_ax = None
+                if self._plot_widget is not None:
+                    if (limit_key == "ylim"
+                            and self._axes_config_key() == "stack_right"):
+                        live_ax = getattr(self._plot_widget, "_ax2", None)
+                    else:
+                        live_ax = getattr(self._plot_widget, "_ax", None)
+                if live_ax is not None:
+                    live_limits = (live_ax.get_xlim() if limit_key == "xlim"
+                                   else live_ax.get_ylim())
+                else:
+                    live_limits = cfg.get(limit_key)
+                if live_limits and old_factor > 0:
                     ratio = v / old_factor
-                    cfg[limit_key] = [
-                        float(bound) * ratio for bound in cfg[limit_key]]
+                    scaled_limits = [
+                        float(bound) * ratio for bound in live_limits]
+                    cfg[limit_key] = scaled_limits
+                    factor_limits[limit_key] = scaled_limits
             cfg[k] = v
             if k == "x_factor" and self._axes_config_key() == "stack":
                 by_mode.setdefault("stack_right", {})["x_factor"] = v
         if patch.keys() & {"x_factor", "y_factor"}:
             if self._plot_widget is not None:
-                self._plot_widget.refresh(self._datasets, self._checked)
+                # Rebuilding is required because factors transform the plotted
+                # arrays.  Preserve every unaffected axis, then transform the
+                # changed axis's current viewport by the same factor ratio.
+                self._plot_widget.refresh(
+                    self._datasets, self._checked, preserve_view=True)
+                if factor_limits:
+                    self._apply_axes_patch_live(factor_limits)
         else:
             self._apply_axes_patch_live(patch)
         self.scene_bus.axes_config_changed.emit()
@@ -1048,7 +1225,7 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         from angstrompro.core.data.uds_data import Axis, UdsDataStru
 
         orig = entry["uds"]
-        data = np.asarray(orig.data, dtype=float)
+        data = np.asarray(orig.data)
 
         if data.ndim == 1:
             y_values = data.copy()
@@ -1174,4 +1351,5 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         for name in self._checked:
             self._checked[name] = [checked] * len(self._checked[name])
         self._rebuild_tree()
-        self._plot_widget.refresh(self._datasets, self._checked)
+        self._plot_widget.refresh(
+            self._datasets, self._checked, preserve_view=True)

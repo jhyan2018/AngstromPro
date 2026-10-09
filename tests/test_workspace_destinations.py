@@ -72,6 +72,26 @@ def modules(qapp):
     qapp.processEvents()
 
 
+def _workspace_item_row(module, workspace, item):
+    role = QtCore.Qt.ItemDataRole.UserRole if IS_QT6 else QtCore.Qt.UserRole
+    wanted = ("item", workspace.workspace_id, item.item_id)
+    for group_index in range(module._ws_list.topLevelItemCount()):
+        group = module._ws_list.topLevelItem(group_index)
+        for child_index in range(group.childCount()):
+            row = group.child(child_index)
+            if row.data(0, role) == wanted:
+                return row
+    raise AssertionError(f"No workspace row for {item.name!r}")
+
+
+def _select_rows(module, rows, *, current=None):
+    module._ws_list.clearSelection()
+    current = current or rows[-1]
+    module._ws_list.setCurrentItem(current)
+    for row in rows:
+        row.setSelected(True)
+
+
 def test_radio_selection_is_independent_without_moving_or_deselecting_items(modules):
     first, second, shared, context = modules
     private = first.private_workspace
@@ -108,6 +128,133 @@ def test_radio_selection_is_independent_without_moving_or_deselecting_items(modu
     assert "Renamed" in first._workspace_destination_buttons[shared.workspace_id].text()
     first.set_active_workspace(shared.workspace_id)
     assert first._workspace_destination_buttons[shared.workspace_id].isChecked()
+
+
+def test_workspace_tree_supports_bulk_selection_with_one_focused_item(modules):
+    first, _, shared, _ = modules
+    private_item = first.private_workspace.add_item(ExampleData("private"))
+    shared_item = shared.add_item(ExampleData("shared"))
+    private_row = _workspace_item_row(first, first.private_workspace, private_item)
+    shared_row = _workspace_item_row(first, shared, shared_item)
+
+    _select_rows(first, [private_row, shared_row], current=shared_row)
+
+    _ExtendedSelection = (
+        QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection
+        if IS_QT6 else QtWidgets.QAbstractItemView.ExtendedSelection
+    )
+    assert first._ws_list.selectionMode() == _ExtendedSelection
+    assert [item for _workspace, item in first._selected_workspace_entries()] == [
+        private_item,
+        shared_item,
+    ]
+    assert first._selected_workspace_item() is shared_item
+    assert first._inspector._current_item is shared_item
+    assert first._btn_remove.text() == "Remove (2)"
+    assert first._btn_send.text() == "Send (2)…"
+
+
+def test_workspace_headings_and_annotation_rows_are_not_bulk_targets(modules):
+    first, _, _, _ = modules
+    item = first.private_workspace.add_item(
+        ExampleData("annotated"),
+        annotations={"points": PointSetData()},
+    )
+    item_row = _workspace_item_row(first, first.private_workspace, item)
+    annotation_row = item_row.child(0)
+
+    first._ws_list.setCurrentItem(annotation_row)
+
+    assert first._selected_workspace_entries() == []
+    assert first._selected_workspace_item() is item
+    assert first._inspector._current_item is item
+    assert not first._btn_remove.isEnabled()
+    assert not first._btn_send.isEnabled()
+
+
+def test_multi_selection_and_focus_survive_workspace_tree_refresh(modules):
+    first, _, shared, _ = modules
+    private_item = first.private_workspace.add_item(ExampleData("private"))
+    shared_item = shared.add_item(ExampleData("shared"))
+    _select_rows(
+        first,
+        [
+            _workspace_item_row(first, first.private_workspace, private_item),
+            _workspace_item_row(first, shared, shared_item),
+        ],
+        current=_workspace_item_row(first, first.private_workspace, private_item),
+    )
+
+    shared.notify_changed(shared_item.name)
+
+    assert {
+        (workspace.workspace_id, item.item_id)
+        for workspace, item in first._selected_workspace_entries()
+    } == {
+        (first.private_workspace.workspace_id, private_item.item_id),
+        (shared.workspace_id, shared_item.item_id),
+    }
+    assert first._selected_workspace_item() is private_item
+    assert first._inspector._current_item is private_item
+
+
+def test_remove_deletes_all_selected_item_rows_across_workspaces(
+    modules, monkeypatch
+):
+    first, _, shared, _ = modules
+    private_item = first.private_workspace.add_item(ExampleData("private"))
+    keep_item = first.private_workspace.add_item(ExampleData("keep"))
+    shared_item = shared.add_item(ExampleData("shared"))
+    _select_rows(first, [
+        _workspace_item_row(first, first.private_workspace, private_item),
+        _workspace_item_row(first, shared, shared_item),
+    ])
+    monkeypatch.setattr(
+        QtWidgets.QMessageBox,
+        "question",
+        lambda *args, **kwargs: QtWidgets.QMessageBox.StandardButton.Yes,
+    )
+
+    first._on_remove_item()
+
+    assert not first.private_workspace.has_item_id(private_item.item_id)
+    assert not shared.has_item_id(shared_item.item_id)
+    assert first.private_workspace.has_item_id(keep_item.item_id)
+
+
+def test_batch_send_chooses_target_once_and_skips_items_already_there(
+    modules, monkeypatch
+):
+    sender, receiver, shared, _ = modules
+    receiver.set_active_workspace(shared.workspace_id)
+    private_item = sender.private_workspace.add_item(ExampleData("private"))
+    shared_item = shared.add_item(ExampleData("already_shared"))
+    _select_rows(sender, [
+        _workspace_item_row(sender, sender.private_workspace, private_item),
+        _workspace_item_row(sender, shared, shared_item),
+    ])
+    picker_calls = []
+
+    class Picker:
+        selected_module = receiver
+
+        def __init__(self, *args, **kwargs):
+            picker_calls.append(1)
+
+        def exec(self):
+            return True
+
+    monkeypatch.setattr(
+        "angstrompro.gui.dialogs.send_item_dialog.SendItemDialog", Picker
+    )
+
+    sender._on_send_item()
+
+    assert len(picker_calls) == 1
+    assert not sender.private_workspace.has_item_id(private_item.item_id)
+    assert shared.has_item("private")
+    assert shared.get_item("private").item_id != private_item.item_id
+    assert shared.get_item("already_shared") is shared_item
 
 
 def test_workspace_groups_expand_collapse_and_keep_state_across_refreshes(modules):
