@@ -61,6 +61,16 @@ End** header settings. Any incomplete trailing pixel record is discarded rather
 than interpreted as measurement data. The missing spectra were never stored in
 the source file and cannot be recovered by the loader.
 
+For Nanonis `.sxm` files, AngstromPro observes the per-channel direction in
+**DATA_INFO**. A `both` channel uses its forward raster, while an explicit
+backward-only raster is reoriented to the forward X direction. Some external
+3DS-to-SXM exporters incorrectly leave every channel marked `both` while
+writing only one raster per channel. When that exact layout is detected, the
+available raster is loaded as stored, a warning is logged, and the inference
+is recorded in the UDS information. Other layer-count mismatches remain errors
+because their channel assignment cannot be inferred safely. The binary source
+file does not need to be edited.
+
 `.apws` is an HDF5 workspace archive. It stores all supported items from the
 current module workspace in their displayed order, together with item names,
 identities, aliases, and annotations. Core UDS and ScenePlot

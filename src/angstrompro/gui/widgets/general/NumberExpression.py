@@ -4,12 +4,17 @@ Created on Sun Apr 14 00:30:04 2024
 
 @author: jiahaoYan
 """
+import math
 
 
 class NumberExpression:
     @staticmethod
     def float_to_simplified_number(num, precision=3):
-        number_exp = f"{num:.{precision+2}e}"
+        value = float(num)
+        if not math.isfinite(value):
+            return str(value)
+
+        number_exp = f"{value:.{precision+2}e}"
         power = int(number_exp.split('e')[-1])
         base = float(number_exp.split('e')[0])
 
@@ -23,7 +28,7 @@ class NumberExpression:
                 base *= 10 ** remainder
                 return f"{base:.{precision}f}{suffix}"
 
-        return f"{num:.{precision}e}"
+        return f"{value:.{precision}e}"
 
     @staticmethod
     def simplified_number_to_float(num_str):

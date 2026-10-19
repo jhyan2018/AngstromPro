@@ -38,6 +38,13 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
+def _is_named_y_error_source(item: WorkspaceItem) -> bool:
+    """Return whether an item uses a recognized uncertainty suffix."""
+    if item.type_id != "uds":
+        return False
+    return item.name.strip().lower().endswith(("_std", "_sem"))
+
+
 @contextmanager
 def _preserve_plot_during_export(plot_widget):
     """Render the live figure without changing its interactive view.
@@ -382,7 +389,50 @@ class CurveStackViewer(AGuiModule):
                 self, "Cannot Apply Error Bars", str(exc))
             return
         self.statusBar().showMessage(
-            f"Y-error bars configured for {dataset_name}.", 4000)
+            "Y-error bars: "
+            f"{dataset_name} ← {dialog.selected_error_data().name}.",
+            5000,
+        )
+
+    def _use_workspace_item_as_y_error(self, item: WorkspaceItem) -> None:
+        """Attach an unplotted workspace UDS to a compatible plotted target."""
+        targets = self._viewer.compatible_y_error_targets(item.payload)
+        if not targets:
+            QtWidgets.QMessageBox.information(
+                self,
+                "No Compatible Target",
+                f"'{item.display_name}' cannot be used as Y-error data for "
+                "any currently plotted dataset.\n\n"
+                "The target must have the same curve shape and sweep axis.",
+            )
+            return
+
+        target_name, accepted = QtWidgets.QInputDialog.getItem(
+            self,
+            "Use as Y-Error Bars",
+            f"Y-error source:\n{item.display_name}\n\n"
+            "Attach to plotted dataset:",
+            targets,
+            0,
+            False,
+        )
+        if not accepted or not target_name:
+            return
+
+        # Replacing the source must not unexpectedly reset presentation
+        # choices already made for the target.
+        current = self._viewer.get_y_error_style(target_name)
+        self._viewer.set_y_error_data(
+            target_name,
+            item.payload,
+            capsize=float(getattr(current, "capsize", 3.0) or 0.0),
+            linewidth=float(getattr(current, "linewidth", 1.0) or 1.0),
+            ecolor=str(getattr(current, "ecolor", "") or ""),
+            errorevery=max(1, int(
+                getattr(current, "errorevery", 1) or 1)),
+        )
+        self.statusBar().showMessage(
+            f"Y-error bars: {target_name} ← {item.display_name}.", 5000)
 
     def _on_save_scene(self) -> None:
         name, ok = QtWidgets.QInputDialog.getText(
@@ -441,6 +491,20 @@ class CurveStackViewer(AGuiModule):
             if self._reference_item is not None and self._reference_item.name == item.name:
                 act_clr = menu.addAction("Clear Reference")
                 act_clr.triggered.connect(self._clear_reference)
+            if _is_named_y_error_source(item):
+                menu.addSeparator()
+                act_error_source = menu.addAction("Use as Y-Error Bars For…")
+                targets = self._viewer.compatible_y_error_targets(item.payload)
+                act_error_source.setEnabled(bool(targets))
+                act_error_source.setToolTip(
+                    "Attach this workspace item as uncertainty without adding it "
+                    "to the plot"
+                    if targets else
+                    "No compatible plotted dataset has the same shape and sweep axis"
+                )
+                act_error_source.triggered.connect(
+                    lambda _checked=False, source=item:
+                    self._use_workspace_item_as_y_error(source))
 
     # ── Scene menu ────────────────────────────────────────────────────────
 

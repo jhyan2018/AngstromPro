@@ -233,7 +233,9 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
             act = menu.addAction("Move to Left Y axis")
             act.triggered.connect(lambda: self.set_dataset_yaxis(ds_name, "left"))
         menu.addSeparator()
-        act_error = menu.addAction("Configure Error Bars…")
+        act_error = menu.addAction("Configure Error Bars for This Dataset…")
+        act_error.setToolTip(
+            "Choose uncertainty data to attach to this plotted dataset")
         act_error.triggered.connect(
             lambda: self.errorbars_requested.emit(ds_name))
         if self.get_y_error_style(ds_name) is not None:
@@ -687,6 +689,22 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
         if entry is None:
             raise ValueError(f"No plotted dataset named {name!r}.")
         prepare_y_error(error_uds, entry)
+
+    def compatible_y_error_targets(self, error_uds) -> list[str]:
+        """Return plotted datasets that can accept *error_uds* as Y errors."""
+        targets: list[str] = []
+        for name, entry in self._datasets.items():
+            # An uncertainty source is not a useful target for itself.  This
+            # also keeps the source-oriented workspace action unambiguous when
+            # the source happens to be plotted already.
+            if entry.get("uds") is error_uds:
+                continue
+            try:
+                self.validate_y_error_data(name, error_uds)
+            except (TypeError, ValueError):
+                continue
+            targets.append(name)
+        return targets
 
     def _apply_errorbar_to_entry(self, name: str, entry: dict, spec) -> None:
         from .prepare import prepare_y_error
@@ -1267,6 +1285,15 @@ class CurveStackViewerWidget(QtWidgets.QWidget):
 
             top = QtWidgets.QTreeWidgetItem([label])
             top.setData(0, _ITEM_ROLE, ("dataset", name))
+            error_style = self.get_y_error_style(name)
+            error_source = getattr(error_style, "yerr_data", None)
+            if error_source is not None:
+                top.setToolTip(
+                    0,
+                    "Y-error target: " + name + "\n"
+                    "Y-error source: " + str(
+                        getattr(error_source, "name", "") or "(unnamed)"),
+                )
             # No AutoTristate — we update parent check state manually so that
             # a child change does NOT re-emit itemChanged for the parent.
             top.setFlags(top.flags() | _UserCheck)

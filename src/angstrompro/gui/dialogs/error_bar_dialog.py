@@ -17,7 +17,8 @@ class ErrorBarDialog(QtWidgets.QDialog):
 
         layout = QtWidgets.QVBoxLayout(self)
         hint = QtWidgets.QLabel(
-            f"Attach symmetric Y uncertainty to <b>{target_name}</b>.")
+            f"Target dataset: <b>{target_name}</b><br>"
+            "Choose the UDS that supplies its symmetric Y uncertainty.")
         hint.setWordWrap(True)
         layout.addWidget(hint)
 

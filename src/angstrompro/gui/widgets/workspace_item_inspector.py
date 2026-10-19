@@ -136,7 +136,10 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         """Recursively build one QTreeWidgetItem from a node dict.
         Returns (item, has_array)."""
         kind = node.get("kind", "value")
-        label = node.get("label", "")
+        # Qt's QStringList overload requires every column value to be a
+        # string.  Keep the renderer tolerant of useful scalar summaries
+        # (for example an integer file count) supplied by payload plugins.
+        label = str(node.get("label", ""))
         has_array = False
 
         if kind == "array":
@@ -155,7 +158,7 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
                     has_array = True
 
         elif kind in ("group", "axis"):
-            summary = node.get("summary", "")
+            summary = str(node.get("summary", ""))
             item = QtWidgets.QTreeWidgetItem(parent, [label, summary])
             if kind == "axis":
                 ax = node.get("axis")
@@ -167,7 +170,7 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
                     has_array = True
 
         else:  # "value"
-            value = node.get("value", "")
+            value = str(node.get("value", ""))
             item = QtWidgets.QTreeWidgetItem(parent, [label, value])
 
         return item, has_array
