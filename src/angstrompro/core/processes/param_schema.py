@@ -22,7 +22,8 @@ class AnnotationSpec:
               "interest_region", or a plugin-defined role
     type_id — data type: "point_set" | "region" | "line"
     required — if True, raises ValueError when annotation is missing at run time
-    Always resolves from process_inputs[0].annotations[role].
+    Normal process execution uses process_inputs[0].annotations[role].
+    Workflows may explicitly bind a different item and role.
     """
     name:     str
     role:     str       # built-in or plugin-defined annotation lookup key
@@ -32,7 +33,7 @@ class AnnotationSpec:
 
 @dataclass
 class AnnotationOutputSpec:
-    """Declares an annotation role produced for the primary process input."""
+    """Declares an annotation role; workflows may explicitly bind its target."""
     role:        str
     type_id:     str
     label:       str = ""
@@ -54,6 +55,13 @@ class MetricOutputSpec:
     def __post_init__(self) -> None:
         if not self.label:
             self.label = self.name.replace("_", " ").title()
+
+
+@dataclass
+class ValueOutputSpec(MetricOutputSpec):
+    """A numerical result, usable as a parameter, condition, or measurement."""
+    type: type = float
+    sequence: bool = False
 
 
 @dataclass
@@ -113,6 +121,7 @@ class OutputSpec:
     ndim:        int | None = None   # output array dimensionality; None = any
     label:       str       = ""
     description: str       = ""
+    name:        str       = "data"
 
     def __post_init__(self) -> None:
         if not self.label:
@@ -137,6 +146,7 @@ class ProcessSchema:
         annotations: list[AnnotationSpec] | None = None,
         annotation_outputs: list[AnnotationOutputSpec] | None = None,
         metric_outputs: list[MetricOutputSpec] | None = None,
+        value_outputs: list[ValueOutputSpec] | None = None,
     ) -> None:
         self._inputs:      list[InputSpec]      = inputs or []
         self._outputs:     list[OutputSpec]     = outputs or []
@@ -144,6 +154,7 @@ class ProcessSchema:
         self._annotations: list[AnnotationSpec] = annotations or []
         self._annotation_outputs = annotation_outputs or []
         self._metric_outputs = metric_outputs or []
+        self._value_outputs = value_outputs or []
         self._params_by_name = {p.name: p for p in self._params}
 
     @property
@@ -176,6 +187,13 @@ class ProcessSchema:
     @property
     def metric_outputs(self) -> list[MetricOutputSpec]:
         return self._metric_outputs
+
+    @property
+    def value_outputs(self) -> list[MetricOutputSpec]:
+        """Unified declarations; older metric schemas remain usable."""
+        specs = {spec.name: spec for spec in self._metric_outputs}
+        specs.update({spec.name: spec for spec in self._value_outputs})
+        return list(specs.values())
 
     def input_type_ids(self) -> list[str]:
         """Return the type_id of every input port."""

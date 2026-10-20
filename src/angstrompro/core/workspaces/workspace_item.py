@@ -23,11 +23,13 @@ class WorkspaceItem:
                   never changes item identity and is retained by workspace archives
     item_id     — stable UUID, survives rename
     annotations — dict mapping role name to annotation data (e.g. "bragg_peaks", "interest_region")
+    metadata    — generic structured records independent of the payload type
     """
     payload:     WorkspaceData
     item_id:     str         = field(default_factory=lambda: f"item_{uuid.uuid4().hex[:12]}")
     alias:       str         = ""
     annotations: dict[str, AnnotationData] = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     @property
     def name(self) -> str:

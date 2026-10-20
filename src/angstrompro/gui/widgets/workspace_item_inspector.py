@@ -105,6 +105,16 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         self._lbl_source.setText(str(source) if source is not None else "—")
         self._tree.clear()
         has_array = self._render(item.payload)
+        if item.metadata:
+            def metadata_node(label, value):
+                if isinstance(value, dict):
+                    return {"kind": "group", "label": str(label), "summary": f"{len(value)} entries",
+                            "children": [metadata_node(k, v) for k, v in value.items()]}
+                if isinstance(value, (list, tuple)):
+                    return {"kind": "group", "label": str(label), "summary": f"{len(value)} entries",
+                            "children": [metadata_node(i, v) for i, v in enumerate(value)]}
+                return {"kind": "value", "label": str(label), "value": str(value)}
+            self._build_tree_item(self._tree, metadata_node("Item metadata", item.metadata))
         self._tree.expandToDepth(1)
         self._hint.setVisible(has_array)
 
@@ -126,7 +136,10 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
         """Recursively build one QTreeWidgetItem from a node dict.
         Returns (item, has_array)."""
         kind = node.get("kind", "value")
-        label = node.get("label", "")
+        # Qt's QStringList overload requires every column value to be a
+        # string.  Keep the renderer tolerant of useful scalar summaries
+        # (for example an integer file count) supplied by payload plugins.
+        label = str(node.get("label", ""))
         has_array = False
 
         if kind == "array":
@@ -145,7 +158,7 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
                     has_array = True
 
         elif kind in ("group", "axis"):
-            summary = node.get("summary", "")
+            summary = str(node.get("summary", ""))
             item = QtWidgets.QTreeWidgetItem(parent, [label, summary])
             if kind == "axis":
                 ax = node.get("axis")
@@ -157,7 +170,7 @@ class WorkspaceItemInspector(QtWidgets.QWidget):
                     has_array = True
 
         else:  # "value"
-            value = node.get("value", "")
+            value = str(node.get("value", ""))
             item = QtWidgets.QTreeWidgetItem(parent, [label, value])
 
         return item, has_array

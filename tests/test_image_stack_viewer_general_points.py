@@ -72,3 +72,4 @@ def test_general_reference_points_are_stored_on_primary_item() -> None:
 def test_general_point_roles_are_registered() -> None:
     assert "primary_points" in ANNOTATION_ROLES
     assert "reference_points" in ANNOTATION_ROLES
+    assert "filter_points" in ANNOTATION_ROLES

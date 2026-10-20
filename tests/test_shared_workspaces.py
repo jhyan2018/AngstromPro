@@ -146,11 +146,12 @@ def test_attached_module_archive_target_defaults_to_shared(monkeypatch) -> None:
     module = SimpleNamespace(
         private_workspace=private,
         shared_workspace=shared,
+        active_workspace=shared,
     )
 
     monkeypatch.setattr(
         "angstrompro.core.modules.a_gui_module.QtWidgets.QInputDialog.getItem",
-        lambda *_args: ("Shared — Shared (active output)", True),
+        lambda *_args: ("Shared — Shared (active destination)", True),
     )
     assert AGuiModule._choose_workspace_archive_target(
         module, "Save") is shared

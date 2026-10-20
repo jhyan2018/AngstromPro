@@ -20,6 +20,8 @@ Folder layout under the user data folder
     *.cmap.json         ← User-defined anchor-based colormaps
   workflows/
     *.apworkflow.json   ← Saved Workflow Studio definitions
+  models/
+    */manifest.json     ← Installed ML model packages and their artifacts
   logs/
 
 Public API

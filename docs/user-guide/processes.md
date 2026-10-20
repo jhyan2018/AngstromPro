@@ -25,6 +25,13 @@ For **Background Subtract 2D → PerLine**, choose **Per-line direction**: `Y`
 fits down each image column, while `X` fits across each row. The default is `Y`;
 select whichever direction follows the unwanted line background in your image.
 
+**FFT 1D** transforms every row of a `(curves, points)` UDS independently along
+its last axis. It preserves the curve axis and replaces the point axis with a
+shifted reciprocal-frequency axis. Choose no window or Hann, Hamming, Tukey,
+Blackman, or Blackman–Harris tapering; optional normalization divides by the
+number of points. The output remains complex so the Curve Stack Viewer can
+switch between its real, imaginary, magnitude, and phase components.
+
 **Gap Map 2D** returns two items. The `_gm` item contains the fitted peak
 energy, and `_R2` is the R² fit-quality map: values near 1 indicate that the
 selected polynomial describes the spectrum well. Empty, non-finite, or
@@ -49,6 +56,25 @@ methods; all quality values range from 0 to 1. A width and quality of zero mark
 a missing, constant, non-finite, edge-truncated, or failed peak. The fitted
 line shape is an estimator and does not by itself identify the physical
 broadening mechanism.
+
+## Perfect Lattice 2D
+
+Under **Lattice & Registration**, **Perfect Lattice 2D** corrects a real-space
+image stack using the first two points of its `bragg_peaks` annotation. The
+points are shifted-FFT pixel coordinates, even though their owner remains the
+real-space item. Workflows can explicitly select a separate annotation owner.
+
+Choose **Lattice type: hexagonal** (default) or **square**. Both support the
+same **Interpolation** and **Padding** options. Hexagonal correction expects
+Q2 clockwise from Q1 at approximately 60 degrees; square correction targets
+orthogonal equal-length Q-vectors. Results and processing history record the
+chosen lattice type, and the input data and annotations are not changed.
+
+This replaces the separate square and hexagonal correction registrations.
+Update old workflow steps and configured process-menu shortcuts to the unified
+entry, choosing the appropriate lattice type. Saved user files are not changed
+automatically. The similarly named **Perfect Lattice 2D** in **Simple Simulations** remains a
+separate data generator.
 
 ## Process Browser
 

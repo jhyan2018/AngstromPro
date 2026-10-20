@@ -183,6 +183,7 @@ def render_file_task(file_path: str, cache_dir: str,
     options = dict(options or {})
     figsize = tuple(options.pop("figsize", (2.6, 2.6)))
     dpi = int(options.pop("dpi", 100))
+    render_signature = str(options.pop("render_signature", ""))
 
     if cancel_token is not None and cancel_token.is_cancelled():
         return {}
@@ -225,7 +226,8 @@ def render_file_task(file_path: str, cache_dir: str,
 
     return {"file_path": file_path, "mtime": mtime,
             "format": MULTI_CHANNEL_FORMATS.get(ext, ext.lstrip(".")),
-            "channels": channels, "thumbs": thumbs}
+            "channels": channels, "thumbs": thumbs,
+            "render_signature": render_signature}
 
 
 def render_channel_task(file_path: str, cache_dir: str, channel_id: str,

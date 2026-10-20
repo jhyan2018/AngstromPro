@@ -18,6 +18,7 @@ Usage
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
 from angstrompro.core.processes.process_runner import ProcessRunner
@@ -53,10 +54,8 @@ class ModuleMixin:
             label    = self.display_name or self.module_id,
         )
         self.shared_workspace: "Workspace | None" = None
-        # ``workspace`` remains the write/output target for source
-        # compatibility.  It points at the private workspace until a shared
-        # workspace is attached, then at that shared workspace.
-        self.workspace: "Workspace" = self.private_workspace
+        self._active_workspace: "Workspace" = self.private_workspace
+        self._process_output_workspace: "Workspace | None" = None
         self._workspace_attachment_slot = self._on_workspace_attachment_changed
         context.workspace_manager.module_attachment_changed.connect(
             self._workspace_attachment_slot)
@@ -77,15 +76,60 @@ class ModuleMixin:
             shared = self._context.workspace_manager.get_workspace(workspace_id)
             if not shared.is_shared:
                 raise ValueError("Attached workspace must be shared")
+            previous_shared = self.shared_workspace
             self.shared_workspace = shared
-            self.workspace = shared
+            # Preserve the existing first-attachment default. Once the user
+            # chooses private, replacing a shared attachment does not undo it.
+            if previous_shared is None or self.active_workspace is previous_shared:
+                self._active_workspace = shared
         else:
             self.shared_workspace = None
-            self.workspace = self.private_workspace
+            self._active_workspace = self.private_workspace
 
         callback = getattr(self, "on_workspace_attachment_changed", None)
         if callable(callback):
             callback()
+
+    @property
+    def active_workspace(self) -> "Workspace":
+        """Destination selected by this module, independently of attachment."""
+        return self._active_workspace
+
+    @property
+    def workspace(self) -> "Workspace":
+        """Output destination; pinned during a submitted process's callback."""
+        if self._process_output_workspace is not None:
+            return self._process_output_workspace
+        return self.active_workspace
+
+    @workspace.setter
+    def workspace(self, workspace: "Workspace") -> None:
+        # Retain compatibility with modules assigning their output destination.
+        if workspace not in self.accessible_workspaces():
+            raise ValueError("The destination must be this module's private or attached workspace")
+        self.set_active_workspace(workspace.workspace_id)
+
+    def set_active_workspace(self, workspace_id: str) -> None:
+        workspace = next((ws for ws in self.accessible_workspaces()
+                          if ws.workspace_id == workspace_id), None)
+        if workspace is None:
+            raise ValueError("The destination must be this module's private or attached workspace")
+        if workspace is self.active_workspace:
+            return
+        self._active_workspace = workspace
+        callback = getattr(self, "on_active_workspace_changed", None)
+        if callable(callback):
+            callback()
+
+    @contextmanager
+    def _process_output_scope(self, workspace: "Workspace"):
+        """Keep legacy callbacks using self.workspace on their captured target."""
+        previous = self._process_output_workspace
+        self._process_output_workspace = workspace
+        try:
+            yield
+        finally:
+            self._process_output_workspace = previous
 
     def accessible_workspaces(self) -> list["Workspace"]:
         """Private workspace plus the optional attached shared workspace."""

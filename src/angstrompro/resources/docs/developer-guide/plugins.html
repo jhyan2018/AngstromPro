@@ -33,7 +33,9 @@ Inspector infrastructure. See <a href="workspaces.html">Runtime data and workspa
 <li>Its importable top-level module name</li>
 </ul>
 <p>On the next launch, AngstromPro adds the path to <code>sys.path</code> and imports the
-module. The module's imports must trigger every required registration.</p>
+module. The module's imports must trigger every required registration. This
+source-folder mechanism does not install the plugin package or any of its
+dependencies; install those into the same Python environment first.</p>
 <p>When testing from Spyder, closing the Main Workbench only hides the hosted
 AngstromPro session so it can be reopened without rebuilding Qt. Restart the
 Spyder kernel after changing plugin source; reopening the existing session does
@@ -45,9 +47,11 @@ again normally.</p>
 <pre><code class="language-toml">[project.entry-points.&quot;angstrompro.plugins&quot;]
 example = &quot;angstrompro_example&quot;
 </code></pre>
-<p>The referenced object or module is loaded at startup. Keep its top-level import
-focused on registration; avoid opening windows or starting independent event
-loops during import.</p>
+<p>The referenced object or module is loaded at startup. Installing the package
+also installs the dependencies declared by that package, so this is the
+recommended route for normal users. Do not also configure the same plugin as a
+local source plugin. Keep its top-level import focused on registration; avoid
+opening windows or starting independent event loops during import.</p>
 <h2 id="suggested-layout">Suggested layout</h2>
 <pre><code class="language-text">angstrompro-example/
   pyproject.toml
@@ -69,10 +73,13 @@ plugin configuration. Files are stored under
 store only settings owned by the plugin. Do not edit the core <code>config.json</code>
 directly.</p>
 <h2 id="failure-handling">Failure handling</h2>
-<p>A failing plugin import is logged and startup continues. Test imports in a
-clean environment and inspect <code>angstrompro.log</code> when registrations do not
-appear. Duplicate loading by path and entry point is skipped when AngstromPro
-can identify the same top-level module.</p>
+<p>A failing plugin import is logged and startup continues. The Main Workbench
+automatically shows its <strong>Log</strong> dock with the full import traceback, and
+<strong>Preferences → Plugins</strong> shows the result of every plugin load attempt from
+the current startup. The same traceback is retained in <code>angstrompro.log</code>.
+Plugin configuration changes require an application restart; a Spyder-hosted
+session also requires a kernel restart. Duplicate loading by path and entry
+point is skipped when AngstromPro can identify the same top-level module.</p>
 <p>Plugin authors must review license compatibility for AngstromPro, the plugin,
 and all dependencies before distribution.</p>
 <h2 id="complete-example">Complete example</h2>

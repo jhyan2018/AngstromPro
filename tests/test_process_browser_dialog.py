@@ -9,10 +9,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from angstrompro.core.processes.param_schema import (
     InputSpec,
+    MetricOutputSpec,
     ParameterSpec,
     ProcessSchema,
 )
-from angstrompro.core.processes.process_entry import ProcessEntry
+from angstrompro.core.processes.process_entry import ProcessEntry, ProcessRequirement
 from angstrompro.gui.dialogs.process_browser_dialog import ProcessBrowserDialog
 from angstrompro.utils.qt_compat import IS_QT6, QtWidgets
 
@@ -45,6 +46,12 @@ def _entry() -> ProcessEntry:
         schema=ProcessSchema(
             inputs=[InputSpec("data", "uds")],
             params=[ParameterSpec("mode", str, "fast", choices=["fast", "exact"])],
+            metric_outputs=[MetricOutputSpec(
+                "quality_score",
+                label="Quality Score",
+                units="a.u.",
+                description="Scalar quality available to workflow conditions.",
+            )],
         ),
     )
 
@@ -70,6 +77,16 @@ def test_process_browser_selection_mode_returns_selected_entry(qapp) -> None:
 
     assert dialog.selected_entry() is entry
     assert dialog._select_button.isEnabled()
+    assert dialog._tbl_metrics.rowCount() == 1
+    assert [
+        dialog._tbl_metrics.item(0, column).text()
+        for column in range(4)
+    ] == [
+        "quality_score",
+        "Quality Score",
+        "a.u.",
+        "Scalar quality available to workflow conditions.",
+    ]
 
     dialog._select_button.click()
     accepted = (
@@ -90,4 +107,32 @@ def test_process_browser_default_mode_remains_browse_only(qapp) -> None:
     assert dialog._button_box.button(
         QtWidgets.QDialogButtonBox.StandardButton.Close
     ) is not None
+    dialog.close()
+
+
+def test_process_browser_shows_requirements_without_hiding_configuration(
+    qapp,
+) -> None:
+    del qapp
+    entry = _entry()
+    entry.requirements = (
+        ProcessRequirement(
+            "pytorch",
+            lambda _params: (False, "PyTorch is not installed"),
+            label="PyTorch",
+        ),
+    )
+    context = SimpleNamespace(processes=_Registry(entry))
+    dialog = ProcessBrowserDialog(context, selection_mode=True)
+    dialog._tree.setCurrentItem(dialog._tree.topLevelItem(0).child(0))
+
+    assert dialog.selected_entry() is entry
+    assert dialog._select_button.isEnabled()
+    assert dialog._lbl_availability.text() == (
+        "Unavailable — PyTorch: PyTorch is not installed"
+    )
+    assert [
+        dialog._tbl_requirements.item(0, column).text()
+        for column in range(3)
+    ] == ["PyTorch", "Unavailable", "PyTorch is not installed"]
     dialog.close()

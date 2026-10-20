@@ -59,6 +59,7 @@ class Workspace(QtCore.QObject):
         alias:       str = "",
         annotations: dict[str, AnnotationData] | None = None,
         item_id:     str | None = None,
+        metadata:    dict | None = None,
     ) -> WorkspaceItem:
         # Deduplicate by modifying payload.name directly
         base = payload.name or "item"
@@ -72,10 +73,14 @@ class Workspace(QtCore.QObject):
             payload=payload,
             alias=alias,
             annotations=dict(annotations or {}),
+            metadata=dict(metadata or {}),
         )
         if item_id and all(existing.item_id != item_id
                            for existing in self._items.values()):
             item.item_id = item_id
+        elif item_id:
+            from .item_metadata import remap_item_references
+            item.metadata = remap_item_references(item.metadata, {item_id: item.item_id})
         self._item_order.append(name)
         self._items[name] = item
         self.item_added.emit(name)

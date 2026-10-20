@@ -18,6 +18,7 @@ DEFAULTS = {
         "template": "",             # curve-stack template name; "" = none
         # Off | Polynomial surface | Per scan line; logical Z thumbnails only
         "z_background_method": "Polynomial surface",
+        "sigma": 5.0,                # image scale: mean +/- sigma*std/2
         "pixmap_cache_size": 200,   # decoded thumbnails kept in memory
     },
     "gallery": {

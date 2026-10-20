@@ -104,7 +104,8 @@ class StackPlotWidget(BasePlotWidget):
         from .rt_cmap import RtCmapControl
         self._rt = RtCmapControl(self)
         self._rt.add_to(ctrl)
-        self._rt.changed.connect(self._rebuild_plot)
+        self._rt.changed.connect(
+            lambda: self._rebuild_plot(preserve_view=True))
 
         ctrl.addStretch()
         layout.addLayout(ctrl)
@@ -235,10 +236,15 @@ class StackPlotWidget(BasePlotWidget):
     # ── Full-redraw API ───────────────────────────────────────────────────
 
     def refresh(self, datasets: dict[str, dict],
-                checked: dict[str, list[bool]]) -> None:
+                checked: dict[str, list[bool]], *,
+                preserve_view: bool = False,
+                preserve_manual_view: bool = False) -> None:
         self._datasets = datasets
         self._checked  = checked
-        self._rebuild_plot()
+        self._rebuild_plot(
+            preserve_view=preserve_view,
+            preserve_manual_view=preserve_manual_view,
+        )
 
     def _get_or_create_ax2(self):
         """Return (or lazily create) the right twin Y axis."""
@@ -294,12 +300,13 @@ class StackPlotWidget(BasePlotWidget):
         self._remove_ax2()
         self._remove_ax2()
         self._ax.clear()
+        self._has_rendered_view = False
         self._canvas.draw_idle()
         self._readout.setText("")
 
     def apply_config(self, config: dict) -> None:
         super().apply_config(config)
-        self._rebuild_plot()
+        self._rebuild_plot(preserve_view=True)
 
     # ── Granular API ─────────────────────────────────────────────────────
 
@@ -312,7 +319,7 @@ class StackPlotWidget(BasePlotWidget):
                 or any(e.get("yerr") is not None
                        for e in self._datasets.values())):
             # global norm must be recomputed over all lines including the new one
-            self._rebuild_plot()
+            self._rebuild_plot(preserve_manual_view=True)
             return
 
         with self._rc():
@@ -354,6 +361,7 @@ class StackPlotWidget(BasePlotWidget):
             if self._ax2 is not None:
                 self._ax2.set_position(self._ax.get_position())
         self._capture_background()
+        self._has_rendered_view = True
         # Incremental insertion changes the effective axes state just like a
         # full rebuild (limits, labels, and inferred display factors).  Notify
         # bound panels so an already-open Axes dock re-pulls the scene values.
@@ -362,7 +370,7 @@ class StackPlotWidget(BasePlotWidget):
     def remove_lines(self, name: str) -> None:
         self._datasets.pop(name, None)
         self._checked.pop(name, None)
-        self._rebuild_plot()
+        self._rebuild_plot(preserve_manual_view=True)
 
     def set_line_visible(self, name: str, idx: int, visible: bool) -> None:
         if name in self._checked:
@@ -582,7 +590,7 @@ class StackPlotWidget(BasePlotWidget):
         self.color_mode = new_mode
         if old_lc != new_lc or (new_lc and new_mode != old_mode):
             # artist type changed, OR same LC type but different cmap (colors baked in)
-            self._rebuild_plot()
+            self._rebuild_plot(preserve_view=True)
         else:
             self._assign_colors(self._lines)
             self._sync_errorbar_colors()
@@ -632,7 +640,7 @@ class StackPlotWidget(BasePlotWidget):
 
         new_lc = _needs_lc(mode)
         if old_lc != new_lc or (new_lc and mode != old_mode):
-            self._rebuild_plot()
+            self._rebuild_plot(preserve_view=True)
         else:
             self._assign_colors(self._lines)
             self._sync_errorbar_colors()
@@ -640,7 +648,12 @@ class StackPlotWidget(BasePlotWidget):
 
     # ── Drawing ───────────────────────────────────────────────────────────
 
-    def _rebuild_plot(self) -> None:
+    def _rebuild_plot(self, *, preserve_view: bool = False,
+                      preserve_manual_view: bool = False) -> None:
+        view_state = (
+            self._capture_view_state()
+            if preserve_view or preserve_manual_view else None
+        )
         # everything artist-creating runs under the scene's rcparams delta
         with self._rc():
             self._xhair_h = None
@@ -674,6 +687,9 @@ class StackPlotWidget(BasePlotWidget):
             self._fig.tight_layout()
             if self._ax2 is not None:
                 self._ax2.set_position(self._ax.get_position())
+        self._restore_view_state(
+            view_state, manual_only=preserve_manual_view)
+        self._has_rendered_view = bool(self._datasets)
         self._capture_background()
         self.artists_rebuilt.emit()
 
@@ -806,7 +822,7 @@ class StackPlotWidget(BasePlotWidget):
         return lc
 
     def _on_offset_changed(self, _val) -> None:
-        self._rebuild_plot()
+        self._rebuild_plot(preserve_view=True)
 
     def _on_y_autoscale(self) -> None:
         self._ax.autoscale(axis="y")

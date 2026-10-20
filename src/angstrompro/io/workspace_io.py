@@ -16,6 +16,9 @@ import uuid
 from angstrompro.core.data.annotation_data import (
     AnnotationData, deserialize_annotation, serialize_annotation,
 )
+from angstrompro.core.workspaces.item_metadata import (
+    metadata_dumps, metadata_loads, remap_item_references,
+)
 
 if TYPE_CHECKING:
     from angstrompro.core.data.base import WorkspaceData
@@ -37,6 +40,7 @@ class ArchivedWorkspaceItem:
     item_id: str = ""
     alias: str = ""
     annotations: dict[str, AnnotationData] = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -131,6 +135,23 @@ def write_single_item_metadata(root, item: WorkspaceItem) -> None:
     group.attrs["item_id"] = item.item_id
     group.attrs["alias"] = item.alias
     group.attrs["annotations"] = _annotations_to_json(item.annotations)
+    _write_item_metadata(group, item.metadata)
+
+
+def _write_item_metadata(group, metadata: dict) -> None:
+    if metadata:
+        import h5py
+        group.create_dataset("metadata", data=metadata_dumps(metadata),
+                             dtype=h5py.string_dtype("utf-8"))
+
+
+def _read_item_metadata(group) -> dict:
+    if "metadata" not in group:
+        return {}
+    value = metadata_loads(_attr_text(group["metadata"][()]))
+    if not isinstance(value, dict):
+        raise ValueError("Workspace item metadata must be a mapping")
+    return value
 
 
 def read_single_item_metadata(root, payload: WorkspaceData) -> WorkspaceItem:
@@ -157,6 +178,7 @@ def read_single_item_metadata(root, payload: WorkspaceData) -> WorkspaceItem:
     if stored_id:
         item.item_id = stored_id
     item.alias = _attr_text(group.attrs.get("alias"))
+    item.metadata = _read_item_metadata(group)
     item.annotations = _annotations_from_json(
         _attr_text(group.attrs.get("annotations"), "{}")
     )
@@ -205,6 +227,7 @@ def save_workspace(path: Path, workspace: Workspace) -> list[WorkspaceItem]:
                 item_group.attrs["annotations"] = _annotations_to_json(
                     item.annotations)
                 _write_payload(item_group.create_group("payload"), item.payload)
+                _write_item_metadata(item_group, item.metadata)
 
         os.replace(temp_path, path)
     finally:
@@ -310,6 +333,7 @@ def load_workspace(path: Path) -> WorkspaceArchive:
                     item_id=_attr_text(item_group.attrs.get("item_id")),
                     alias=_attr_text(item_group.attrs.get("alias")),
                     annotations=annotations,
+                    metadata=_read_item_metadata(item_group),
                 ))
             except Exception as exc:
                 result.skipped.append(SkippedWorkspaceItem(
@@ -356,11 +380,17 @@ def import_workspace(
         item = workspace.add_item(payload=archived.payload)
         item.alias = archived.alias
         item.annotations = archived.annotations
+        item.metadata = archived.metadata
         if archived.item_id and archived.item_id not in used_ids:
             item.item_id = archived.item_id
         used_ids.add(item.item_id)
-        workspace.notify_changed(item.name)
         imported.append(item)
+
+    identifiers = {old.item_id: new.item_id
+                   for old, new in zip(archive.items, imported) if old.item_id}
+    for item in imported:
+        item.metadata = remap_item_references(item.metadata, identifiers)
+        workspace.notify_changed(item.name)
 
     renamed = {
         old_name: new_name for old_name, new_name in name_map.items()

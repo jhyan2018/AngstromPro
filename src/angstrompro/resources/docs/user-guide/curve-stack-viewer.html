@@ -33,12 +33,22 @@ as a matplotlib figure containing a stack of curves.</p>
 <p>Use the Curve Style dock to edit individual artists and the Axes dock to change
 labels, limits, scales, and grid settings. Both docks can be shown or hidden
 from the <strong>View</strong> menu.</p>
+<p>For complex-valued curves, use the <strong>Type</strong> selector above the plot to display
+<strong>Real</strong>, <strong>Imaginary</strong>, <strong>Abs</strong>, or <strong>Phase</strong>. FFT results initially use
+<strong>Abs</strong>. Real-valued datasets are unchanged when plotted alongside complex
+data. The selected component and its display factor are preserved in saved
+scenes; the original complex UDS data is never replaced.</p>
 <h3 id="error-bars">Error bars</h3>
-<p>Right-click a plotted dataset in the <strong>Datasets / Curves</strong> tree and choose
-<strong>Configure Error Bars…</strong>. Select an accessible UDS containing symmetric
-Y-error magnitudes, then set cap size, error-line width, color, and the spacing
-between drawn bars. Choose <strong>Remove Error Bars</strong> from the same menu to detach
-them.</p>
+<p>The quickest workflow does not plot the uncertainty as a separate curve.
+For UDS names ending in <code>_std</code> or <code>_sem</code>, right-click the item in the module
+workspace, choose <strong>Use as Y-Error Bars For…</strong>, and select a compatible dataset
+already shown in the plot.</p>
+<p>For the target-oriented workflow, right-click a plotted dataset in the
+<strong>Datasets / Curves</strong> tree and choose <strong>Configure Error Bars for This
+Dataset…</strong>. Select an accessible UDS containing symmetric Y-error magnitudes,
+then set cap size, error-line width, color, and the spacing between drawn bars.
+Choose <strong>Remove Error Bars</strong> from the same menu to detach them. A target with
+errors has a <code>Y±</code> badge; hover over it to see the target/source relationship.</p>
 <p>For a 1D curve, the error UDS must also be 1D with the same number of points.
 For a 2D curve stack, it must have the same <code>(curves, points)</code> shape. Sweep-axis
 values and units must match, and error magnitudes must be finite and

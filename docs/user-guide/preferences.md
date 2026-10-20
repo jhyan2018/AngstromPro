@@ -39,7 +39,37 @@ Open Preferences from the Main Workbench for these sections:
   changing plugin discovery.
 - **Files** supplies the starting folders for Open and Save dialogs.
 - **Channels** configures multichannel file formats; see below.
-- **Startup** chooses which modules and how many instances open at launch.
+- **Startup** chooses which modules and how many instances open at launch,
+  creates named shared workspaces, and configures per-instance attachments.
+
+### Startup workspaces and attachments
+
+In **Main Workbench → Preferences → Startup**, first set each module's count.
+Use **+ Add shared workspace**, give it a unique name, then **+ Add attachment**.
+Choose a module, its startup instance number (1 through its count), and its
+active destination (**Private** or **Shared**). Plugin modules are available
+when their plugin is loaded. Different instances of the same module can attach
+to different shared workspaces. Each instance may have only one attachment.
+
+Reducing a count, setting it to zero, removing a startup module, or making its
+plugin unavailable leaves affected attachments visible with a warning. Their
+instance numbers are not silently changed. Correct or remove invalid
+attachments before **Apply** or **Save as default**; duplicate workspace names
+and duplicate instance attachments are also rejected. Zero disables startup
+for a module, including built-in rows that cannot be removed.
+
+Use **Save as default** to persist this setup for the next launch. **Apply**
+only updates the in-memory preferences; neither action changes current live
+modules or their attachments. At the next launch, shared workspaces are
+created empty, then module instances are created and attached. This does not
+restore datasets. Startup instance numbers are configuration slots, not the
+suffixes of runtime-generated module IDs.
+
+After startup, freely create/remove modules and workspaces, change attachments,
+or change active destinations using the normal runtime controls. Those changes
+do not rewrite the saved startup setup. Missing plugins, failed construction,
+or invalid hand-edited configurations are reported in the log; unaffected
+startup entries continue, and invalid attachments are skipped.
 
 ## Channel mappings
 

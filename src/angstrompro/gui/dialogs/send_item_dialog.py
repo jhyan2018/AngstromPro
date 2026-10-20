@@ -59,6 +59,9 @@ class SendItemDialog(QtWidgets.QDialog):
         ]
         for inst in self._instances:
             label = f"{inst.display_name or inst.module_id}  [{inst.instance_id}]"
+            destination = inst.active_workspace
+            kind = "Shared" if destination.is_shared else "Private"
+            label += f"\n    Destination: {kind} — {destination.label}"
             self._list.addItem(label)
 
     def _accept(self) -> None:

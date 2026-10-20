@@ -18,6 +18,7 @@ import numpy as np
 import pytest
 
 from angstrompro.core.data import WorkspaceData
+from angstrompro.core.data.annotation_data import LineData, PointSetData, RegionData
 from angstrompro.core.data.scene_plot import ScenePlot
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.modules.a_gui_module import AGuiModule
@@ -25,6 +26,7 @@ from angstrompro.core.workspaces.workspace import Workspace
 from angstrompro.io import angstrom_io
 from angstrompro.io.angstrom_io import register_workspace_codec
 from angstrompro.io.workspace_io import (
+    import_workspace,
     load_workspace,
     save_workspace,
     split_supported_items,
@@ -102,6 +104,34 @@ def test_builtin_payloads_still_round_trip_through_registry(tmp_path: Path) -> N
         ScenePlot,
     ]
     np.testing.assert_allclose(loaded.items[0].payload.data, [1.0, 2.0])
+
+
+def test_workspace_annotations_normalize_numpy_scalars(tmp_path: Path) -> None:
+    workspace = Workspace("source")
+    item = workspace.add_item(UdsDataStru(name="annotated"))
+    item.annotations = {
+        "bragg_peaks": PointSetData(coords=np.asarray(
+            [[np.int64(3), np.float32(4.5)]], dtype=object)),
+        "interest_region": RegionData(
+            np.int64(1), np.int32(2), np.int64(8), np.int32(9)),
+        "line_cut": LineData(
+            (np.float32(1.5), np.float64(2.5)),
+            (np.int64(7), np.int32(8)),
+            np.int64(32),
+        ),
+    }
+    archive_path = tmp_path / "annotations.apws"
+
+    assert save_workspace(archive_path, workspace) == []
+    archive = load_workspace(archive_path)
+    target = Workspace("target")
+    imported, renamed = import_workspace(archive, target)
+
+    assert renamed == {}
+    restored = imported[0].annotations
+    np.testing.assert_allclose(restored["bragg_peaks"].coords, [[3.0, 4.5]])
+    assert restored["interest_region"] == RegionData(1, 2, 8, 9)
+    assert restored["line_cut"] == LineData((1.5, 2.5), (7.0, 8.0), 32)
 
 
 def test_registered_codec_round_trip_and_missing_plugin_skip(tmp_path: Path) -> None:

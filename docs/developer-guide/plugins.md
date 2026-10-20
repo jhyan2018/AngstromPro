@@ -15,7 +15,9 @@ During development, add an entry under **Preferences → Plugins** containing:
 - Its importable top-level module name
 
 On the next launch, AngstromPro adds the path to `sys.path` and imports the
-module. The module's imports must trigger every required registration.
+module. The module's imports must trigger every required registration. This
+source-folder mechanism does not install the plugin package or any of its
+dependencies; install those into the same Python environment first.
 
 When testing from Spyder, closing the Main Workbench only hides the hosted
 AngstromPro session so it can be reopened without rebuilding Qt. Restart the
@@ -33,9 +35,11 @@ An installable package should expose an entry point in `pyproject.toml`:
 example = "angstrompro_example"
 ```
 
-The referenced object or module is loaded at startup. Keep its top-level import
-focused on registration; avoid opening windows or starting independent event
-loops during import.
+The referenced object or module is loaded at startup. Installing the package
+also installs the dependencies declared by that package, so this is the
+recommended route for normal users. Do not also configure the same plugin as a
+local source plugin. Keep its top-level import focused on registration; avoid
+opening windows or starting independent event loops during import.
 
 ## Suggested layout
 
@@ -66,10 +70,13 @@ directly.
 
 ## Failure handling
 
-A failing plugin import is logged and startup continues. Test imports in a
-clean environment and inspect `angstrompro.log` when registrations do not
-appear. Duplicate loading by path and entry point is skipped when AngstromPro
-can identify the same top-level module.
+A failing plugin import is logged and startup continues. The Main Workbench
+automatically shows its **Log** dock with the full import traceback, and
+**Preferences → Plugins** shows the result of every plugin load attempt from
+the current startup. The same traceback is retained in `angstrompro.log`.
+Plugin configuration changes require an application restart; a Spyder-hosted
+session also requires a kernel restart. Duplicate loading by path and entry
+point is skipped when AngstromPro can identify the same top-level module.
 
 Plugin authors must review license compatibility for AngstromPro, the plugin,
 and all dependencies before distribution.

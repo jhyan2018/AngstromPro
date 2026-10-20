@@ -133,9 +133,9 @@ def _legacy_fft_source_name(name: str) -> str | None:
 def is_fft_uds(data: "UdsDataStru") -> bool:
     """Return whether *data* is FFT output, with legacy name fallback."""
     info = getattr(data, "info", {}) or {}
-    if info.get(FFT_TRANSFORM_KEY) == "fft_2d":
+    if info.get(FFT_TRANSFORM_KEY) in {"fft_1d", "fft_2d"}:
         return True
-    if info.get(FFT_DOMAIN_KEY) == "reciprocal":
+    if info.get(FFT_DOMAIN_KEY) in {"frequency", "reciprocal"}:
         return True
     return _legacy_fft_source_name(str(getattr(data, "name", ""))) is not None
 
@@ -294,6 +294,10 @@ class UdsDataStru(WorkspaceData):
                     {"kind": "value", "label": "method",      "value": r.method},
                     {"kind": "value", "label": "layer_index", "value": str(r.layer_index)},
                     {"kind": "value", "label": "source_axes", "value": str(r.source_axes)},
+                    {"kind": "value", "label": "coordinate_axes",
+                     "value": str(r.coordinate_axes)},
+                    {"kind": "value", "label": "selector_indices",
+                     "value": str(r.selector_indices)},
                 ]
                 from angstrompro.core.data.isocontour_data import (
                     IsopointResult, IsolineResult, IsosurfaceResult)

@@ -14,13 +14,25 @@ Use the Curve Style dock to edit individual artists and the Axes dock to change
 labels, limits, scales, and grid settings. Both docks can be shown or hidden
 from the **View** menu.
 
+For complex-valued curves, use the **Type** selector above the plot to display
+**Real**, **Imaginary**, **Abs**, or **Phase**. FFT results initially use
+**Abs**. Real-valued datasets are unchanged when plotted alongside complex
+data. The selected component and its display factor are preserved in saved
+scenes; the original complex UDS data is never replaced.
+
 ### Error bars
 
-Right-click a plotted dataset in the **Datasets / Curves** tree and choose
-**Configure Error Bars…**. Select an accessible UDS containing symmetric
-Y-error magnitudes, then set cap size, error-line width, color, and the spacing
-between drawn bars. Choose **Remove Error Bars** from the same menu to detach
-them.
+The quickest workflow does not plot the uncertainty as a separate curve.
+For UDS names ending in `_std` or `_sem`, right-click the item in the module
+workspace, choose **Use as Y-Error Bars For…**, and select a compatible dataset
+already shown in the plot.
+
+For the target-oriented workflow, right-click a plotted dataset in the
+**Datasets / Curves** tree and choose **Configure Error Bars for This
+Dataset…**. Select an accessible UDS containing symmetric Y-error magnitudes,
+then set cap size, error-line width, color, and the spacing between drawn bars.
+Choose **Remove Error Bars** from the same menu to detach them. A target with
+errors has a `Y±` badge; hover over it to see the target/source relationship.
 
 For a 1D curve, the error UDS must also be 1D with the same number of points.
 For a 2D curve stack, it must have the same `(curves, points)` shape. Sweep-axis

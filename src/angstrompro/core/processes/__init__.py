@@ -10,11 +10,16 @@ from .param_schema import (
     AnnotationSpec,
     InputSpec,
     MetricOutputSpec,
+    ValueOutputSpec,
     OutputSpec,
     ParameterSpec,
     ProcessSchema,
 )
-from .process_entry import ProcessEntry
+from .process_entry import (
+    ProcessEntry,
+    ProcessRequirement,
+    ProcessUnavailableError,
+)
 from .process_result import (
     ProcessResult,
     iter_process_data,
@@ -35,12 +40,15 @@ __all__ = [
     "AnnotationSpec",
     "AnnotationOutputSpec",
     "MetricOutputSpec",
+    "ValueOutputSpec",
     "ProcessResult",
     "normalize_process_result",
     "iter_process_data",
     "primary_process_data",
     "named_process_data",
     "ProcessEntry",
+    "ProcessRequirement",
+    "ProcessUnavailableError",
     "ProcessRegistry",
     "register_process",
     "register_simulation",

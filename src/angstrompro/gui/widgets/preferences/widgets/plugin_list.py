@@ -5,7 +5,7 @@ Preferences → Plugins panel.
 """
 from __future__ import annotations
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal
+from angstrompro.utils.qt_compat import QtCore, QtGui, QtWidgets, Signal
 
 
 class _PluginRow(QtWidgets.QWidget):
@@ -59,11 +59,22 @@ class _PluginRow(QtWidgets.QWidget):
 class PluginListWidget(QtWidgets.QWidget):
     """Full-width widget that manages a list of path-plugin entries."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, context=None):
         super().__init__(parent)
+        self._context = context
         root = QtWidgets.QVBoxLayout(self)
         root.setContentsMargins(12, 8, 12, 8)
         root.setSpacing(4)
+
+        help_text = QtWidgets.QLabel(
+            "Installed plugins are discovered automatically. Source-folder "
+            "entries are intended for development and do not install the "
+            "plugin's dependencies. Changes take effect after restarting "
+            "AngstromPro."
+        )
+        help_text.setWordWrap(True)
+        help_text.setObjectName("pref_row_desc")
+        root.addWidget(help_text)
 
         # column headers
         header = QtWidgets.QWidget()
@@ -95,6 +106,62 @@ class PluginListWidget(QtWidgets.QWidget):
                        else QtCore.Qt.AlignLeft)
 
         self._rows: list[_PluginRow] = []
+
+        status_title = QtWidgets.QLabel("Current startup status")
+        status_title.setObjectName("pref_row_label")
+        root.addWidget(status_title)
+
+        self._status_tree = QtWidgets.QTreeWidget()
+        self._status_tree.setColumnCount(4)
+        self._status_tree.setHeaderLabels(
+            ["Source", "Plugin", "Status", "Details"]
+        )
+        self._status_tree.setRootIsDecorated(False)
+        self._status_tree.setAlternatingRowColors(True)
+        self._status_tree.setMinimumHeight(120)
+        self._status_tree.header().setStretchLastSection(True)
+        self._status_tree.setColumnWidth(0, 110)
+        self._status_tree.setColumnWidth(1, 145)
+        self._status_tree.setColumnWidth(2, 75)
+        root.addWidget(self._status_tree)
+
+        self._status_empty = QtWidgets.QLabel(
+            "No plugins were discovered during the current startup."
+        )
+        self._status_empty.setObjectName("pref_row_desc")
+        root.addWidget(self._status_empty)
+        self._refresh_status()
+
+    def _refresh_status(self) -> None:
+        self._status_tree.clear()
+        results = tuple(getattr(self._context, "plugin_load_results", ()))
+        self._status_empty.setVisible(not results)
+        self._status_tree.setVisible(bool(results))
+        status_colours = {
+            "loaded": QtGui.QColor("#3a9d5d"),
+            "failed": QtGui.QColor("#d14b4b"),
+            "skipped": QtGui.QColor("#d08a28"),
+        }
+        for result in results:
+            source = (
+                "Installed" if result.source == "entry_point"
+                else "Source folder"
+            )
+            detail = result.error or result.target
+            item = QtWidgets.QTreeWidgetItem([
+                source,
+                result.name,
+                result.status.capitalize(),
+                detail,
+            ])
+            colour = status_colours.get(result.status)
+            if colour is not None:
+                item.setForeground(2, colour)
+            tooltip = result.traceback or detail
+            if tooltip:
+                for column in range(4):
+                    item.setToolTip(column, tooltip)
+            self._status_tree.addTopLevelItem(item)
 
     def _add_row(self, path: str = "", module: str = "") -> None:
         row = _PluginRow(path, module, self._rows_container)
