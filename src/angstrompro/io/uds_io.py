@@ -23,6 +23,13 @@ from angstrompro.core.data.isocontour_data import (
     IsocontourResult, IsopointResult, IsolineResult, IsosurfaceResult,
     ISOCONTOUR_KIND_MAP,
 )
+from angstrompro.core.data.image_overlay_data import (
+    CircleOverlay,
+    EllipseOverlay,
+    ImageOverlay,
+    PointOverlay,
+    PolylineOverlay,
+)
 from angstrompro.io.angstrom_io import register_io
 from angstrompro.io.migration import apply_migrations
 
@@ -75,6 +82,10 @@ def _uds_to_dict(uds: UdsDataStru) -> dict:
         ],
         # landmarks: tuple keys serialised as JSON arrays
         "landmarks": {_jdumps(list(k)): v for k, v in uds.landmarks.items()},
+        "image_overlays": [
+            _image_overlay_to_dict(overlay)
+            for overlay in uds.image_overlays
+        ],
     }
 
 
@@ -100,6 +111,19 @@ def _dict_to_uds(d: dict) -> UdsDataStru:
         for i in range(count):
             if str(i) in isog:
                 isocontours.append(_isocontour_from_group(isog[str(i)]))
+    image_overlays = []
+    overlay_group = d.get("image_overlays")
+    if isinstance(overlay_group, (list, tuple)):
+        image_overlays.extend(
+            _image_overlay_from_dict(value) for value in overlay_group
+        )
+    elif overlay_group is not None:
+        count = int(overlay_group.attrs.get("count", 0))
+        for i in range(count):
+            if str(i) in overlay_group:
+                image_overlays.append(
+                    _image_overlay_from_group(overlay_group[str(i)])
+                )
     return UdsDataStru(
         name         = d["name"],
         data         = d["data"],
@@ -108,6 +132,7 @@ def _dict_to_uds(d: dict) -> UdsDataStru:
         proc_history = proc_history,
         landmarks    = landmarks,
         isocontours  = isocontours,
+        image_overlays = image_overlays,
     )
 
 
@@ -197,6 +222,165 @@ def _isocontour_from_group(ig) -> IsocontourResult:
 
 
 # ------------------------------------------------------------------
+# Image-overlay serialization helpers
+# ------------------------------------------------------------------
+
+def _image_overlay_to_dict(overlay: ImageOverlay) -> dict:
+    """Return a JSON-native representation used by embedded plot payloads."""
+    value = {
+        "kind": overlay.kind,
+        "overlay_id": overlay.overlay_id,
+        "name": overlay.name,
+        "layer_index": int(overlay.layer_index),
+        "layer_value": overlay.layer_value,
+        "source_axes": list(overlay.source_axes),
+        "coordinate_space": overlay.coordinate_space,
+        "method": overlay.method,
+        "style": overlay.style,
+        "metadata": overlay.metadata,
+        "notes": overlay.notes,
+    }
+    if isinstance(overlay, CircleOverlay):
+        value.update(center=list(overlay.center), radius=float(overlay.radius))
+    elif isinstance(overlay, EllipseOverlay):
+        value.update(
+            center=list(overlay.center),
+            radius_row=float(overlay.radius_row),
+            radius_column=float(overlay.radius_column),
+            rotation_degrees=float(overlay.rotation_degrees),
+        )
+    elif isinstance(overlay, PolylineOverlay):
+        value.update(vertices=np.asarray(overlay.vertices).tolist(),
+                     closed=bool(overlay.closed))
+    elif isinstance(overlay, PointOverlay):
+        value.update(points=np.asarray(overlay.points).tolist())
+    return json.loads(_jdumps(value))
+
+
+def _image_overlay_from_dict(value: dict) -> ImageOverlay:
+    """Reconstruct a typed overlay from its JSON-native representation."""
+    base_kwargs = {
+        "kind": str(value.get("kind", "")),
+        "overlay_id": str(value.get("overlay_id", "")),
+        "name": str(value.get("name", "")),
+        "layer_index": int(value.get("layer_index", 0)),
+        "layer_value": value.get("layer_value"),
+        "source_axes": tuple(int(axis) for axis in value.get("source_axes", (-2, -1))),
+        "coordinate_space": str(value.get("coordinate_space", "pixel")),
+        "method": str(value.get("method", "")),
+        "style": dict(value.get("style", {})),
+        "metadata": dict(value.get("metadata", {})),
+        "notes": str(value.get("notes", "")),
+    }
+    kind = base_kwargs["kind"]
+    if kind == "circle":
+        return CircleOverlay(
+            **base_kwargs,
+            center=tuple(float(item) for item in value.get("center", (0, 0))),
+            radius=float(value.get("radius", 0.0)),
+        )
+    if kind == "ellipse":
+        return EllipseOverlay(
+            **base_kwargs,
+            center=tuple(float(item) for item in value.get("center", (0, 0))),
+            radius_row=float(value.get("radius_row", 0.0)),
+            radius_column=float(value.get("radius_column", 0.0)),
+            rotation_degrees=float(value.get("rotation_degrees", 0.0)),
+        )
+    if kind == "polyline":
+        return PolylineOverlay(
+            **base_kwargs,
+            vertices=np.asarray(value.get("vertices", []), dtype=float).reshape(-1, 2),
+            closed=bool(value.get("closed", False)),
+        )
+    if kind == "points":
+        return PointOverlay(
+            **base_kwargs,
+            points=np.asarray(value.get("points", []), dtype=float).reshape(-1, 2),
+        )
+    return ImageOverlay(**base_kwargs)
+
+def _image_overlay_to_group(group, overlay: ImageOverlay) -> None:
+    """Write one typed image overlay into an HDF5 group."""
+    group.attrs["kind"] = overlay.kind
+    group.attrs["overlay_id"] = overlay.overlay_id
+    group.attrs["name"] = overlay.name
+    group.attrs["layer_index"] = int(overlay.layer_index)
+    group.attrs["layer_value"] = _jdumps(overlay.layer_value)
+    group.attrs["source_axes"] = _jdumps(list(overlay.source_axes))
+    group.attrs["coordinate_space"] = overlay.coordinate_space
+    group.attrs["method"] = overlay.method
+    group.attrs["style"] = _jdumps(overlay.style)
+    group.attrs["metadata"] = _jdumps(overlay.metadata)
+    group.attrs["notes"] = overlay.notes
+
+    if isinstance(overlay, CircleOverlay):
+        group.create_dataset("center", data=np.asarray(overlay.center, dtype=float))
+        group.attrs["radius"] = float(overlay.radius)
+    elif isinstance(overlay, EllipseOverlay):
+        group.create_dataset("center", data=np.asarray(overlay.center, dtype=float))
+        group.attrs["radius_row"] = float(overlay.radius_row)
+        group.attrs["radius_column"] = float(overlay.radius_column)
+        group.attrs["rotation_degrees"] = float(overlay.rotation_degrees)
+    elif isinstance(overlay, PolylineOverlay):
+        group.create_dataset("vertices", data=np.asarray(overlay.vertices, dtype=float))
+        group.attrs["closed"] = bool(overlay.closed)
+    elif isinstance(overlay, PointOverlay):
+        group.create_dataset("points", data=np.asarray(overlay.points, dtype=float))
+
+
+def _image_overlay_from_group(group) -> ImageOverlay:
+    """Reconstruct one typed image overlay from an HDF5 group."""
+    kind = str(group.attrs.get("kind", ""))
+    base_kwargs = {
+        "kind": kind,
+        "overlay_id": str(group.attrs.get("overlay_id", "")),
+        "name": str(group.attrs.get("name", "")),
+        "layer_index": int(group.attrs.get("layer_index", 0)),
+        "layer_value": json.loads(group.attrs.get("layer_value", "null")),
+        "source_axes": tuple(
+            int(value)
+            for value in json.loads(group.attrs.get("source_axes", "[-2, -1]"))
+        ),
+        "coordinate_space": str(group.attrs.get("coordinate_space", "pixel")),
+        "method": str(group.attrs.get("method", "")),
+        "style": json.loads(group.attrs.get("style", "{}")),
+        "metadata": json.loads(group.attrs.get("metadata", "{}")),
+        "notes": str(group.attrs.get("notes", "")),
+    }
+    if kind == "circle":
+        center = group["center"][()] if "center" in group else (0.0, 0.0)
+        return CircleOverlay(
+            **base_kwargs,
+            center=tuple(float(value) for value in center),
+            radius=float(group.attrs.get("radius", 0.0)),
+        )
+    if kind == "ellipse":
+        center = group["center"][()] if "center" in group else (0.0, 0.0)
+        return EllipseOverlay(
+            **base_kwargs,
+            center=tuple(float(value) for value in center),
+            radius_row=float(group.attrs.get("radius_row", 0.0)),
+            radius_column=float(group.attrs.get("radius_column", 0.0)),
+            rotation_degrees=float(group.attrs.get("rotation_degrees", 0.0)),
+        )
+    if kind == "polyline":
+        return PolylineOverlay(
+            **base_kwargs,
+            vertices=(group["vertices"][()] if "vertices" in group
+                      else np.empty((0, 2), dtype=float)),
+            closed=bool(group.attrs.get("closed", False)),
+        )
+    if kind == "points":
+        return PointOverlay(
+            **base_kwargs,
+            points=(group["points"][()] if "points" in group
+                    else np.empty((0, 2), dtype=float)),
+        )
+    return ImageOverlay(**base_kwargs)
+
+
+# ------------------------------------------------------------------
 # HDF5 group-level helpers (used by project_io too)
 # ------------------------------------------------------------------
 
@@ -227,6 +411,13 @@ def _write_to_group(g, uds: UdsDataStru) -> None:
         isog.attrs["count"] = len(uds.isocontours)
         for i, result in enumerate(uds.isocontours):
             _isocontour_to_group(isog.create_group(str(i)), result)
+    if uds.image_overlays:
+        overlay_group = g.create_group("image_overlays")
+        overlay_group.attrs["count"] = len(uds.image_overlays)
+        for i, overlay in enumerate(uds.image_overlays):
+            _image_overlay_to_group(
+                overlay_group.create_group(str(i)), overlay
+            )
 
 
 def _read_from_group(g) -> dict:
@@ -249,6 +440,7 @@ def _read_from_group(g) -> dict:
         "proc_history": json.loads(g.attrs.get("proc_history", "[]")),
         "landmarks":    json.loads(g.attrs.get("landmarks", "{}")),
         "isocontours":  g.get("isocontours"),   # h5py group or None
+        "image_overlays": g.get("image_overlays"),
     }
 
 

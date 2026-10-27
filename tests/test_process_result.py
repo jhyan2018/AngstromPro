@@ -6,6 +6,12 @@ from typing import ClassVar
 
 from angstrompro.core.data.annotation_data import PointSetData
 from angstrompro.core.data.base import WorkspaceData
+from angstrompro.core.data.uds_data import (
+    FFT_DOMAIN_KEY,
+    FFT_SOURCE_NAME_KEY,
+    FFT_TRANSFORM_KEY,
+    UdsDataStru,
+)
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.processes import (
     AnnotationOutputSpec,
@@ -70,8 +76,13 @@ def test_default_gui_result_handling_unwraps_data_and_applies_annotations() -> N
 
     class ModuleStub:
         accessible_workspaces = staticmethod(lambda: [workspace])
+        accessible_workspace_items = staticmethod(workspace.list_items)
         workspace_containing_item = staticmethod(
             lambda item: workspace if item in workspace.list_items() else None)
+        find_accessible_item = staticmethod(
+            lambda name, preferred_item=None: workspace.find_item(name))
+        _annotation_output_targets = AGuiModule._annotation_output_targets
+        _apply_annotation_output = AGuiModule._apply_annotation_output
         _apply_process_result_aliases = AGuiModule._apply_process_result_aliases
 
         def _on_process_result_default(self, task_id, result):
@@ -96,6 +107,43 @@ def test_default_gui_result_handling_unwraps_data_and_applies_annotations() -> N
     assert workspace.get_item("source_result").payload is output
     assert source.annotations["bragg_peaks"] is peaks
     assert source.metadata["process_results"][0]["values"]["quality"] == 1.0
+
+
+def test_bragg_annotation_output_is_copied_to_fft_source_item() -> None:
+    import numpy as np
+
+    workspace = Workspace("module")
+    source = workspace.add_item(UdsDataStru(
+        name="source",
+        data=np.zeros((1, 8, 8)),
+    ))
+    fft = workspace.add_item(UdsDataStru(
+        name="source_fft",
+        data=np.zeros((1, 8, 8), dtype=complex),
+        info={
+            FFT_DOMAIN_KEY: "reciprocal",
+            FFT_TRANSFORM_KEY: "fft_2d",
+            FFT_SOURCE_NAME_KEY: "source",
+        },
+    ))
+    peaks = PointSetData(coords=np.asarray([[2.0, 6.0], [6.0, 2.0]]))
+
+    class ModuleStub:
+        accessible_workspace_items = staticmethod(workspace.list_items)
+        workspace_containing_item = staticmethod(
+            lambda item: workspace if item in workspace.list_items() else None)
+        find_accessible_item = staticmethod(
+            lambda name, preferred_item=None: workspace.find_item(name))
+        _annotation_output_targets = AGuiModule._annotation_output_targets
+
+    module = ModuleStub()
+    AGuiModule._apply_annotation_output(
+        module, fft, "bragg_peaks", peaks)
+
+    assert fft.annotations["bragg_peaks"] is peaks
+    assert source.annotations["bragg_peaks"] is not peaks
+    np.testing.assert_array_equal(
+        source.annotations["bragg_peaks"].coords, peaks.coords)
 
 
 def test_values_and_metrics_share_a_namespace_without_new_payloads():

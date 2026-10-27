@@ -143,10 +143,21 @@ class ProcessRunner:
             )
         result = {}
         for i, spec in enumerate(input_specs):
-            if i < len(items):
-                result[spec.name] = items[i].payload
-            else:
-                result[spec.name] = None   # optional input not staged
+            item = items[i] if i < len(items) else None
+            if item is None:
+                if spec.required:
+                    raise ValueError(
+                        f"Process '{entry.name}' requires input '{spec.name}'."
+                    )
+                result[spec.name] = None
+                continue
+            if not spec.accepts(item.payload):
+                domain = spec.data_domain.replace("_", "-")
+                raise ValueError(
+                    f"Process '{entry.name}' input '{spec.name}' does not "
+                    f"accept item '{item.name}' (required domain: {domain})."
+                )
+            result[spec.name] = item.payload
         return result
 
     @staticmethod

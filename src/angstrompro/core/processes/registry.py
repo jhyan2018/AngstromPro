@@ -61,7 +61,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .param_schema import ProcessSchema
+from .param_schema import ProcessSchema, data_domain_matches
 from .process_entry import ProcessEntry, ProcessRequirement
 from .process_result import ProcessResult, primary_process_data
 
@@ -221,6 +221,19 @@ def _record_history(
 # Axis-type warning check
 # ---------------------------------------------------------------------------
 
+def _check_data_domains(entry: "ProcessEntry", inputs: dict) -> None:
+    """Enforce only explicitly declared semantic-domain requirements."""
+    for spec in entry.schema.inputs:
+        payload = inputs.get(spec.name)
+        if payload is None or spec.data_domain == "any":
+            continue
+        if not data_domain_matches(payload, spec.data_domain):
+            required = spec.data_domain.replace("_", "-")
+            raise ValueError(
+                f"Process '{entry.name}' input '{spec.name}' requires "
+                f"{required} data."
+            )
+
 def _check_axis_types(entry: "ProcessEntry", inputs: dict) -> None:
     """Log warnings if input UDS axes don't match InputSpec.axis_types declarations."""
     from angstrompro.core.data.uds_data import UdsDataStru
@@ -335,6 +348,7 @@ class ProcessRegistry:
         entry       = self.get(name)
         full_params = {**entry.schema.defaults(), **params}
         entry.ensure_available(full_params)
+        _check_data_domains(entry, inputs)
         _check_axis_types(entry, inputs)
         signature = inspect.signature(entry.func)
         execution_kwargs = {"annotations": annotations or {}}
@@ -373,6 +387,7 @@ class ProcessRegistry:
 
         def _task_func(*, cancel_token=None, progress_callback=None):
             entry.ensure_available(full_params)
+            _check_data_domains(entry, inputs)
             _check_axis_types(entry, inputs)
             execution_kwargs = {"annotations": resolved_annotations}
             if supports_cancel:
@@ -454,6 +469,7 @@ class ProcessRegistry:
                     }
                 else:
                     effective_inputs = {"data": current_data}
+                _check_data_domains(entry, effective_inputs)
                 result = entry.func(effective_inputs, full_params, annotations=step_ann)
                 result = _record_history(result, entry.name, full_params,
                                          effective_inputs, step_ann)

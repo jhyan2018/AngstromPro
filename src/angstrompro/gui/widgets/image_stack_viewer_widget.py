@@ -428,7 +428,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self.ui_cb_img_rt_cmp              = QtWidgets.QCheckBox("RT-ColorMap")
         self.ui_cb_img_rt_cmp.clicked.connect(self.imageIsRtCmpOnChanged)
 
-        self.ui_cb_show_isolines = QtWidgets.QCheckBox("Show isolines")
+        self.ui_cb_show_isolines = QtWidgets.QCheckBox("Show derived overlays")
         self.ui_cb_show_isolines.setChecked(True)
         self.ui_cb_show_isolines.toggled.connect(self._update_isoline_overlay)
 
@@ -593,7 +593,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._rt_cursor_item        = None
         self._bias_text_item        = None
         self._bias_text_color       = '#ff0000'
-        self._iso_items             = []   # QGraphicsPathItems for isoline overlay
+        self._iso_items             = []   # process-generated overlay graphics
 
         self.img_current_layer = 0
         self.sync_rt_points    = False
@@ -838,7 +838,7 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         self._scene.addItem(lbl)
         return lbl
 
-    # ── isoline overlay ──────────────────────────────────────────────────
+    # ── process-generated image overlays ────────────────────────────────
 
     # Palette: distinct colors cycling for multiple iso-levels
     _ISO_COLORS = ['#ff4444', '#44aaff', '#44dd44', '#ffaa00',
@@ -854,17 +854,21 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
         if not self.ui_cb_show_isolines.isChecked():
             return
         uds = self.uds_variable
-        if not hasattr(uds, 'isocontours') or not uds.isocontours:
+        if uds is None or not hasattr(uds, "data"):
             return
 
         from angstrompro.core.data.isocontour_data import IsolineResult
+        from angstrompro.core.data.image_overlay_data import (
+            CircleOverlay,
+            EllipseOverlay,
+            PointOverlay,
+            PolylineOverlay,
+        )
         layer = self.img_current_layer
 
         # collect IsolineResults for the current layer
-        results = [r for r in uds.isocontours
+        results = [r for r in getattr(uds, 'isocontours', [])
                    if isinstance(r, IsolineResult) and r.layer_index == layer]
-        if not results:
-            return
 
         # axis arrays for coordinate conversion (axis-units → pixel index)
         axes = getattr(uds, 'axes', [])
@@ -915,6 +919,90 @@ class ImageStackViewerWidget(QtWidgets.QWidget):
                 path_item.setZValue(8)   # above image (0), below picked points (10)
                 self._scene.addItem(path_item)
                 self._iso_items.append(path_item)
+
+        # New typed overlays use fractional image pixels in (row, column)
+        # order.  Isolines remain above for now and can later be migrated to
+        # PolylineOverlay without changing this renderer's public behaviour.
+        image_axes = (uds.data.ndim - 2, uds.data.ndim - 1)
+        for overlay in getattr(uds, 'image_overlays', []):
+            if overlay.layer_index != layer:
+                continue
+            source_axes = tuple(
+                axis if axis >= 0 else uds.data.ndim + axis
+                for axis in overlay.source_axes
+            )
+            if source_axes != image_axes or overlay.coordinate_space != "pixel":
+                continue
+
+            style = overlay.style or {}
+            if not bool(style.get("visible", True)):
+                continue
+            pen = QtGui.QPen(QtGui.QColor(str(style.get("color", "#00ffff"))))
+            pen.setCosmetic(True)
+            pen.setWidthF(float(style.get("width", 1.5)))
+
+            item = None
+            if isinstance(overlay, CircleOverlay):
+                row, column = overlay.center
+                radius = float(overlay.radius)
+                if not np.isfinite([row, column, radius]).all() or radius <= 0:
+                    continue
+                item = QtWidgets.QGraphicsEllipseItem(
+                    column - radius, row - radius, 2 * radius, 2 * radius
+                )
+                item.setBrush(QtGui.QBrush(_NO_BRUSH))
+            elif isinstance(overlay, EllipseOverlay):
+                row, column = overlay.center
+                radius_row = float(overlay.radius_row)
+                radius_column = float(overlay.radius_column)
+                if (not np.isfinite([
+                        row, column, radius_row, radius_column,
+                        overlay.rotation_degrees]).all()
+                        or radius_row <= 0 or radius_column <= 0):
+                    continue
+                item = QtWidgets.QGraphicsEllipseItem(
+                    column - radius_column, row - radius_row,
+                    2 * radius_column, 2 * radius_row,
+                )
+                item.setTransformOriginPoint(column, row)
+                item.setRotation(float(overlay.rotation_degrees))
+                item.setBrush(QtGui.QBrush(_NO_BRUSH))
+            elif isinstance(overlay, PolylineOverlay):
+                vertices = np.asarray(overlay.vertices, dtype=float)
+                if (vertices.ndim != 2 or vertices.shape[1] != 2
+                        or len(vertices) < 2 or not np.isfinite(vertices).all()):
+                    continue
+                path = QtGui.QPainterPath()
+                path.moveTo(float(vertices[0, 1]), float(vertices[0, 0]))
+                for row, column in vertices[1:]:
+                    path.lineTo(float(column), float(row))
+                if overlay.closed:
+                    path.closeSubpath()
+                item = QtWidgets.QGraphicsPathItem(path)
+            elif isinstance(overlay, PointOverlay):
+                points = np.asarray(overlay.points, dtype=float)
+                if (points.ndim != 2 or points.shape[1] != 2
+                        or not np.isfinite(points).all()):
+                    continue
+                radius = float(style.get("point_radius", 2.5))
+                for row, column in points:
+                    point_item = QtWidgets.QGraphicsEllipseItem(
+                        float(column) - radius, float(row) - radius,
+                        2 * radius, 2 * radius,
+                    )
+                    point_item.setPen(pen)
+                    point_item.setBrush(QtGui.QBrush(pen.color()))
+                    point_item.setZValue(8)
+                    self._scene.addItem(point_item)
+                    self._iso_items.append(point_item)
+                continue
+
+            if item is not None:
+                item.setPen(pen)
+                item.setZValue(8)
+                item.setToolTip(overlay.name or overlay.kind)
+                self._scene.addItem(item)
+                self._iso_items.append(item)
 
     # ── real-time cursor ──────────────────────────────────────────────────
 

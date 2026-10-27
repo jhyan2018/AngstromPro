@@ -115,6 +115,7 @@ def _copy_uds(src: UdsDataStru, suffix: str) -> UdsDataStru:
     dst.info         = dict(src.info)
     dst.landmarks    = dict(src.landmarks)
     dst.isocontours  = list(src.isocontours)
+    dst.image_overlays = list(src.image_overlays)
     dst.proc_history = [copy.copy(r) for r in src.proc_history]
     return dst
 

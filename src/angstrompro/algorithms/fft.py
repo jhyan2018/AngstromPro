@@ -26,6 +26,8 @@ from angstrompro.core.data.uds_data import (
     FFT_TUKEY_ALPHA_KEY,
 )
 from angstrompro.core.processes import (
+    DATA_DOMAIN_REAL_SPACE,
+    DATA_DOMAIN_RECIPROCAL_SPACE,
     InputSpec,
     OutputSpec,
     ParameterSpec,
@@ -39,12 +41,19 @@ from angstrompro.core.processes import (
 
 _WINDOW_CHOICES = ["none", "hann", "hamming", "tukey", "blackman", "blackman-harris"]
 
-_OUT_3D = [OutputSpec(type_id="uds", ndim=3, label="Image Stack", description="ndim=3 UDS (layers × rows × cols).")]
+_OUT_3D = [OutputSpec(
+    type_id="uds",
+    ndim=3,
+    label="Image Stack",
+    description="ndim=3 reciprocal-space UDS (layers × rows × cols).",
+    data_domain=DATA_DOMAIN_RECIPROCAL_SPACE,
+)]
 _OUT_2D = [OutputSpec(
     type_id="uds",
     ndim=2,
     label="Curve Stack",
     description="Complex ndim=2 UDS (curves × reciprocal-frequency points).",
+    data_domain=DATA_DOMAIN_RECIPROCAL_SPACE,
 )]
 
 
@@ -109,6 +118,7 @@ _SCHEMA_FFT2D = ProcessSchema(
             label       = "3D Stack",
             description = "UdsDataStru with ndim=3 (layers × rows × cols).",
             ndim        = 3,
+            data_domain = DATA_DOMAIN_REAL_SPACE,
         ),
     ],
     params=[

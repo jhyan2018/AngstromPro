@@ -165,16 +165,17 @@ class ProcessBrowserDialog(PersistentDialog):
 
         # inputs table
         detail_layout.addWidget(QtWidgets.QLabel("Input Ports:"))
-        self._tbl_inputs = _AutoHeightTable(5)
+        self._tbl_inputs = _AutoHeightTable(6)
         self._tbl_inputs.setHorizontalHeaderLabels(
-            ["Name", "Type", "ndim", "Axis requirements", "Description"])
+            ["Name", "Type", "ndim", "Domain", "Axis requirements", "Description"])
         _setup_table(self._tbl_inputs)
         detail_layout.addWidget(self._tbl_inputs)
 
         # outputs table
         detail_layout.addWidget(QtWidgets.QLabel("Output Ports:"))
-        self._tbl_outputs = _AutoHeightTable(3)
-        self._tbl_outputs.setHorizontalHeaderLabels(["Type", "ndim", "Description"])
+        self._tbl_outputs = _AutoHeightTable(4)
+        self._tbl_outputs.setHorizontalHeaderLabels(
+            ["Type", "ndim", "Domain", "Description"])
         _setup_table(self._tbl_outputs)
         detail_layout.addWidget(self._tbl_outputs)
 
@@ -401,8 +402,9 @@ class ProcessBrowserDialog(PersistentDialog):
             self._tbl_inputs.setItem(row, 0, _ro_item(spec.name))
             self._tbl_inputs.setItem(row, 1, _ro_item(spec.type_id or "any"))
             self._tbl_inputs.setItem(row, 2, _ro_item(ndim_str))
-            self._tbl_inputs.setItem(row, 3, _ro_item(axis_str))
-            self._tbl_inputs.setItem(row, 4, _ro_item(spec.description or spec.label))
+            self._tbl_inputs.setItem(row, 3, _ro_item(spec.data_domain))
+            self._tbl_inputs.setItem(row, 4, _ro_item(axis_str))
+            self._tbl_inputs.setItem(row, 5, _ro_item(spec.description or spec.label))
         _resize_non_last_cols(self._tbl_inputs)
         if not entry.schema.inputs:
             self._tbl_inputs.setRowCount(1)
@@ -416,7 +418,8 @@ class ProcessBrowserDialog(PersistentDialog):
             ndim_str = str(spec.ndim) if spec.ndim is not None else "any"
             self._tbl_outputs.setItem(row, 0, _ro_item(spec.type_id or "any"))
             self._tbl_outputs.setItem(row, 1, _ro_item(ndim_str))
-            self._tbl_outputs.setItem(row, 2, _ro_item(spec.description or spec.label))
+            self._tbl_outputs.setItem(row, 2, _ro_item(spec.data_domain))
+            self._tbl_outputs.setItem(row, 3, _ro_item(spec.description or spec.label))
         _resize_non_last_cols(self._tbl_outputs)
         if not entry.schema.outputs:
             self._tbl_outputs.setRowCount(1)
