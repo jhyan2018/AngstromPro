@@ -16,7 +16,9 @@ $$
 2. Set the square output size.
 3. Add or remove wave components.
 4. For each `Q` component, set `qx`, `qy`, amplitude `A`, and phase `φ`.
-   The **A range** and **φ range** controls set the slider limits.
+   Amplitude and phase accept direct numeric input. Use the phase-unit selector
+   to enter either radians (`-π` to `π`) or degrees (`-180°` to `180°`);
+   the equivalent value in the other unit is displayed beside the editor.
 5. Adjust component values while observing the live image.
 6. Choose **Save to workspace**.
 

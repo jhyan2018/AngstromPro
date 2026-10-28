@@ -8,11 +8,19 @@ from angstrompro.core.workspaces.workspace_item import WorkspaceItem
 from angstrompro.gui.modules.planewave_synthesiser import (
     PlanewaveSynthesiser,
     WaveVectorSettings,
+    WaveVectorRow,
     _make_planewave_uds,
+    _normalise_phase,
     _recipe_to_wave_settings,
     _wave_settings_to_recipe,
 )
 from angstrompro.io.uds_io import load, save
+from angstrompro.utils.qt_compat import QtWidgets
+
+
+@pytest.fixture(scope="module")
+def qapp():
+    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
 def _sample_waves() -> tuple[WaveVectorSettings, ...]:
@@ -20,22 +28,14 @@ def _sample_waves() -> tuple[WaveVectorSettings, ...]:
         WaveVectorSettings(
             qx=2.5,
             qy=-3.25,
-            amplitude_min=-0.5,
-            amplitude_max=2.5,
-            amplitude_slider=37,
-            phase_min=-6.28,
-            phase_max=6.28,
-            phase_slider=82,
+            amplitude=2.125,
+            phase=0.75,
         ),
         WaveVectorSettings(
             qx=-0.125,
             qy=8.75,
-            amplitude_min=0.25,
-            amplitude_max=0.75,
-            amplitude_slider=61,
-            phase_min=-1.0,
-            phase_max=2.0,
-            phase_slider=19,
+            amplitude=-0.75,
+            phase=-1.25,
         ),
     )
 
@@ -49,6 +49,92 @@ def test_planewave_recipe_round_trip_preserves_all_controls() -> None:
 
     assert image_size == 192
     assert restored == waves
+
+
+def test_planewave_recipe_stores_direct_values() -> None:
+    recipe = _wave_settings_to_recipe(192, _sample_waves())
+
+    assert recipe["schema_version"] == 2
+    assert recipe["waves"][0] == {
+        "qx": 2.5,
+        "qy": -3.25,
+        "amplitude": 2.125,
+        "phase": 0.75,
+    }
+
+
+def test_legacy_slider_recipe_converts_to_direct_values() -> None:
+    recipe = {
+        "schema_version": 1,
+        "image_size": 128,
+        "waves": [{
+            "qx": 2.5,
+            "qy": -3.25,
+            "amplitude_min": -0.5,
+            "amplitude_max": 2.5,
+            "amplitude_slider": 37,
+            "phase_min": -6.28,
+            "phase_max": 6.28,
+            "phase_slider": 82,
+        }],
+    }
+
+    image_size, waves = _recipe_to_wave_settings(recipe)
+
+    assert image_size == 128
+    assert waves[0].qx == 2.5
+    assert waves[0].qy == -3.25
+    assert waves[0].amplitude == pytest.approx(0.61)
+    assert waves[0].phase == pytest.approx(_normalise_phase(4.0192))
+    snapshot = UdsDataStru(
+        name="legacy_planewave_snapshot",
+        data=np.zeros((1, 128, 128), dtype=np.float64),
+        info={"source": "planewave_synthesiser", "planewave": recipe},
+    )
+    assert PlanewaveSynthesiser._recipe_from_workspace_item(
+        WorkspaceItem(payload=snapshot)
+    ) == recipe
+
+
+def test_wave_row_accepts_direct_amplitude_and_phase(qapp) -> None:
+    row = WaveVectorRow(0)
+    changed = []
+    row.paramsChanged.connect(changed.append)
+
+    row._sb_amplitude.setValue(-2.5)
+    row._sb_phase.setValue(1.234567)
+
+    assert row.amplitude == pytest.approx(-2.5)
+    assert row.phase == pytest.approx(1.234567)
+    assert row.wave_settings() == WaveVectorSettings(
+        amplitude=-2.5,
+        phase=1.234567,
+    )
+    assert changed == [0, 0]
+    assert row._sb_phase.minimum() == pytest.approx(-np.pi)
+    assert row._sb_phase.maximum() == pytest.approx(np.pi)
+    assert row._lb_phase_conversion.text() == "= 70.735°"
+    assert row._le_qx.width() >= 82
+    assert row._le_qy.width() >= 82
+    assert row._sb_amplitude.minimumWidth() >= 140
+    assert row._cb_phase_unit.width() >= 88
+    assert row._sb_phase.minimumWidth() >= 140
+    assert row._lb_phase_conversion.minimumWidth() >= 112
+
+    row._cb_phase_unit.setCurrentText("deg")
+
+    assert row._sb_phase.minimum() == pytest.approx(-180.0)
+    assert row._sb_phase.maximum() == pytest.approx(180.0)
+    assert row._sb_phase.value() == pytest.approx(np.rad2deg(1.234567))
+    assert row._lb_phase_conversion.text() == "= 1.234567 rad"
+    assert changed == [0, 0]
+
+    row._sb_phase.setValue(-45.0)
+
+    assert row.phase == pytest.approx(-np.pi / 4.0)
+    assert row._lb_phase_conversion.text() == "= -0.785398 rad"
+    assert changed == [0, 0, 0]
+    row.close()
 
 
 def test_planewave_recipe_survives_uds_hdf5_round_trip(tmp_path) -> None:

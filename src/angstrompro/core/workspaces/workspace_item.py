@@ -14,6 +14,26 @@ from angstrompro.core.data.base import WorkspaceData
 from angstrompro.core.data.annotation_data import AnnotationData
 
 
+def derived_process_alias(primary_item, output_name: str) -> str:
+    """Build an output alias from a primary input's explicit alias.
+
+    Only exact-name and delimiter-prefixed suffix relationships are accepted.
+    This keeps aliases predictable and avoids labelling unrelated outputs as
+    though they were simple derivatives of the input.
+    """
+    if primary_item is None or not getattr(primary_item, "alias", ""):
+        return ""
+    input_name = primary_item.name
+    if output_name == input_name:
+        return primary_item.alias
+    if not input_name or not output_name.startswith(input_name):
+        return ""
+    suffix = output_name[len(input_name):]
+    if not suffix.startswith(("_", "-", " ", ".", "[", "(")):
+        return ""
+    return primary_item.alias + suffix
+
+
 @dataclass
 class WorkspaceItem:
     """A single data item held inside a Workspace.

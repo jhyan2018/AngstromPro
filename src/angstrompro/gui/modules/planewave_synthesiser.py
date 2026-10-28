@@ -10,9 +10,9 @@ Allows the user to compose a 2-D image as a sum of plane waves:
 
     f(x,y) = Σ_j  A_j · cos(2π(qx_j·X + qy_j·Y)/size − φ_j)
 
-Each wave is controlled by a WaveVectorRow widget (qx, qy, amplitude slider,
-phase slider).  The composite image updates live in an ImageStackViewerWidget
-on every parameter change.
+Each wave is controlled by a WaveVectorRow widget (qx, qy, amplitude, and
+phase).  The composite image updates live in an ImageStackViewerWidget on
+every parameter change.
 
 The actual sinusoidal kernel comes from the registered process
 ``simulate.sinusoidal2d`` (angstrompro.algorithms.simulate._sinusoidal2d)
@@ -25,7 +25,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from angstrompro.utils.qt_compat import QtCore, QtWidgets, Signal, Horizontal, ScrollBarAlwaysOn
+from angstrompro.utils.qt_compat import (
+    QtCore,
+    QtWidgets,
+    ScrollBarAlwaysOn,
+    Signal,
+)
 from angstrompro.core.modules.a_gui_module import AGuiModule
 from angstrompro.core.modules.a_module_manager import register_module
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
@@ -41,7 +46,8 @@ from angstrompro.algorithms.simulate import _sinusoidal2d
 
 _SOURCE = "planewave_synthesiser"
 _RECIPE_INFO_KEY = "planewave"
-_RECIPE_SCHEMA_VERSION = 1
+_RECIPE_SCHEMA_VERSION = 2
+_SUPPORTED_RECIPE_SCHEMA_VERSIONS = frozenset({1, _RECIPE_SCHEMA_VERSION})
 _SYNTHESIS_EQUATION = (
     r"$f(x,y)=\sum_j A_j\cos\!\left["
     r"\frac{2\pi}{N}\left(q_{x,j}x+q_{y,j}y\right)-\phi_j"
@@ -55,29 +61,19 @@ class WaveVectorSettings:
 
     qx: float = 0.0
     qy: float = 0.0
-    amplitude_min: float = 0.0
-    amplitude_max: float = 1.0
-    amplitude_slider: int = 100
-    phase_min: float = -3.14
-    phase_max: float = 3.14
-    phase_slider: int = 50
+    amplitude: float = 1.0
+    phase: float = 0.0
 
-    @property
-    def amplitude(self) -> float:
-        fraction = self.amplitude_slider / 100.0
-        return round(
-            (self.amplitude_max - self.amplitude_min) * fraction
-            + self.amplitude_min,
-            6,
-        )
 
-    @property
-    def phase(self) -> float:
-        fraction = self.phase_slider / 100.0
-        return round(
-            (self.phase_max - self.phase_min) * fraction + self.phase_min,
-            6,
-        )
+def _normalise_phase(value: float) -> float:
+    """Return an equivalent phase in the principal interval [-pi, pi]."""
+    if -np.pi <= value <= np.pi:
+        return float(value)
+    phase = float(np.arctan2(np.sin(value), np.cos(value)))
+    # Preserve positive pi at the upper endpoint instead of displaying -pi.
+    if np.isclose(phase, -np.pi) and value > 0:
+        return float(np.pi)
+    return phase
 
 
 def _wave_settings_to_recipe(
@@ -91,12 +87,8 @@ def _wave_settings_to_recipe(
             {
                 "qx": wave.qx,
                 "qy": wave.qy,
-                "amplitude_min": wave.amplitude_min,
-                "amplitude_max": wave.amplitude_max,
-                "amplitude_slider": wave.amplitude_slider,
-                "phase_min": wave.phase_min,
-                "phase_max": wave.phase_max,
-                "phase_slider": wave.phase_slider,
+                "amplitude": wave.amplitude,
+                "phase": _normalise_phase(wave.phase),
             }
             for wave in waves
         ],
@@ -108,7 +100,8 @@ def _recipe_to_wave_settings(
 ) -> tuple[int, tuple[WaveVectorSettings, ...]]:
     if not isinstance(recipe, Mapping):
         raise ValueError("The planewave synthesis recipe is missing.")
-    if recipe.get("schema_version") != _RECIPE_SCHEMA_VERSION:
+    schema_version = recipe.get("schema_version")
+    if schema_version not in _SUPPORTED_RECIPE_SCHEMA_VERSIONS:
         raise ValueError(
             "This planewave synthesis recipe uses an unsupported schema version."
         )
@@ -157,29 +150,37 @@ def _recipe_to_wave_settings(
     for document in wave_documents:
         if not isinstance(document, Mapping):
             raise ValueError("Invalid planewave recipe wave entry.")
+        qx = finite_number(document, "qx", defaults.qx)
+        qy = finite_number(document, "qy", defaults.qy)
+        if schema_version == 1:
+            amplitude_min = finite_number(document, "amplitude_min", 0.0)
+            amplitude_max = finite_number(document, "amplitude_max", 1.0)
+            amplitude_slider = integer_value(
+                document, "amplitude_slider", minimum=0, maximum=100)
+            phase_min = finite_number(document, "phase_min", -3.14)
+            phase_max = finite_number(document, "phase_max", 3.14)
+            phase_slider = integer_value(
+                document, "phase_slider", minimum=0, maximum=100)
+            amplitude = round(
+                (amplitude_max - amplitude_min)
+                * (amplitude_slider / 100.0)
+                + amplitude_min,
+                6,
+            )
+            phase = round(
+                (phase_max - phase_min) * (phase_slider / 100.0)
+                + phase_min,
+                6,
+            )
+        else:
+            amplitude = finite_number(
+                document, "amplitude", defaults.amplitude)
+            phase = finite_number(document, "phase", defaults.phase)
         waves.append(WaveVectorSettings(
-            qx=finite_number(document, "qx", defaults.qx),
-            qy=finite_number(document, "qy", defaults.qy),
-            amplitude_min=finite_number(
-                document, "amplitude_min", defaults.amplitude_min),
-            amplitude_max=finite_number(
-                document, "amplitude_max", defaults.amplitude_max),
-            amplitude_slider=integer_value(
-                document,
-                "amplitude_slider",
-                minimum=0,
-                maximum=100,
-            ),
-            phase_min=finite_number(
-                document, "phase_min", defaults.phase_min),
-            phase_max=finite_number(
-                document, "phase_max", defaults.phase_max),
-            phase_slider=integer_value(
-                document,
-                "phase_slider",
-                minimum=0,
-                maximum=100,
-            ),
+            qx=qx,
+            qy=qy,
+            amplitude=amplitude,
+            phase=_normalise_phase(phase),
         ))
     return image_size, tuple(waves)
 
@@ -231,13 +232,7 @@ class WaveVectorRow(QtWidgets.QWidget):
         self.qy        = 0.0
         self.amplitude = 1.0
         self.phase     = 0.0
-        self._amplitude_min = 0.0
-        self._amplitude_max = 1.0
-        self._phase_min = -3.14
-        self._phase_max = 3.14
         self._build_ui()
-        self._refresh_amplitude()
-        self._refresh_phase()
 
     # ── construction ─────────────────────────────────────────────────────
 
@@ -254,67 +249,52 @@ class WaveVectorRow(QtWidgets.QWidget):
         vector_row.setSpacing(5)
         vector_row.addWidget(QtWidgets.QLabel("qx"))
         self._le_qx = QtWidgets.QLineEdit("0")
-        self._le_qx.setFixedWidth(52)
+        self._le_qx.setFixedWidth(82)
         self._le_qx.editingFinished.connect(self._on_qx)
         vector_row.addWidget(self._le_qx)
         vector_row.addSpacing(12)
         vector_row.addWidget(QtWidgets.QLabel("qy"))
         self._le_qy = QtWidgets.QLineEdit("0")
-        self._le_qy.setFixedWidth(52)
+        self._le_qy.setFixedWidth(82)
         self._le_qy.editingFinished.connect(self._on_qy)
         vector_row.addWidget(self._le_qy)
         vector_row.addSpacing(12)
         vector_row.addWidget(QtWidgets.QLabel("A"))
-        self._le_amp_val = QtWidgets.QLineEdit()
-        self._le_amp_val.setFixedWidth(60)
-        self._le_amp_val.setReadOnly(True)
-        vector_row.addWidget(self._le_amp_val)
-        vector_row.addSpacing(12)
-        vector_row.addWidget(QtWidgets.QLabel("φ"))
-        self._le_ph_val = QtWidgets.QLineEdit()
-        self._le_ph_val.setFixedWidth(60)
-        self._le_ph_val.setReadOnly(True)
-        vector_row.addWidget(self._le_ph_val)
+        self._sb_amplitude = QtWidgets.QDoubleSpinBox()
+        self._sb_amplitude.setRange(-1.0e12, 1.0e12)
+        self._sb_amplitude.setDecimals(6)
+        self._sb_amplitude.setSingleStep(0.01)
+        self._sb_amplitude.setValue(1.0)
+        self._sb_amplitude.setKeyboardTracking(False)
+        self._sb_amplitude.setMinimumWidth(140)
+        self._sb_amplitude.valueChanged.connect(self._on_amplitude)
+        vector_row.addWidget(self._sb_amplitude)
         vector_row.addStretch()
         outer.addLayout(vector_row)
 
-        controls = QtWidgets.QGridLayout()
-        controls.setHorizontalSpacing(5)
-        controls.setVerticalSpacing(5)
-
-        controls.addWidget(QtWidgets.QLabel("A range"), 0, 0)
-        self._le_amp_min = QtWidgets.QLineEdit("0")
-        self._le_amp_min.setFixedWidth(104)
-        self._le_amp_min.editingFinished.connect(self._refresh_amplitude)
-        controls.addWidget(self._le_amp_min, 0, 1)
-        self._sl_amp = QtWidgets.QSlider(Horizontal)
-        self._sl_amp.setRange(0, 100)
-        self._sl_amp.setValue(100)
-        self._sl_amp.setFixedWidth(140)
-        self._sl_amp.valueChanged.connect(self._refresh_amplitude)
-        controls.addWidget(self._sl_amp, 0, 2)
-        self._le_amp_max = QtWidgets.QLineEdit("1")
-        self._le_amp_max.setFixedWidth(104)
-        self._le_amp_max.editingFinished.connect(self._refresh_amplitude)
-        controls.addWidget(self._le_amp_max, 0, 3)
-
-        controls.addWidget(QtWidgets.QLabel("φ range"), 1, 0)
-        self._le_ph_min = QtWidgets.QLineEdit("-3.14")
-        self._le_ph_min.setFixedWidth(104)
-        self._le_ph_min.editingFinished.connect(self._refresh_phase)
-        controls.addWidget(self._le_ph_min, 1, 1)
-        self._sl_ph = QtWidgets.QSlider(Horizontal)
-        self._sl_ph.setRange(0, 100)
-        self._sl_ph.setValue(50)
-        self._sl_ph.setFixedWidth(140)
-        self._sl_ph.valueChanged.connect(self._refresh_phase)
-        controls.addWidget(self._sl_ph, 1, 2)
-        self._le_ph_max = QtWidgets.QLineEdit("3.14")
-        self._le_ph_max.setFixedWidth(104)
-        self._le_ph_max.editingFinished.connect(self._refresh_phase)
-        controls.addWidget(self._le_ph_max, 1, 3)
-        controls.setColumnStretch(4, 1)
-        outer.addLayout(controls)
+        phase_row = QtWidgets.QHBoxLayout()
+        phase_row.setSpacing(5)
+        phase_row.addWidget(QtWidgets.QLabel("φ"))
+        self._cb_phase_unit = QtWidgets.QComboBox()
+        self._cb_phase_unit.addItems(["rad", "deg"])
+        self._cb_phase_unit.setFixedWidth(
+            max(88, self._cb_phase_unit.sizeHint().width() + 12))
+        phase_row.addWidget(self._cb_phase_unit)
+        self._sb_phase = QtWidgets.QDoubleSpinBox()
+        self._sb_phase.setDecimals(6)
+        self._sb_phase.setWrapping(True)
+        self._sb_phase.setKeyboardTracking(False)
+        self._sb_phase.setMinimumWidth(140)
+        self._sb_phase.valueChanged.connect(self._on_phase)
+        phase_row.addWidget(self._sb_phase)
+        self._lb_phase_conversion = QtWidgets.QLabel()
+        self._lb_phase_conversion.setMinimumWidth(112)
+        phase_row.addWidget(self._lb_phase_conversion)
+        self._cb_phase_unit.currentTextChanged.connect(
+            self._on_phase_unit_changed)
+        self._sync_phase_editor()
+        phase_row.addStretch()
+        outer.addLayout(phase_row)
 
     # ── slots ─────────────────────────────────────────────────────────────
 
@@ -332,76 +312,67 @@ class WaveVectorRow(QtWidgets.QWidget):
             pass
         self.paramsChanged.emit(self._index)
 
-    def _refresh_amplitude(self) -> None:
-        try:
-            lo = float(self._le_amp_min.text())
-            hi = float(self._le_amp_max.text())
-        except ValueError:
-            return
-        self._amplitude_min = lo
-        self._amplitude_max = hi
-        pct = self._sl_amp.value() / 100.0
-        self.amplitude = round((hi - lo) * pct + lo, 6)
-        self._le_amp_val.setText(str(self.amplitude))
+    def _on_amplitude(self, value: float) -> None:
+        self.amplitude = float(value)
         self.paramsChanged.emit(self._index)
 
-    def _refresh_phase(self) -> None:
-        try:
-            lo = float(self._le_ph_min.text())
-            hi = float(self._le_ph_max.text())
-        except ValueError:
-            return
-        self._phase_min = lo
-        self._phase_max = hi
-        pct = self._sl_ph.value() / 100.0
-        self.phase = round((hi - lo) * pct + lo, 6)
-        self._le_ph_val.setText(str(self.phase))
+    def _on_phase(self, value: float) -> None:
+        if self._cb_phase_unit.currentText() == "deg":
+            self.phase = _normalise_phase(float(np.deg2rad(value)))
+        else:
+            self.phase = _normalise_phase(float(value))
+        self._update_phase_conversion()
         self.paramsChanged.emit(self._index)
+
+    def _on_phase_unit_changed(self, _unit: str) -> None:
+        self._sync_phase_editor()
+
+    def _sync_phase_editor(self) -> None:
+        with QtCore.QSignalBlocker(self._sb_phase):
+            if self._cb_phase_unit.currentText() == "deg":
+                self._sb_phase.setRange(-180.0, 180.0)
+                self._sb_phase.setSingleStep(1.0)
+                self._sb_phase.setValue(float(np.rad2deg(self.phase)))
+            else:
+                self._sb_phase.setRange(-float(np.pi), float(np.pi))
+                self._sb_phase.setSingleStep(0.01)
+                self._sb_phase.setValue(self.phase)
+        self._update_phase_conversion()
+
+    def _update_phase_conversion(self) -> None:
+        if self._cb_phase_unit.currentText() == "deg":
+            text = f"= {self.phase:.6f} rad"
+        else:
+            text = f"= {np.rad2deg(self.phase):.3f}°"
+        self._lb_phase_conversion.setText(text)
 
     def wave_settings(self) -> WaveVectorSettings:
         return WaveVectorSettings(
             qx=self.qx,
             qy=self.qy,
-            amplitude_min=self._amplitude_min,
-            amplitude_max=self._amplitude_max,
-            amplitude_slider=self._sl_amp.value(),
-            phase_min=self._phase_min,
-            phase_max=self._phase_max,
-            phase_slider=self._sl_ph.value(),
+            amplitude=self.amplitude,
+            phase=self.phase,
         )
 
     def set_wave_settings(self, settings: WaveVectorSettings) -> None:
         widgets = (
             self._le_qx,
             self._le_qy,
-            self._le_amp_min,
-            self._le_amp_max,
-            self._sl_amp,
-            self._le_ph_min,
-            self._le_ph_max,
-            self._sl_ph,
+            self._sb_amplitude,
+            self._cb_phase_unit,
+            self._sb_phase,
         )
         blockers = [QtCore.QSignalBlocker(widget) for widget in widgets]
         try:
             self.qx = settings.qx
             self.qy = settings.qy
-            self._amplitude_min = settings.amplitude_min
-            self._amplitude_max = settings.amplitude_max
-            self._phase_min = settings.phase_min
-            self._phase_max = settings.phase_max
+            self.amplitude = settings.amplitude
+            self.phase = _normalise_phase(settings.phase)
 
             self._le_qx.setText(str(settings.qx))
             self._le_qy.setText(str(settings.qy))
-            self._le_amp_min.setText(str(settings.amplitude_min))
-            self._le_amp_max.setText(str(settings.amplitude_max))
-            self._sl_amp.setValue(settings.amplitude_slider)
-            self.amplitude = settings.amplitude
-            self._le_amp_val.setText(str(self.amplitude))
-            self._le_ph_min.setText(str(settings.phase_min))
-            self._le_ph_max.setText(str(settings.phase_max))
-            self._sl_ph.setValue(settings.phase_slider)
-            self.phase = settings.phase
-            self._le_ph_val.setText(str(self.phase))
+            self._sb_amplitude.setValue(self.amplitude)
+            self._sync_phase_editor()
         finally:
             del blockers
 
@@ -577,7 +548,7 @@ class PlanewaveSynthesiser(AGuiModule):
         recipe = info.get(_RECIPE_INFO_KEY)
         if not isinstance(recipe, Mapping):
             return None
-        if recipe.get("schema_version") != _RECIPE_SCHEMA_VERSION:
+        if recipe.get("schema_version") not in _SUPPORTED_RECIPE_SCHEMA_VERSIONS:
             return None
         return recipe
 

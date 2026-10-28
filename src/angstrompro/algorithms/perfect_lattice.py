@@ -8,6 +8,7 @@ from angstrompro.core.data.annotation_data import PointSetData
 from angstrompro.core.data.uds_data import UdsDataStru
 from angstrompro.core.processes import (
     AnnotationSpec,
+    DATA_DOMAIN_REAL_SPACE,
     InputSpec,
     OutputSpec,
     ParameterSpec,
@@ -31,10 +32,10 @@ _SCHEMA = ProcessSchema(
             name="data",
             type_id="uds",
             label="Real-space Image Stack",
-            description="Real-space UDS (layers × rows × cols). Bragg peaks use "
-            "shifted-FFT pixel coordinates but remain annotations on their "
-            "existing owner; workflows may bind that owner separately.",
+            description="Real-space UDS (layers × rows × cols) carrying the "
+            "matching bragg_peaks annotation.",
             ndim=3,
+            data_domain=DATA_DOMAIN_REAL_SPACE,
         ),
     ],
     outputs=[
@@ -43,6 +44,7 @@ _SCHEMA = ProcessSchema(
             ndim=3,
             label="Image Stack",
             description="Affine-corrected real-space image stack.",
+            data_domain=DATA_DOMAIN_REAL_SPACE,
         ),
     ],
     params=[

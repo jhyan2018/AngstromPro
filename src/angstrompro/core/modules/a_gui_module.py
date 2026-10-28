@@ -378,16 +378,21 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
 
     def _on_process_menu_triggered(self, process_name: str) -> None:
         from angstrompro.gui.dialogs.process_param_dialog import ProcessParamDialog
+        from angstrompro.core.processes import select_compatible_input_items
         entry = self._context.processes.get(process_name)
 
-        # Validate process_inputs before opening the param dialog
-        ok, msg = self._validate_process_inputs(entry)
+        ws_items = self.accessible_workspace_items()
+        pre_staged = select_compatible_input_items(
+            entry.schema.inputs,
+            self.process_inputs,
+            ws_items,
+        )
+        # Validate the domain-aware selection before opening the dialog.
+        ok, msg = self._validate_process_inputs(entry, pre_staged)
         if not ok:
             QtWidgets.QMessageBox.warning(self, "Input data not ready", msg)
             return
 
-        pre_staged   = self.process_inputs[:len(entry.schema.inputs)]
-        ws_items     = self.accessible_workspace_items()
         dlg = ProcessParamDialog(
             entry, self._context, parent=self,
             input_items=pre_staged, workspace_items=ws_items,
@@ -396,7 +401,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             params      = dlg.params()
             self.submit_process(process_name, dlg.input_items(), params)
 
-    def _validate_process_inputs(self, entry) -> tuple[bool, str]:
+    def _validate_process_inputs(
+            self, entry, input_items=None) -> tuple[bool, str]:
         """
         Check that process_inputs satisfies entry.schema.inputs.
 
@@ -408,19 +414,23 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
         if not specs:
             return True, ""   # 0-input process — always valid
 
-        n_required = sum(1 for s in specs if s.required)
-        staged = self.process_inputs
+        staged = list(self.process_inputs if input_items is None else input_items)
 
-        if len(staged) < n_required:
-            req_names = ", ".join(f"'{s.name}'" for s in specs if s.required)
-            return (
-                False,
-                f"'{entry.label}' needs {n_required} required input(s) "
-                f"({req_names}), but only {len(staged)} item(s) are staged.\n\n"
-                f"Load or select the required data first.",
-            )
-
-        for i, (spec, item) in enumerate(zip(specs, staged)):
+        for i, spec in enumerate(specs):
+            item = staged[i] if i < len(staged) else None
+            if item is None:
+                if not spec.required:
+                    continue
+                domain = (
+                    ""
+                    if spec.data_domain == "any"
+                    else f" {spec.data_domain.replace('_', '-')}"
+                )
+                return (
+                    False,
+                    f"Input slot {i+1} ('{spec.name}') needs a compatible"
+                    f"{domain} item. Load or select the required data first.",
+                )
             # type_id check
             if spec.type_id and item.type_id != spec.type_id:
                 return (
@@ -438,6 +448,13 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
                         f"Input slot {i+1} ('{spec.name}') expects {spec.ndim}D data, "
                         f"but staged item '{item.name}' has {actual_ndim}D data.",
                     )
+            if not spec.accepts(item.payload):
+                required = spec.data_domain.replace("_", "-")
+                return (
+                    False,
+                    f"Input slot {i+1} ('{spec.name}') requires {required} "
+                    f"data, but staged item '{item.name}' is not compatible.",
+                )
 
         return True, ""
 
@@ -1692,23 +1709,9 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
     @staticmethod
     def _derived_process_alias(
             primary_item: WorkspaceItem | None, output_name: str) -> str:
-        """Build an output alias from a primary input's explicit alias.
-
-        Only exact-name and delimiter-prefixed suffix relationships are
-        accepted. This avoids inventing misleading aliases for outputs whose
-        names are unrelated to the primary input.
-        """
-        if primary_item is None or not primary_item.alias:
-            return ""
-        input_name = primary_item.name
-        if output_name == input_name:
-            return primary_item.alias
-        if not input_name or not output_name.startswith(input_name):
-            return ""
-        suffix = output_name[len(input_name):]
-        if not suffix.startswith(("_", "-", " ", ".", "[", "(")):
-            return ""
-        return primary_item.alias + suffix
+        """Compatibility wrapper around the shared workspace naming rule."""
+        from angstrompro.core.workspaces import derived_process_alias
+        return derived_process_alias(primary_item, output_name)
 
     def _dispatch_process_result(
             self, task_id: str, result: Any, callback: Callable,
@@ -1754,10 +1757,8 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             if owner is not None:
                 owner.notify_changed(primary_item.name)
         if primary_item is not None and structured.annotations:
-            primary_item.annotations.update(structured.annotations)
-            owner = self.workspace_containing_item(primary_item)
-            if owner is not None:
-                owner.notify_changed(primary_item.name)
+            for role, annotation in structured.annotations.items():
+                self._apply_annotation_output(primary_item, role, annotation)
         added_items = [
             item
             for workspace in workspaces
@@ -1765,6 +1766,55 @@ class AGuiModule(ModuleMixin, QtWidgets.QMainWindow):
             if item.item_id not in before_ids
         ]
         self._apply_process_result_aliases(input_items, result, added_items)
+
+    def _annotation_output_targets(
+            self, primary_item: WorkspaceItem, role: str) -> list[WorkspaceItem]:
+        """Return item-local targets for one annotation output.
+
+        Bragg coordinates describe reciprocal-space pixels, but established
+        real-space processes also consume them.  An FFT item and its source
+        therefore receive equivalent copies at the moment the annotation is
+        created.  Other annotation roles remain local to the primary item.
+        """
+        targets = [primary_item]
+        if role != "bragg_peaks":
+            return targets
+
+        from angstrompro.core.data.uds_data import is_fft_uds, fft_source_name
+
+        payload = primary_item.payload
+        counterpart = None
+        if is_fft_uds(payload):
+            source_name = fft_source_name(payload)
+            if source_name:
+                counterpart = self.find_accessible_item(
+                    source_name, preferred_item=primary_item)
+        else:
+            for candidate in self.accessible_workspace_items():
+                if (candidate.item_id != primary_item.item_id
+                        and is_fft_uds(candidate.payload)
+                        and fft_source_name(candidate.payload)
+                        == primary_item.name):
+                    counterpart = candidate
+                    break
+        if (counterpart is not None
+                and counterpart.item_id != primary_item.item_id):
+            targets.append(counterpart)
+        return targets
+
+    def _apply_annotation_output(
+            self, primary_item: WorkspaceItem, role: str, annotation) -> None:
+        """Apply an annotation and notify every item in its ownership pair."""
+        from copy import deepcopy
+
+        for index, target in enumerate(
+                self._annotation_output_targets(primary_item, role)):
+            target.annotations[role] = (
+                annotation if index == 0 else deepcopy(annotation)
+            )
+            owner = self.workspace_containing_item(target)
+            if owner is not None:
+                owner.notify_changed(target.name)
 
     def _apply_process_result_aliases(
             self, input_items: list[WorkspaceItem], result: Any,

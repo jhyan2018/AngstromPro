@@ -13,6 +13,86 @@ from typing import Any
 from angstrompro.core.data.uds_data import AxisType
 
 
+DATA_DOMAIN_ANY = "any"
+DATA_DOMAIN_REAL_SPACE = "real_space"
+DATA_DOMAIN_RECIPROCAL_SPACE = "reciprocal_space"
+DATA_DOMAINS = {
+    DATA_DOMAIN_ANY,
+    DATA_DOMAIN_REAL_SPACE,
+    DATA_DOMAIN_RECIPROCAL_SPACE,
+}
+
+
+def payload_data_domain(payload) -> str:
+    """Return the semantic domain of a UDS payload."""
+    from angstrompro.core.data.uds_data import UdsDataStru, is_fft_uds
+
+    if not isinstance(payload, UdsDataStru):
+        return DATA_DOMAIN_ANY
+    return (
+        DATA_DOMAIN_RECIPROCAL_SPACE
+        if is_fft_uds(payload) else DATA_DOMAIN_REAL_SPACE
+    )
+
+
+def data_domain_matches(payload, required: str) -> bool:
+    """Return whether *payload* satisfies an opt-in domain requirement."""
+    return (
+        required == DATA_DOMAIN_ANY
+        or payload_data_domain(payload) == required
+    )
+
+
+def data_domains_compatible(required: str, produced: str) -> bool:
+    """Compare schema domains without needing a concrete payload."""
+    return (
+        required == DATA_DOMAIN_ANY
+        or produced == DATA_DOMAIN_ANY
+        or required == produced
+    )
+
+
+def select_compatible_input_items(
+    input_specs,
+    preferred_items,
+    available_items,
+) -> list:
+    """Resolve each input port without changing legacy ``any`` preference.
+
+    Positional staged items remain preferred.  When a staged item does not
+    satisfy an opt-in domain, another staged or accessible compatible item is
+    selected instead.
+    """
+    preferred = list(preferred_items or [])
+    candidates = []
+    seen = set()
+    for item in [*preferred, *(available_items or [])]:
+        if item is None or item.item_id in seen:
+            continue
+        candidates.append(item)
+        seen.add(item.item_id)
+
+    selected = []
+    used = set()
+    for index, spec in enumerate(input_specs):
+        positional = preferred[index] if index < len(preferred) else None
+        if (positional is not None and positional.item_id not in used
+                and spec.accepts(positional.payload)):
+            choice = positional
+        else:
+            choice = next(
+                (
+                    item for item in candidates
+                    if item.item_id not in used and spec.accepts(item.payload)
+                ),
+                None,
+            )
+        selected.append(choice)
+        if choice is not None:
+            used.add(choice.item_id)
+    return selected
+
+
 @dataclass
 class AnnotationSpec:
     """Describes one annotation input required by a process.
@@ -74,6 +154,7 @@ class InputSpec:
     ndim:        int | None         = None  # required array dimensionality; None = any
     required:    bool               = True  # False = optional input; process receives None if absent
     axis_types:  dict[int, AxisType] | None = None
+    data_domain: str                = DATA_DOMAIN_ANY
     # Optional loose axis-type hints, keyed by axis index (negative allowed).
     # e.g. {-1: AxisType.BIAS} — shown in process browser; logged as warning if mismatch.
     # Never blocks execution.
@@ -81,6 +162,23 @@ class InputSpec:
     def __post_init__(self) -> None:
         if not self.label:
             self.label = self.name.replace("_", " ").title()
+        if self.data_domain not in DATA_DOMAINS:
+            raise ValueError(
+                "data_domain must be 'any', 'real_space', or "
+                "'reciprocal_space'"
+            )
+
+    def accepts(self, payload) -> bool:
+        """Return whether a concrete payload satisfies this input port."""
+        if payload is None:
+            return not self.required
+        if self.type_id and getattr(payload, "type_id", "") != self.type_id:
+            return False
+        if self.ndim is not None:
+            actual_ndim = getattr(getattr(payload, "data", None), "ndim", None)
+            if actual_ndim is not None and actual_ndim != self.ndim:
+                return False
+        return data_domain_matches(payload, self.data_domain)
 
 
 @dataclass
@@ -122,10 +220,16 @@ class OutputSpec:
     label:       str       = ""
     description: str       = ""
     name:        str       = "data"
+    data_domain: str       = DATA_DOMAIN_ANY
 
     def __post_init__(self) -> None:
         if not self.label:
             self.label = self.type_id
+        if self.data_domain not in DATA_DOMAINS:
+            raise ValueError(
+                "data_domain must be 'any', 'real_space', or "
+                "'reciprocal_space'"
+            )
 
 
 class ProcessSchema:
