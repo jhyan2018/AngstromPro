@@ -37,7 +37,8 @@ annotation class and declare it through `AnnotationSpec`.
 
 `ScenePlot` represents an editable curve-plot scene, including artists and
 style state. It is a composite `WorkspaceData` payload: its artist
-specifications can wrap `UdsDataStru` instances and other elementary plot data.
+specifications may contain one or more UDS datasets (`UdsDataStru` instances)
+and other elementary plot data.
 It uses the `scene_plot` type ID, and `.scplot` persistence is handled through
 the normal I/O registry.
 

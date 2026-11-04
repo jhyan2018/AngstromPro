@@ -2,129 +2,153 @@
 
 ## Installation is rejected because of the Python version
 
-AngstromPro requires Python 3.10 or newer. Pip will intentionally reject an
-older interpreter with an error such as:
+AngstromPro requires Python 3.10 or newer. Check the interpreter used for
+installation:
 
 ```text
-Package 'angstrompro' requires a different Python: 3.9.x not in '>=3.10'
+python --version
+python -c "import sys; print(sys.executable)"
 ```
 
-Do not bypass this check or edit `requires-python`. Create a current environment
-and install AngstromPro there:
+Use `python3` where appropriate. If the interpreter is too old, select an
+existing compatible environment or follow
+[Creating a separate environment](getting-started.md#creating-a-separate-environment).
+
+Do not bypass the package's Python-version requirement.
+
+## macOS: Qt or Cocoa platform-plugin errors
+
+Confirm that installation and launch use the same Python environment:
 
 ```bash
-conda create -n angstrompro python=3.12 pip
-conda activate angstrompro
-cd path/to/AngstromPro
-python -m pip install ".[pyqt5]"
+python3 -c "import sys, platform; print(sys.executable); print(platform.machine())"
 ```
 
-This example chooses PyQt5; PyQt6 and PySide6 are equally supported choices in
-a clean environment. Install only one.
+For a native setup, use ARM64 Python on Apple Silicon and x86_64 Python on
+Intel. Keep Python and its compiled dependencies in the same architecture.
 
-An old Spyder application can sometimes connect to this environment through
-**Preferences → Python interpreter**. If its required `spyder-kernels` version
-does not support the newer Python, update Spyder or install a current Anaconda
-or standalone Spyder release. Avoid upgrading the Python interpreter inside an
-old base environment in place.
+Qt loading can also fail when the environment contains conflicting Qt
+libraries or when `QT_PLUGIN_PATH` or `QT_QPA_PLATFORM_PLUGIN_PATH` points
+to another installation.
 
-## Qt DLL load failure in Anaconda or Spyder on Windows
+If using Spyder, check its console environment and reuse the binding already
+loaded there. If conflicts persist, use a separate environment with one
+supported Qt binding.
 
-An error such as the following means that Python found a Qt binding but Windows
-loaded an incompatible Qt DLL:
+See the [macOS installation instructions](getting-started.md#macos).
+
+## Windows: Qt DLL loading errors
+
+An error such as `DLL load failed while importing QtCore` can indicate
+incompatible Qt libraries or a DLL search path pointing to another installation.
+
+First confirm the interpreter path and available bindings using the
+[environment checks](getting-started.md#check-your-python-environment).
+
+If the Spyder console already uses PyQt5, install AngstromPro without a Qt
+extra. Adding PyQt6 does not replace PyQt5 within the running console and
+can introduce conflicting libraries.
+
+Do not remove packages required by Spyder or other applications without
+checking their dependencies. If the current environment cannot load Qt
+reliably, use a separate environment with one supported binding.
+
+See the [Windows installation instructions](getting-started.md#windows).
+
+## Linux: environment or Qt display errors
+
+If pip reports `externally-managed-environment`, select an environment
+managed by your preferred tool or follow
+[Creating a separate environment](getting-started.md#creating-a-separate-environment).
+
+AngstromPro requires a graphical desktop session. If Qt reports a missing
+display plugin or shared library, check the detailed error and install the
+required system packages using your distribution's package manager.
+
+Pip installs Python dependencies but does not install operating-system
+packages.
+
+See the [Linux installation instructions](getting-started.md#linux).
+
+## The angstrompro command is not found
+
+Activate the environment used for installation and check:
 
 ```text
-ImportError: DLL load failed while importing QtCore:
-The specified procedure could not be found.
-```
-
-This commonly happens when pip's PyQt6 is installed into an Anaconda base or
-Spyder environment that already contains PyQt5, PySide6, or Conda's own Qt
-libraries. Installing several bindings does not make them interchangeable;
-Windows may resolve a DLL belonging to a different Qt build.
-
-The recommended solution is a dedicated environment:
-
-```bat
-conda create -n angstrompro python=3.12 pip
-conda activate angstrompro
-cd path\to\AngstromPro
-python -m pip install ".[pyqt5]"
-angstrompro
-```
-
-If AngstromPro must run in the same environment as Spyder, use the Qt binding
-already required by Spyder. For an environment whose working binding is
-PyQt5, remove the conflicting pip-installed PyQt6 packages and reinstall the
-PyQt5 extra:
-
-```bat
-python -m pip uninstall PyQt6 PyQt6-Qt6 PyQt6-sip
-cd path\to\AngstromPro
-python -m pip install ".[pyqt5]"
-angstrompro
-```
-
-Do not remove a binding required by other applications unless you have first
-confirmed which environment and binding they use. A dedicated AngstromPro
-environment avoids changing Spyder's dependencies.
-
-## The Qt Cocoa platform plugin is unavailable on macOS
-
-This error means Python passed the version check, but Qt cannot load its macOS
-window-system plugin:
-
-```text
-qt.qpa.plugin: Could not find the Qt platform plugin "cocoa"
-This application failed to start because no Qt platform plugin could be initialized.
-```
-
-It is usually caused by mixed Conda and pip Qt packages, multiple Qt bindings,
-or an environment variable pointing to another Qt installation. The preferred
-fix is a clean environment containing exactly one binding:
-
-```bash
-conda create -n angstrompro python=3.12 pip
-conda activate angstrompro
-cd path/to/AngstromPro
-python -m pip install ".[pyqt5]"
-angstrompro
-```
-
-If the error remains, check that `which python` and `which angstrompro` both
-refer to this environment. Inspect `env | grep -E '^(QT|DYLD)'`; stale
-`QT_PLUGIN_PATH` or `QT_QPA_PLATFORM_PLUGIN_PATH` values should not be carried
-from another Qt installation.
-
-## The `angstrompro` command is not found
-
-Activate the Python environment in which AngstromPro was installed, then run:
-
-```powershell
 python -m pip show angstrompro
 ```
 
-If it is absent, return to the repository root and install it again with the
-appropriate Qt extra.
+Use `python3` where appropriate.
+
+If AngstromPro is absent, install it following the instructions for your
+operating system. If it is present, check that the environment's executable
+directory is on your PATH.
+
+In Spyder, use the Python launch instructions in
+[Using Spyder](getting-started.md#using-spyder), rather than entering
+`angstrompro` as a Python statement.
 
 ## No Qt binding is available
 
-Install one supported binding. For example:
+Use the [environment checks](getting-started.md#check-your-python-environment)
+to identify bindings in the interpreter you intend to use.
 
-```powershell
-python -m pip install ".[pyqt5]"
+If the result is `[]`, follow the installation command for your operating
+system that includes a Qt extra. Select one of `pyqt5`, `pyqt6`, or `pyside6`.
+
+If one or more bindings are listed, avoid adding another one. Package
+detection does not guarantee that Qt can load; use the operating-system-specific
+guidance above if loading fails.
+
+## Spyder: check the console environment
+
+If AngstromPro fails to install or launch from Spyder, run the following
+Python code in Spyder's **IPython Console**, not in a system terminal:
+
+```python
+import sys
+
+print(sys.version)
+print(sys.executable)
+print([n for n in ("PyQt5", "PyQt6", "PySide6") if n in sys.modules])
 ```
 
-Alternatively use `.[pyqt6]` or `.[pyside6]`, but do not install the alternatives
-together.
+These outputs identify the console's Python version, interpreter path, and
+supported Qt bindings already loaded in the console's Python process, not all
+bindings installed in its environment. For example, `['PyQt5']` means PyQt5
+is already loaded. Spyder normally includes PyQt5 for its own interface, but
+its console may run in a separate environment. This check does not import
+another binding, avoiding IPython's protection against incompatible Qt imports.
 
-Inside an existing Spyder or Qt environment, first confirm that its Python is
-3.10 or newer and identify its existing binding. Prefer that binding rather
-than adding a conflicting one; PyQt5 and PySide6 extras are available. When
-several bindings are installed, first install AngstromPro without a Qt extra
-and let it use the binding already loaded by Spyder. Move to a clean environment
-if Qt loading errors continue. Use `%pip` at a Spyder IPython prompt only after
-the console has been attached to the intended compatible environment.
+If the Python version is 3.10 or newer and a supported binding is listed,
+install AngstromPro without a Qt extra using the command in
+[Using Spyder](getting-started.md#using-spyder). If PyQt5 is already used by
+the console, do not add PyQt6 as a replacement. Use event-loop integration
+matching the loaded binding: the `%gui qt5` example in Getting started is for
+PyQt5, not a universal setting for all supported bindings.
+If several bindings appear as loaded, restart
+the kernel and avoid importing different bindings into the same process.
+
+If Python is older than 3.10, select a compatible interpreter in Spyder's
+Python interpreter settings or [create a separate environment](getting-started.md#creating-a-separate-environment).
+If the selected environment lacks a working Qt binding, use a suitable
+environment through the same interpreter settings rather than mixing bindings
+in the running console.
+If the binding list is empty (`[]`), none of these bindings has been loaded
+yet; this does not mean none is installed. Check installed packages before
+deciding whether a Qt extra is needed. You can run `%pip show PyQt5 PyQt6 PySide6`
+in the console to inspect package installation metadata without importing the
+bindings. Do not install another binding solely because this list is empty.
+An external environment also requires a `spyder-kernels` version compatible
+with your Spyder installation.
+
+This check is not a full test of AngstromPro or Qt compatibility. If launch
+still fails, consult the operating-system-specific sections above.
+For standalone Spyder installations, use an external environment for additional
+packages rather than modifying Spyder's bundled application environment.
+If the interpreter path contains `spyder-runtime`, it indicates that bundled
+runtime. Confirm that installation and launch use the interpreter
+reported by `sys.executable`, and restart the kernel after installation.
 
 ## Reopening AngstromPro in Spyder
 
@@ -147,20 +171,23 @@ Cancelling the dialog cancels application startup.
 ## A file or channel is missing
 
 1. Check **Help → Supported Formats…**.
-2. Confirm the format is enabled in Data Browser Preferences.
-3. Review channel mappings for multichannel instrument files.
-4. Re-render the thumbnail after changing mappings.
+2. In Data Browser, open **File → Preferences… → Watched formats** and
+   confirm that the format is checked.
+3. Review **File → Preferences… → Channels** in Main Workbench or Data Browser.
+4. After changing mappings, right-click the data thumbnail and choose
+   **Re-render thumbnail**.
 
 ## A process is missing
 
-Open the Process Browser with `Ctrl+B`. If the process is registered, use
-**Configure Process Menu…** to add it to the current module type. A process may
+Open **Process → Process Browser…** or press `Ctrl+B`. If the process is registered, use
+**Process → Configure Process Menu…** to add it to the current module type. A process may
 also be hidden when strict compatibility filtering determines that its input
 requirements do not match the module.
 
 ## A plugin does not load
 
-Confirm that Preferences contains the plugin's `src/` folder and its importable
+In Main Workbench, open **File → Preferences… → Plugins** and confirm
+that it contains the plugin's `src/` folder and its importable
 top-level module name. Restart AngstromPro, then inspect the application log for
 the import error. When running inside Spyder, restart the Spyder kernel as well;
 merely closing and reopening the hosted AngstromPro session keeps previously

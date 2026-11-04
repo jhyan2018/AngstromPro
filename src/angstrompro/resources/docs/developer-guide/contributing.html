@@ -22,23 +22,35 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="contributing">Contributing</h1>
 <h2 id="development-installation">Development installation</h2>
-<p>Create or activate a Python 3.10+ environment, check which Qt binding it already
-contains, then install the checkout in editable mode. If one supported binding
-is already installed:</p>
-<pre><code class="language-powershell">python -m pip install -e &quot;.[full]&quot;
+<p>Use a Python 3.10 or newer environment. Before installing, check the interpreter
+and available Qt bindings as described in
+<a href="../user-guide/getting-started.html#check-your-python-environment">Getting started</a>.</p>
+<p>Run the following commands from the repository root, which contains
+<code>pyproject.toml</code>. Use <code>python3</code> instead of <code>python</code> where appropriate.</p>
+<p>If a supported Qt binding is already available, install in editable mode
+with the optional image-processing dependencies:</p>
+<pre><code class="language-text">python -m pip install -e &quot;.[full]&quot;
 </code></pre>
-<p>If no binding is installed, add exactly one of <code>pyqt5</code>, <code>pyqt6</code>, or <code>pyside6</code>
-to the extras, for example <code>python -m pip install -e ".[pyqt5,full]"</code>.</p>
-<p>Launch the installed entry point:</p>
-<pre><code class="language-powershell">angstrompro
+<p>If no supported Qt binding is available, include one Qt extra:</p>
+<pre><code class="language-text">python -m pip install -e &quot;.[pyqt5,full]&quot;
 </code></pre>
-<p>When Markdown documentation changes, rebuild the packaged offline HTML before
-committing:</p>
-<pre><code class="language-powershell">python -m pip install -e &quot;.[docs]&quot;
+<p>The example uses PyQt5. You can replace <code>pyqt5</code> with <code>pyqt6</code> or <code>pyside6</code>;
+choose only one Qt extra. If the development environment
+already uses PyQt5, such as a compatible Spyder console environment,
+reuse it rather than adding PyQt6.</p>
+<p>Editable installation uses the working source tree. Restart AngstromPro
+or the Spyder kernel after changing source code.</p>
+<p>Launch from a terminal:</p>
+<pre><code class="language-text">angstrompro
+</code></pre>
+<p>For launch within Spyder, follow
+<a href="../user-guide/getting-started.html#using-spyder">Using Spyder</a>.</p>
+<p>When Markdown documentation changes, rebuild the packaged offline HTML:</p>
+<pre><code class="language-text">python -m pip install -e &quot;.[docs]&quot;
 python tools/build_docs.py
 </code></pre>
-<p>The generated files under <code>src/angstrompro/resources/docs/</code> are displayed by
-<strong>Help → Documentation…</strong> and should remain synchronized with <code>docs/</code>.</p>
+<p>The generated files under <code>src/angstrompro/resources/docs/</code> are displayed
+by <strong>Help → Documentation…</strong> and must remain synchronized with <code>docs/</code>.</p>
 <h2 id="design-expectations">Design expectations</h2>
 <ul>
 <li>Keep scientific algorithms independent from Qt widgets.</li>
@@ -70,5 +82,29 @@ detailed guide.</p>
 <li>Validate Markdown links and update documentation.</li>
 <li>Confirm new files contain no credentials, personal data, or generated cache.</li>
 </ol>
-<p>Project-specific automated test and formatting commands should be documented
-here when they are added to the repository.</p></body></html>
+<h2 id="run-the-automated-tests">Run the automated tests</h2>
+<p>Complete the editable development installation above, including a working Qt
+binding and the optional image-processing dependencies. Install pytest in the
+same environment:</p>
+<pre><code class="language-text">python -m pip install pytest
+</code></pre>
+<p>Run the test suite from the repository root:</p>
+<pre><code class="language-text">python -m pytest -q -rs tests
+</code></pre>
+<p>The <code>-rs</code> option shows why tests were skipped. Tests that require an unavailable
+optional plugin, such as <code>myplugin.io</code>, may be skipped; review those reasons
+rather than treating a skipped test as a pass.</p>
+<p>For a headless run on macOS or Linux, use Qt's offscreen platform:</p>
+<pre><code class="language-bash">QT_QPA_PLATFORM=offscreen python -m pytest -q -rs tests
+</code></pre>
+<p>In Windows PowerShell, set the equivalent variable before running pytest:</p>
+<pre><code class="language-powershell">$env:QT_QPA_PLATFORM = &quot;offscreen&quot;
+python -m pytest -q -rs tests
+</code></pre>
+<p>An offscreen run does not replace interactive checks of rendering, window
+behaviour, or platform-specific installation. Test each supported Qt binding
+in a suitable separate environment when changing compatibility code.</p>
+<p>Before submitting, check the patch for whitespace errors:</p>
+<pre><code class="language-text">git diff --check
+</code></pre>
+<p>Rebuild the offline HTML after documentation changes using the command above.</p></body></html>

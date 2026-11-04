@@ -26,6 +26,169 @@ energy-resolved maps. It presents the <strong>Primary</strong> image beside a pe
 right-hand area that switches between <strong>Reference Image</strong> and <strong>Curve Preview</strong>
 without clearing either view. It also maintains a workspace for source data
 and results.</p>
+<p>Two-dimensional topographic images and single-energy dI/dV maps are treated
+as single-layer stacks: three-dimensional data with a stack dimension of size
+one, normally shaped <code>(1, rows, columns)</code>.</p>
+<h2 id="locate-the-image-controls">Locate the image controls</h2>
+<p>Open this module from Main Workbench with <strong>+ New Module → Basic → Image Stack
+Viewer</strong>, or click <strong>Show</strong> on its existing card. Open <strong>View → Workspace</strong> to
+see data items and <strong>View → Inspector</strong> to inspect a single-clicked item.
+If these docks overlap, switch using the <strong>Workspace</strong> / <strong>Inspector</strong> tabs.</p>
+<p>The <strong>Primary</strong> panel and the right-hand <strong>Reference Image</strong> tab each contain
+their own <strong>Select Variable</strong> button, <strong>Name</strong>, <strong>Type</strong>, <strong>Layer</strong>, <strong>Palette</strong>,
+and <strong>Picked Points</strong> controls. Single-click a Workspace item, then click
+<strong>Select Variable</strong> in the panel you want to assign; double-clicking a
+Workspace item activates Primary. A panel's <strong>Type</strong> dropdown and <strong>Layer</strong>
+spinbox affect that panel.</p>
+<p>Right-click the actual image to add a picked point. To remove one, single-click
+its row in that panel's <strong>Picked Points</strong> list and click <strong>Remove Point</strong>.
+Drag an existing marker with the left mouse button to reposition it.
+The <strong>Points</strong> menu stores these visual selections as process annotations;
+moving a marker afterward requires repeating the appropriate <strong>Points → Set…</strong>
+action. Right-clicking a Workspace row instead opens its item context menu.</p>
+<p>To the right of each canvas, <strong>Picked Points</strong> has a colour dropdown for
+markers and a display-mode dropdown with <strong>Points</strong>, <strong>Lines</strong>, <strong>Circle</strong>,
+and <strong>Region</strong>. With two points selected, these show the points alone, a
+connecting line, a circle (first point at its centre), or a rectangular region.
+The list below shows point coordinates; select a row before clicking
+<strong>Remove Point</strong>. Selecting a display mode does not assign a process annotation.</p>
+<p>Click <strong>Curve Preview</strong> in the right-hand tab area to access its <strong>Preview</strong>
+and <strong>X axis</strong> dropdowns and sampling controls. Click <strong>Reference Image</strong> to
+return to the second image. Synchronisation controls are under this viewer's
+<strong>File → Preferences… → Sync</strong>; colour editors are under <strong>View →
+RT-ColorMap (Primary)</strong> and <strong>View → RT-ColorMap (Reference)</strong>.</p>
+<h2 id="tutorial-inspect-images-and-their-fourier-transforms">Tutorial: inspect images and their Fourier transforms</h2>
+<p><strong>Goal:</strong> inspect a measurement in real and reciprocal space before processing.</p>
+<p><strong>Input:</strong> a topographic image or energy-resolved image stack already
+<a href="file-formats.html#tutorial-open-and-verify-a-measurement">loaded into the workspace</a>.</p>
+<ol>
+<li>Double-click the measurement item. Check the <strong>Name</strong> shown under
+   <strong>Primary</strong>; this is also the first process input.</li>
+<li>For input not already identified as FFT data, wait for the automatic FFT.
+   A name ending in <code>_fft</code> is recognised as FFT data; internal FFT metadata
+   also identifies transformed data. Open <strong>Reference Image</strong>
+   on the right and check the reference name. The computed <code>_fft</code> item is
+   also added to the workspace.</li>
+<li>Use <strong>Layer</strong> under Primary to move through an image stack. Read the adjacent
+   physical layer value and unit, when available. A single-layer topography
+   has only one image; its layer axis is not an energy scan.</li>
+<li>Use <strong>Type = Real</strong> for signed real-space measurements and <strong>Type = Abs</strong>
+   to view FFT magnitude. <strong>Angle</strong> shows phase; <strong>Imag</strong> shows the imaginary
+   component. Displaying <code>Abs</code> on signed data hides its sign.</li>
+<li>Adjust the colour-range controls to reveal the features of interest.
+   Choose <strong>View → RT-ColorMap (Primary)</strong> or <strong>RT-ColorMap (Reference)</strong> to
+   edit the palette. These settings change the display, not the stored array.</li>
+<li>If you want both panels to follow the same layer, open <strong>File →
+   Preferences… → Sync</strong>, enable <strong>Sync layer</strong>, and choose <strong>Apply</strong>.
+   Inspect both layer labels after the change.</li>
+<li>To calculate an FFT with explicit settings, add <strong>FFT 2D</strong> to the Process
+   menu, activate the real-space item, and run it with your chosen <strong>Window</strong>
+   and <strong>Normalize</strong> settings. Select the new result explicitly for comparison.</li>
+</ol>
+<p><strong>Expected result:</strong> Primary shows your measurement and Reference shows its FFT,
+with names, layer values, and display types that you have checked.</p>
+<p>The automatic FFT is a convenience view and can reuse an existing associated
+result. It is not a substitute for explicitly recomputing an FFT after editing
+array values or when changing transform parameters. Reopening a real-space item
+can replace a manually selected reference with its automatic FFT.</p>
+<p><strong>If a panel looks blank or saturated:</strong> check the item name, layer, Type, and
+colour range before concluding that the data are empty. Use the Inspector to
+check the actual array.</p>
+<h2 id="tutorial-compare-raw-and-processed-images">Tutorial: compare raw and processed images</h2>
+<p><strong>Goal:</strong> compare two datasets without confusing the second image with an FFT.</p>
+<ol>
+<li>Keep both raw and processed items accessible in the viewer's workspace.</li>
+<li>Double-click the processed item to put it in <strong>Primary</strong>. Wait for its
+   automatic FFT to finish.</li>
+<li>Single-click the raw item in the workspace. In the <strong>Reference Image</strong>
+   panel, click <strong>Select Variable</strong>. Confirm the reference name is the raw
+   measurement rather than the FFT.</li>
+<li>Select corresponding physical layers in both panels. Enable <strong>Sync layer</strong>
+   only when matching layer indices represent corresponding measurements.</li>
+<li>Use the same <strong>Type</strong>, colormap, and numerical colour limits for a fair
+   amplitude comparison. Independently auto-scaled images can conceal
+   differences in signal range.</li>
+<li>For datasets on matching grids, <strong>File → Preferences… → Sync → Sync FOV
+   zoom</strong> can help
+   inspect the same region. Keep <strong>Sync pick points</strong> off when independent
+   landmark positions must be selected.</li>
+</ol>
+<p><strong>Expected result:</strong> Primary and Reference show the intended processed/raw
+pair. Check <strong>Active Processing Slots</strong> as well: loading Reference also changes the
+second staged input for two-input operations.</p>
+<h2 id="tutorial-preview-point-spectra">Tutorial: preview point spectra</h2>
+<p><strong>Goal:</strong> inspect how a spectral signal varies with position in a spectroscopy
+map without immediately generating new workspace data.</p>
+<p><strong>Input:</strong> a stack whose first axis is the measured bias or energy. A one-layer
+topography cannot provide a spectrum.</p>
+<ol>
+<li>Activate the spectroscopy channel in <strong>Primary</strong> and choose <strong>Type = Real</strong>
+   for a real-valued signal.</li>
+<li>Right-click the image at one or more positions. The numbered markers and
+   <strong>Picked Points</strong> list identify those spatial positions.</li>
+<li>Select the <strong>Curve Preview</strong> tab on the right and choose <strong>Preview =
+   Point spectra</strong>.</li>
+<li>Compare the curves using the layer/energy axis. Drag a marker to a different
+   position to update its curve.</li>
+<li>To remove a position, select its entry in <strong>Picked Points</strong> and choose
+   <strong>Remove Point</strong>.</li>
+</ol>
+<p><strong>Expected result:</strong> one temporary curve per picked position, evaluated through
+all layers. Switching the Primary <strong>Type</strong> changes the represented signal in
+the preview.</p>
+<p>The preview does not create a workspace result or a processing-history entry.
+For a persistent sequence of spectra along a path, use the line-cut tutorial
+with <strong>distance_vs_layer</strong>. For a spatial mean, use
+<a href="curve-stack-viewer.html#tutorial-plot-an-average-spectrum-with-error-bars">Average Spectrum 2D</a>.</p>
+<h2 id="tutorial-create-a-line-cut">Tutorial: create a line cut</h2>
+<p><strong>Goal:</strong> extract a spatial profile or spectra along a line and keep the result
+for plotting and saving.</p>
+<p><strong>Input:</strong> a real-valued image stack in Primary. Add <strong>Line Cut 2D</strong> to the
+Process menu using the <a href="processes.html#tutorial-configure-a-process-menu">menu tutorial</a>.</p>
+<ol>
+<li>Remove previous entries from the Primary <strong>Picked Points</strong> list with
+   <strong>Remove Point</strong>. Right-click the start and end of your path, in that order.
+   These become points 0 and 1.</li>
+<li>For a quick check, open <strong>Curve Preview</strong>, choose <strong>Line cut</strong>, and select
+   <strong>X axis = Distance</strong> for spatial profiles or <strong>Layer / energy</strong> for spectra
+   along the path. Keep the line and any averaging width inside the image.</li>
+<li>Choose <strong>Points → Cut → Set Line Cut from Primary</strong>. Expand the source
+   workspace item and confirm that <code>line_cut</code> appears. This saves a snapshot
+   of the endpoints as a process annotation.</li>
+<li>
+<p>Run <strong>Line Cut 2D</strong>. Confirm the source input, then set:</p>
+<ul>
+<li><strong>Orientation = layer_vs_distance</strong> for one distance profile per layer;</li>
+<li><strong>Orientation = distance_vs_layer</strong> for one spectrum per sampled position;</li>
+<li><strong>Sampling method = interpolated</strong>, <strong>Interpolation order = 1</strong>,
+  <strong>Line width (px) = 1</strong>, and <strong>Number of points (0=auto) = 0</strong> for an
+  initial, unaveraged extraction.</li>
+</ul>
+</li>
+<li>
+<p>Click <strong>Run</strong>. The resulting <code>_lc</code> item is curve-stack data; it cannot be
+   displayed as an image stack in this viewer.</p>
+</li>
+<li>Open a <strong>Curve Stack Viewer</strong> from Main Workbench. Single-click the
+   <code>_lc</code> row in Workspace, click the <strong>Send…</strong> button below the list, and select that viewer. If both modules use
+   the same shared workspace, no send is necessary.</li>
+<li>Double-click the result in Curve Stack Viewer. Check the X-axis label:
+   distance for <code>layer_vs_distance</code>, or the source layer/energy axis for
+   <code>distance_vs_layer</code>. Save it with <strong>File → Save…</strong>.</li>
+</ol>
+<p><strong>Expected result:</strong> a persistent curve stack with the chosen orientation and
+a process-history record. One-layer topography produces one spatial profile
+when <code>layer_vs_distance</code> is selected.</p>
+<p><strong>Checks:</strong> if <strong>Run</strong> is disabled, verify the saved <code>line_cut</code> annotation
+on the actual primary item. If you drag the endpoints, choose <strong>Points → Cut → Set Line Cut
+from Primary</strong> again. Preview settings are not automatically copied into the
+process dialog. The preview follows the display Type, whereas the registered
+process samples the stored data; use real-valued data for this first workflow.</p>
+<p>For a circular profile, pick point 0 at the centre and point 1 on the circle,
+choose <strong>Points → Cut → Set Circle Cut from Primary</strong>, and run <strong>Circle Cut
+2D</strong>. Its orientations are <code>layer_vs_theta</code> (angle on X) and
+<code>theta_vs_layer</code> (layer/energy on X). Keep the circle and its radial averaging
+width within the measured field of view.</p>
 <h2 id="load-data">Load data</h2>
 <p>Send a compatible item from the Planewave Synthesiser, Data Browser, or another module. Workspace items
 can then be assigned to the viewer's input roles. The viewer validates that
@@ -65,7 +228,7 @@ a workspace item or process-history entry; run the registered process when a
 permanent result is required. Reference Image and Curve Preview retain their
 own state when switching tabs.</p>
 <h3 id="preferences">Preferences</h3>
-<p>Open Preferences from this module to configure:</p>
+<p>Open <strong>File → Preferences…</strong> from this module to configure:</p>
 <ul>
 <li><strong>Color map:</strong> choose and order the palette shown by both panels.</li>
 <li><strong>Sync:</strong> independently synchronise layer, picked points, live cursor, and
@@ -81,6 +244,23 @@ own state when switching tabs.</p>
 <p>Use <strong>Apply</strong> for the current viewer and <strong>Save as default</strong> for future Image
 Stack Viewer instances.</p>
 <h2 id="annotations">Annotations</h2>
+<p>Processing uses the data in <strong>Primary</strong> as the primary input. After selecting
+points on that canvas, choose <strong>Points → Cut → Set Line Cut from Primary</strong>,
+<strong>Points → Set Mask Center from Primary</strong>, or <strong>Points → Set Interest Region
+from Primary</strong>, as appropriate. These commands save annotations beneath the
+Primary data item in <strong>Workspace</strong>; expand that item to inspect them.</p>
+<p>When <strong>Reference Image</strong> shows the FFT of the current Primary data, pick the
+required peaks there and choose <strong>Points → Set Bragg Peaks from Reference</strong>,
+<strong>Points → Set Filter Points from Reference</strong>, or <strong>Points → Set Lock-in Peak
+from Reference</strong>. The saved peak information belongs to the original Primary
+data item, not to its FFT item: the reciprocal-space coordinates guide
+processing of the Primary data. Ensure Reference really is the corresponding
+FFT before setting these annotations.</p>
+<p>Setting the same annotation type again replaces its previous values. Moving
+or removing canvas points does not update an existing annotation; repeat the
+appropriate <strong>Points</strong> command to save the revised selection. Other processes,
+such as registration, may also require a reference input: check <strong>Active
+Processing Slots</strong> and the process dialog before running.</p>
 <p>Right-click the image to pick points. The <strong>Points</strong> menu converts current
 selections into named annotations used by processes, including:</p>
 <ul>
@@ -95,4 +275,11 @@ process in the Process Browser to determine which annotations it expects.</p>
 <h2 id="export">Export</h2>
 <p>Use <strong>File → Export Image…</strong> (<code>Ctrl+E</code>) for a rendered image and
 <strong>File → Export Video…</strong> (<code>Ctrl+Shift+E</code>) for a layer sequence. Use
-<strong>File → Save…</strong> to save supported workspace data rather than a rendered view.</p></body></html>
+<strong>File → Save…</strong> to save supported workspace data rather than a rendered view.</p>
+<p>In the image export dialog, choose <strong>Destination = File</strong> to save the displayed
+image or <strong>Destination = Clipboard</strong> to paste it into another application.
+This differs from <strong>File → Import → Image…</strong>, which reads an existing image
+from disk into the workspace.</p>
+<p>For multilayer data such as energy-resolved dI/dV maps, video export creates
+one frame for each layer in the selected range. Select the panel, layer range,
+format, and frame rate. See the <a href="file-formats.html#tutorial-save-data-and-export-results">step-by-step export instructions</a>.</p></body></html>

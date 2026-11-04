@@ -47,7 +47,7 @@ without the group loads with default item fields. Non-HDF5 formats such as
 ## Make a payload workspace-archive compatible
 
 The standalone reader and writer above operate on complete files. To embed the
-same payload in **Save Workspace…**, also provide reader and writer functions
+same payload in **File → Save Workspace…**, also provide reader and writer functions
 that operate on an already-open HDF5 group:
 
 ```python

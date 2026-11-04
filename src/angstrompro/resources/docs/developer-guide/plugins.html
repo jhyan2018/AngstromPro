@@ -23,17 +23,27 @@ img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="plugins">Plugins</h1>
 <p>Plugins extend AngstromPro by importing code that registers processes, modules,
 or file-format handlers. They load before the process registry is constructed.</p>
+<p>Modules and processes describe what an extension provides; a plugin describes
+how those components are organised, distributed, and loaded. A plugin may
+provide a single algorithm or several modules, processes, and file handlers.
+Loading imports the registration code, rather than registering it a second
+time. If that code is already imported during AngstromPro startup, no
+additional plugin configuration is required.</p>
 <p>A plugin may also define new <code>WorkspaceData</code> payload types. Doing so lets its
 modules participate in the standard workspace, sending, compatibility, and
 Inspector infrastructure. See <a href="workspaces.html">Runtime data and workspaces</a>.</p>
 <h2 id="local-source-plugin">Local source plugin</h2>
-<p>During development, add an entry under <strong>Preferences → Plugins</strong> containing:</p>
+<p>During development, open the Main Workbench's File menu and add an entry under <strong>File → Preferences… → Plugins</strong> containing:</p>
 <ul>
 <li>The absolute path to the plugin's <code>src/</code> directory</li>
 <li>Its importable top-level module name</li>
 </ul>
 <p>On the next launch, AngstromPro adds the path to <code>sys.path</code> and imports the
 module. The module's imports must trigger every required registration.</p>
+<p>Click <strong>Add plugin</strong> and, for the supplied example, enter
+<code>&lt;repository&gt;/examples/example_plugin/src</code> as the path and
+<code>angstrompro_example</code> as the module name. Replace <code>&lt;repository&gt;</code> with the
+absolute path to your checkout. Save the preference and restart AngstromPro.</p>
 <p>When testing from Spyder, closing the Main Workbench only hides the hosted
 AngstromPro session so it can be reopened without rebuilding Qt. Restart the
 Spyder kernel after changing plugin source; reopening the existing session does
@@ -48,6 +58,13 @@ example = &quot;angstrompro_example&quot;
 <p>The referenced object or module is loaded at startup. Keep its top-level import
 focused on registration; avoid opening windows or starting independent event
 loops during import.</p>
+<p>Install the package in the same Python environment as AngstromPro. With
+AngstromPro already installed, run this from the repository root:</p>
+<pre><code class="language-bash">python -m pip install -e &quot;examples/example_plugin&quot;
+</code></pre>
+<p>Restart AngstromPro and open <strong>+ New Module → Examples → Example Workflow</strong>.
+An installed entry-point plugin needs no source-path preference. Choose either
+this installation method or local source loading; configuring both is unnecessary.</p>
 <h2 id="suggested-layout">Suggested layout</h2>
 <pre><code class="language-text">angstrompro-example/
   pyproject.toml
@@ -80,5 +97,5 @@ and all dependencies before distribution.</p>
 <a href="https://github.com/jhyan2018/AngstromPro/tree/main/examples/example_plugin">example plugin</a> that registers a GUI
 module, process, simulation, and raw file loader. It uses synthetic data and
 executes its operations through the normal task-backed process path. Its README
-also gives the exact <strong>Preferences → Plugins</strong> values for loading the example
+also gives the exact <strong>File → Preferences… → Plugins</strong> values for loading the example
 directly from its <code>src/</code> folder during development.</p></body></html>

@@ -66,6 +66,16 @@ Decorators append entries during module import. Built-in algorithms are
 imported by `angstrompro.algorithms`. Plugin processes must be imported by the
 plugin entry module before `ProcessRegistry` is created.
 
+Registration takes effect only when the decorated function's Python module is
+imported. If AngstromPro startup already imports it, no extra plugin-path
+configuration is needed. Otherwise, load it using one of the
+[plugin mechanisms](plugins.md). Once registered, inspect it through
+**Process → Process Browser…** and add it to a compatible module's menu through
+**Process → Configure Process Menu…**; registration does not create a custom
+submenu automatically. The repository includes a working
+[example plugin](../../examples/example_plugin/README.md), whose
+`src/angstrompro_example/processes.py` implements a scaling process and simulation.
+
 Use globally unique, stable process IDs. A namespace such as
 `example.scale_2D` avoids collisions and allows saved menu configuration to
 survive label changes. Process callables accept `inputs`, `params`, and the

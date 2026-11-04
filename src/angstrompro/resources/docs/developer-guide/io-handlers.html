@@ -61,7 +61,7 @@ without the group loads with default item fields. Non-HDF5 formats such as
 <code>.npy</code> do not support this item-metadata step.</p>
 <h2 id="make-a-payload-workspace-archive-compatible">Make a payload workspace-archive compatible</h2>
 <p>The standalone reader and writer above operate on complete files. To embed the
-same payload in <strong>Save Workspace…</strong>, also provide reader and writer functions
+same payload in <strong>File → Save Workspace…</strong>, also provide reader and writer functions
 that operate on an already-open HDF5 group:</p>
 <pre><code class="language-python">def read_example_group(group):
     return ExampleData(value=int(group.attrs[&quot;value&quot;]))

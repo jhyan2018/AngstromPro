@@ -39,6 +39,20 @@ Import the module before `AppContext` finishes construction. Built-in imports
 are collected in `angstrompro.gui.modules`; external packages normally import
 their modules from a plugin entry point.
 
+`AGuiModule` is the shared GUI base class; `register_module` is the decorator
+that registers a subclass when its Python module is imported. Merely writing
+the decorator in a file does not make that file discoverable. If startup
+already imports the registration code, no additional plugin configuration is
+required. Otherwise, use a [plugin-loading method](plugins.md) to import it;
+plugin loading is not a second registration step.
+
+After registration, the example above appears under **+ New Module → Analysis
+→ My Module**. The repository's
+[example plugin](../../examples/example_plugin/README.md) contains
+`src/angstrompro_example/module.py`, which shows input staging and
+`submit_process()` calls for task-backed operations.
+See the [example plugin](../../examples/example_plugin/README.md) for installation.
+
 ## Identity and compatibility
 
 - `module_id` must be stable because configuration and startup lists store it.

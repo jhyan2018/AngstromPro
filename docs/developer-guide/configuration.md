@@ -53,7 +53,8 @@ Preference schemas describe how those values appear in the common Preferences
 panel. Apply callbacks should update open widgets without performing slow work
 on the Qt thread.
 
-**Apply** changes an instance's in-memory configuration. **Save as default**
+In the module's **File → Preferences…** dialog, clicking **Apply** changes
+an instance's in-memory configuration. **Save as default**
 also writes the module configuration so later instances inherit it. The Main
 Workbench owns application-wide groups such as `app`, `appearance`, `io`, and
 `plugins`; opening Preferences from another module edits that module's settings

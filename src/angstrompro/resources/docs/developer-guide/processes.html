@@ -78,6 +78,15 @@ because headless callers do not open the parameter dialog.</p>
 <p>Decorators append entries during module import. Built-in algorithms are
 imported by <code>angstrompro.algorithms</code>. Plugin processes must be imported by the
 plugin entry module before <code>ProcessRegistry</code> is created.</p>
+<p>Registration takes effect only when the decorated function's Python module is
+imported. If AngstromPro startup already imports it, no extra plugin-path
+configuration is needed. Otherwise, load it using one of the
+<a href="plugins.html">plugin mechanisms</a>. Once registered, inspect it through
+<strong>Process → Process Browser…</strong> and add it to a compatible module's menu through
+<strong>Process → Configure Process Menu…</strong>; registration does not create a custom
+submenu automatically. The repository includes a working
+<a href="https://github.com/jhyan2018/AngstromPro/tree/main/examples/example_plugin">example plugin</a>, whose
+<code>src/angstrompro_example/processes.py</code> implements a scaling process and simulation.</p>
 <p>Use globally unique, stable process IDs. A namespace such as
 <code>example.scale_2D</code> avoids collisions and allows saved menu configuration to
 survive label changes. Process callables accept <code>inputs</code>, <code>params</code>, and the
@@ -90,5 +99,12 @@ results back to the source module. The registry adds processing history to
 supported results. A process may return one workspace-data object or a nested
 list/tuple of workspace-data objects; source propagation and the new history
 record are applied to every returned object.</p>
+<p>Processes that need to produce annotations or scalar quality measurements may
+return <code>ProcessResult(data=..., annotations=..., metrics=...)</code>. Existing return
+values remain fully supported and are normalized as data-only results by
+workflow-aware callers. Annotation keys are workspace roles such as
+<code>"bragg_peaks"</code>; metrics are named scalar values. Declare these optional ports
+with <code>AnnotationOutputSpec</code> and <code>MetricOutputSpec</code> so workflow editors can
+discover them before execution.</p>
 <p>Use <code>register_simulation</code> for generators. Simulations may have no inputs and
 appear under <strong>Simulate</strong>, not <strong>Process</strong>.</p></body></html>

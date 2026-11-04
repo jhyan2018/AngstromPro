@@ -19,6 +19,8 @@ NAVIGATION = [
         "User Guide",
         [
             "user-guide/getting-started.md",
+            "user-guide/tutorials.md",
+            "user-guide/image-processing-workflows.md",
             "user-guide/planewave-synthesiser.md",
             "user-guide/workspaces-and-inspector.md",
             "user-guide/processes.md",

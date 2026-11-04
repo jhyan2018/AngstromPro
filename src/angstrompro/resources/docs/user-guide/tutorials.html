@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tutorials: working with your measurement data - AngstromPro</title><style>
+body {
+  max-width: 980px; margin: 0 auto; padding: 24px 34px 48px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-size: 16px; line-height: 1.58; color: #25313b; background: #ffffff;
+}
+h1, h2, h3, h4 { color: #123848; line-height: 1.25; margin-top: 1.4em; }
+h1 { border-bottom: 2px solid #0788a3; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #d7e0e4; padding-bottom: .2em; }
+a { color: #067d99; }
+code { font-family: "SFMono-Regular", Consolas, monospace; background: #eef3f5;
+       border-radius: 4px; padding: .1em .3em; }
+pre { background: #eef3f5; border: 1px solid #d8e1e5; border-radius: 7px;
+      padding: 14px; overflow: auto; }
+pre code { padding: 0; background: transparent; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+th, td { border: 1px solid #cbd6db; padding: 7px 10px; text-align: left; }
+th { background: #edf5f7; }
+blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
+             color: #52636d; }
+img { max-width: 100%; height: auto; }
+</style></head><body><h1 id="tutorials-working-with-your-measurement-data">Tutorials: working with your measurement data</h1>
+<p>These tutorials take you from an existing measurement file to an inspected,
+processed, and saved result. Use your own topography, spectroscopy, or
+spectroscopic-imaging data in a <a href="file-formats.html#built-in-formats">supported format</a>.
+Complete <a href="getting-started.html">installation</a> first.</p>
+<h2 id="choose-a-starting-point">Choose a starting point</h2>
+<table>
+<thead>
+<tr>
+<th>Your task</th>
+<th>Start here</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Open a known measurement file</td>
+<td><a href="file-formats.html#tutorial-open-and-verify-a-measurement">Open and verify a measurement</a></td>
+<td>Selected channels in the correct viewer, with axes checked</td>
+</tr>
+<tr>
+<td>Find a measurement among many files</td>
+<td><a href="data-browser.html#tutorial-browse-and-send-a-measurement">Browse and send a measurement</a></td>
+<td>A chosen file channel in an analysis module</td>
+</tr>
+<tr>
+<td>Inspect topography or energy-resolved maps</td>
+<td><a href="image-stack-viewer.html#tutorial-inspect-images-and-their-fourier-transforms">Inspect images and their Fourier transforms</a></td>
+<td>Real-space and reciprocal-space views with controlled display settings</td>
+</tr>
+<tr>
+<td>Remove a background</td>
+<td><a href="processes.html#tutorial-run-background-subtraction">Run background subtraction</a></td>
+<td>A separate processed dataset for comparison</td>
+</tr>
+<tr>
+<td>Extract a spatial line profile or a sequence of spectra</td>
+<td><a href="image-stack-viewer.html#tutorial-create-a-line-cut">Create a line cut</a></td>
+<td>A curve-stack result ready for plotting and saving</td>
+</tr>
+<tr>
+<td>Compare and format spectra</td>
+<td><a href="curve-stack-viewer.html#tutorial-compare-and-style-spectra">Compare-and-style workflow</a></td>
+<td>An editable multi-curve figure</td>
+</tr>
+<tr>
+<td>Average a spectroscopy map with error bars</td>
+<td><a href="curve-stack-viewer.html#tutorial-plot-an-average-spectrum-with-error-bars">Average-spectrum workflow</a></td>
+<td>Spatial mean and its selected error measure</td>
+</tr>
+<tr>
+<td>Save progress and reopen it</td>
+<td><a href="workspaces-and-inspector.html#tutorial-save-and-resume-an-analysis">Save and resume an analysis</a></td>
+<td>Native data and a workspace archive</td>
+</tr>
+<tr>
+<td>Export a figure or layer sequence</td>
+<td><a href="file-formats.html#tutorial-save-data-and-export-results">Export instructions</a></td>
+<td>Presentation files plus a separate editable data copy</td>
+</tr>
+<tr>
+<td>Correct a lattice or register two images</td>
+<td><a href="image-processing-workflows.html">Advanced image-processing workflows</a></td>
+<td>Corrected datasets and checks on the transformation</td>
+</tr>
+</tbody>
+</table>
+<p>For a first image analysis, follow: <strong>open a measurement → inspect the image →
+configure a process menu → subtract the background → compare → save/export</strong>.
+For point spectra, start with the Curve Stack Viewer instead of the Image Stack
+Viewer.</p>
+<h2 id="before-following-a-procedure">Before following a procedure</h2>
+<ol start="0">
+<li>Before importing data, open the Main Workbench's <strong>Preferences… → Channels</strong>
+   and check the mappings for the relevant file format. On Windows, use
+   <strong>File → Preferences…</strong>; on macOS, use the application menu, which may be
+   labelled <strong>Python</strong>. <strong>Exact aliases</strong> must match the acquisition-channel
+   names recorded in your files, while <strong>Display name</strong> is the label used in
+   AngstromPro. For the default <code>.3ds</code> dI/dV mapping, an alias is
+   <code>LI Demod 1 X (A)</code>; add your own acquisition name if it differs. Separate
+   alternative names with semicolons and apply the changes. If expected
+   channels are missing, consult <a href="preferences.html#tutorial-configure-a-measurement-channel">channel mapping instructions</a>.
+   Data Browser's <strong>Channels</strong> preferences edit these same shared mappings.</li>
+<li>In the <strong>Main Workbench</strong>, click the <strong>+ New Module</strong> button, open <strong>Basic</strong>,
+   and select <strong>Data Browser</strong>, <strong>Image Stack Viewer</strong>, or <strong>Curve Stack Viewer</strong>.
+   For an existing instance, click <strong>Show</strong> on its module card.</li>
+<li>In the module, show <strong>View → Workspace</strong> and <strong>View → Inspector</strong>.</li>
+<li>Open the file with <strong>File → Open…</strong> in the viewer, or right-click a data
+   thumbnail in Data Browser and choose <strong>Send to module…</strong>.</li>
+<li>Double-click the intended workspace item to activate it. Merely opening a
+   file or highlighting a row does not necessarily display it.</li>
+<li>Check the displayed item name and <strong>Active Processing Slots</strong> below the
+   Workspace list before each operation.</li>
+</ol>
+<p>Each tutorial specifies its input, numbered steps, expected result, and checks
+to make when that result does not appear. Interface labels are shown in <strong>bold</strong>.
+Names such as <code>topography_raw</code> are suggested aliases, not supplied datasets.
+Tutorial submenu names such as <strong>Basic analysis</strong> are created by you; they are
+not assumed to exist in a fresh installation.</p>
+<h2 id="how-to-find-controls-and-use-the-mouse">How to find controls and use the mouse</h2>
+<p>Menu paths such as <strong>File → Open…</strong> start in the menu bar of the window named
+in the step. On macOS, bring that window to the front before using the system
+menu bar. An arrow into a Preferences section means open <strong>File → Preferences…</strong>
+and find that section inside the dialog, not another menu-bar submenu.</p>
+<ul>
+<li><strong>Buttons and fields:</strong> single left-click a button, checkbox, tab, or list
+  entry. For a dropdown, click it and select a value. Parameter names refer
+  to fields in the dialog or panel identified by the procedure.</li>
+<li><strong>Workspace items:</strong> single-click selects an item for inspection, saving,
+  sending, or removal. Double-click activates it in the current viewer.
+  Right-click the item for its context menu, including <strong>Set alias…</strong>.</li>
+<li><strong>Data Browser thumbnails:</strong> right-click the image/card for <strong>Send to
+  module…</strong>, <strong>Set thumbnail layer…</strong>, <strong>Rating</strong>, and <strong>Re-render thumbnail</strong>.
+  These are not File-menu commands.</li>
+<li><strong>Image-viewer canvas:</strong> right-click picks a point; it does not open the
+  Data Browser menu. Single-click a point-list entry before clicking
+  <strong>Remove Point</strong>. Save process annotations using the viewer's <strong>Points</strong> menu.</li>
+<li><strong>Tree rows:</strong> click the small disclosure arrow beside a row to expand its
+  children. Clicking a checkbox changes visibility or selection for that
+  control; it is not the same as double-clicking a workspace dataset.</li>
+<li><strong>Docked panels:</strong> open <strong>View → Workspace</strong> or <strong>View → Inspector</strong>.
+  They can appear separately, float, or share one tabbed area. Use the
+  <strong>Workspace</strong> / <strong>Inspector</strong> tabs at the bottom when they share an area.
+  Drag a panel's title bar to float or redock it.</li>
+</ul>
+<p>Process names do not imply built-in submenus. First add an operation through
+<strong>Process → Configure Process Menu…</strong>, then run it from <strong>Process → your
+configured submenu → operation</strong>. In its dialog, check <strong>Inputs</strong> and
+<strong>Annotations</strong>, edit the parameter fields, and click the <strong>Run</strong> button
+at the bottom. <strong>Process → Process Browser…</strong> only displays information.</p>
+<h2 id="four-distinctions-that-prevent-common-mistakes">Four distinctions that prevent common mistakes</h2>
+<table>
+<thead>
+<tr>
+<th>Distinction</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Selected row versus process input</td>
+<td>Single-click selects the target for saving/sending; double-click activates an input. Check <strong>Active Processing Slots</strong> before running a process.</td>
+</tr>
+<tr>
+<td>File channel versus file</td>
+<td>One acquisition file can produce several independent workspace items. Confirm the channel, units, and axes, not just the filename.</td>
+</tr>
+<tr>
+<td>Display setting versus analysis</td>
+<td>Changing a colour range, plot offset, or preview does not create processed data. Run a registered process to create a result with processing history.</td>
+</tr>
+<tr>
+<td>Saved data versus exported figure</td>
+<td>Save <code>.uds</code>, <code>.scplot</code>, or <code>.apws</code> for later analysis; export images or figures for presentation.</td>
+</tr>
+</tbody>
+</table>
+<p>The <strong>Process Browser</strong> describes registered operations. To run one from a
+module, first <a href="processes.html#tutorial-configure-a-process-menu">add it to that module's Process menu</a>.
+A fresh menu can be empty.</p>
+<p>The procedures describe the current application. The accompanying software
+article provides the architectural background: separate module workspaces,
+explicit process inputs, and separate data-saving and figure-export workflows.</p></body></html>

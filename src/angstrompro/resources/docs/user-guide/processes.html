@@ -25,6 +25,101 @@ img { max-width: 100%; height: auto; }
 accepts, any annotations it needs, its parameters, and the result it produces.
 AngstromPro uses this information to present the correct dialog and to avoid
 offering incompatible operations where possible.</p>
+<h2 id="tutorial-configure-a-process-menu">Tutorial: configure a process menu</h2>
+<p><strong>Goal:</strong> make the operations needed for your analysis available in the viewer.</p>
+<p><strong>Input:</strong> an open Image Stack Viewer or Curve Stack Viewer. These instructions
+use Image Stack Viewer as the example.</p>
+<ol>
+<li>Choose <strong>Process → Process Browser…</strong> to inspect an operation's description,
+   inputs, and parameters. Search by the displayed label or process ID.
+   This browser is informational; it does not run the selected process.</li>
+<li>Close the browser and choose <strong>Process → Configure Process Menu…</strong>.</li>
+<li>In the configuration dialog, set the <strong>Module</strong> dropdown to <strong>Image Stack Viewer</strong>.</li>
+<li>Click the <strong>Add submenu…</strong> button, enter <code>Basic analysis</code>, and select that submenu
+   in <strong>Process menu layout</strong>.</li>
+<li>Search <strong>Available processes</strong> for <strong>Background Subtract 2D</strong>, single-click it,
+   and click <strong>→</strong> to add it to the selected submenu.</li>
+<li>Add <strong>FFT 2D</strong>, <strong>Crop Square 2D</strong>, <strong>Line Cut 2D</strong>, and <strong>Average Spectrum
+   2D</strong> in the same way if you need them.</li>
+<li>Click <strong>Save</strong> in the configuration dialog, then open <strong>Process → Basic analysis</strong> to check the entries.</li>
+</ol>
+<p><strong>Expected result:</strong> your new submenu is available for that module type. You
+can choose a different submenu name; all subsequent tutorials mean the submenu
+you configured, not a built-in category.</p>
+<p><strong>If an operation is unavailable:</strong> load a compatible item and check its shape.
+Image-stack operations expect <code>ndim=3</code>, including a single image stored as
+<code>(1, rows, columns)</code>. Curve-stack operations expect <code>ndim=2</code>. Search the
+Process Browser to distinguish an unregistered operation from a missing menu
+shortcut. Compatibility settings can hide or disable unsuitable operations.</p>
+<h2 id="tutorial-run-background-subtraction">Tutorial: run background subtraction</h2>
+<p><strong>Goal:</strong> remove a fitted background from a topographic image while retaining
+the raw data for comparison.</p>
+<p><strong>Input:</strong> a real-valued topography loaded into Image Stack Viewer. First
+<a href="#tutorial-configure-a-process-menu">add Background Subtract 2D to the menu</a>.</p>
+<ol>
+<li>Double-click the raw topography in the Workspace. Verify its name under
+   <strong>Primary</strong> and in <strong>Active Processing Slots</strong>.</li>
+<li>Choose <strong>Process → Basic analysis → Background Subtract 2D</strong> (or the submenu
+   name you created).</li>
+<li>Check <strong>3D Stack</strong> in the <strong>Inputs</strong> section. The first input is locked to
+   the module's staged primary item. If it is wrong, cancel, activate the
+   intended workspace item, and reopen the process.</li>
+<li>For a tilted surface, start with <strong>Method = 2DPlane</strong> and <strong>Polynomial
+   order = 1</strong>. To remove line-dependent backgrounds instead, select
+   <strong>PerLine</strong> and the appropriate <strong>Per-line direction</strong>:
+   <strong>Y</strong> fits down each image column; <strong>X</strong> fits across each image row.</li>
+<li>Review the settings even if you ran this process earlier: parameters can
+   be remembered. Use <strong>Reset to defaults</strong> when you want a fresh starting
+   point, then select your intended values.</li>
+<li>Click <strong>Run</strong>. Wait for the result to appear in the workspace; the normal
+   result suffix is <code>_bg</code> (aliases or duplicate names can affect the label).</li>
+<li>Double-click the result to display it. Inspect its processing history and
+   compare it with the raw image using the
+   <a href="image-stack-viewer.html#tutorial-compare-raw-and-processed-images">Primary/Reference procedure</a>.</li>
+<li>Single-click the result and choose <strong>File → Save…</strong> to save a native
+   <code>.uds</code> copy.</li>
+</ol>
+<p><strong>Expected result:</strong> a new dataset has reduced fitted background. The operation
+preserves each layer's overall mean, so the result need not have a mean of zero.
+The source file and original workspace dataset remain available.</p>
+<p><strong>Interpretation:</strong> a flatter-looking image is not sufficient evidence of a
+better scientific result. Check that genuine long-wavelength structure, steps,
+or features of interest have not been removed. Use the lowest suitable order
+and record the selected method and direction.</p>
+<p><strong>If no result appears:</strong> check the process input and any reported task error.
+The operation acts on every layer in the input stack, not only the layer
+currently displayed.</p>
+<h2 id="tutorial-crop-a-region-for-further-analysis">Tutorial: crop a region for further analysis</h2>
+<p><strong>Goal:</strong> create an even-sized square image stack from an area of interest.</p>
+<ol>
+<li>Activate the source in Image Stack Viewer. Remove unwanted entries from
+   <strong>Picked Points</strong> using <strong>Remove Point</strong>, leaving the list empty.</li>
+<li>Right-click two opposite corners of the desired region in <strong>Primary</strong>.
+   Optionally select <strong>Region</strong> in Primary's point-display dropdown beside
+   <strong>Picked Points</strong> to see the box.</li>
+<li>Choose <strong>Points → Set Interest Region from Primary</strong>. Expand the workspace
+   item and confirm that an <code>interest_region</code> annotation exists.</li>
+<li>Run <strong>Crop Square 2D</strong> from your configured Process menu.</li>
+<li>Inspect the new <code>_cp</code> item and its axes, then save it if needed.</li>
+</ol>
+<p><strong>Expected result:</strong> all layers are cropped together. The output is square
+with an even side length; it is not an arbitrary rectangular crop. The process
+can shorten the selected region to satisfy these constraints.</p>
+<p>If you move the picked corners, use <strong>Points → Set Interest Region from Primary</strong> again
+before rerunning the process. Moving the visual markers alone does not update
+the saved annotation.</p>
+<h2 id="where-process-controls-are-located">Where process controls are located</h2>
+<p>In the viewer, open <strong>View → Workspace</strong> and double-click the intended input
+item. Check <strong>Active Processing Slots</strong> below the Workspace list. Open the
+operation using <strong>Process → your configured submenu → operation</strong>.
+The operation's dialog shows <strong>Inputs</strong>, required <strong>Annotations</strong>, and its
+parameter fields. Change dropdowns or numeric fields there, not in Process
+Browser. Click <strong>Reset to defaults</strong> at the bottom to reset the fields, or
+<strong>Run</strong> to submit the operation. If the first input is wrong, click <strong>Cancel</strong>,
+double-click the correct workspace item, and reopen the operation.</p>
+<p>To inspect the result, single-click its Workspace row and open <strong>View →
+Inspector</strong>. Expand the data/history nodes using their disclosure arrows.
+Double-click the row in Workspace when you want to display the result.</p>
 <h2 id="run-a-process">Run a process</h2>
 <ol>
 <li>Load or select the required workspace data.</li>

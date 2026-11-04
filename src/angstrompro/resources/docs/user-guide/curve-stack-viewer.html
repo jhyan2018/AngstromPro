@@ -23,12 +23,144 @@ img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="curve-stack-viewer">Curve Stack Viewer</h1>
 <p>The Curve Stack Viewer displays two-dimensional spectroscopy and line-scan data
 as a matplotlib figure containing a stack of curves.</p>
+<p>A one-dimensional single-point spectrum is treated as a single-curve stack:
+conceptually a two-dimensional dataset with a stack dimension of size one.
+The viewer supports comparison, styling, figure export, and editable scene
+saving without requiring multiple curves.</p>
+<h2 id="locate-the-plot-controls">Locate the plot controls</h2>
+<p>Open this module from Main Workbench with <strong>+ New Module → Basic → Curve Stack
+Viewer</strong>, or click <strong>Show</strong> on its existing card.</p>
+<ul>
+<li><strong>View → Workspace</strong> shows the data-item list. Single-click a row to select
+  it; double-click raw UDS data to start a new plot. Right-click a row for
+  <strong>Add to plot</strong>, <strong>Set as Reference</strong>, or <strong>Clear Reference</strong> when available.</li>
+<li><strong>Datasets / Curves</strong> is the tree at the left of the central plotting area,
+  not the Workspace dock. Expand a dataset with its disclosure arrow;
+  single-click a trace to select it and click its checkbox to show or hide it.
+  Right-click a plotted dataset here for <strong>Configure Error Bars…</strong> or
+  <strong>Remove Error Bars</strong>.</li>
+<li><strong>Extract to workspace</strong> is a button below the <strong>Datasets / Curves</strong> tree.
+  Select the desired entries in that tree before clicking the button.</li>
+<li><strong>Mode</strong> is the dropdown above the plotting area. In <strong>Stack</strong> mode, the
+  <strong>Offset</strong> field and <strong>Y Auto</strong> button are above the curve plot.</li>
+<li><strong>View → Curve Style</strong> and <strong>View → Axes</strong> open the styling docks.
+  If tabbed together, click the <strong>Curve Style</strong> / <strong>Axes</strong> tab to switch.
+  <strong>X factor</strong> and <strong>Y factor</strong> are fields in the <strong>Axes</strong> dock.</li>
+<li><strong>Scene → Save as Scene…</strong>, <strong>Scene → Save Template…</strong>, and <strong>Scene → Load
+  Template → template name</strong> are menu commands. The default template is under
+  this module's <strong>File → Preferences…</strong>, in <strong>Default template</strong>.</li>
+</ul>
+<h2 id="tutorial-compare-and-style-spectra">Tutorial: compare and style spectra</h2>
+<p><strong>Goal:</strong> compare measured spectra or extracted line cuts and prepare an editable
+figure.</p>
+<p><strong>Input:</strong> one or more curve-stack items, such as loaded spectroscopy files or
+a <a href="image-stack-viewer.html#tutorial-create-a-line-cut">line-cut result</a>.</p>
+<ol>
+<li>Open <strong>Curve Stack Viewer</strong> from Main Workbench. Open your file with
+   <strong>File → Open…</strong>, or send the curve-stack item to this module.</li>
+<li>Double-click the first workspace item to make it the primary dataset and
+   start a plot. Check the sweep-axis values and units in the Inspector.</li>
+<li>To overlay another dataset, right-click its workspace row and choose
+   <strong>Add to plot</strong>. Do not double-click it for this purpose: double-clicking a
+   raw UDS starts a new primary plot and clears the previous displayed set.</li>
+<li>Expand <strong>Datasets / Curves</strong> to select individual traces. Use <strong>Mode =
+   Stack</strong> to view curves. Start with <strong>Offset = 0</strong> for a direct comparison;
+   use a nonzero <strong>Offset</strong> when traces overlap, and record that presentation
+   offset in the figure description. <strong>Y Auto</strong> fits the visible curves.</li>
+<li>Select a trace and open <strong>View → Curve Style</strong> to adjust its line appearance.
+   Open <strong>View → Axes</strong> to set the title, axis labels, limits, scales, grid,
+   and legend.
+   Click the triangle beside the dataset in <strong>Datasets / Curves</strong>, then
+   single-click the required curve before changing its style. <strong>Curve Style</strong>
+   controls that curve's appearance; <strong>Axes</strong> controls the plot's axes and
+   affects curves sharing those axes, not just the selected curve. If the
+   docks overlap, switch using their <strong>Curve Style</strong> and <strong>Axes</strong> tabs.</li>
+<li>Check <strong>X factor</strong> and <strong>Y factor</strong> before finalising unit labels. For
+   example, a factor of <code>1e3</code> applied to an axis stored in volts displays
+   millivolts. These are display multipliers; do not also relabel the stored
+   data as though it had been numerically converted.</li>
+<li>Try <strong>Mode = Colormap</strong> when a dense stack is easier to inspect as a map,
+   then return to Stack for individual-trace styling and error bars.</li>
+<li>Save the editable plot and export a figure using the next tutorial.</li>
+</ol>
+<p><strong>Expected result:</strong> a labelled comparison plot with a deliberate choice of
+limits, units, trace selection, and offsets.</p>
+<p><strong>Process-input check:</strong> <strong>Add to plot</strong> changes the display but not the
+staged process inputs. For a two-input operation, activate the intended primary
+dataset by double-clicking it, then right-click the other workspace item
+and choose <strong>Set as Reference</strong>; verify
+<strong>Active Processing Slots</strong> before running. A saved scene is not itself a numerical
+curve-stack input. To process curves recovered from a scene, select them in
+<strong>Datasets / Curves</strong>, click the <strong>Extract to workspace</strong> button below that
+tree, review the names, and
+activate the resulting UDS item.</p>
+<h2 id="tutorial-save-an-editable-plot-and-export-a-figure">Tutorial: save an editable plot and export a figure</h2>
+<ol>
+<li>After styling, choose <strong>Scene → Save as Scene…</strong>, enter a scene name, and
+   confirm. A new <strong>scene_plot</strong> item appears in the workspace.
+   It captures the plotted datasets together with line styles, colours,
+   axis settings, and other scene configuration; it does not yet save a file.</li>
+<li>Single-click that scene item and choose <strong>File → Save…</strong>. Save it as
+   <code>.scplot</code>. This is the step that writes the editable scene to disk.</li>
+<li>Choose <strong>File → Export Figure…</strong> to create a presentation copy. Set
+   <strong>Destination = File</strong>, choose <strong>PNG</strong>, <strong>PDF</strong>, <strong>SVG</strong>, or <strong>TIFF</strong>, and
+   set <strong>Resolution</strong> when using a raster format. Review transparent-background
+   and trim-whitespace options, confirm, and choose the output filename.</li>
+<li>Open the exported file and check labels, units, legend, cropping, and
+   readability at the intended final size.</li>
+<li>To check the editable copy, open a second Curve Stack Viewer, choose
+   <strong>File → Open…</strong>, select the <code>.scplot</code>, and double-click its workspace
+   item. The datasets and scene styling should be restored.</li>
+</ol>
+<p><strong>Expected result:</strong> a <code>.scplot</code> for further editing and a separate exported
+figure for presentation. Exporting alone does not save an editable scene.</p>
+<p><strong>To reuse the appearance with other measurements:</strong> choose <strong>Scene → Save
+Template…</strong>. Apply it via <strong>Scene → Load Template</strong>, or select it as the
+module's <strong>File → Preferences… → Default template</strong> setting. A <code>.scet</code> template contains
+styling, not the scientific datasets.</p>
+<p><strong>After further edits:</strong> create a new scene snapshot and save that workspace
+item again. A previously captured scene is an independent snapshot; subsequent
+plot edits do not automatically update the file.</p>
+<h2 id="tutorial-plot-an-average-spectrum-with-error-bars">Tutorial: plot an average spectrum with error bars</h2>
+<p><strong>Goal:</strong> display the spatial mean of a spectroscopy map with a clearly
+identified measure of variation or uncertainty.</p>
+<p><strong>Input:</strong> an Image Stack Viewer item shaped <code>(energy, rows, columns)</code>.
+Confirm that the first axis really is bias/energy, not time or an image index.</p>
+<ol>
+<li>In Image Stack Viewer, activate the spectroscopy map and run <strong>Average
+   Spectrum 2D</strong> from your <a href="processes.html#tutorial-configure-a-process-menu">configured Process menu</a>.</li>
+<li>Set <strong>Error quantity</strong> to <strong>Standard deviation</strong> to show the spatial spread
+   of spectra, or <strong>Standard error</strong> for the implementation's estimate of the
+   uncertainty of the spatial mean. Click <strong>Run</strong>.</li>
+<li>Identify the two result items: the mean normally ends in <code>_avg</code>; the
+   matching error ends in <code>_avg_std</code> or <code>_avg_sem</code>.</li>
+<li>Send both items to the same Curve Stack Viewer, selecting and sending each
+   workspace row in turn. Alternatively, make both accessible through a
+   shared workspace.</li>
+<li>Double-click the mean item. In <strong>Datasets / Curves</strong>, right-click its
+   dataset entry and choose <strong>Configure Error Bars…</strong>.</li>
+<li>Select the matching error UDS. Set the cap size, error-line appearance,
+   and spacing between drawn bars, then confirm.</li>
+<li>Use <strong>Mode = Stack</strong> to see the error bars. State which quantity is plotted
+   in the axis label, legend, or accompanying figure caption.</li>
+<li>Save a scene and write it to <code>.scplot</code> to preserve both the plotted data
+   and the error-bar relationship. Save the two UDS outputs separately when
+   the numerical results are also needed.</li>
+</ol>
+<p><strong>Expected result:</strong> one mean spectrum with symmetric Y error bars on a
+matching sweep axis. The errors must have the same shape, sweep values, and
+units as the mean and must be finite and non-negative.</p>
+<p>The standard error calculation divides by the square root of the spatial
+pixel count. Spatially correlated pixels are not independent measurements,
+so interpret this value in the context of your acquisition; it is not a
+general estimate of all experimental uncertainty. A one-layer topography
+does not provide an energy-dependent average spectrum.</p>
 <h2 id="build-a-plot">Build a plot</h2>
 <ul>
 <li>Double-click a workspace item to make it the primary dataset.</li>
-<li>Open an item's context menu and choose <strong>Add to plot</strong> to overlay it.</li>
-<li>Choose <strong>Set as Reference</strong> when a two-input process needs that item.</li>
-<li>Choose <strong>Clear Reference</strong> to remove the current reference assignment.</li>
+<li>Right-click an item in the Workspace list and choose <strong>Add to plot</strong> to overlay it.</li>
+<li>Right-click the intended Workspace item and choose <strong>Set as Reference</strong> when a two-input process needs that item.</li>
+<li>Right-click a Workspace item and choose <strong>Clear Reference</strong> to remove the current reference assignment.</li>
 </ul>
 <p>Use the Curve Style dock to edit individual artists and the Axes dock to change
 labels, limits, scales, and grid settings. Both docks can be shown or hidden
@@ -73,10 +205,11 @@ individual UDS does not include this plot-only relationship.</p>
   scientific dataset. It controls how fresh/raw UDS data is turned into a new
   plot.</li>
 </ul>
-<p>Use <strong>Scene → Save as Scene…</strong> (<code>Ctrl+Shift+S</code>) to save the complete scene.
-After styling a plot, use <strong>Scene → Save Template…</strong> to reuse that appearance,
-or <strong>Scene → Load Template</strong> to apply a saved template.</p>
-<p>Choose the Curve Stack Viewer's <strong>Default template</strong> in Preferences when every
+<p>Use <strong>Scene → Save as Scene…</strong> (<code>Ctrl+Shift+S</code>) to capture the complete scene
+as a workspace item, then select that item and use <strong>File → Save…</strong> to write
+it to a <code>.scplot</code> file. After styling a plot, use <strong>Scene → Save Template…</strong>
+to reuse that appearance, or <strong>Scene → Load Template</strong> to apply a saved template.</p>
+<p>Choose <strong>File → Preferences… → Default template</strong> in Curve Stack Viewer when every
 fresh UDS dataset loaded as a new primary plot should begin with that style.
 The template is applied before the raw UDS data is rendered. Loading a saved
 <code>ScenePlot</code> instead restores the scene's own data, layout, and styling; it does
@@ -85,7 +218,7 @@ not replace them with the default template.</p>
 when generating thumbnails for raw UDS data. Reopen a <code>.scplot</code> through the
 normal file-loading workflow.</p>
 <h2 id="preferences">Preferences</h2>
-<p>Open Preferences from this module to configure:</p>
+<p>Open <strong>File → Preferences…</strong> from this module to configure:</p>
 <ul>
 <li><strong>Color map:</strong> choose and order the colormaps available to fresh plots.</li>
 <li><strong>Default template:</strong> select the <code>.scet</code> style applied when fresh raw UDS
@@ -95,6 +228,6 @@ normal file-loading workflow.</p>
 Use <strong>Apply</strong> for the current module and <strong>Save as default</strong> for future Curve
 Stack Viewer instances.</p>
 <h2 id="export">Export</h2>
-<p>Use the export command (<code>Ctrl+E</code>) to produce a publication figure. Exporting a
+<p>Use <strong>File → Export Figure…</strong> (<code>Ctrl+E</code>) to produce a publication figure. Exporting a
 figure is different from saving a <code>.scplot</code>: the exported image is intended for
 presentation, whereas the scene remains editable inside AngstromPro.</p></body></html>
