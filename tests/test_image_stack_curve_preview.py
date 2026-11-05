@@ -188,6 +188,18 @@ def test_primary_type_change_exposes_imaginary_stack_and_emits(qapp) -> None:
     panel.close()
 
 
+def test_primary_accepts_non_finite_layer_axis_values(qapp) -> None:
+    source = _stack()
+    source.axes[0].values = np.asarray([np.nan, np.inf, -np.inf])
+    panel = ImageStackViewerWidget()
+
+    panel.setUdsData(source)
+
+    assert panel.uds_var_layer_value == ["nan", "inf", "-inf"]
+    assert panel.ui_le_layer_value.text() == "nan"
+    panel.close()
+
+
 def test_curve_preview_template_loads_only_when_preference_changes() -> None:
     viewer = Mock()
     module = SimpleNamespace(

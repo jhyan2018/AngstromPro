@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -13,6 +15,11 @@ from angstrompro.core.data.scene_plot import (
     ScenePlot,
 )
 from angstrompro.core.data.uds_data import Axis, AxisType, UdsDataStru
+from angstrompro.core.workspaces.workspace_item import WorkspaceItem
+from angstrompro.gui.modules.curve_stack_viewer import (
+    CurveStackViewer,
+    _is_named_y_error_source,
+)
 from angstrompro.gui.widgets.curve_stack.curve_stack_viewer_widget import (
     CurveStackViewerWidget,
 )
@@ -151,6 +158,108 @@ def test_viewer_renders_and_removes_symmetric_y_errors(qapp) -> None:
     assert "yerr" not in viewer._datasets["signal"]
     assert not viewer._plot_widget._errorbars
     restored_viewer.close()
+    viewer.close()
+
+
+def test_workspace_error_source_attaches_without_being_plotted(
+    qapp, monkeypatch,
+) -> None:
+    """A workspace uncertainty item can target a plotted curve directly."""
+    runtime = RuntimeScene()
+    viewer = CurveStackViewerWidget(config={}, allow_extract=False)
+    viewer.set_runtime_scene(runtime)
+    average = _curve("average", [1.0, 2.0, 3.0])
+    deviation = _curve("average_std", [0.1, 0.2, 0.3])
+    viewer.add_dataset(average.name, average)
+
+    assert viewer.compatible_y_error_targets(deviation) == [average.name]
+
+    choices_seen = []
+
+    def choose_target(_parent, _title, _label, choices, *_args):
+        choices_seen.extend(choices)
+        return average.name, True
+
+    monkeypatch.setattr(QtWidgets.QInputDialog, "getItem", choose_target)
+    messages = []
+    status_bar = type(
+        "StatusBar",
+        (),
+        {"showMessage": lambda _self, message, _timeout=0:
+         messages.append(message)},
+    )()
+    module = type(
+        "CurveViewerHarness",
+        (),
+        {"_viewer": viewer, "statusBar": lambda _self: status_bar},
+    )()
+
+    CurveStackViewer._use_workspace_item_as_y_error(
+        module, WorkspaceItem(payload=deviation))
+
+    assert choices_seen == [average.name]
+    assert deviation.name not in viewer._datasets
+    style = viewer.get_y_error_style(average.name)
+    assert style is not None
+    assert style.yerr_data.name == deviation.name
+    assert messages == [f"Y-error bars: {average.name} ← {deviation.name}."]
+    assert "Y-error source: average_std" in (
+        viewer._tree.topLevelItem(0).toolTip(0))
+    viewer.close()
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("average_std", True),
+        ("average_sem", True),
+        ("AVERAGE_STD", True),
+        ("average_sigma", False),
+        ("average_error", False),
+        ("average", False),
+    ],
+)
+def test_workspace_error_shortcut_uses_std_and_sem_suffixes(
+    name: str, expected: bool,
+) -> None:
+    assert _is_named_y_error_source(
+        WorkspaceItem(payload=_curve(name, [0.1, 0.2, 0.3]))) is expected
+
+
+def test_workspace_error_shortcut_is_hidden_for_generic_uds(qapp) -> None:
+    runtime = RuntimeScene()
+    viewer = CurveStackViewerWidget(config={}, allow_extract=False)
+    viewer.set_runtime_scene(runtime)
+    viewer.add_dataset("average", _curve("average", [1.0, 2.0, 3.0]))
+    harness = SimpleNamespace(
+        _viewer=viewer,
+        _reference_item=None,
+        _add_to_plot=lambda _item: None,
+        _set_reference=lambda _item: None,
+        _clear_reference=lambda: None,
+        _use_workspace_item_as_y_error=lambda _item: None,
+    )
+
+    generic_menu = QtWidgets.QMenu()
+    CurveStackViewer._populate_ws_item_context_menu(
+        harness,
+        generic_menu,
+        WorkspaceItem(payload=_curve("uncertainty", [0.1, 0.2, 0.3])),
+    )
+    assert "Use as Y-Error Bars For…" not in [
+        action.text() for action in generic_menu.actions()]
+
+    std_menu = QtWidgets.QMenu()
+    CurveStackViewer._populate_ws_item_context_menu(
+        harness,
+        std_menu,
+        WorkspaceItem(payload=_curve("average_std", [0.1, 0.2, 0.3])),
+    )
+    assert "Use as Y-Error Bars For…" in [
+        action.text() for action in std_menu.actions()]
+
+    generic_menu.close()
+    std_menu.close()
     viewer.close()
 
 

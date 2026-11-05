@@ -54,6 +54,7 @@ class BasePlotWidget(QtWidgets.QWidget):
         self._config:      dict                  = config or {}
         self._datasets:    dict[str, dict]       = {}
         self._checked:     dict[str, list[bool]] = {}
+        self._has_rendered_view = False
         self.color_mode:   str                   = "auto"  # "auto" | "cmap:<name>"
         # scene providers — set by CurveStackViewerWidget; pull-only accessors
         # into the RuntimeScene (single source of truth)
@@ -103,7 +104,9 @@ class BasePlotWidget(QtWidgets.QWidget):
 
     @abstractmethod
     def refresh(self, datasets: dict[str, dict],
-                checked: dict[str, list[bool]]) -> None:
+                checked: dict[str, list[bool]], *,
+                preserve_view: bool = False,
+                preserve_manual_view: bool = False) -> None:
         """Redraw from the current datasets and visibility flags."""
 
     @abstractmethod
@@ -120,25 +123,72 @@ class BasePlotWidget(QtWidgets.QWidget):
         """Add one dataset.  Override for O(new_curves) instead of O(all)."""
         self._datasets[name] = entry
         self._checked[name]  = checked_list
-        self.refresh(self._datasets, self._checked)
+        self.refresh(
+            self._datasets, self._checked, preserve_manual_view=True)
 
     def remove_lines(self, name: str) -> None:
         """Remove one dataset.  Override to avoid full rebuild if possible."""
         self._datasets.pop(name, None)
         self._checked.pop(name, None)
-        self.refresh(self._datasets, self._checked)
+        self.refresh(
+            self._datasets, self._checked, preserve_manual_view=True)
 
     def set_line_visible(self, name: str, idx: int, visible: bool) -> None:
         """Toggle one curve.  Override to call line.set_visible() directly."""
         if name in self._checked:
             self._checked[name][idx] = visible
-        self.refresh(self._datasets, self._checked)
+        self.refresh(self._datasets, self._checked, preserve_view=True)
 
     def set_all_visible(self, name: str, visible: bool) -> None:
         """Toggle all curves of a dataset.  Override for O(n) set_visible."""
         if name in self._checked:
             self._checked[name] = [visible] * len(self._checked[name])
-        self.refresh(self._datasets, self._checked)
+        self.refresh(self._datasets, self._checked, preserve_view=True)
+
+    # ── Transient view preservation ─────────────────────────────────────
+
+    @staticmethod
+    def _capture_axis_view(ax):
+        if ax is None:
+            return None
+        return {
+            "xlim": tuple(ax.get_xlim()),
+            "ylim": tuple(ax.get_ylim()),
+            "autoscalex": bool(ax.get_autoscalex_on()),
+            "autoscaley": bool(ax.get_autoscaley_on()),
+        }
+
+    def _capture_view_state(self):
+        """Capture live navigation state, excluding an unrendered 0..1 view."""
+        if not self._has_rendered_view:
+            return None
+        return {
+            "main": self._capture_axis_view(getattr(self, "_ax", None)),
+            "right": self._capture_axis_view(getattr(self, "_ax2", None)),
+        }
+
+    @staticmethod
+    def _restore_axis_view(ax, state, *, manual_only: bool) -> None:
+        if ax is None or state is None:
+            return
+        if not manual_only or not state["autoscalex"]:
+            ax.set_xlim(state["xlim"], emit=False)
+        if not manual_only or not state["autoscaley"]:
+            ax.set_ylim(state["ylim"], emit=False)
+        ax.set_autoscalex_on(state["autoscalex"])
+        ax.set_autoscaley_on(state["autoscaley"])
+
+    def _restore_view_state(self, state, *, manual_only: bool = False) -> None:
+        if state is None:
+            return
+        self._restore_axis_view(
+            getattr(self, "_ax", None), state.get("main"),
+            manual_only=manual_only,
+        )
+        self._restore_axis_view(
+            getattr(self, "_ax2", None), state.get("right"),
+            manual_only=manual_only,
+        )
 
     # ── Scene pull helpers ────────────────────────────────────────────────
 

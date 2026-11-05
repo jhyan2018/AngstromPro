@@ -14,8 +14,10 @@ class ProcessResult:
     ``data`` accepts the same values that processes historically returned: one
     workspace payload, a nested list/tuple of payloads, or a mapping of named
     outputs. ``annotations`` maps workspace annotation roles to annotation
-    values and targets the process's primary input. ``metrics`` contains named
-    scalar measurements for workflow evaluation.
+    values. Normal process execution applies them to the primary input;
+    workflows explicitly bind their destinations. ``values`` contains named
+    numerical outputs (scalars or arrays), with optional ``value_units``.
+    ``metrics`` is the older scalar interface and is included in ``values``.
 
     Existing processes do not need to return this type.
     """
@@ -23,6 +25,12 @@ class ProcessResult:
     data: Any = None
     annotations: dict[str, Any] = field(default_factory=dict)
     metrics: dict[str, int | float | bool] = field(default_factory=dict)
+    values: dict[str, Any] = field(default_factory=dict)
+    value_units: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Legacy metric producers participate in the same result namespace.
+        self.values = {**self.metrics, **self.values}
 
 
 def normalize_process_result(value: Any) -> ProcessResult:

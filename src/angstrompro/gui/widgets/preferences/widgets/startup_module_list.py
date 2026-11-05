@@ -20,6 +20,7 @@ class _StartupModuleRow(QtWidgets.QWidget):
     """One row: [module dropdown] [count spinbox] [remove / lock]"""
 
     remove_requested = Signal()
+    value_changed = Signal()
 
     def __init__(self, module_choices: list[tuple[str, str]],
                  module_id: str = "", count: int = 1,
@@ -28,7 +29,7 @@ class _StartupModuleRow(QtWidgets.QWidget):
         """
         module_choices : list of (module_id, display_name) from the registry
         max_for        : callable module_id → max_instances | None; caps the
-                         count spinbox (max_instances == 1 disables it)
+                         count spinbox (zero disables startup for this type)
         """
         super().__init__(parent)
         self._max_for = max_for or (lambda _mid: None)
@@ -40,18 +41,22 @@ class _StartupModuleRow(QtWidgets.QWidget):
         self._combo.setEnabled(removable)   # lock dropdown for default rows
         for mid, dname in module_choices:
             self._combo.addItem(f"{dname}  [{mid}]", userData=mid)
+        if module_id and self._combo.findData(module_id) < 0:
+            self._combo.addItem(f"{module_id} (unavailable)", module_id)
         # select current module_id
         idx = next((i for i in range(self._combo.count())
                     if self._combo.itemData(i) == module_id), 0)
         self._combo.setCurrentIndex(idx)
 
         self._count_spin = QtWidgets.QSpinBox()
-        self._count_spin.setRange(1, 16)
-        self._count_spin.setValue(max(1, int(count)))
+        self._count_spin.setRange(0, 16)
+        self._count_spin.setValue(max(0, int(count)))
         self._count_spin.setFixedWidth(56)
         self._count_spin.setToolTip("Number of instances to open at startup")
         self._apply_count_cap()
         self._combo.currentIndexChanged.connect(self._apply_count_cap)
+        self._combo.currentIndexChanged.connect(self.value_changed)
+        self._count_spin.valueChanged.connect(self.value_changed)
 
         if removable:
             btn = QtWidgets.QToolButton()
@@ -72,19 +77,12 @@ class _StartupModuleRow(QtWidgets.QWidget):
 
     def _apply_count_cap(self, *_a) -> None:
         limit = self._max_for(self._combo.currentData() or "")
-        if limit is not None:
-            self._count_spin.setRange(1, max(1, int(limit)))
-            if limit == 1:
-                self._count_spin.setEnabled(False)
-                self._count_spin.setToolTip(
-                    "This module allows a single instance")
-                return
-        else:
-            self._count_spin.setRange(1, 16)
+        self._count_spin.setRange(0, max(0, int(limit)) if limit is not None else 16)
         self._count_spin.setEnabled(True)
-        self._count_spin.setToolTip("Number of instances to open at startup")
+        self._count_spin.setToolTip("Number of startup instances; 0 disables startup for this module")
 
     def get_value(self) -> dict:
+        self._count_spin.interpretText()
         return {
             "module_id": self._combo.currentData() or "",
             "count":     self._count_spin.value(),
@@ -98,6 +96,8 @@ class StartupModuleListWidget(QtWidgets.QWidget):
     Populated from the module registry (context.modules.list_all()).
     Default entries cannot be removed; user-added entries can be freely managed.
     """
+
+    value_changed = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -189,15 +189,18 @@ class StartupModuleListWidget(QtWidgets.QWidget):
         row = _StartupModuleRow(choices, module_id, count, removable,
                                 self._rows_container,
                                 max_for=self._max_instances_for)
+        row.value_changed.connect(self.value_changed)
         if removable:
             row.remove_requested.connect(lambda r=row: self._remove_row(r))
         self._rows_layout.addWidget(row)
         self._rows.append(row)
+        self.value_changed.emit()
 
     def _remove_row(self, row: _StartupModuleRow) -> None:
         self._rows_layout.removeWidget(row)
         self._rows.remove(row)
         row.deleteLater()
+        self.value_changed.emit()
 
     # ── PreferencesPanel interface ─────────────────────────────────────────
 
@@ -230,3 +233,4 @@ class StartupModuleListWidget(QtWidgets.QWidget):
         for entry in DEFAULTS.get("app", {}).get("startup_modules", []):
             if entry["module_id"] not in seen:
                 self._add_row(entry["module_id"], entry.get("count", 1), removable=False)
+        self.value_changed.emit()

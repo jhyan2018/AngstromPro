@@ -15,11 +15,16 @@ DEFAULTS = {
     # Module types (module_id) that never appear as SEND TARGETS — in the
     # send dialog and the default-targets dialog.  They can still send.
     "send_target_exclude": ["data_browser"],
-    # Modules to auto-create at startup, before the main workbench is shown.
+    # Modules to auto-create after the main workbench's first paint.
     # Each entry: {"module_id": "image_stack_viewer", "count": 1}
     "startup_modules": [
         {"module_id": "data_browser",       "count": 1},
         {"module_id": "image_stack_viewer", "count": 1},
         {"module_id": "curve_stack_viewer", "count": 1},
     ],
+    # Empty workspaces and per-startup-slot attachments. Runtime changes do
+    # not modify this setup. Instance numbers are 1-based within each type.
+    # {"name": "Analysis", "attachments": [{"module_id": "image_stack_viewer",
+    #   "instance": 1, "active_destination": "shared"}]}
+    "startup_workspaces": [],
 }

@@ -13,7 +13,30 @@ import numpy as np
 from .si_scale import scaled_axis_label, split_label_unit
 
 
-def prepare_entry(name: str, uds) -> dict:
+_COMPLEX_COMPONENTS = {"real", "imaginary", "abs", "phase"}
+
+
+def _display_data(data: np.ndarray, component: str) -> tuple[np.ndarray, bool]:
+    """Return the selected real-valued representation and complex flag."""
+    component = str(component or "real").strip().lower()
+    if component not in _COMPLEX_COMPONENTS:
+        raise ValueError(f"Unknown complex display component: {component!r}.")
+    raw = np.asarray(data)
+    is_complex = bool(np.iscomplexobj(raw))
+    if not is_complex:
+        return np.asarray(raw, dtype=float), False
+    if component == "real":
+        represented = np.real(raw)
+    elif component == "imaginary":
+        represented = np.imag(raw)
+    elif component == "abs":
+        represented = np.abs(raw)
+    else:
+        represented = np.angle(raw)
+    return np.asarray(represented, dtype=float), True
+
+
+def prepare_entry(name: str, uds, component: str = "real") -> dict:
     """
     Convert a UdsDataStru into a plot-ready entry dict::
 
@@ -25,7 +48,7 @@ def prepare_entry(name: str, uds) -> dict:
             "y_label": str         e.g. "dI/dV (A/V)"
         }
     """
-    data = np.asarray(uds.data, dtype=float)
+    data, is_complex = _display_data(uds.data, component)
     if data.ndim == 1:
         y_arr = data[np.newaxis, :]
     elif data.ndim == 2:
@@ -66,6 +89,9 @@ def prepare_entry(name: str, uds) -> dict:
         y_units = y_units or display_units
     else:
         y_base_label = raw_base_label
+    if is_complex and str(component).strip().lower() == "phase":
+        y_base_label = "Phase"
+        y_units = "rad"
     y_label = scaled_axis_label(y_base_label, y_units, 1.0)
 
     # row axis — present when data is 2D and has a non-sweep leading axis
@@ -91,6 +117,8 @@ def prepare_entry(name: str, uds) -> dict:
             "y_label_base": y_base_label, "y_units": y_units,
             "row_values": row_values, "row_label": row_label,
             "row_label_base": row_base_label, "row_units": row_units,
+            "data_component": str(component).strip().lower(),
+            "is_complex": is_complex,
             "x_scale": 1.0, "y_scale": 1.0}
 
 

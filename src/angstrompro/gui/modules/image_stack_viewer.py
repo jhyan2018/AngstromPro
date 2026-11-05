@@ -1195,13 +1195,13 @@ class ImageStackViewer(AGuiModule):
                 self, "No points",
                 "No points picked in main panel. Right-click on canvas to pick points first.")
             return
-        self._main_item.annotations["bragg_peaks"] = PointSetData(coords=coords)
-        self.notify_workspace_item_changed(self._main_item)
+        self._apply_annotation_output(
+            self._main_item, "bragg_peaks", PointSetData(coords=coords))
         self.statusBar().showMessage(
             f"Bragg peaks set: {len(coords)} points on {self._main_item.name}", 3000)
 
     def _set_bragg_peaks_aux(self) -> None:
-        """Pick points from aux panel, store on the corresponding real-space item."""
+        """Store FFT-picked Bragg peaks on both FFT and real-space items."""
         from angstrompro.core.data.annotation_data import PointSetData
         if self._aux_item is None:
             QtWidgets.QMessageBox.information(self, "No reference item",
@@ -1214,16 +1214,15 @@ class ImageStackViewer(AGuiModule):
                 "No points picked in aux panel. Right-click on canvas to pick points first.")
             return
 
-        # Resolve target: strip _fft suffix to find the real-space item
-        real_name = fft_source_name(self._aux_item.payload)
-        target = (self.find_accessible_item(
-                    real_name, preferred_item=self._aux_item)
-                  if real_name else None) or self._aux_item
-
-        target.annotations["bragg_peaks"] = PointSetData(coords=coords)
-        self.notify_workspace_item_changed(target)
+        self._apply_annotation_output(
+            self._aux_item, "bragg_peaks", PointSetData(coords=coords))
+        target_names = [
+            item.name for item in
+            self._annotation_output_targets(self._aux_item, "bragg_peaks")
+        ]
         self.statusBar().showMessage(
-            f"Bragg peaks set: {len(coords)} points on {target.name}", 3000)
+            f"Bragg peaks set: {len(coords)} points on "
+            f"{', '.join(target_names)}", 3000)
 
     def _set_filter_points_from_aux(self) -> None:
         """Pick points from aux panel, store as filter_points on the real-space item."""
@@ -1528,11 +1527,22 @@ class ImageStackViewer(AGuiModule):
             f"Line profile set on {self._aux_item.name}", 3000)
 
     def _clear_annotation(self, role: str) -> None:
-        if self._main_item and role in self._main_item.annotations:
-            del self._main_item.annotations[role]
-            self.notify_workspace_item_changed(self._main_item)
+        if self._main_item is None:
+            return
+        targets = (
+            self._annotation_output_targets(self._main_item, role)
+            if role == "bragg_peaks" else [self._main_item]
+        )
+        changed = []
+        for target in targets:
+            if role not in target.annotations:
+                continue
+            del target.annotations[role]
+            self.notify_workspace_item_changed(target)
+            changed.append(target.name)
+        if changed:
             self.statusBar().showMessage(
-                f"Cleared '{role}' on {self._main_item.name}", 3000)
+                f"Cleared '{role}' on {', '.join(changed)}", 3000)
 
     # ------------------------------------------------------------------
 

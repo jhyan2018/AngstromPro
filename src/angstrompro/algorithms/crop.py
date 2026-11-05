@@ -13,6 +13,10 @@ Registered processes
         Shrinks the annotated region to the largest square with an even pixel
         count, anchored at the top-left corner.
 
+    spatial.trim_border_2d
+        Remove one pixel from each of the four spatial edges. Intended for
+        feedback loops that inspect each resulting crop before trimming again.
+
     spatial.crop2d   (commented out — ImageStackViewer requires square data)
         Crop to the annotated region without forcing square/even.
 """
@@ -20,8 +24,6 @@ Registered processes
 from __future__ import annotations
 
 import copy
-
-import numpy as np
 
 from angstrompro.core.data.uds_data import Axis, UdsDataStru
 from angstrompro.core.data.annotation_data import RegionData
@@ -149,3 +151,33 @@ def crop2d_square(inputs: dict, params: dict, *, annotations: dict | None = None
     c1 = c0 + side_len
 
     return _do_crop(src, r0, r1, c0, c1)
+
+
+@register_process(
+    name="spatial.trim_border_2d",
+    label="Trim One-Pixel Border 2D",
+    category="Geometry & Resampling",
+    schema=ProcessSchema(
+        inputs=[InputSpec("data", "uds", ndim=3, label="Image Stack")],
+        outputs=_OUT_3D,
+    ),
+    description=(
+        "Remove exactly one pixel from each of the four image edges. "
+        "Use in a loop with Data Statistics to test the resulting crop."
+    ),
+)
+def trim_border_2d(
+    inputs: dict, params: dict, *, annotations: dict | None = None
+) -> UdsDataStru:
+    src: UdsDataStru = inputs["data"]
+    if src.data.ndim != 3:
+        raise ValueError(
+            f"spatial.trim_border_2d requires ndim=3; got shape {src.data.shape}."
+        )
+    rows, cols = src.data.shape[-2:]
+    if rows < 4 or cols < 4:
+        raise ValueError(
+            "Trim One-Pixel Border 2D requires at least 4 x 4 input pixels "
+            "to leave a 2 x 2 image."
+        )
+    return _do_crop(src, 1, rows - 2, 1, cols - 2)

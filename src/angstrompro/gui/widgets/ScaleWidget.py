@@ -275,17 +275,28 @@ class ScaleWidget(QtWidgets.QWidget):
     def upperValue(self):
         return self.data_upper_value
 
-    def setData(self, data1D, suffix='SUFFIX_NON_FFT'):
+    def setData(self, data1D, suffix='SUFFIX_NON_FFT', auto_scale_mode=None):
+        """Set the values used to initialise the display range.
+
+        ``auto_scale_mode`` keeps the historical image-viewer behaviour when
+        omitted. Callers that need a predictable initial range can request
+        ``"full"`` (data minimum to maximum) or ``"sigma"`` without
+        pretending that otherwise ordinary data is an FFT.
+        """
+        if auto_scale_mode not in (None, 'full', 'sigma'):
+            raise ValueError("auto_scale_mode must be None, 'full', or 'sigma'")
         self.data = data1D
         self.data_max = np.max(self.data)
         self.data_min = np.min(self.data)
 
         if not self.data_scale_fixed:
             self.data_suffix = suffix
-            if self.data_suffix == 'SUFFIX_FFT':
-                self.ui_pb_sigma.setChecked(False)
+            if auto_scale_mode is not None:
+                self.ui_pb_sigma.setChecked(auto_scale_mode == 'sigma')
             else:
-                self.ui_pb_sigma.setChecked(True)
+                self.ui_pb_sigma.setChecked(
+                    self.data_suffix != 'SUFFIX_FFT'
+                )
             self.setAutoScaleHistgram()
 
         self.ui_le_data_sigma_factor.setSNText(str(self.data_sigma_factor))

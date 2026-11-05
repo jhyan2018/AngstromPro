@@ -15,6 +15,13 @@ from typing import ClassVar
 import numpy as np
 
 from .base import WorkspaceData, ProcRecord
+from .image_overlay_data import (
+    CircleOverlay,
+    EllipseOverlay,
+    ImageOverlay,
+    PointOverlay,
+    PolylineOverlay,
+)
 from .isocontour_data import IsocontourResult
 
 
@@ -133,9 +140,9 @@ def _legacy_fft_source_name(name: str) -> str | None:
 def is_fft_uds(data: "UdsDataStru") -> bool:
     """Return whether *data* is FFT output, with legacy name fallback."""
     info = getattr(data, "info", {}) or {}
-    if info.get(FFT_TRANSFORM_KEY) == "fft_2d":
+    if info.get(FFT_TRANSFORM_KEY) in {"fft_1d", "fft_2d"}:
         return True
-    if info.get(FFT_DOMAIN_KEY) == "reciprocal":
+    if info.get(FFT_DOMAIN_KEY) in {"frequency", "reciprocal"}:
         return True
     return _legacy_fft_source_name(str(getattr(data, "name", ""))) is not None
 
@@ -185,6 +192,7 @@ class UdsDataStru(WorkspaceData):
     info: dict                                = field(default_factory=dict)
     landmarks:   dict[tuple[float, ...], str]  = field(default_factory=dict)
     isocontours: list[IsocontourResult]        = field(default_factory=list)
+    image_overlays: list[ImageOverlay]          = field(default_factory=list)
     proc_history: list[ProcRecord]             = field(default_factory=list)
     # named points in N-dimensional data space, e.g.:
     # 1D k-path  — handled by Axis.ticks
@@ -224,6 +232,8 @@ class UdsDataStru(WorkspaceData):
         }
         if self.proc_history:
             d["History"] = f"{len(self.proc_history)} step(s)"
+        if self.image_overlays:
+            d["Derived overlays"] = f"{len(self.image_overlays)} feature(s)"
         return d
 
     def inspect_fields(self) -> list:
@@ -294,6 +304,10 @@ class UdsDataStru(WorkspaceData):
                     {"kind": "value", "label": "method",      "value": r.method},
                     {"kind": "value", "label": "layer_index", "value": str(r.layer_index)},
                     {"kind": "value", "label": "source_axes", "value": str(r.source_axes)},
+                    {"kind": "value", "label": "coordinate_axes",
+                     "value": str(r.coordinate_axes)},
+                    {"kind": "value", "label": "selector_indices",
+                     "value": str(r.selector_indices)},
                 ]
                 from angstrompro.core.data.isocontour_data import (
                     IsopointResult, IsolineResult, IsosurfaceResult)
@@ -324,6 +338,91 @@ class UdsDataStru(WorkspaceData):
             nodes.append({"kind": "group", "label": "isocontours",
                           "summary": f"{len(self.isocontours)} result(s)",
                           "children": iso_children})
+
+        # Derived image geometry is intentionally separate from editable
+        # WorkspaceItem annotations, but remains embedded in the UDS so it
+        # follows nested SpectrumData, copies, and native-file persistence.
+        if self.image_overlays:
+            overlay_children = []
+            for i, overlay in enumerate(self.image_overlays):
+                children = [
+                    {"kind": "value", "label": "id",
+                     "value": overlay.overlay_id},
+                    {"kind": "value", "label": "kind",
+                     "value": overlay.kind},
+                    {"kind": "value", "label": "layer_index",
+                     "value": str(overlay.layer_index)},
+                    {"kind": "value", "label": "layer_value",
+                     "value": str(overlay.layer_value)},
+                    {"kind": "value", "label": "source_axes",
+                     "value": str(overlay.source_axes)},
+                    {"kind": "value", "label": "coordinate_space",
+                     "value": overlay.coordinate_space},
+                    {"kind": "value", "label": "method",
+                     "value": overlay.method},
+                ]
+                if isinstance(overlay, CircleOverlay):
+                    children.extend([
+                        {"kind": "value", "label": "center [row, column]",
+                         "value": str(overlay.center)},
+                        {"kind": "value", "label": "radius",
+                         "value": str(overlay.radius)},
+                    ])
+                elif isinstance(overlay, EllipseOverlay):
+                    children.extend([
+                        {"kind": "value", "label": "center [row, column]",
+                         "value": str(overlay.center)},
+                        {"kind": "value", "label": "row radius",
+                         "value": str(overlay.radius_row)},
+                        {"kind": "value", "label": "column radius",
+                         "value": str(overlay.radius_column)},
+                        {"kind": "value", "label": "rotation",
+                         "value": f"{overlay.rotation_degrees} deg"},
+                    ])
+                elif isinstance(overlay, PolylineOverlay):
+                    children.append({
+                        "kind": "array", "label": "vertices",
+                        "array": overlay.vertices,
+                    })
+                elif isinstance(overlay, PointOverlay):
+                    children.append({
+                        "kind": "array", "label": "points",
+                        "array": overlay.points,
+                    })
+                if overlay.style:
+                    children.append({
+                        "kind": "group", "label": "style",
+                        "summary": f"{len(overlay.style)} entries",
+                        "children": [
+                            {"kind": "value", "label": str(key),
+                             "value": str(value)}
+                            for key, value in overlay.style.items()
+                        ],
+                    })
+                if overlay.metadata:
+                    children.append({
+                        "kind": "group", "label": "metadata",
+                        "summary": f"{len(overlay.metadata)} entries",
+                        "children": [
+                            {"kind": "value", "label": str(key),
+                             "value": str(value)}
+                            for key, value in overlay.metadata.items()
+                        ],
+                    })
+                if overlay.notes:
+                    children.append({"kind": "value", "label": "notes",
+                                     "value": overlay.notes})
+                label = overlay.name or f"{overlay.kind} [{i}]"
+                overlay_children.append({
+                    "kind": "group", "label": label,
+                    "summary": f"{overlay.kind}, layer {overlay.layer_index}",
+                    "children": children,
+                })
+            nodes.append({
+                "kind": "group", "label": "image_overlays",
+                "summary": f"{len(self.image_overlays)} feature(s)",
+                "children": overlay_children,
+            })
 
         # landmarks
         if self.landmarks:

@@ -12,7 +12,6 @@ import sys
 
 from angstrompro.utils.qt_compat import QtWidgets
 
-log = logging.getLogger(__name__)
 from angstrompro.core.configs.config_manager import ConfigManager
 from angstrompro.app.context import AppContext
 from angstrompro.gui.appearance import ThemeManager, IconManager
@@ -21,6 +20,8 @@ from angstrompro.app.user_data_folder import (
     apply_pending_user_data_folder_for_new_runtime,
     is_user_data_folder_set,
 )
+
+log = logging.getLogger(__name__)
 
 
 def _install_exception_hooks() -> None:
@@ -120,6 +121,11 @@ def main(external_namespace=None, start_event_loop=True):
 
     from angstrompro.app.user_data_folder import setup_file_logging
     setup_file_logging()
+    # Plugin discovery runs before MainWorkbench creates its Log dock.  Start
+    # the shared UI buffer now so import failures and their tracebacks remain
+    # available when the dock is constructed.
+    from angstrompro.gui.widgets.log_panel import install_log_capture
+    install_log_capture()
     _install_exception_hooks()
 
     # 4

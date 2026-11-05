@@ -42,6 +42,31 @@ accidentally. `set` changes memory; `save_defaults` persists the sparse diff.
 
 ## Startup modules
 
+`app.startup_workspaces` is a list of named, initially empty shared workspaces:
+
+```json
+[
+  {"name": "Analysis", "attachments": [
+    {"module_id": "image_stack_viewer", "instance": 2,
+     "active_destination": "private"}
+  ]}
+]
+```
+
+Attachment numbers are 1-based slots within the corresponding
+`app.startup_modules` count, not runtime instance IDs. Core validates this plan
+against registered module types (including plugins), counts, instance limits,
+unique names, and one attachment per slot. Preferences retain invalid bindings
+visibly and block Apply/Save; runtime loading logs and skips invalid actions.
+Failed module creation does not renumber subsequent slots. Reused singleton
+instances are not reattached. Workspaces are prepared before the deferred
+module-creation queue begins, and this one-shot setup never writes runtime
+changes back into config.
+
+Custom preference controls can implement `bind_preferences_controls(controls)`
+to observe other draft controls and `validation_errors()` to block Apply/Save
+without changing the live configuration.
+
 Startup-module lists use special merge behavior: built-in module entries remain
 present, user entries with the same ID override their counts, and new user
 entries are appended.

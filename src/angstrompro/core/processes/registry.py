@@ -55,13 +55,14 @@ Usage
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import logging
 import sys
 from pathlib import Path
 from typing import Any
 
-from .param_schema import ProcessSchema
-from .process_entry import ProcessEntry
+from .param_schema import ProcessSchema, data_domain_matches
+from .process_entry import ProcessEntry, ProcessRequirement
 from .process_result import ProcessResult, primary_process_data
 
 log = logging.getLogger(__name__)
@@ -80,6 +81,7 @@ def register_process(
     schema:      ProcessSchema,
     description: str = "",
     kind:        str = "process",
+    requirements: list[ProcessRequirement] | tuple[ProcessRequirement, ...] | None = None,
 ):
     """
     Decorator that registers a process function into the registry.
@@ -113,6 +115,7 @@ def register_process(
             schema      = schema,
             description = description,
             kind        = kind,
+            requirements= tuple(requirements or ()),
         ))
         return func
     return decorator
@@ -124,6 +127,7 @@ def register_simulation(
     category:    str,
     schema:      ProcessSchema,
     description: str = "",
+    requirements: list[ProcessRequirement] | tuple[ProcessRequirement, ...] | None = None,
 ):
     """Convenience alias for register_process with kind='simulation'.
 
@@ -137,6 +141,7 @@ def register_simulation(
         schema      = schema,
         description = description,
         kind        = "simulation",
+        requirements= requirements,
     )
 
 
@@ -215,6 +220,19 @@ def _record_history(
 # ---------------------------------------------------------------------------
 # Axis-type warning check
 # ---------------------------------------------------------------------------
+
+def _check_data_domains(entry: "ProcessEntry", inputs: dict) -> None:
+    """Enforce only explicitly declared semantic-domain requirements."""
+    for spec in entry.schema.inputs:
+        payload = inputs.get(spec.name)
+        if payload is None or spec.data_domain == "any":
+            continue
+        if not data_domain_matches(payload, spec.data_domain):
+            required = spec.data_domain.replace("_", "-")
+            raise ValueError(
+                f"Process '{entry.name}' input '{spec.name}' requires "
+                f"{required} data."
+            )
 
 def _check_axis_types(entry: "ProcessEntry", inputs: dict) -> None:
     """Log warnings if input UDS axes don't match InputSpec.axis_types declarations."""
@@ -324,12 +342,21 @@ class ProcessRegistry:
     # ------------------------------------------------------------------
 
     def run(self, name: str, inputs: dict, params: dict,
-            annotations: dict | None = None) -> Any:
-        """Direct synchronous call — no threading, no progress."""
+            annotations: dict | None = None, *, cancel_token=None,
+            progress_callback=None) -> Any:
+        """Direct call with optional cooperative cancellation and progress."""
         entry       = self.get(name)
-        _check_axis_types(entry, inputs)
         full_params = {**entry.schema.defaults(), **params}
-        result      = entry.func(inputs, full_params, annotations=annotations or {})
+        entry.ensure_available(full_params)
+        _check_data_domains(entry, inputs)
+        _check_axis_types(entry, inputs)
+        signature = inspect.signature(entry.func)
+        execution_kwargs = {"annotations": annotations or {}}
+        if "cancel_token" in signature.parameters:
+            execution_kwargs["cancel_token"] = cancel_token
+        if "progress_callback" in signature.parameters:
+            execution_kwargs["progress_callback"] = progress_callback
+        result = entry.func(inputs, full_params, **execution_kwargs)
         return _record_history(result, name, full_params, inputs, annotations)
 
     # ------------------------------------------------------------------
@@ -354,9 +381,20 @@ class ProcessRegistry:
         full_params = {**entry.schema.defaults(), **params}
         resolved_annotations = annotations or {}
 
-        def _task_func():
+        signature = inspect.signature(entry.func)
+        supports_cancel = "cancel_token" in signature.parameters
+        supports_progress = "progress_callback" in signature.parameters
+
+        def _task_func(*, cancel_token=None, progress_callback=None):
+            entry.ensure_available(full_params)
+            _check_data_domains(entry, inputs)
             _check_axis_types(entry, inputs)
-            result = entry.func(inputs, full_params, annotations=resolved_annotations)
+            execution_kwargs = {"annotations": resolved_annotations}
+            if supports_cancel:
+                execution_kwargs["cancel_token"] = cancel_token
+            if supports_progress:
+                execution_kwargs["progress_callback"] = progress_callback
+            result = entry.func(inputs, full_params, **execution_kwargs)
             return _record_history(result, process_name, full_params, inputs, resolved_annotations)
 
         return task_manager.submit(TaskRequest(
@@ -364,6 +402,8 @@ class ProcessRegistry:
             source_id = source_id,
             task_type = process_name,
             group_id  = group_id,
+            cancellable=supports_cancel,
+            has_progress=supports_progress,
         ))
 
     def submit_pipeline(
@@ -421,6 +461,7 @@ class ProcessRegistry:
             current_data = None
             results = []
             for entry, step_inputs, full_params, step_ann in resolved:
+                entry.ensure_available(full_params)
                 if step_inputs:
                     effective_inputs = {
                         k: (current_data if v == _PREV else v)
@@ -428,6 +469,7 @@ class ProcessRegistry:
                     }
                 else:
                     effective_inputs = {"data": current_data}
+                _check_data_domains(entry, effective_inputs)
                 result = entry.func(effective_inputs, full_params, annotations=step_ann)
                 result = _record_history(result, entry.name, full_params,
                                          effective_inputs, step_ann)

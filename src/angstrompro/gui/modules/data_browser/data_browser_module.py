@@ -127,6 +127,11 @@ class DataBrowserModule(AGuiModule):
                      "Source data is unchanged",
                      kwargs={"choices": ["Off", "Polynomial surface",
                                          "Per scan line", "Per image row (X)"]}),
+            PrefItem("thumbnails.sigma", "Thumbnail sigma", "number",
+                     "Image contrast window after optional background "
+                     "subtraction; uses the same sigma scale as Image Stack "
+                     "Viewer",
+                     kwargs={"min": 1.0, "max": 10.0}),
             PrefItem("thumbnails.pixmap_cache_size", "Pixmap cache", "number",
                      "Decoded thumbnails kept in memory",
                      kwargs={"min": 16, "max": 5000}),
@@ -169,6 +174,11 @@ class DataBrowserModule(AGuiModule):
         self._task_file: dict[str, str] = {}      # task_id → file_path
         self._current_files: list[tuple[str, float]] = []   # (path, mtime) listed now
         self._current_folder = ""
+        self._refresh_after_render_cancel = False
+        self._thumbnail_render_signature = self._current_render_signature()
+        if self._cache.ensure_render_signature(
+                self._thumbnail_render_signature):
+            log.info("Thumbnail render settings changed; invalidated image cache")
 
         splitter = QtWidgets.QSplitter()
 
@@ -393,6 +403,16 @@ class DataBrowserModule(AGuiModule):
 
     def _apply_config_to_panels(self, cfg: dict) -> None:
         """Live-apply from the preferences panel (base class hooks this in)."""
+        signature = self._current_render_signature()
+        if signature != self._thumbnail_render_signature:
+            self._thumbnail_render_signature = signature
+            self._refresh_after_render_cancel = bool(self._pending)
+            for handle in list(self._pending.values()):
+                try:
+                    handle.cancel()
+                except Exception:
+                    pass
+            self._cache.ensure_render_signature(signature)
         self._reload_format_menu()
         self._gallery.set_thumb_size(int(self._cfg("thumbnails.size", 150)))
         self._gallery.set_wheel_scroll_px(
@@ -414,6 +434,17 @@ class DataBrowserModule(AGuiModule):
             self._reload_watch_folders()
         self._push_scanner_settings()
         self._rescan_current()
+
+    def _thumbnail_sigma(self) -> float:
+        try:
+            sigma = float(self._cfg("thumbnails.sigma", 5.0))
+        except (TypeError, ValueError):
+            sigma = 5.0
+        return max(1.0, min(10.0, sigma))
+
+    def _current_render_signature(self) -> str:
+        """Identity of settings that affect cached 3D image thumbnails."""
+        return f"uds3d-sigma-v1:{self._thumbnail_sigma():.12g}"
 
     # ------------------------------------------------------------------
     # Watch folder tree
@@ -746,6 +777,8 @@ class DataBrowserModule(AGuiModule):
         options = {"stack_threshold": int(self._cfg("thumbnails.stack_threshold", 10)),
                    "z_background_method": str(self._cfg(
                        "thumbnails.z_background_method", "Polynomial surface")),
+                   "sigma": self._thumbnail_sigma(),
+                   "render_signature": self._thumbnail_render_signature,
                    "widget_extras": dict(self._template_extras),
                    "figsize": (self._cfg("thumbnails.size", 150) / 58,) * 2}
         if layer is not None:
@@ -776,8 +809,21 @@ class DataBrowserModule(AGuiModule):
         if path is not None:
             self._pending.pop(path, None)
         if not result:
+            self._resume_after_cancelled_renders()
             return   # cancelled mid-task
         path = result["file_path"]
+        result_signature = result.get(
+            "render_signature", self._thumbnail_render_signature)
+        if result_signature != self._thumbnail_render_signature:
+            for thumb in result.get("thumbs", ()):
+                png_path = thumb.get("png_path", "")
+                if png_path:
+                    try:
+                        Path(png_path).unlink(missing_ok=True)
+                    except OSError:
+                        pass
+            self._resume_after_cancelled_renders()
+            return
         self._cache.upsert_file(path, result["mtime"], result["format"],
                                 result["channels"])
         for t in result["thumbs"]:
@@ -814,11 +860,18 @@ class DataBrowserModule(AGuiModule):
         self._gallery.gallery_model().update_row(
             (path, "?"), state=STATE_ERROR, tooltip=error_text.splitlines()[-1])
         log.warning("Thumbnail render failed for %s:\n%s", path, error_text)
+        self._resume_after_cancelled_renders()
 
     def _on_render_cancelled(self, task_id: str) -> None:
         path = self._task_file.pop(task_id, None)
         if path is not None:
             self._pending.pop(path, None)
+        self._resume_after_cancelled_renders()
+
+    def _resume_after_cancelled_renders(self) -> None:
+        if self._refresh_after_render_cancel and not self._pending:
+            self._refresh_after_render_cancel = False
+            self._rescan_current()
 
     # ------------------------------------------------------------------
     # Send (courier)
@@ -845,6 +898,7 @@ class DataBrowserModule(AGuiModule):
         return payloads[0][1] if payloads else None
 
     def _on_send_card(self, key: tuple) -> None:
+        source_workspace = self.active_workspace
         path, channel_id = key
         row = self._gallery.gallery_model().row_for_key(key)
         if row is not None and row.state in (STATE_ERROR, STATE_NOT_FOUND):
@@ -869,13 +923,13 @@ class DataBrowserModule(AGuiModule):
             payload.name = Path(path).stem
 
         if saved_item:
-            item = self.workspace.add_item(
+            item = source_workspace.add_item(
                 payload=payload, alias=saved_item.alias,
                 annotations=saved_item.annotations,
                 item_id=saved_item.item_id,
             )
         else:
-            item = self.workspace.add_item(payload=payload)
+            item = source_workspace.add_item(payload=payload)
         item_name = item.name if item is not None else payload.name
 
         from angstrompro.gui.dialogs.send_item_dialog import SendItemDialog
@@ -885,15 +939,16 @@ class DataBrowserModule(AGuiModule):
         already_shared = False
         if dlg.exec() and dlg.selected_module:
             target = dlg.selected_module
-            if target.workspace.workspace_id == self.workspace.workspace_id:
+            destination = target.active_workspace
+            if destination.workspace_id == source_workspace.workspace_id:
                 # Both modules already see the same shared workspace.  The
                 # newly loaded item is immediately available to the target.
                 sent = True
                 already_shared = True
             else:
                 self._context.workspace_manager.transfer_item(
-                    src_workspace_id=self.workspace.workspace_id,
-                    dst_workspace_id=target.workspace.workspace_id,
+                    src_workspace_id=source_workspace.workspace_id,
+                    dst_workspace_id=destination.workspace_id,
                     item_name=item_name,
                 )
                 sent = True
@@ -901,14 +956,14 @@ class DataBrowserModule(AGuiModule):
         # delete_after_send preference (same rule as every module); a
         # cancelled send always drops the temporary courier copy.
         if sent and not already_shared:
-            self._after_send(item_name)
+            self._after_send(item_name, source_workspace)
         elif already_shared:
             self.statusBar().showMessage(
                 "The target module already accesses this shared workspace.",
                 4000,
             )
-        elif self.workspace.has_item(item_name):
-            self.workspace.remove_item(item_name)
+        elif source_workspace.has_item(item_name):
+            source_workspace.remove_item(item_name)
 
     # ------------------------------------------------------------------
     # Card context menu

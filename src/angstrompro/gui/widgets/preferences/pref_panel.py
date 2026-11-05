@@ -275,6 +275,11 @@ class PreferencesPanel(QtWidgets.QWidget):
         self._controls: list[tuple[str, QtWidgets.QWidget]] = []
 
         self._build_ui(module_name)
+        controls = dict(self._controls)
+        for _key, control in self._controls:
+            binder = getattr(control, "bind_preferences_controls", None)
+            if callable(binder):
+                binder(controls)
 
     # ------------------------------------------------------------------
 
@@ -473,14 +478,25 @@ class PreferencesPanel(QtWidgets.QWidget):
                 ctrl.get_value()  # trigger side-effects (e.g. channel manager save)
         return cfg
 
-    def _on_apply(self) -> None:
+    def _on_apply(self) -> bool:
+        errors = []
+        for _key, control in self._controls:
+            validate = getattr(control, "validation_errors", None)
+            if callable(validate):
+                errors.extend(validate())
+        if errors:
+            QtWidgets.QMessageBox.warning(
+                self, "Invalid preferences", "\n".join(dict.fromkeys(errors)))
+            return False
         cfg = self._collect()
         self._config = cfg
         if self._on_apply_cb:
             self._on_apply_cb(copy.deepcopy(cfg))
+        return True
 
     def _on_save_as_default(self) -> None:
-        self._on_apply()
+        if not self._on_apply():
+            return
         if self._on_save_cb:
             self._on_save_cb(copy.deepcopy(self._config))
 

@@ -50,8 +50,13 @@ class ProcessParamDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self._entry           = entry
         self._context         = context
-        self._input_items     = input_items or []
         self._workspace_items = workspace_items or []
+        from angstrompro.core.processes import select_compatible_input_items
+        self._input_items = select_compatible_input_items(
+            entry.schema.inputs,
+            input_items or [],
+            self._workspace_items,
+        )
         self._widgets:      dict[str, QtWidgets.QWidget] = {}
         self._input_combos: dict[str, QtWidgets.QComboBox] = {}
         self._param_specs = resolve_parameter_specs(
@@ -99,14 +104,8 @@ class ProcessParamDialog(QtWidgets.QDialog):
                     combo.addItem("(none)", None)
 
                 for ws_item in self._workspace_items:
-                    # filter by type_id and ndim
-                    if spec.type_id and ws_item.type_id != spec.type_id:
+                    if not spec.accepts(ws_item.payload):
                         continue
-                    if spec.ndim is not None:
-                        actual_ndim = getattr(
-                            getattr(ws_item.payload, "data", None), "ndim", None)
-                        if actual_ndim is not None and actual_ndim != spec.ndim:
-                            continue
                     combo.addItem(ws_item.name, ws_item)
 
                 # pre-select the staged item for this slot
@@ -116,7 +115,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
                     if idx >= 0:
                         combo.setCurrentIndex(idx)
 
-                if i == 0:
+                if i == 0 and spec.data_domain == "any":
                     combo.setEnabled(False)
 
                 self._input_combos[spec.name] = combo
@@ -130,6 +129,7 @@ class ProcessParamDialog(QtWidgets.QDialog):
 
         # annotations section
         ann_specs = getattr(self._entry.schema, 'annotations', [])
+        self._annotation_status_rows = {}
         if ann_specs:
             root.addWidget(QtWidgets.QLabel("<b>Annotations</b>"))
             ann_form_widget = QtWidgets.QWidget()
@@ -138,44 +138,26 @@ class ProcessParamDialog(QtWidgets.QDialog):
             ann_form.setHorizontalSpacing(16)
             ann_form.setVerticalSpacing(4)
 
-            self._ann_all_ok = True
-            primary_item = self._input_items[0] if self._input_items else None
             for spec in ann_specs:
-                ann = (primary_item.annotations.get(spec.role)
-                       if primary_item is not None else None)
-                if ann is not None:
-                    dot = QtWidgets.QLabel("●")
-                    dot.setStyleSheet("color: green; font-size: 14px;")
-                    from angstrompro.core.data.annotation_data import (
-                        PointSetData, RegionData, LineData)
-                    if isinstance(ann, PointSetData):
-                        summary = f"{len(ann.coords)} points"
-                    elif isinstance(ann, RegionData):
-                        summary = (f"r[{ann.row_min}:{ann.row_max}] "
-                                   f"c[{ann.col_min}:{ann.col_max}]")
-                    elif isinstance(ann, LineData):
-                        summary = f"{ann.p1} → {ann.p2}"
-                    else:
-                        summary = "present"
-                    row_widget = QtWidgets.QWidget()
-                    row_lay = QtWidgets.QHBoxLayout(row_widget)
-                    row_lay.setContentsMargins(0, 0, 0, 0)
-                    row_lay.addWidget(dot)
-                    row_lay.addWidget(QtWidgets.QLabel(summary))
-                    row_lay.addStretch()
-                    ann_form.addRow(spec.role + ":", row_widget)
-                else:
-                    dot = QtWidgets.QLabel("●")
-                    dot.setStyleSheet("color: red; font-size: 14px;")
-                    row_widget = QtWidgets.QWidget()
-                    row_lay = QtWidgets.QHBoxLayout(row_widget)
-                    row_lay.setContentsMargins(0, 0, 0, 0)
-                    row_lay.addWidget(dot)
-                    row_lay.addWidget(QtWidgets.QLabel("missing"))
-                    row_lay.addStretch()
-                    ann_form.addRow(spec.role + ":", row_widget)
-                    if spec.required:
-                        self._ann_all_ok = False
+                dot = QtWidgets.QLabel("●")
+                summary = QtWidgets.QLabel()
+                row_widget = QtWidgets.QWidget()
+                row_lay = QtWidgets.QHBoxLayout(row_widget)
+                row_lay.setContentsMargins(0, 0, 0, 0)
+                row_lay.addWidget(dot)
+                row_lay.addWidget(summary)
+                row_lay.addStretch()
+                ann_form.addRow(spec.role + ":", row_widget)
+                self._annotation_status_rows[spec.name] = (
+                    spec, dot, summary
+                )
+
+            primary_combo = self._input_combos.get(input_specs[0].name)
+            if primary_combo is not None:
+                primary_combo.currentIndexChanged.connect(
+                    self._refresh_annotation_status
+                )
+            self._refresh_annotation_status()
 
             root.addWidget(ann_form_widget)
             root.addWidget(_hline())
@@ -229,18 +211,66 @@ class ProcessParamDialog(QtWidgets.QDialog):
         btn_row.addWidget(btn_box)
         root.addLayout(btn_row)
 
-        # Disable Run if any required annotation is missing
-        ann_specs = getattr(self._entry.schema, 'annotations', [])
-        if ann_specs and not getattr(self, '_ann_all_ok', True):
-            self._btn_run.setEnabled(False)
-            self._btn_run.setToolTip(
-                "One or more required annotations are missing. "
-                "Set them in the Image Stack Viewer Annotate menu first."
-            )
+        self._refresh_annotation_status()
 
     # ------------------------------------------------------------------
     # Value loading
     # ------------------------------------------------------------------
+
+    def _refresh_annotation_status(self, *_args) -> None:
+        """Refresh annotation ownership after the primary input changes."""
+        from angstrompro.core.data.annotation_data import (
+            LineData,
+            PointSetData,
+            RegionData,
+        )
+
+        input_specs = self._entry.schema.inputs
+        primary_combo = (
+            self._input_combos.get(input_specs[0].name)
+            if input_specs else None
+        )
+        primary_item = (
+            primary_combo.currentData() if primary_combo is not None else None
+        )
+        self._ann_all_ok = True
+        for spec, dot, summary_label in self._annotation_status_rows.values():
+            annotation = (
+                primary_item.annotations.get(spec.role)
+                if primary_item is not None else None
+            )
+            if annotation is None:
+                dot.setStyleSheet("color: red; font-size: 14px;")
+                summary_label.setText("missing")
+                if spec.required:
+                    self._ann_all_ok = False
+                continue
+            dot.setStyleSheet("color: green; font-size: 14px;")
+            if isinstance(annotation, PointSetData):
+                summary = f"{len(annotation.coords)} points"
+            elif isinstance(annotation, RegionData):
+                summary = (
+                    f"r[{annotation.row_min}:{annotation.row_max}] "
+                    f"c[{annotation.col_min}:{annotation.col_max}]"
+                )
+            elif isinstance(annotation, LineData):
+                summary = f"{annotation.p1} → {annotation.p2}"
+            else:
+                summary = "present"
+            summary_label.setText(summary)
+
+        if hasattr(self, "_btn_run"):
+            input_ok = all(
+                not spec.required
+                or self._input_combos[spec.name].currentData() is not None
+                for spec in input_specs
+            )
+            enabled = input_ok and self._ann_all_ok
+            self._btn_run.setEnabled(enabled)
+            self._btn_run.setToolTip(
+                "" if enabled else
+                "Choose compatible inputs carrying every required annotation."
+            )
 
     def _load_values(self) -> None:
         """Populate widgets from ParamHistoryManager (falls back to schema defaults)."""

@@ -12,6 +12,7 @@ files        one row per source file: mtime, format, discovered channel list
              (JSON), error status + retry count
 thumbnails   one row per (file, logical channel): uuid PNG path, layer count,
              chosen thumbnail layer, per-channel status
+settings     cache-render settings whose changes invalidate generated PNGs
 
 Design rules (settled in the Data Browser design discussion):
 - WAL mode + immediate commit per write: fast, durable, no batching timer,
@@ -67,6 +68,10 @@ CREATE TABLE IF NOT EXISTS ratings (
     channel_id  TEXT NOT NULL,
     stars       INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (file_path, channel_id)
+);
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 """
 
@@ -198,6 +203,27 @@ class ThumbnailCache:
         if row["status"] == "ok":
             return False                      # fresh → skip
         return row["retry_count"] < MAX_RETRIES
+
+    def ensure_render_signature(self, signature: str) -> bool:
+        """Invalidate generated thumbnails when render settings change.
+
+        Ratings are deliberately retained because they describe the source
+        channel, not the generated preview image.  Returns ``True`` when the
+        cached render rows were invalidated.
+        """
+        key = "render_signature"
+        row = self._conn.execute(
+            "SELECT value FROM settings WHERE key=?", (key,)
+        ).fetchone()
+        if row is not None and row["value"] == signature:
+            return False
+        self.clear_all()
+        self._conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (key, str(signature)),
+        )
+        self._conn.commit()
+        return True
 
     def upsert_file(self, file_path: str, mtime: float, format_id: str,
                     channels: list[str]) -> None:

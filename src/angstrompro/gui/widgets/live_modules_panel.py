@@ -112,14 +112,18 @@ class LiveModulesPanel(QtWidgets.QWidget):
     def _launch_startup_modules(self) -> None:
         if self._startup_cancelled:
             return
-        startup_modules = self._context.config.get("app", "startup_modules") or []
-        self._startup_queue = []
-        for entry in startup_modules:
-            module_id = entry.get("module_id", "")
-            count     = int(entry.get("count", 1))
-            if not module_id:
-                continue
-            self._startup_queue.extend([module_id] * max(0, count))
+        import logging
+        from angstrompro.core.modules.startup_setup import (
+            StartupWorkspaceSetup, build_startup_plan)
+        plan = build_startup_plan(
+            self._context.config.get("app", "startup_modules", []),
+            self._context.config.get("app", "startup_workspaces", []),
+            {cls.module_id: cls for cls in self._context.module_manager.list_all()},
+        )
+        self._startup_setup = StartupWorkspaceSetup(
+            self._context, plan, logging.getLogger(__name__).warning)
+        self._startup_setup.prepare()
+        self._startup_queue = list(plan.slots)
         self._launch_next_startup_module()
 
     def _launch_next_startup_module(self) -> None:
@@ -127,14 +131,8 @@ class LiveModulesPanel(QtWidgets.QWidget):
             return
         if not self._startup_queue:
             return
-        module_id = self._startup_queue.pop(0)
-        try:
-            self._context.module_manager.create(module_id, self._context)
-        except Exception as exc:
-            import logging
-            logging.getLogger(__name__).warning(
-                "Failed to auto-create startup module %r: %s", module_id, exc
-            )
+        slot = self._startup_queue.pop(0)
+        self._startup_setup.create_slot(slot)
         QtCore.QTimer.singleShot(0, self._launch_next_startup_module)
 
     def cancel_startup_launch(self) -> None:

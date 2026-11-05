@@ -32,22 +32,44 @@ class LineData:
 
 AnnotationData = PointSetData | RegionData | LineData
 ANNOTATION_ROLES = ("primary_points", "reference_points",
-                    "bragg_peaks", "interest_region", "line_cut", "mask_center", "lockin_peak",
+                    "bragg_peaks", "filter_points", "interest_region",
+                    "line_cut", "mask_center", "lockin_peak",
                     "register_points", "register_reference_points",
                     "circle_cut_points")
 
 
+def _json_native(value):
+    """Recursively replace NumPy containers/scalars with JSON-native values."""
+    if isinstance(value, np.ndarray):
+        return _json_native(value.tolist())
+    if isinstance(value, np.generic):
+        return _json_native(value.item())
+    if isinstance(value, (list, tuple)):
+        return [_json_native(item) for item in value]
+    if isinstance(value, complex):
+        raise TypeError("Annotation coordinates must be real numbers")
+    return value
+
+
 def serialize_annotation(ann: AnnotationData) -> dict:
-    """Convert an annotation object to a plain JSON-safe dict for storage in ProcRecord."""
+    """Convert an annotation object to a plain JSON-safe dictionary.
+
+    GUI selections and scientific algorithms commonly produce NumPy scalar
+    values.  Normalizing them here keeps every persistence route consistent:
+    workspace archives, standalone native files, and process histories.
+    """
     if isinstance(ann, PointSetData):
-        return {"type": "point_set", "coords": ann.coords.tolist()}
+        return {"type": "point_set",
+                "coords": _json_native(np.asarray(ann.coords))}
     if isinstance(ann, RegionData):
         return {"type": "region",
-                "row_min": ann.row_min, "col_min": ann.col_min,
-                "row_max": ann.row_max, "col_max": ann.col_max}
+                "row_min": int(ann.row_min), "col_min": int(ann.col_min),
+                "row_max": int(ann.row_max), "col_max": int(ann.col_max)}
     if isinstance(ann, LineData):
         return {"type": "line",
-                "p1": list(ann.p1), "p2": list(ann.p2), "n_points": ann.n_points}
+                "p1": [float(value) for value in ann.p1],
+                "p2": [float(value) for value in ann.p2],
+                "n_points": int(ann.n_points)}
     raise TypeError(f"serialize_annotation: unknown annotation type {type(ann)!r}")
 
 
@@ -57,8 +79,12 @@ def deserialize_annotation(d: dict) -> AnnotationData:
     if t == "point_set":
         return PointSetData(coords=np.array(d["coords"]))
     if t == "region":
-        return RegionData(row_min=d["row_min"], col_min=d["col_min"],
-                          row_max=d["row_max"], col_max=d["col_max"])
+        return RegionData(row_min=int(d["row_min"]), col_min=int(d["col_min"]),
+                          row_max=int(d["row_max"]), col_max=int(d["col_max"]))
     if t == "line":
-        return LineData(p1=tuple(d["p1"]), p2=tuple(d["p2"]), n_points=d["n_points"])
+        return LineData(
+            p1=tuple(float(value) for value in d["p1"]),
+            p2=tuple(float(value) for value in d["p2"]),
+            n_points=int(d["n_points"]),
+        )
     raise ValueError(f"deserialize_annotation: unknown type {t!r}")

@@ -19,7 +19,9 @@ size sets the spatial grid.
 2. In the synthesiser's control panel, edit **Size (px)** for the square output.
 3. Click **＋ Add wave** or **－ Remove wave** in that panel to change the components.
 4. For each `Q` component, set `qx`, `qy`, amplitude `A`, and phase `φ`.
-   The **A range** and **φ range** controls set the slider limits.
+   Amplitude and phase accept direct numeric input. Use the phase-unit selector
+   to enter either radians (`-π` to `π`) or degrees (`-180°` to `180°`);
+   the equivalent value in the other unit is displayed beside the editor.
 5. Adjust component values while observing the live image.
 6. Click the **Save to workspace** button in the synthesiser's control panel.
    Open **View → Workspace** to see the new item.

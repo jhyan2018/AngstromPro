@@ -79,7 +79,8 @@ class ColormapPlotWidget(BasePlotWidget):
         # RT colormap — anchor-based custom colormap (own anchors, per mode)
         self._rt = RtCmapControl(self)
         self._rt.add_to(ctrl)
-        self._rt.changed.connect(self._rebuild_plot)
+        self._rt.changed.connect(
+            lambda: self._rebuild_plot(preserve_view=True))
 
         ctrl.addStretch()
         layout.addLayout(ctrl)
@@ -99,14 +100,20 @@ class ColormapPlotWidget(BasePlotWidget):
     # ── BasePlotWidget interface ──────────────────────────────────────────
 
     def refresh(self, datasets: dict[str, dict],
-                checked: dict[str, list[bool]]) -> None:
+                checked: dict[str, list[bool]], *,
+                preserve_view: bool = False,
+                preserve_manual_view: bool = False) -> None:
         self._datasets = datasets
         self._checked  = checked
-        self._rebuild_plot()
+        self._rebuild_plot(
+            preserve_view=preserve_view,
+            preserve_manual_view=preserve_manual_view,
+        )
 
     def clear(self) -> None:
         self._remove_colorbar()
         self._ax.clear()
+        self._has_rendered_view = False
         self._canvas.draw_idle()
 
     def apply_config(self, config: dict) -> None:
@@ -115,7 +122,7 @@ class ColormapPlotWidget(BasePlotWidget):
         if cmap and isinstance(cmap, str) \
                 and self._cmap_combo.findText(cmap) >= 0:
             self._cmap_combo.setCurrentText(cmap)
-        self._rebuild_plot()
+        self._rebuild_plot(preserve_view=True)
 
     def set_cmap_palette(self, names: list[str]) -> None:
         """Repopulate the colormap combo from the user's preference list."""
@@ -128,11 +135,16 @@ class ColormapPlotWidget(BasePlotWidget):
         self._cmap_combo.blockSignals(False)
         # selection may have changed — repaint with the new cmap
         if self._cmap_combo.currentText() != current:
-            self._rebuild_plot()
+            self._rebuild_plot(preserve_view=True)
 
     # ── Drawing ───────────────────────────────────────────────────────────
 
-    def _rebuild_plot(self) -> None:
+    def _rebuild_plot(self, *, preserve_view: bool = False,
+                      preserve_manual_view: bool = False) -> None:
+        view_state = (
+            self._capture_view_state()
+            if preserve_view or preserve_manual_view else None
+        )
         # everything artist-creating runs under the scene's rcparams delta
         with self._rc():
             self._remove_colorbar()
@@ -141,8 +153,10 @@ class ColormapPlotWidget(BasePlotWidget):
             # face/edge style is not re-read from rcParams by ax.clear()
             self._apply_axes_face_style(self._ax)
 
-            # collect visible rows across all datasets
+            # Keep every row in its original slot.  Hidden rows are masked at
+            # render time so visibility never changes row geometry or limits.
             rows:       list[np.ndarray] = []
+            row_visible: list[bool] = []
             row_vals:   list[float] = []        # physical row positions when available
             x_arr:      np.ndarray | None = None
             x_label     = ""
@@ -162,9 +176,8 @@ class ColormapPlotWidget(BasePlotWidget):
                 n        = y_data.shape[0]
 
                 for i, visible in enumerate(checked):
-                    if not visible:
-                        continue
                     rows.append(y_data[i])
+                    row_visible.append(bool(visible))
                     if rv is not None and i < len(rv):
                         row_vals.append(float(rv[i]) * y_factor)
                     else:
@@ -182,11 +195,19 @@ class ColormapPlotWidget(BasePlotWidget):
                         entry.get("row_units", ""), y_factor)
 
             if not rows or x_arr is None:
+                self._restore_view_state(
+                    view_state, manual_only=preserve_manual_view)
+                self._has_rendered_view = bool(self._datasets)
                 self._canvas.draw_idle()
                 return
 
             z      = np.vstack([r[np.newaxis, :] for r in rows])  # (n_rows, n_pts)
             n_rows = z.shape[0]
+            row_mask = np.repeat(
+                np.logical_not(row_visible)[:, np.newaxis],
+                z.shape[1], axis=1,
+            )
+            z_visible = np.ma.array(z, mask=row_mask)
 
             cmap = self._current_cmap()
             if self._sym_check.isChecked():
@@ -215,7 +236,7 @@ class ColormapPlotWidget(BasePlotWidget):
                 y_axis_label = ""   # plain index, no label
 
             mesh = self._ax.pcolormesh(
-                x_edges, y_edges, z,
+                x_edges, y_edges, z_visible,
                 cmap=cmap, vmin=vmin, vmax=vmax, shading="flat")
 
             self._colorbar = self._fig.colorbar(mesh, ax=self._ax)
@@ -231,6 +252,9 @@ class ColormapPlotWidget(BasePlotWidget):
             self._ax.minorticks_on()
             self._apply_house_ticks(self._ax)
             self._fig.tight_layout()
+        self._restore_view_state(
+            view_state, manual_only=preserve_manual_view)
+        self._has_rendered_view = bool(self._datasets)
         self._canvas.draw_idle()
 
     # ── RT colormap (delegates to RtCmapControl) ──────────────────────────
@@ -256,7 +280,7 @@ class ColormapPlotWidget(BasePlotWidget):
             self._colorbar = None
 
     def _on_cmap_changed(self, _name: str) -> None:
-        self._rebuild_plot()
+        self._rebuild_plot(preserve_view=True)
 
     def _on_sym_changed(self, _state) -> None:
-        self._rebuild_plot()
+        self._rebuild_plot(preserve_view=True)
