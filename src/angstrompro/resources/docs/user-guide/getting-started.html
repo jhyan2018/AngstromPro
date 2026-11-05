@@ -51,10 +51,15 @@ normally selects the environment's interpreter.</p>
 <li>The supported Qt bindings already available in that environment.</li>
 </ol>
 <p>A Qt binding allows Python to use the Qt graphical interface framework.
-PyQt5 uses Qt 5, whereas PyQt6 uses Qt 6. Their Qt objects cannot be used
-interchangeably in the same application. Adding PyQt6 to an environment
-already using PyQt5 does not upgrade that application to Qt 6 and can lead
-to binding-selection or library-loading conflicts.</p>
+PyQt5 uses Qt 5, whereas PyQt6 uses Qt 6, and their Qt objects cannot be used
+interchangeably in the same application. AngstromPro must use exactly one Qt
+binding. We have confirmed that AngstromPro does not start when both PyQt5 and
+PyQt6 are installed in the same environment.</p>
+<p>Do not remove an existing binding solely to make AngstromPro work, because the
+consequences depend on the environment and other software installed there.
+If several supported Qt bindings are present, create a
+<a href="#creating-a-separate-environment">separate clean environment</a> for AngstromPro
+and install exactly one supported binding in it.</p>
 <p>Use the check results as follows:</p>
 <table>
 <thead>
@@ -78,7 +83,7 @@ to binding-selection or library-loading conflicts.</p>
 </tr>
 <tr>
 <td>Several Qt bindings are listed</td>
-<td>Install without a Qt extra and avoid adding another binding.<br><code>python -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"</code></td>
+<td>Do not install AngstromPro in this environment. Create a separate clean environment, then install AngstromPro with exactly one supported Qt binding.</td>
 </tr>
 </tbody>
 </table>
