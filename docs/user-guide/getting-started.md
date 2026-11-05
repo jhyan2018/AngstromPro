@@ -40,10 +40,16 @@ These commands show:
 3. The supported Qt bindings already available in that environment.
 
 A Qt binding allows Python to use the Qt graphical interface framework.
-PyQt5 uses Qt 5, whereas PyQt6 uses Qt 6. Their Qt objects cannot be used
-interchangeably in the same application. Adding PyQt6 to an environment
-already using PyQt5 does not upgrade that application to Qt 6 and can lead
-to binding-selection or library-loading conflicts.
+PyQt5 uses Qt 5, whereas PyQt6 uses Qt 6, and their Qt objects cannot be used
+interchangeably in the same application. AngstromPro must use exactly one Qt
+binding. We have confirmed that AngstromPro does not start when both PyQt5 and
+PyQt6 are installed in the same environment.
+
+Do not remove an existing binding solely to make AngstromPro work, because the
+consequences depend on the environment and other software installed there.
+If several supported Qt bindings are present, create a
+[separate clean environment](#creating-a-separate-environment) for AngstromPro
+and install exactly one supported binding in it.
 
 Use the check results as follows:
 
@@ -52,7 +58,7 @@ Use the check results as follows:
 | Python is older than 3.10 | Select a Python 3.10 or newer environment before installing. |
 | No Qt binding is listed (`[]`) | Choose exactly one Qt extra: `pyqt5`, `pyqt6`, or `pyside6`. The example below uses `pyqt5`.<br>`python -m pip install "angstrompro[pyqt5] @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"` |
 | One Qt binding is listed | Install without a Qt extra to reuse the existing binding.<br>`python -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"` |
-| Several Qt bindings are listed | Install without a Qt extra and avoid adding another binding.<br>`python -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"` |
+| Several Qt bindings are listed | Do not install AngstromPro in this environment. Create a separate clean environment, then install AngstromPro with exactly one supported Qt binding. |
 
 Run only the example matching your situation, in a terminal for your selected
 environment. Use `python3` instead of `python` where appropriate.

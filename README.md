@@ -17,6 +17,14 @@ publication.
 AngstromPro requires Python 3.10 or newer and one supported Qt Python binding:
 PyQt5, PyQt6, or PySide6.
 
+AngstromPro must use exactly one Qt binding. We have confirmed that AngstromPro
+does not start when both PyQt5 and PyQt6 are installed in the same environment.
+Do not remove an existing binding solely to make AngstromPro work, because the
+consequences depend on the environment and other software installed there.
+Instead, create a clean environment for AngstromPro and install exactly one
+supported Qt binding. See
+[Creating a separate environment](docs/user-guide/getting-started.md#creating-a-separate-environment).
+
 Before installing, check your Python version, interpreter path, and existing
 Qt bindings using the commands in the
 [installation guide](docs/user-guide/getting-started.md#check-your-python-environment).
