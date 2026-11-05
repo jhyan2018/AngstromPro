@@ -21,6 +21,73 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
              color: #52636d; }
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="file-io">File I/O</h1>
+<h2 id="tutorial-open-and-verify-a-measurement">Tutorial: open and verify a measurement</h2>
+<p><strong>Goal:</strong> load the channels you need and confirm their meaning before analysis.</p>
+<p><strong>Input:</strong> an existing supported measurement file. Typical choices are
+<code>.sxm</code> topography, <code>.3ds</code> spectroscopy grids, and <code>.dat</code> point spectra.</p>
+<ol>
+<li>In Main Workbench, click <strong>+ New Module → Basic → Image Stack Viewer</strong>
+   for topography or spatial spectroscopy maps, or <strong>+ New Module → Basic →
+   Curve Stack Viewer</strong> for spectra or line-scan curves. For an existing
+   instance, click <strong>Show</strong> on its module card.</li>
+<li>In that viewer, choose <strong>File → Open…</strong> and select the measurement file.</li>
+<li>If a channel-selection dialog appears, check the required channels and
+   confirm. For <code>.3ds</code>, distinguish swept <strong>Channels</strong> from <strong>Experiment
+   parameters</strong>: a conductance channel contains an energy stack, whereas a
+   per-pixel Z parameter produces a single spatial image.</li>
+<li>If the dialog is skipped because auto-loading is enabled, check the loaded
+   item names. To choose channels explicitly next time, open <strong>File →
+   Preferences…</strong> in the Main Workbench, select the format in <strong>Channels</strong>,
+   turn off <strong>Auto-load defaults for this format</strong>, and apply the change.</li>
+<li>Show <strong>View → Workspace</strong>. Each selected channel appears as its own item.
+   Single-click one item and inspect its name, source, data shape, axes, and
+   units in <strong>View → Inspector</strong>. If Workspace and Inspector occupy the same
+   dock, click their bottom tabs to switch. These panels can also float.</li>
+<li>Double-click the intended item to load it into the viewer. In Image Stack
+   Viewer it becomes <strong>Primary</strong>; in Curve Stack Viewer it starts a new plot.</li>
+<li>Right-click the workspace row and choose <strong>Set alias…</strong> if a shorter label
+   such as <code>topography_raw</code> or <code>conductance_map</code> will help identify it.</li>
+</ol>
+<p><strong>Expected result:</strong> the viewer displays the chosen channel and the Inspector
+shows physical axes consistent with your acquisition.</p>
+<table>
+<thead>
+<tr>
+<th>Data in the Inspector</th>
+<th>Suitable viewer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>(1, rows, columns)</code></td>
+<td>Image Stack Viewer, one-layer topography</td>
+</tr>
+<tr>
+<td><code>(layers, rows, columns)</code></td>
+<td>Image Stack Viewer, for example energy-resolved maps</td>
+</tr>
+<tr>
+<td><code>(curves, points)</code></td>
+<td>Curve Stack Viewer, one or more spectra</td>
+</tr>
+<tr>
+<td><code>(points,)</code></td>
+<td>Curve Stack Viewer, a single spectrum</td>
+</tr>
+</tbody>
+</table>
+<p>A two-dimensional array is treated as curve-stack data, not automatically as a
+single image. For generic array files, confirm the dimensionality and coordinate
+metadata before interpreting the result. Use the instrument reader when it
+provides the physical axes you need. A one-dimensional spectrum can be plotted
+directly, but an algorithm that declares a two-dimensional curve-stack input
+still requires data shaped <code>(curves, points)</code>.</p>
+<p><strong>If the expected channel is absent:</strong> inspect the raw name/source shown by the
+loader and follow <a href="preferences.html#tutorial-configure-a-measurement-channel">channel mapping</a>.
+For unmatched channels, select the correct raw channel in the resolution dialog;
+do not substitute a differently measured signal merely because it is available.</p>
+<p><strong>Next:</strong> <a href="image-stack-viewer.html#tutorial-inspect-images-and-their-fourier-transforms">inspect image layers</a>
+or <a href="curve-stack-viewer.html#tutorial-compare-and-style-spectra">compare spectra</a>.</p>
 <h2 id="built-in-formats">Built-in formats</h2>
 <table>
 <thead>
@@ -53,7 +120,7 @@ img { max-width: 100%; height: auto; }
 <tr>
 <td><code>.npy</code></td>
 <td style="text-align: center;">Yes</td>
-<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Low-level API only</td>
 <td>NumPy array</td>
 </tr>
 <tr>
@@ -100,8 +167,14 @@ img { max-width: 100%; height: auto; }
 </tr>
 </tbody>
 </table>
-<p>Open <strong>Help → Supported Formats…</strong> for the runtime registry. This view also
-includes formats supplied by installed plugins.</p>
+<p>NumPy writing is available through the low-level
+<code>angstrompro.io.formats.npy_io.save(path, uds)</code> function, not through the
+viewer's <strong>File → Save…</strong> command. That command saves UDS datasets in their
+native <code>.uds</code> format. Changing the filename suffix to <code>.npy</code> does not convert
+the file to NumPy format. The low-level NumPy writer stores only the numerical
+array, without axes, metadata, annotations, or processing history.</p>
+<p>In the <strong>Main Workbench</strong>, open <strong>Help → Supported Formats…</strong> for the runtime
+registry. This view also includes formats supplied by installed plugins.</p>
 <h2 id="native-data">Native data</h2>
 <p>Current <code>.uds</code> files use HDF5 and retain AngstromPro data, axes, metadata,
 annotations, and processing history. Legacy binary <code>.uds</code> files are imported
@@ -114,7 +187,8 @@ extensions or payload versions. Older files without workspace-item metadata
 still open; their alias and annotations start empty, and they receive a new
 item identity. Reopening an item whose name or identity is already in the
 workspace keeps the existing item and gives the imported one a distinct name
-or identity. Plain <code>.npy</code> exports do not store workspace-item metadata.</p>
+or identity. Arrays written through the low-level <code>.npy</code> writer do not store
+workspace-item metadata.</p>
 <p><code>.scplot</code> is also HDF5-based and stores complete <code>ScenePlot</code> data. Style-only
 <code>.scet</code> templates are created and managed by the Curve Stack Viewer and can be
 selected by both the Curve Stack Viewer and Data Browser when rendering fresh
@@ -155,6 +229,10 @@ payloads. Unsupported payload types are listed before saving and are skipped
 after confirmation. When opening an archive, payloads belonging to unavailable
 plugins are skipped with a warning while the remaining supported items load.</p>
 <h2 id="channel-mappings-for-multichannel-formats">Channel mappings for multichannel formats</h2>
+<p>Open <strong>File → Preferences… → Channels</strong> in Main Workbench or Data Browser.
+Expand <strong>Channel mappings</strong> if collapsed, then single-click the <strong>File format</strong>
+entry before editing its table. Use <strong>Apply</strong> or <strong>Save as default</strong> in the
+Preferences dialog to commit the changes.</p>
 <p>Some instrument formats contain multiple named channels. For those formats,
 channel mappings associate varying instrument labels with stable AngstromPro
 channel roles. The built-in <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> loaders use these
@@ -168,10 +246,96 @@ mappings; single-channel formats do not require them.</p>
   loads the matched default rows immediately. If a default alias does not
   match, an <strong>Unmatched channels</strong> dialog still appears.</li>
 </ul>
+<p>You can check <strong>Load by default</strong> for several channels of the same format.
+They load as separate workspace items, not as merged signals.</p>
 <p>Aliases are exact and case-sensitive, not partial searches. Configure them in
 Main Workbench or Data Browser Preferences; both locations edit the same
 application-wide Channel Manager. See
 <a href="preferences.html#channel-mappings">Preferences</a> for the full behavior table.</p>
+<h2 id="tutorial-save-data-and-export-results">Tutorial: save data and export results</h2>
+<p><strong>Goal:</strong> choose the correct output for continuing analysis or presenting it.</p>
+<table>
+<thead>
+<tr>
+<th>You need</th>
+<th>Action</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>One numerical dataset with axes and history</td>
+<td>Select its workspace row; <strong>File → Save…</strong></td>
+<td><code>.uds</code></td>
+</tr>
+<tr>
+<td>An editable curve figure</td>
+<td><strong>Scene → Save as Scene…</strong>, then select the scene and <strong>File → Save…</strong></td>
+<td><code>.scplot</code></td>
+</tr>
+<tr>
+<td>A collection of workspace items</td>
+<td><strong>File → Save Workspace…</strong></td>
+<td><code>.apws</code></td>
+</tr>
+<tr>
+<td>Reusable curve styling without data</td>
+<td><strong>Scene → Save Template…</strong></td>
+<td><code>.scet</code></td>
+</tr>
+<tr>
+<td>A displayed image</td>
+<td><strong>File → Export Image…</strong> in Image Stack Viewer</td>
+<td>PNG, TIFF, or JPEG</td>
+</tr>
+<tr>
+<td>A curve figure for presentation</td>
+<td><strong>File → Export Figure…</strong> in Curve Stack Viewer</td>
+<td>PNG, PDF, SVG, or TIFF</td>
+</tr>
+<tr>
+<td>A sequence through image layers</td>
+<td><strong>File → Export Video…</strong> in Image Stack Viewer</td>
+<td>MP4, GIF, or AVI</td>
+</tr>
+</tbody>
+</table>
+<h3 id="export-the-displayed-image">Export the displayed image</h3>
+<ol>
+<li>In Image Stack Viewer, load the intended dataset in Primary or Reference.
+   Choose its layer, Type, colour map, and colour limits.</li>
+<li>Choose <strong>File → Export Image…</strong>.</li>
+<li>In the Export Image dialog, set <strong>Panel</strong> to <strong>Primary</strong> or <strong>Reference</strong>, then decide whether to include
+   <strong>annotations / overlays</strong>. This controls whether visible markers and other
+   overlays are part of the exported view.</li>
+<li>Set <strong>Destination = File</strong>, choose PNG, TIFF, or JPEG, confirm, and choose
+   the output filename. Alternatively, choose <strong>Destination = Clipboard</strong>
+   and confirm to copy the image for pasting into another application.</li>
+<li>Inspect the saved image. Retain a separate <code>.uds</code> if numerical values,
+   axes, and processing history must remain available.</li>
+</ol>
+<p><strong>Expected result:</strong> an image of the selected panel, not a numerical data
+archive. Check that you exported the measurement rather than its FFT reference.</p>
+<h3 id="export-an-image-stack-sequence">Export an image-stack sequence</h3>
+<p>Each selected layer becomes one video frame. For example, exporting a dI/dV
+stack acquired at different energies produces a sequence showing the map at
+each energy; the frame rate controls playback speed, not the acquisition axis.</p>
+<ol>
+<li>Activate the intended stack and establish the display settings.</li>
+<li>Choose <strong>File → Export Video…</strong> and select the correct <strong>Panel</strong>.</li>
+<li>In the Export Video dialog, choose the <strong>Format</strong>, <strong>Frame rate</strong>, and inclusive <strong>First / Last</strong> layer
+   indices. Check the physical layer values separately; layer indices are
+   not the same as bias or energy values.</li>
+<li>Choose whether to include annotations/overlays and set quality where the
+   chosen format provides it.</li>
+<li>Confirm, choose the destination, and inspect the first and last frames of
+   the saved sequence.</li>
+</ol>
+<p><strong>Expected result:</strong> a presentation sequence through the selected layers.
+It does not replace saving the underlying stack. If MP4 or AVI export fails,
+check the reported video-backend error; GIF is another available format.</p>
+<p>For curve figures, follow
+<a href="curve-stack-viewer.html#tutorial-save-an-editable-plot-and-export-a-figure">save an editable plot and export a figure</a>.</p>
 <h2 id="saving-and-exporting">Saving and exporting</h2>
 <p>Saving writes structured data through a registered format handler. Exporting
 creates a presentation artifact such as an image, video, or figure. Use saving

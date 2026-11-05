@@ -22,8 +22,11 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="modules">Modules</h1>
 <p>GUI modules subclass <code>AGuiModule</code> and register at import time. The base class
-provides File, View, Process, Simulate, and Help menus; workspace and inspector
-docks; sending; preferences; and task-result routing.</p>
+provides File, View, and Process menus; workspace and inspector docks; sending;
+preferences; and task-result routing. The Simulate menu appears only when the
+module declares a non-empty <code>default_simulate_menu</code>. The Help menu appears only
+when the subclass adds actions through <code>_populate_help_menu()</code>; neither menu
+is shown automatically for every module.</p>
 <p>See <a href="tasks.html">Tasks and background execution</a> before adding long-running work
 or directly submitting infrastructure tasks from a module.</p>
 <p>Modules share the same generic workspace contract even when they operate on
@@ -42,20 +45,34 @@ class MyModule(AGuiModule):
     display_name = &quot;My Module&quot;
     category = &quot;Analysis&quot;
     description = &quot;An example plugin module.&quot;
+    accepted_types = {&quot;uds&quot;}
     accepted_ndim = 2
 
     def build_ui(self) -&gt; None:
         self.setCentralWidget(QtWidgets.QLabel(&quot;Ready&quot;))
 
     def on_item_loaded(self, item) -&gt; None:
-        pass
+        self.process_inputs = [item]
 </code></pre>
 <p>Import the module before <code>AppContext</code> finishes construction. Built-in imports
 are collected in <code>angstrompro.gui.modules</code>; external packages normally import
 their modules from a plugin entry point.</p>
+<p><code>AGuiModule</code> is the shared GUI base class; <code>register_module</code> is the decorator
+that registers a subclass when its Python module is imported. Merely writing
+the decorator in a file does not make that file discoverable. If startup
+already imports the registration code, no additional plugin configuration is
+required. Otherwise, use a <a href="plugins.html">plugin-loading method</a> to import it;
+plugin loading is not a second registration step.</p>
+<p>After registration, the example above appears under <strong>+ New Module → Analysis
+→ My Module</strong>. The repository's
+<a href="https://github.com/jhyan2018/AngstromPro/tree/main/examples/example_plugin">example plugin</a> includes installation
+instructions and <code>src/angstrompro_example/module.py</code>, which shows input staging
+and <code>submit_process()</code> calls for task-backed operations.</p>
 <h2 id="identity-and-compatibility">Identity and compatibility</h2>
 <ul>
 <li><code>module_id</code> must be stable because configuration and startup lists store it.</li>
+<li><code>instance_id</code> identifies one live window. Store active datasets and display
+  state on the instance rather than in class attributes or module globals.</li>
 <li>Plugin module IDs should begin with the plugin namespace and a dot, such as
   <code>example.my_module</code>.</li>
 <li><code>display_name</code>, <code>category</code>, and <code>description</code> are user-facing.</li>
@@ -63,6 +80,11 @@ their modules from a plugin entry point.</p>
 <li><code>max_instances</code> can limit singleton-style modules.</li>
 </ul>
 <p>Namespaced plugin modules receive isolated plugin configuration automatically.</p>
+<p><code>accepted_types</code> and <code>accepted_ndim</code> describe the module's capabilities; they
+do not validate every scientific assumption. In <code>on_item_loaded()</code>, check the
+payload and any required axes before staging it or updating the display.
+The bundled example performs this check before accepting a three-dimensional
+image stack. The minimal module above only stages data; it does not draw it.</p>
 <h2 id="process-and-simulation-menus">Process and simulation menus</h2>
 <p>Process submenus are user-owned and stored in the versioned
 <code>algorithms.process_menu_layouts</code> configuration. A module with no explicit
@@ -77,6 +99,31 @@ user-defined Process menu layout.</p>
 <p><code>process_inputs</code> contains the workspace items staged for the next operation.
 Modules with several roles can set <code>staged_labels</code> and <code>clearable_slots</code> to make
 those assignments visible in the workspace dock.</p>
+<p>Keep these inputs separate from the Workspace's highlighted row and from any
+collection of displayed datasets. Assign a new list such as
+<code>self.process_inputs = [primary_item, reference_item]</code> when the user changes
+roles; the property setter updates the visible input slots. The order must
+match the process's <code>InputSpec</code> declarations. Pass <code>WorkspaceItem</code> objects
+here, not their NumPy arrays or payloads.</p>
+<h2 id="follow-the-example-module">Follow the example module</h2>
+<p>In <code>examples/example_plugin/src/angstrompro_example/module.py</code>:</p>
+<ol>
+<li><code>build_ui()</code> creates controls in the central widget. Standard menus,
+   Workspace, and Inspector remain the base class's responsibility.</li>
+<li><strong>Generate synthetic data</strong> submits the registered simulation with an empty
+   input list. The normal result handler adds its output to the workspace.</li>
+<li>Double-clicking a workspace item calls <code>on_item_loaded()</code>, which checks its
+   dimensionality and assigns <code>self.process_inputs = [item]</code>.</li>
+<li><strong>Scale active data</strong> reads the factor control and calls <code>submit_process()</code>
+   with the registered process ID, staged item, and parameter dictionary.</li>
+<li>The task result becomes a new workspace item and can be inspected, saved,
+   or sent through the common controls.</li>
+</ol>
+<p>Custom action buttons should follow this submission path rather than call the
+algorithm on the Qt thread or manually add its result a second time. Use
+<code>self.workspace</code> for new outputs, and <code>notify_workspace_item_changed(item)</code>
+when changing an existing item's annotations so its owning workspace is
+notified even if the module is attached to a shared workspace.</p>
 <h2 id="preferences">Preferences</h2>
 <p>A module may expose a <code>preferences_schema</code> made of <code>PrefSection</code> and <code>PrefItem</code>
 objects. Keep defaults in <code>core/configs/defaults/modules/</code> for built-ins. Plugin

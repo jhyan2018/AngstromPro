@@ -40,8 +40,8 @@ top-level groups such as:</p>
 fallback value and the shape used for validation.</p>
 <p>The <code>appearance</code> group controls the bundled theme and application font. An
 empty <code>font_family</code> selects AngstromPro's
-cross-platform sans-serif default; it does not inherit the font of an existing
-Spyder <code>QApplication</code>. Theme support is built in and has no installation extra.</p>
+cross-platform sans-serif default. Theme support is built in and has no
+installation extra.</p>
 <h2 id="reading-and-writing">Reading and writing</h2>
 <p>Use the shared context rather than opening JSON directly:</p>
 <pre><code class="language-python">value = context.config.get(&quot;app&quot;, &quot;delete_after_send&quot;, True)
@@ -81,7 +81,8 @@ entries are appended.</p>
 Preference schemas describe how those values appear in the common Preferences
 panel. Apply callbacks should update open widgets without performing slow work
 on the Qt thread.</p>
-<p><strong>Apply</strong> changes an instance's in-memory configuration. <strong>Save as default</strong>
+<p>In the module's <strong>File → Preferences…</strong> dialog, clicking <strong>Apply</strong> changes
+an instance's in-memory configuration. <strong>Save as default</strong>
 also writes the module configuration so later instances inherit it. The Main
 Workbench owns application-wide groups such as <code>app</code>, <code>appearance</code>, <code>io</code>, and
 <code>plugins</code>; opening Preferences from another module edits that module's settings

@@ -9,6 +9,14 @@
           "path": "user-guide/getting-started.html"
         },
         {
+          "title": "Tutorials: working with your measurement data",
+          "path": "user-guide/tutorials.html"
+        },
+        {
+          "title": "Image-processing workflows",
+          "path": "user-guide/image-processing-workflows.html"
+        },
+        {
           "title": "Planewave Synthesiser",
           "path": "user-guide/planewave-synthesiser.html"
         },

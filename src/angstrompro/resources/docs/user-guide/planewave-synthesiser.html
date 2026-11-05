@@ -22,39 +22,43 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="planewave-synthesiser">Planewave Synthesiser</h1>
 <p>The Planewave Synthesiser produces a two-dimensional real-space image from a
-sum of plane waves. It is the recommended first analysis module when you want
-to explore AngstromPro but do not have measurement data available:</p>
-<p>$$
-f(x,y) = \sum_j A_j \cos!\left(
-2\pi\frac{q_{x_j}X + q_{y_j}Y}{\mathrm{size}} - \varphi_j
-\right)
-$$</p>
+sum of plane waves. Use it to explore how wavevectors, amplitudes, and phases
+affect spatial patterns or to create synthetic references for analysis.</p>
+<pre><code class="language-text">f(X, Y) = Σ_j A_j cos(2π (qx_j X + qy_j Y) / size - φ_j)
+</code></pre>
+<p>The sum runs over the wave components <code>j</code>. Each component has amplitude <code>A_j</code>,
+wavevector components <code>qx_j</code> and <code>qy_j</code>, and phase <code>φ_j</code>. The square output
+size sets the spatial grid.</p>
 <h2 id="create-an-image">Create an image</h2>
 <ol>
-<li>In the Main Workbench, choose <strong>+ New Module → Planewave Synthesiser</strong>.</li>
-<li>Set the square output size.</li>
-<li>Add or remove wave components.</li>
+<li>In the Main Workbench, click the <strong>+ New Module</strong> button and choose
+   <strong>Simulation → Planewave Synthesiser</strong>.</li>
+<li>In the synthesiser's control panel, edit <strong>Size (px)</strong> for the square output.</li>
+<li>Click <strong>＋ Add wave</strong> or <strong>－ Remove wave</strong> in that panel to change the components.</li>
 <li>For each <code>Q</code> component, set <code>qx</code>, <code>qy</code>, amplitude <code>A</code>, and phase <code>φ</code>.
    Amplitude and phase accept direct numeric input. Use the phase-unit selector
    to enter either radians (<code>-π</code> to <code>π</code>) or degrees (<code>-180°</code> to <code>180°</code>);
    the equivalent value in the other unit is displayed beside the editor.</li>
 <li>Adjust component values while observing the live image.</li>
-<li>Choose <strong>Save to workspace</strong>.</li>
+<li>Click the <strong>Save to workspace</strong> button in the synthesiser's control panel.
+   Open <strong>View → Workspace</strong> to see the new item.</li>
 </ol>
 <h2 id="continue-through-angstrompro">Continue through AngstromPro</h2>
 <ol>
-<li>Select the generated item in the Planewave Synthesiser's Workspace dock.</li>
-<li>Single-click the new workspace item so it is highlighted, then choose
-   <strong>Send…</strong> and select an open <strong>Image Stack Viewer</strong>.</li>
-<li>Explore the image display, layer controls, colormaps, and point picking.</li>
-<li>Run a compatible operation from the viewer's <strong>Process</strong> menu.</li>
+<li>In the Planewave Synthesiser's Workspace dock, single-click the generated
+   item so it is highlighted, then click
+   the <strong>Send…</strong> button below the Workspace list and select an open
+   <strong>Image Stack Viewer</strong>. Open one first using Main Workbench's
+   <strong>+ New Module → Basic → Image Stack Viewer</strong> if needed.</li>
+<li>In the receiving viewer, open <strong>View → Workspace</strong> and double-click the
+   received item to display it. Use the panel's <strong>Layer</strong> and <strong>Palette</strong>
+   controls; right-click the image to pick points.</li>
+<li>Add a compatible operation through <strong>Process → Configure Process Menu…</strong>,
+   then run it from <strong>Process → your configured submenu → operation</strong>.</li>
 <li>Inspect the returned workspace item or send it to another compatible module.</li>
 </ol>
-<p>This synthetic-data route teaches the same workspace and processing workflow
-used for experimental files, without requiring AngstromPro to distribute
-private or instrument-specific example datasets.</p>
 <h2 id="preferences">Preferences</h2>
-<p>Open Preferences from this module to configure:</p>
+<p>Open <strong>File → Preferences…</strong> from this module to configure:</p>
 <ul>
 <li><strong>Color map:</strong> choose and order the image palette.</li>
 <li><strong>Scale:</strong> set histogram sigma scaling, scale-button zoom, and canvas wheel

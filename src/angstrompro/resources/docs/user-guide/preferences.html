@@ -30,6 +30,20 @@ Preferences determines what is shown:</p>
   Preferences from the Image Stack Viewer to configure its synchronisation,
   scale, canvas, and colormap defaults.</li>
 </ul>
+<h2 id="navigating-the-dialog">Navigating the dialog</h2>
+<p>On Windows, Preferences is under <strong>File → Preferences…</strong>. On macOS, Qt moves
+it into the application menu, which may be labelled <strong>Python</strong>. Bring the
+intended AngstromPro window to the front before opening Preferences.</p>
+<p>Open <strong>File → Preferences…</strong> in the window whose settings you want to edit.
+The bold section names below are sections inside this dialog, not independent
+menu-bar entries. Expand a collapsed section or embedded editor to reveal its
+controls. Click checkboxes to toggle them, select dropdown values, and edit
+text or number fields. The <strong>Apply</strong>, <strong>Save as default</strong>, and <strong>Reset to
+default</strong> buttons are at the bottom of the Preferences dialog.</p>
+<p>For example, <strong>File → Preferences… → Sync → Sync layer</strong> means open Preferences
+in Image Stack Viewer, find <strong>Sync</strong>, then change its <strong>Sync layer</strong> checkbox.
+For application-wide <strong>Plugins</strong>, <strong>Startup</strong>, or <strong>General</strong> settings, start
+from the Main Workbench instead.</p>
 <h2 id="applying-and-saving-changes">Applying and saving changes</h2>
 <p>The three buttons have different scopes:</p>
 <table>
@@ -54,11 +68,11 @@ Preferences determines what is shown:</p>
 </tr>
 </tbody>
 </table>
-<p>Settings concerned with startup or plugin discovery naturally take full effect
-on the next launch. Data Browser display and scanner settings, viewer display
-settings, and colormap palettes are applied to the open module.</p>
+<p>For settings concerned with startup or plugin discovery, click <strong>Save as
+default</strong> and restart AngstromPro. Data Browser display and scanner settings,
+viewer display settings, and colormap palettes are applied to the open module.</p>
 <h2 id="application-settings">Application settings</h2>
-<p>Open Preferences from the Main Workbench for these sections:</p>
+<p>Open <strong>File → Preferences…</strong> from the Main Workbench for these sections:</p>
 <ul>
 <li><strong>General</strong> controls log visibility and whether sending moves or copies a
   workspace item.</li>
@@ -103,14 +117,16 @@ startup entries continue, and invalid attachments are skipped.</p>
 <p>The Channel Manager is application-wide even when opened from Data Browser
 Preferences. It currently applies to the built-in Nanonis <code>.3ds</code>, <code>.sxm</code>, and
 <code>.dat</code> loaders.</p>
-<p>Select a <strong>File format</strong> on the left before editing its independent settings.
+<p>Open <strong>File → Preferences… → Channels</strong> in Main Workbench or Data Browser,
+expand the <strong>Channel mappings</strong> editor if collapsed, then single-click a
+<strong>File format</strong> on the left before editing its independent settings.
 Each table row describes one logical AngstromPro channel:</p>
 <ul>
 <li><strong>Display name</strong> is the stable name used for the loaded dataset and Data
   Browser card.</li>
-<li><strong>Load by default</strong> preselects a matched channel in the normal file-open
-  dialog. It also determines which channels the Data Browser renders as
-  thumbnails.</li>
+<li><strong>Load by default</strong> is a checkbox in each channel row. It preselects a
+  matched channel in the normal file-open dialog. It also determines which
+  channels the Data Browser renders as thumbnails.</li>
 <li><strong>Exact aliases</strong> are semicolon-separated raw channel names. Matching is
   exact and case-sensitive; their order determines which match wins first.</li>
 <li><strong>Source (.3ds)</strong> distinguishes swept <strong>Channels</strong> from per-pixel
@@ -119,9 +135,17 @@ Each table row describes one logical AngstromPro channel:</p>
   thumbnails. <strong>Either</strong> prefers a Channel if the exact same alias exists in
   both sources; choose <strong>Experiment parameters</strong> to force the per-pixel map.
   Other formats continue to use their ordinary channel list.</li>
-<li><strong>Auto-load defaults for this format</strong> is a separate, format-level option.
+<li><strong>Auto-load defaults for this format (skip selection dialog)</strong> is a separate
+  checkbox above the table, applying to the selected file format.
   It skips the normal selection dialog and loads the matched default rows.</li>
 </ul>
+<p>For a given <strong>File format</strong>, you can check <strong>Load by default</strong> for multiple
+channel rows, not just one. For example, select both topography and dI/dV if
+both are available in your files. When opening a file, all matching checked
+channels are preselected in the selection dialog. If <strong>Auto-load defaults for
+this format</strong> is enabled, they load together automatically from that file.
+This selects multiple channels; it is different from entering multiple
+<strong>Exact aliases</strong>, which are alternative names for a single logical channel.</p>
 <p>These two default controls work together as follows:</p>
 <table>
 <thead>
@@ -166,10 +190,61 @@ multiple candidates, such as <strong>Z (m)</strong> and <strong>Scan:Z (m)</stro
 Experiment parameters contain one value per grid pixel, so each loads as a
 single-layer image rather than a bias-sweep stack.</p>
 <p>The format-level auto-load option does not change thumbnail selection: Data
-Browser always renders matched channels marked <strong>Load by default</strong>. Existing
-cached thumbnails are not rewritten merely because mappings changed; use
-<strong>Re-render all</strong> or re-render an individual card.</p>
+Browser renders matched channels marked <strong>Load by default</strong> and shows a
+missing-channel card when a default channel has no match. Existing cached
+thumbnails are not rewritten merely because mappings changed; right-click
+the affected card and choose <strong>Re-render thumbnail</strong>, or open Data Browser's
+<strong>File → Preferences… → Cache</strong> and click <strong>Re-render all…</strong>.</p>
+<h2 id="tutorial-configure-a-measurement-channel">Tutorial: configure a measurement channel</h2>
+<p>Before importing your first measurement, check the mappings for <code>nanonis_3ds</code>,
+<code>nanonis_sxm</code>, or <code>nanonis_dat</code>, as appropriate. For example, the default
+<code>nanonis_3ds</code> row with <strong>Display name = dI/dV</strong> includes <code>LI Demod 1 X (A)</code>
+among its <strong>Exact aliases</strong>. If you named that acquisition channel differently
+in Nanonis before the experiment, enter the name actually recorded in the
+file, not merely the label you want AngstromPro to display. Multiple aliases,
+separated by semicolons, are alternative matches for one logical channel;
+they do not merge several physical channels.</p>
+<p>Review any channel-selection or unmatched-channel dialog that appears when
+opening data. A prompt is not guaranteed on every first opening, because it
+depends on the auto-load settings and matching results. If a channel is
+missing or incorrectly identified, return here and check its exact raw name.</p>
+<p><strong>Goal:</strong> make the file loader and Data Browser recognise the channel names
+used by your instrument.</p>
+<p><strong>Input:</strong> a <code>.sxm</code>, <code>.3ds</code>, or <code>.dat</code> file whose desired channel is missing
+or has an unexpected label.</p>
+<ol>
+<li>Open <strong>File → Preferences…</strong> from Main Workbench or Data Browser and find
+   the <strong>Channels</strong> settings.</li>
+<li>Select the correct <strong>File format</strong>. Settings for different formats are
+   independent.</li>
+<li>Find the logical channel row, or click <strong>Add channel</strong> below the table.
+   Double-click its <strong>Display name</strong> cell to edit the label. Double-click
+   its <strong>Exact aliases</strong> cell to enter the instrument's exact raw name,
+   retaining its case, spaces, and unit suffix. Separate alternative raw names
+   with semicolons.</li>
+<li>For <code>.3ds</code>, use the row's <strong>Source (.3ds)</strong> dropdown: <strong>Channels</strong> for a
+   swept signal, or <strong>Experiment parameters</strong> for one value per spatial pixel.
+   A per-pixel Z parameter is not a bias-resolved spectrum.</li>
+<li>Check <strong>Load by default</strong> to preselect this channel during file opening and
+   include matching files in the browser's channel thumbnails.</li>
+<li>Leave <strong>Auto-load defaults for this format</strong> off while checking the setup.
+   Choose <strong>Apply</strong>, open a representative file, and inspect the matching raw
+   channel shown by the picker.</li>
+<li>Verify the loaded values, axis units, and dimensionality in the Inspector.
+   Once the mapping is correct, choose <strong>Save as default</strong>. You may enable
+   format auto-loading if future files should load those channels without the
+   normal selection dialog.</li>
+<li>Re-render affected Data Browser thumbnails to refresh existing cached cards.</li>
+</ol>
+<p><strong>Expected result:</strong> your intended channel is selected consistently for future
+files with that raw name. The acquisition file itself is unchanged.</p>
+<p><strong>If you do not know the exact alias:</strong> use the file loader's unmatched-channel
+dialog to inspect the available raw channels and select the intended one.
+<strong>Save alias</strong> remembers that mapping; first confirm that the signal and units
+are correct.</p>
 <h2 id="module-settings">Module settings</h2>
+<p>Open <strong>File → Preferences…</strong> from the named module below; the bold labels
+identify sections or fields inside that module's Preferences dialog.</p>
 <h3 id="data-browser">Data Browser</h3>
 <ul>
 <li><strong>Watch folders</strong> controls the roots shown in the folder tree.</li>
@@ -241,7 +316,9 @@ application-wide.</p>
 <li><strong>AngstromPro presets</strong> contains the maps bundled with AngstromPro.</li>
 <li><strong>My colormaps</strong> contains maps saved beneath the active user-data folder.</li>
 </ul>
-<p>The real-time colormap editor provides two distinct save actions. <strong>Save to My
+<p>Open the editor from <strong>View → RT-ColorMap (Primary)</strong> or
+<strong>View → RT-ColorMap (Reference)</strong> in Image Stack Viewer. The real-time
+colormap editor provides two distinct save buttons. <strong>Save to My
 Colormaps…</strong> stores the editable anchors as a versioned file under
 <code>colormaps/</code>, registers the map immediately, and makes it available in
 Preferences. <strong>Export As…</strong> writes the historical sampled text format to a
@@ -256,10 +333,8 @@ be persisted.</p>
 location. AngstromPro creates or uses <code>&lt;parent&gt;/angstrompro-user/</code>. At the next
 new application session it copies the existing user data to the new location
 before switching the pointer. The obsolete <code>cache/snapshots/</code> folder is not
-copied, and the original folder is retained as a backup. For a standalone
-launch, fully exit and launch AngstromPro again. In Spyder, restart the kernel
-and launch AngstromPro again; merely reopening the hidden hosted session is
-still the same runtime.</p>
+copied, and the original folder is retained as a backup. Fully exit and launch
+AngstromPro again to apply the change.</p>
 <p>While a change is queued, a temporary pending record is stored beside the
 OS-managed pointer. After the next session adopts the change, that record is
 removed and <code>datapath.txt</code> contains only the new absolute path.</p>

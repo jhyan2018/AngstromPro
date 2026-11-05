@@ -1,115 +1,301 @@
 # Getting started
 
-## Check the target Python environment
+## Installation overview
 
-**AngstromPro requires Python 3.10 or newer; Python 3.9 is not supported.**
-Run the following in PowerShell, Command Prompt, or a macOS/Linux terminal:
+AngstromPro requires Python 3.10 or newer and a supported Qt Python binding:
+PyQt5, PyQt6, or PySide6.
 
-```powershell
+Use your current Python environment if it meets these requirements, or an
+environment managed by Conda or another tool. Run the installation commands
+and launch AngstromPro from a system terminal, not a Python console.
+
+The instructions below install directly from a GitHub ZIP archive; Git and
+manual downloading or extraction are not required. To install from a cloned
+or downloaded source directory instead, see
+[Installing from a local copy](#installing-from-a-local-copy).
+
+## Check your Python environment
+
+A computer can contain several Python installations, and some environments
+already contain a supported Qt binding. Check the interpreter that will be
+used to install and run AngstromPro.
+
+Before installing, run these commands in the terminal for your intended
+environment:
+
+```text
 python --version
 python -c "import sys; print(sys.executable)"
 python -c "import importlib.util as u; print([n for n in ('PyQt6','PyQt5','PySide6') if u.find_spec(n)])"
 ```
 
-The final command lists supported Qt bindings already present in that exact
-environment. Use this decision:
+On macOS or Linux, use `python3` instead of `python` if that is the command
+for your intended interpreter. In an activated Conda environment, `python`
+normally selects the environment's interpreter.
 
-- **Python is older than 3.10:** do not install there. Create a new environment
-  with Python 3.12.
-- **No Qt binding is listed:** choose exactly one of `.[pyqt5]`, `.[pyqt6]`,
-  or `.[pyside6]`. All three are supported.
-- **Exactly one binding is listed:** install with `pip install .` and let
-  AngstromPro use it; do not install another Qt extra.
-- **Several bindings are listed:** do not add another binding. Try the
-  no-extra installation first; AngstromPro prefers a binding already loaded by
-  the IDE. Use a clean environment if Qt loading errors occur.
+These commands show:
 
-Qt packages in separate environments do not conflict. The problem occurs when
-incompatible bindings or Qt libraries are mixed in the same environment. If
-Spyder and AngstromPro deliberately share an environment that already contains
-PyQt5, install AngstromPro without an extra rather than adding PyQt6.
+1. The Python version, which must be 3.10 or newer.
+2. The interpreter path, identifying where AngstromPro will be installed.
+3. The supported Qt bindings already available in that environment.
 
-## Create a Conda environment in a system terminal
+A Qt binding allows Python to use the Qt graphical interface framework.
+PyQt5 uses Qt 5, whereas PyQt6 uses Qt 6. Their Qt objects cannot be used
+interchangeably in the same application. Adding PyQt6 to an environment
+already using PyQt5 does not upgrade that application to Qt 6 and can lead
+to binding-selection or library-loading conflicts.
 
-For Conda or Anaconda, create and install into the environment from Anaconda
-Prompt, PowerShell, or a macOS/Linux terminal. Do not enter these commands in
-the Spyder IPython console:
+Use the check results as follows:
 
-```powershell
-conda create -n angstrompro python=3.12 pip
-conda activate angstrompro
-cd path/to/AngstromPro
-python -m pip install ".[pyqt5]"
-```
+| Result | Installation choice and code example |
+| --- | --- |
+| Python is older than 3.10 | Select a Python 3.10 or newer environment before installing. |
+| No Qt binding is listed (`[]`) | Choose exactly one Qt extra: `pyqt5`, `pyqt6`, or `pyside6`. The example below uses `pyqt5`.<br>`python -m pip install "angstrompro[pyqt5] @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"` |
+| One Qt binding is listed | Install without a Qt extra to reuse the existing binding.<br>`python -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"` |
+| Several Qt bindings are listed | Install without a Qt extra and avoid adding another binding.<br>`python -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"` |
 
-The example chooses PyQt5, which is common in Spyder installations. PyQt6 and
-PySide6 are also supported in a clean environment; replace the extra rather
-than installing bindings together.
+Run only the example matching your situation, in a terminal for your selected
+environment. Use `python3` instead of `python` where appropriate.
 
-Do not install AngstromPro or a second Qt binding into Anaconda's base
-environment.
+The Qt check detects package availability; it does not test whether the
+underlying libraries can load successfully.
 
-## Install with standard Python
+AngstromPro prefers a binding already loaded in the current Python process.
+When no binding is loaded, its preference among
+the three supported choices is PyQt6, then PyQt5, then PySide6.
 
-Anaconda and an IDE are not required. Install Python 3.12 from a trusted Python
-distribution, then create a virtual environment in the repository.
+If your current Python environment does not meet the requirements or has
+dependency conflicts, see
+[Creating a separate environment](#creating-a-separate-environment).
 
-On Windows:
+## macOS
 
-```powershell
-py -3.12 -m venv .venv
-.venv\Scripts\activate
-python -m pip install --upgrade pip
-python -m pip install ".[pyqt5]"
-```
+### 1. Check your Python environment
 
-On macOS or Linux:
+Open Terminal and run the environment checks above, using `python3` or
+`python` as appropriate.
+
+### 2. Install AngstromPro
+
+If a supported Qt binding is already present:
 
 ```bash
-python3.12 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
+python3 -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+If no supported Qt binding is present, use the following alternative instead:
+
+```bash
+python3 -m pip install "angstrompro[pyqt5] @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+The alternative uses PyQt5 as an example. PyQt6 and PySide6 are also
+supported, provided a compatible package is available for your Python,
+macOS version, and architecture. Select one binding rather than installing
+all three.
+
+Choose one of the two commands above. Pip downloads the repository's main
+branch as a ZIP archive and installs AngstromPro and its declared dependencies.
+
+### 3. Launch
+
+From the same environment:
+
+```bash
+angstrompro
+```
+
+## Windows
+
+### 1. Check your Python environment
+
+Open PowerShell, Command Prompt, or Anaconda Prompt and run the environment
+checks above using `python`.
+
+If you use the Windows Python launcher instead, use `py` for both the checks
+and installation, and confirm the interpreter path reported by the checks.
+
+### 2. Install AngstromPro
+
+If a supported Qt binding is already present:
+
+```powershell
+python -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+If no supported Qt binding is present, use the following alternative instead:
+
+```powershell
+python -m pip install "angstrompro[pyqt5] @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+The alternative uses PyQt5 as an example. You can replace `pyqt5`
+with `pyqt6` or `pyside6`; select only one Qt extra.
+
+Choose one of the two commands above. Pip downloads the repository's main
+branch as a ZIP archive and installs AngstromPro and its declared dependencies.
+
+### 3. Launch
+
+From the same environment:
+
+```powershell
+angstrompro
+```
+
+## Linux
+
+### 1. Check your Python environment
+
+Open a terminal and run the environment checks above, using `python3` or
+`python` as appropriate.
+
+### 2. Install AngstromPro
+
+If a supported Qt binding is already present:
+
+```bash
+python3 -m pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+If no supported Qt binding is present, use the following alternative instead:
+
+```bash
+python3 -m pip install "angstrompro[pyqt5] @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+The alternative uses PyQt5 as an example. PyQt6 and PySide6 are also
+supported, subject to package availability for your platform. Select only
+one Qt extra.
+
+Choose one of the two commands above. Pip downloads the repository's main
+branch as a ZIP archive and installs the declared Python dependencies.
+Some Linux systems also
+require operating-system libraries for Qt's display backend; use your
+distribution's package manager if a startup error identifies a missing library.
+
+If pip reports an `externally-managed-environment` error, use an environment
+managed by your preferred tool. See
+[Creating a separate environment](#creating-a-separate-environment).
+
+### 3. Launch
+
+From the same environment, within a graphical desktop session:
+
+```bash
+angstrompro
+```
+
+## Optional dependencies
+
+The `[full]` extra adds scikit-image for optional image-processing features.
+To include these features, use:
+
+```text
+python -m pip install "angstrompro[full] @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
+```
+
+Use `python3` instead of `python` where appropriate.
+
+## Installing from a local copy
+
+Use this alternative if you want to keep a local source copy or install your
+own source changes. It is not required for the ZIP installation above.
+
+To clone the repository, first make sure Git is available (`git --version`),
+then run in a system terminal:
+
+```text
+git clone https://github.com/jhyan2018/AngstromPro.git
+cd AngstromPro
+```
+
+If you already have a cloned or downloaded and extracted copy, skip cloning
+and open a terminal in its root directory, which contains `pyproject.toml`.
+Run one of the following installation commands in that directory.
+
+With an existing supported Qt binding:
+
+```text
+python -m pip install .
+```
+
+Without an existing supported Qt binding:
+
+```text
 python -m pip install ".[pyqt5]"
 ```
 
-Visual Studio and VS Code users can select this `.venv` as the project
-interpreter. Users without an IDE can activate it and run AngstromPro directly
-from the terminal.
+Use `python3` where appropriate. You can select `pyqt6` or `pyside6` instead
+of `pyqt5`. For optional image-processing features, use
+`python -m pip install ".[full]"` with an existing Qt binding, or
+`python -m pip install ".[pyqt5,full]"` if one is needed.
 
-## Install from Spyder
+Normal installation is intended for users. Developers who edit the source
+can use `python -m pip install -e .`; editable installation uses the working
+source tree. Restart the application after source changes.
 
-In the Spyder IPython console, check its Python version:
+## Creating a separate environment
 
-```python
-import sys
-print(sys.version)
+If your current Python is too old, its dependencies conflict, or Qt cannot
+load correctly, you can select another suitable environment or create a
+separate one using your preferred environment manager.
+
+### Conda: macOS, Windows, and Linux
+
+Run in a system terminal or Anaconda Prompt:
+
+```text
+conda create -n spm-env python=3.12 pip
+conda activate spm-env
 ```
 
-If it is older than Python 3.10, install a current Anaconda distribution and
-open its new Spyder application. Then clone AngstromPro and install it directly
-from the new Spyder IPython console:
+Here, `spm-env` is the Conda environment name. You can choose another name;
+use the same name in both commands.
 
-```python
-!git clone https://github.com/jhyan2018/AngstromPro.git
-%cd AngstromPro
-%pip install .
+Python 3.12 is used as an example. Another supported version, 3.10 or newer,
+can be used if compatible dependencies are available.
+
+Then follow the installation instructions for your operating system.
+
+### venv: macOS and Linux
+
+Using an installed Python version of 3.10 or newer:
+
+```bash
+python3 -m venv spm-env
+source spm-env/bin/activate
 ```
 
-If the repository is already present, use `%cd` with its existing path and run
-only `%pip install .`. Current Spyder installations already provide a supported
-Qt binding, so do not install an additional Qt extra. Restart the Spyder kernel
-after installation.
+Here, `spm-env` names the virtual environment folder created in the current
+directory. You can choose another name; use the same folder name in the
+creation command and activation path.
 
-## Normal and editable installation
+### venv: Windows
 
-Use `python -m pip install .` for normal use. It builds and installs AngstromPro
-into the active environment. Use `python -m pip install -e .` only when
-developing AngstromPro: editable mode points the installation at the checkout,
-so Python source changes take effect without reinstalling. Restart a running
-application or Spyder kernel after changing code.
+Using an installed Python version of 3.10 or newer:
 
-AngstromPro's compact light and dark themes are included in the package; no
-theme installation extra or third-party theme package is required.
+```powershell
+python -m venv spm-env
+```
+
+Here, `spm-env` names the virtual environment folder created in the current
+directory. You can choose another name; use the same folder name in the
+creation command and the appropriate activation path below.
+
+Activate in PowerShell:
+
+```powershell
+.\spm-env\Scripts\Activate.ps1
+```
+
+Or in Command Prompt:
+
+```bat
+spm-env\Scripts\activate.bat
+```
+
+After activation, install AngstromPro using the appropriate instructions above.
 
 ## Start the application
 
@@ -117,19 +303,8 @@ theme installation extra or third-party theme package is required.
 angstrompro
 ```
 
-### Running from Spyder
-
-AngstromPro shares the Qt event loop owned by Spyder's IPython kernel. Closing
-the Main Workbench hides all AngstromPro windows but preserves the session;
-launching AngstromPro again from the same console reopens the existing module
-instances and windows.
-
-Restart the Spyder kernel before launching again after changing AngstromPro or
-plugin source code. A live session retains its already imported classes, so it
-is not a safe way to test revised code. This hosted behavior is specific to
-Spyder and similar interactive Qt consoles: when started with the standalone
-`angstrompro` command, closing the Main Workbench closes the modules and exits
-the process.
+Closing the Main Workbench closes the modules and exits the application.
+Restart AngstromPro after changing application or plugin source code.
 
 On first launch, choose a parent location. AngstromPro creates a dedicated
 `angstrompro-user/` folder there with this structure:
@@ -137,7 +312,7 @@ On first launch, choose a parent location. AngstromPro creates a dedicated
 ```text
 angstrompro-user/
   config/   application preferences and interface state
-  cache/    thumbnail and snapshot data
+  cache/    regenerable thumbnail data
   logs/     diagnostic logs
 ```
 
@@ -151,48 +326,59 @@ AngstromPro opens three modules by default:
 
 - **Data Browser** for finding measurement files.
 - **Image Stack Viewer** for three-dimensional image stacks.
-- **Curve Stack Viewer** for two-dimensional curve stacks.
+- **Curve Stack Viewer** for curve stacks and individual spectra.
 
-Startup modules can be changed in Preferences.
+Change startup modules in the Main Workbench through
+**File → Preferences… → Startup**, then click **Save as default** in that dialog.
 
-The Main Workbench lists every live module. Use **+ New Module** to open another
-module, **Show** to bring an existing module window forward, and **Remove** to
-close an instance you no longer need.
+The Main Workbench lists every live module as a card. Click **+ New Module**
+and choose **Basic → Data Browser**, **Basic → Image Stack Viewer**, or
+**Basic → Curve Stack Viewer**. Choose **Simulation → Planewave Synthesiser**
+for the synthesiser. Click **Show** on an existing module card to bring its
+window forward; **Remove** on that card closes that instance.
 
-## First workflow without measurement data
+## First workflow with your measurements
 
-Start with the Planewave Synthesiser if you do not have a supported data file
-available:
+**Input:** a supported measurement file that you want to inspect or process.
 
-1. In the Main Workbench, choose **+ New Module → Planewave Synthesiser**.
-2. Set `qx` and `qy` for the first wave component.
-3. Add further components and adjust their amplitude and phase values.
-4. Choose **Save to workspace** in the Planewave Synthesiser.
-5. Single-click the generated item in its Workspace dock so its row is
-   highlighted, then choose **Send…**. The send command always uses the
-   currently selected row.
-6. Send it to an open **Image Stack Viewer**.
-7. Inspect its layers and try a compatible operation from the **Process** menu.
+1. In Main Workbench, choose **+ New Module → Basic → Image Stack Viewer** for maps,
+   or **+ New Module → Basic → Curve Stack Viewer** for spectra. Click **Show**
+   on its Main Workbench card if the module is already open.
+2. In the viewer, choose **File → Open…**, select your file, and choose the
+   required channels when prompted (channel settings are available in the
+   Main Workbench under **Preferences… → Channels**). To find a file by preview, follow the
+   [Data Browser tutorial](data-browser.md#tutorial-browse-and-send-a-measurement).
+3. Show **View → Workspace** and **View → Inspector**. Single-click the
+   desired channel item and verify its source, dimensions, axes, and units.
+   If the two panels share a dock, click their **Workspace** / **Inspector**
+   tabs at the bottom to switch; they may also appear separately or float.
+4. Double-click that item to display it. Check the visible name and the
+   **Active Processing Slots** beneath the Workspace list before running an analysis.
+5. In Image Stack Viewer, inspect the layer, colour range, and automatic FFT.
+   In Curve Stack Viewer, inspect the sweep axis and select the curves to show.
+6. Add your required operation through **Process → Configure Process Menu…**.
+   Save the menu configuration, select the algorithm from its configured
+   submenu, check its inputs and parameters, and click **Run**.
+   Follow [background subtraction](processes.md#tutorial-run-background-subtraction)
+   for a first topographic operation, or
+   [curve comparison](curve-stack-viewer.md#tutorial-compare-and-style-spectra)
+   for a spectroscopy workflow.
+7. Single-click the result and use **File → Save…** to preserve numerical
+   data. For an editable curve plot, first use **Scene → Save as Scene…**,
+   then select and save that scene item as `.scplot`. Export presentation
+   figures separately.
 
-This introduces module windows, generated data, workspaces, cross-module
-sending, viewers, and processes without requiring private example files. See
-the [Planewave Synthesiser guide](planewave-synthesiser.md) for its controls.
+**Expected result:** a verified measurement channel, a displayed or processed
+result, and a saved file you can reopen.
 
-## Workflow with measurement data
-
-1. Open Preferences and add one or more Data Browser watch folders.
-2. Select a folder in the Data Browser.
-3. Choose **Send to module…** on a supported file.
-4. Select a compatible open module.
-5. Run an operation from its **Process** menu.
-6. Save workspace data with **File → Save…**, or use the viewer's export tools.
-
-Workspace items belong to a module instance. Sending an item transfers it to
-another module by default; this behavior is configurable.
+Use the [tutorial index](tutorials.md) to continue with line cuts, average
+spectra, error bars, workspace archives, lattice correction, or registration.
+Each procedure lists its input requirements and the result to check.
 
 ## Next steps
 
-- Generate practice data with the [Planewave Synthesiser](planewave-synthesiser.md).
+- Follow the [measurement-data tutorials](tutorials.md).
+- Compare [lattice-correction and registration workflows](image-processing-workflows.md).
 - Understand [workspaces and the Inspector](workspaces-and-inspector.md).
 - Learn how to [find and configure processes](processes.md).
 - Configure the [Data Browser](data-browser.md).

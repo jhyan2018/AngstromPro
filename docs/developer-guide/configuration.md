@@ -22,8 +22,8 @@ fallback value and the shape used for validation.
 
 The `appearance` group controls the bundled theme and application font. An
 empty `font_family` selects AngstromPro's
-cross-platform sans-serif default; it does not inherit the font of an existing
-Spyder `QApplication`. Theme support is built in and has no installation extra.
+cross-platform sans-serif default. Theme support is built in and has no
+installation extra.
 
 ## Reading and writing
 
@@ -78,7 +78,8 @@ Preference schemas describe how those values appear in the common Preferences
 panel. Apply callbacks should update open widgets without performing slow work
 on the Qt thread.
 
-**Apply** changes an instance's in-memory configuration. **Save as default**
+In the module's **File → Preferences…** dialog, clicking **Apply** changes
+an instance's in-memory configuration. **Save as default**
 also writes the module configuration so later instances inherit it. The Main
 Workbench owns application-wide groups such as `app`, `appearance`, `io`, and
 `plugins`; opening Preferences from another module edits that module's settings

@@ -24,9 +24,26 @@ img { max-width: 100%; height: auto; }
 <p>The documentation is divided by audience. Start with the user guide if you
 want to install and operate AngstromPro. Use the developer guide when extending
 or contributing to the application.</p>
+<h2 id="tutorials-using-your-own-measurements">Tutorials using your own measurements</h2>
+<p>Start with the <a href="user-guide/tutorials.html">tutorial index</a> for a route from file
+loading to saved results. Each tutorial gives input requirements, numbered
+steps, expected results, and checks for common problems.</p>
+<p>Read <a href="user-guide/tutorials.html#how-to-find-controls-and-use-the-mouse">How to find controls and use the mouse</a>
+for menu paths, right-click actions, single-click versus double-click, and
+switching between Workspace and Inspector tabs.</p>
+<ul>
+<li><a href="user-guide/file-formats.html#tutorial-open-and-verify-a-measurement">Open a measurement and verify channels</a></li>
+<li><a href="user-guide/image-stack-viewer.html#tutorial-inspect-images-and-their-fourier-transforms">Inspect images, FFTs, and line cuts</a></li>
+<li><a href="user-guide/processes.html#tutorial-configure-a-process-menu">Configure and run a process</a></li>
+<li><a href="user-guide/curve-stack-viewer.html#tutorial-compare-and-style-spectra">Compare spectra and save an editable figure</a></li>
+<li><a href="user-guide/file-formats.html#tutorial-save-data-and-export-results">Save data and export results</a></li>
+<li><a href="user-guide/image-processing-workflows.html">Correct a lattice or register images</a></li>
+</ul>
 <h2 id="user-guide">User guide</h2>
 <ol>
 <li><a href="user-guide/getting-started.html">Getting started</a></li>
+<li><a href="user-guide/tutorials.html">Tutorials: working with your measurement data</a></li>
+<li><a href="user-guide/image-processing-workflows.html">Image-processing workflows</a></li>
 <li><a href="user-guide/planewave-synthesiser.html">Planewave Synthesiser</a></li>
 <li><a href="user-guide/workspaces-and-inspector.html">Workspaces and the Inspector</a></li>
 <li><a href="user-guide/processes.html">Processes</a></li>
@@ -38,6 +55,17 @@ or contributing to the application.</p>
 <li><a href="user-guide/troubleshooting.html">Troubleshooting</a></li>
 </ol>
 <h2 id="developer-guide">Developer guide</h2>
+<p>Working examples are available in the repository's <code>AngstromPro/examples/</code>
+folder. Start with <code>examples/example_plugin/</code>, introduced in the
+<a href="developer-guide/plugins.html#complete-example">example plugin guide</a>. Its README
+explains installation and a complete workflow, while its source
+demonstrates a GUI module, a registered process, a simulation, and a read-only
+file loader.</p>
+<p>Read <a href="developer-guide/architecture.html">Architecture</a> for the separation of
+data management, visualisation, processing, and I/O. Then choose the relevant
+extension guide below. GUI modules and processes implement functionality;
+plugins organise and load those components. You do not need a new GUI module
+for every new algorithm or file format.</p>
 <ol>
 <li><a href="developer-guide/architecture.html">Architecture</a></li>
 <li><a href="developer-guide/workspaces.html">Runtime data and workspaces</a></li>
@@ -50,6 +78,8 @@ or contributing to the application.</p>
 <li><a href="developer-guide/configuration.html">Configuration</a></li>
 <li><a href="developer-guide/contributing.html">Contributing</a></li>
 </ol>
-<p>The guides describe the current <code>src/angstrompro</code> application. The historical
-README documented an earlier interface and should not be treated as current
-operating instructions.</p></body></html>
+<p>The guides describe the current <code>src/angstrompro</code> application. The accompanying
+<a href="https://arxiv.org/abs/2604.18962v2">software paper</a>, Section 2 and Figures 1–4,
+explains the architectural design;
+the interfaces and examples here follow the current code. For environment
+setup and validation commands, see <a href="developer-guide/contributing.html">Contributing</a>.</p></body></html>

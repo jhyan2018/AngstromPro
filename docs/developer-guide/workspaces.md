@@ -23,13 +23,16 @@ used by any number of modules. Shared workspaces contain items only; process
 slots and viewer presentation state remain module-local.
 `Workspace` owns an ordered collection of items and emits add, remove, rename,
 and change signals. `WorkspaceItem` wraps a payload with an item ID, optional
-alias, source path, and named annotations.
+alias, and named annotations. Its `name` and `type_id` properties refer to the
+payload. Source provenance belongs to the payload's metadata, such as
+`UdsDataStru.info["source"]`, rather than a separate `WorkspaceItem` path field.
 
 ## WorkspaceData contract
 
 A runtime payload subclasses `WorkspaceData` and defines:
 
 - A unique, stable `type_id`
+- A writable `name` attribute, used by workspace naming and deduplication
 - `display_type()` for a human-readable name
 - `summary()` for compact facts
 - `inspect_fields()` for structured inspection
@@ -42,6 +45,62 @@ a persistence or export path when their state is valuable.
 Processes declare payload compatibility through `InputSpec.type_id` and
 modules can declare accepted types. This keeps the workspace generic while
 allowing each consumer to reject unsupported data cleanly.
+
+## Adding a payload type
+
+Use an existing UDS object when an array, physical axes, and metadata describe
+the result adequately. Introduce a new type when the result has additional
+structure or relationships. For example, a collection can retain datasets
+with different coordinate grids without merging their arrays:
+
+```python
+from dataclasses import dataclass, field
+from typing import ClassVar
+
+from angstrompro.core.data.base import ProcRecord, WorkspaceData
+from angstrompro.core.data.uds_data import UdsDataStru
+
+
+@dataclass
+class DatasetCollection(WorkspaceData):
+    type_id: ClassVar[str] = "example.dataset_collection"
+    name: str = "collection"
+    datasets: list[UdsDataStru] = field(default_factory=list)
+    proc_history: list[ProcRecord] = field(default_factory=list)
+
+    def display_type(self) -> str:
+        return "Dataset collection"
+
+    def summary(self) -> dict[str, str]:
+        return {"Datasets": str(len(self.datasets))}
+
+    def inspect_fields(self) -> list[dict]:
+        return [
+            {"kind": "group", "label": dataset.name,
+             "children": dataset.inspect_fields()}
+            for dataset in self.datasets
+        ]
+```
+
+This is an illustrative extension, not an additional file already present in
+`examples/example_plugin/`. Store it in your own plugin package and import it
+where the module, process, or reader constructs the payload. There is no
+separate payload-class registration decorator: compatibility uses `type_id`,
+while I/O and thumbnail support have their own registration functions.
+
+The object can be stored and inspected in a workspace, but existing UDS viewers
+and processes do not automatically understand it. Provide a compatible module
+or process, or expose its contained UDS objects for use by existing viewers.
+Choose whether the collection owns copies or shared references to its datasets;
+copy before modifying data that must remain independent. A `proc_history` list
+allows the registry to record operations on the collection itself; it does
+not automatically record changes inside every nested dataset.
+
+Add [native persistence](io-handlers.md#register-a-typed-format), a
+[workspace archive codec](io-handlers.md#make-a-payload-workspace-archive-compatible),
+and an optional [thumbnail renderer](io-handlers.md#thumbnail-renderers) only
+as required. Subclassing `WorkspaceData` alone does not make the object
+saveable or previewable.
 
 ## Elementary and composite payloads
 
@@ -92,7 +151,9 @@ source row is then removed, producing move-like behavior, or retained.
 
 Items in a shared workspace are intentionally the same live runtime objects for
 every attached module. Mutations to an existing shared item should notify its
-owning workspace so all attached views can refresh.
+owning workspace so all attached views can refresh. From a GUI module, use
+`self.notify_workspace_item_changed(item)` rather than assuming the item belongs
+to `self.workspace`, which identifies the current output destination.
 
 ## Generic inspection
 

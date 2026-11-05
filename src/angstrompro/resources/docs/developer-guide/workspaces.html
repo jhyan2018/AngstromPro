@@ -40,11 +40,14 @@ used by any number of modules. Shared workspaces contain items only; process
 slots and viewer presentation state remain module-local.
 <code>Workspace</code> owns an ordered collection of items and emits add, remove, rename,
 and change signals. <code>WorkspaceItem</code> wraps a payload with an item ID, optional
-alias, source path, and named annotations.</p>
+alias, and named annotations. Its <code>name</code> and <code>type_id</code> properties refer to the
+payload. Source provenance belongs to the payload's metadata, such as
+<code>UdsDataStru.info["source"]</code>, rather than a separate <code>WorkspaceItem</code> path field.</p>
 <h2 id="workspacedata-contract">WorkspaceData contract</h2>
 <p>A runtime payload subclasses <code>WorkspaceData</code> and defines:</p>
 <ul>
 <li>A unique, stable <code>type_id</code></li>
+<li>A writable <code>name</code> attribute, used by workspace naming and deduplication</li>
 <li><code>display_type()</code> for a human-readable name</li>
 <li><code>summary()</code> for compact facts</li>
 <li><code>inspect_fields()</code> for structured inspection</li>
@@ -56,6 +59,55 @@ a persistence or export path when their state is valuable.</p>
 <p>Processes declare payload compatibility through <code>InputSpec.type_id</code> and
 modules can declare accepted types. This keeps the workspace generic while
 allowing each consumer to reject unsupported data cleanly.</p>
+<h2 id="adding-a-payload-type">Adding a payload type</h2>
+<p>Use an existing UDS object when an array, physical axes, and metadata describe
+the result adequately. Introduce a new type when the result has additional
+structure or relationships. For example, a collection can retain datasets
+with different coordinate grids without merging their arrays:</p>
+<pre><code class="language-python">from dataclasses import dataclass, field
+from typing import ClassVar
+
+from angstrompro.core.data.base import ProcRecord, WorkspaceData
+from angstrompro.core.data.uds_data import UdsDataStru
+
+
+@dataclass
+class DatasetCollection(WorkspaceData):
+    type_id: ClassVar[str] = &quot;example.dataset_collection&quot;
+    name: str = &quot;collection&quot;
+    datasets: list[UdsDataStru] = field(default_factory=list)
+    proc_history: list[ProcRecord] = field(default_factory=list)
+
+    def display_type(self) -&gt; str:
+        return &quot;Dataset collection&quot;
+
+    def summary(self) -&gt; dict[str, str]:
+        return {&quot;Datasets&quot;: str(len(self.datasets))}
+
+    def inspect_fields(self) -&gt; list[dict]:
+        return [
+            {&quot;kind&quot;: &quot;group&quot;, &quot;label&quot;: dataset.name,
+             &quot;children&quot;: dataset.inspect_fields()}
+            for dataset in self.datasets
+        ]
+</code></pre>
+<p>This is an illustrative extension, not an additional file already present in
+<code>examples/example_plugin/</code>. Store it in your own plugin package and import it
+where the module, process, or reader constructs the payload. There is no
+separate payload-class registration decorator: compatibility uses <code>type_id</code>,
+while I/O and thumbnail support have their own registration functions.</p>
+<p>The object can be stored and inspected in a workspace, but existing UDS viewers
+and processes do not automatically understand it. Provide a compatible module
+or process, or expose its contained UDS objects for use by existing viewers.
+Choose whether the collection owns copies or shared references to its datasets;
+copy before modifying data that must remain independent. A <code>proc_history</code> list
+allows the registry to record operations on the collection itself; it does
+not automatically record changes inside every nested dataset.</p>
+<p>Add <a href="io-handlers.html#register-a-typed-format">native persistence</a>, a
+<a href="io-handlers.html#make-a-payload-workspace-archive-compatible">workspace archive codec</a>,
+and an optional <a href="io-handlers.html#thumbnail-renderers">thumbnail renderer</a> only
+as required. Subclassing <code>WorkspaceData</code> alone does not make the object
+saveable or previewable.</p>
 <h2 id="elementary-and-composite-payloads">Elementary and composite payloads</h2>
 <p><code>UdsDataStru</code> is an elementary array payload: it owns numerical data, axes,
 metadata, landmarks, and processing history. Runtime annotations belong to the
@@ -94,7 +146,9 @@ through <code>WorkspaceManager</code>. The application preference determines whe
 source row is then removed, producing move-like behavior, or retained.</p>
 <p>Items in a shared workspace are intentionally the same live runtime objects for
 every attached module. Mutations to an existing shared item should notify its
-owning workspace so all attached views can refresh.</p>
+owning workspace so all attached views can refresh. From a GUI module, use
+<code>self.notify_workspace_item_changed(item)</code> rather than assuming the item belongs
+to <code>self.workspace</code>, which identifies the current output destination.</p>
 <h2 id="generic-inspection">Generic inspection</h2>
 <p><code>WorkspaceItemInspector</code> renders the list returned by
 <code>WorkspaceData.inspect_fields()</code>. Supported node kinds are:</p>

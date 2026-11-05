@@ -21,10 +21,68 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
              color: #52636d; }
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="data-browser">Data Browser</h1>
-<p>The Data Browser is the disk-to-application entry point. It combines a folder
-tree with a thumbnail gallery and sends supported data to analysis modules.</p>
+<p>The Data Browser provides a thumbnail gallery for exploring measurement files
+in configured watch folders, helping you preview measurements, identify data
+of interest, and send selected files to analysis modules without opening each
+file individually in a viewer. Its folder tree, filename and format filters,
+sorting, and zero-to-five-star ratings help organise browsing; thumbnail-layer
+selection and background caching control how previews are generated.</p>
+<h2 id="tutorial-browse-and-send-a-measurement">Tutorial: browse and send a measurement</h2>
+<p><strong>Goal:</strong> find a measurement by its preview and load the selected channel into
+an analysis module.</p>
+<p><strong>Input:</strong> your measurement folder and at least one supported file. For a
+single known file, you can instead <a href="file-formats.html#tutorial-open-and-verify-a-measurement">open it directly</a>.</p>
+<ol>
+<li>In Main Workbench, click <strong>+ New Module → Basic → Data Browser</strong> and open
+   the intended destination with <strong>+ New Module → Basic → Image Stack Viewer</strong>
+   for maps or <strong>+ New Module → Basic → Curve Stack Viewer</strong> for spectra.
+   Click <strong>Show</strong> on an existing module card instead of creating another instance.</li>
+<li>From the Data Browser window, choose <strong>File → Preferences…</strong>. In <strong>Watch
+   folders</strong>, add the measurement folder. Choose <strong>Apply</strong>, or <strong>Save as
+   default</strong> if this folder should remain configured for later sessions.</li>
+<li>Single-click the folder in the browser tree. Turn on <strong>include subfolders</strong> only
+   if measurements are stored below it.</li>
+<li>Use the filename search and <strong>Formats</strong> filter to narrow the gallery.
+   In Preferences, <strong>Watched formats</strong> must also include the format.</li>
+<li>Read the channel label on the relevant thumbnail card. For a multichannel
+   file, identify whether the card represents topography, a spectroscopic
+   channel, or another measurement.</li>
+<li>Right-click the data image on the thumbnail card and choose <strong>Send to module…</strong>.
+   Single-click the destination viewer in the dialog and click <strong>OK</strong>, or
+   double-click that destination to confirm.</li>
+<li>In the receiving module, single-click the new workspace row to inspect it,
+   then double-click it to display the data. Verify the axes and channel before
+   processing.</li>
+</ol>
+<p><strong>Expected result:</strong> a new workspace item contains the measurement channel,
+not the thumbnail image. The browser reloads the scientific data from the file
+when sending it.</p>
+<p><strong>If no suitable destination appears:</strong> open the required viewer in Main
+Workbench and check whether the channel is an image stack or a curve stack.
+Also check <strong>File → Preferences… → Excluded send targets</strong> in Main Workbench.</p>
+<p><strong>If the gallery is empty or shows a missing channel:</strong> check the folder,
+format filters, and exact channel aliases. After changing mappings, right-click
+the affected card and choose <strong>Re-render thumbnail</strong>, or use <strong>Re-render all</strong>
+in the cache preferences. See <a href="preferences.html#tutorial-configure-a-measurement-channel">channel mapping</a>.</p>
+<p>Background flattening in a thumbnail is only a preview setting. To remove a
+background from the loaded data, run
+<a href="processes.html#tutorial-run-background-subtraction">Background Subtract 2D</a>.</p>
+<h2 id="where-to-find-the-controls">Where to find the controls</h2>
+<p>Use the Data Browser window's <strong>File → Preferences…</strong> dialog for the
+<strong>Watch folders</strong>, <strong>Watched formats</strong>, <strong>Background scanner</strong>, <strong>Thumbnails</strong>,
+<strong>Gallery navigation</strong>, <strong>Channels</strong>, and <strong>Cache</strong> sections. Click <strong>Apply</strong>
+or <strong>Save as default</strong> in that dialog after editing.
+The filename search, <strong>Formats</strong> filter, and <strong>include subfolders</strong> checkbox
+are controls in the main browser window, not Preferences menu entries.</p>
+<p>For a single file, right-click its thumbnail image/card to open the context
+menu. <strong>Send to module…</strong> opens a destination dialog; <strong>Show in File Manager</strong>
+reveals the file; <strong>Set thumbnail layer…</strong> appears for cached multi-layer data;
+<strong>Rating</strong> opens the star submenu; <strong>Re-render thumbnail</strong> refreshes that card.
+To refresh all cached previews, open <strong>File → Preferences… → Cache</strong> and click
+<strong>Re-render all…</strong>. This is separate from the card's right-click action.</p>
 <h2 id="watch-folders">Watch folders</h2>
-<p>Add, remove, and reorder watch folders in <strong>Preferences → Data Browser</strong>.
+<p>Add, remove, and reorder watch folders in the Data Browser window's
+<strong>File → Preferences… → Watch folders</strong> section.
 Watched folders cannot be nested inside one another. Select a folder in the
 tree to list its files; enable <strong>include subfolders</strong> when a recursive view is
 needed.</p>
@@ -37,7 +95,7 @@ needed.</p>
 <p>The format checkboxes in the browser toolbar filter the current view. The
 watched-format selection in Preferences additionally controls which formats
 the background scanner processes.</p>
-<p>In <strong>Preferences → Data Browser → Gallery navigation</strong>, <strong>Mouse-wheel step
+<p>In <strong>File → Preferences… → Gallery navigation</strong>, <strong>Mouse-wheel step
 (px)</strong> controls how far one wheel notch moves the thumbnail gallery. The
 default is 80 pixels, independent of how many cards are in the folder. Smooth
 touchpad gestures and dragging the scrollbar retain their native behavior.</p>
@@ -57,16 +115,15 @@ used for its preview. From a card's context menu you can:</p>
 <li>Re-render the thumbnail</li>
 </ul>
 <h2 id="multichannel-thumbnails">Multichannel thumbnails</h2>
-<p>The Channel Manager shown under <strong>Preferences → Data Browser → Channels</strong> is
+<p>The Channel Manager shown under <strong>File → Preferences… → Channels</strong> is
 application-wide; it edits the same mappings available in Main Workbench
-Preferences. For <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> files, the browser creates cards
-only for logical channels that:</p>
-<ol>
-<li>are marked <strong>Load by default</strong> for that file format, and</li>
-<li>have an exact, case-sensitive alias matching the configured source in the
-   file. For <code>.3ds</code>, that source may be <strong>Channels</strong> or <strong>Experiment
-   parameters</strong>.</li>
-</ol>
+Preferences. For <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> files, the browser creates a card
+for each logical channel marked <strong>Load by default</strong> for that file format.
+Several channels can be enabled for the same file. A preview is rendered when
+an exact, case-sensitive alias matches the configured source in the file;
+otherwise, the card indicates that the channel was not found and cannot be
+sent to a module. For <code>.3ds</code>, the source may be <strong>Channels</strong> or <strong>Experiment
+parameters</strong>.</p>
 <p>The format-level <strong>Auto-load defaults</strong> checkbox does not control thumbnails.
 It controls whether interactive file opening skips the normal channel-selection
 dialog. See <a href="preferences.html#channel-mappings">Preferences</a> for the complete
@@ -80,7 +137,7 @@ spectroscopy stack. If you change its source or aliases in Channel Manager,
 re-render the cached card to apply the new mapping.</p>
 <h2 id="scene-templates-for-thumbnails">Scene templates for thumbnails</h2>
 <p>The Data Browser can use the same <code>.scet</code> scene templates saved by the Curve
-Stack Viewer. In <strong>Preferences → Data Browser → Thumbnails</strong>, choose a
+Stack Viewer. In <strong>File → Preferences… → Thumbnails</strong>, choose a
 <strong>Plot template</strong> to give raw UDS thumbnails a consistent presentation style.
 The template can carry settings for both curve-stack and colormap rendering;
 the browser chooses the appropriate representation from the dataset and its
@@ -112,7 +169,7 @@ new rendering settings.</p>
 low priority. Cached thumbnails make later browsing faster and survive an
 application restart. Files currently visible in the gallery receive higher
 render priority.</p>
-<p>In <strong>Preferences → Data Browser</strong>, you can:</p>
+<p>In the Data Browser window's <strong>File → Preferences…</strong> dialog, you can:</p>
 <ul>
 <li>Enable or disable background scanning</li>
 <li>Choose the formats to watch</li>
