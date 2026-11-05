@@ -17,9 +17,6 @@ publication.
 AngstromPro requires Python 3.10 or newer and one supported Qt Python binding:
 PyQt5, PyQt6, or PySide6.
 
-For users new to Python, we recommend using Spyder with a Python environment
-that already provides PyQt5. AngstromPro can reuse that binding.
-
 Before installing, check your Python version, interpreter path, and existing
 Qt bindings using the commands in the
 [installation guide](docs/user-guide/getting-started.md#check-your-python-environment).
@@ -66,9 +63,7 @@ See the [detailed Linux instructions](docs/user-guide/getting-started.md#linux).
 Use the same Python command for the environment checks and installation,
 replacing `python3` with `python` where appropriate.
 
-After installation, run `angstrompro` from the same environment. For
-installation and launch within Spyder, see
-[Using Spyder](docs/user-guide/getting-started.md#using-spyder).
+After installation, run `angstrompro` from the same environment.
 
 For installation from a cloned or downloaded source directory, see
 [Installing from a local copy](docs/user-guide/getting-started.md#installing-from-a-local-copy).
@@ -81,12 +76,8 @@ Launch AngstromPro from the same Python environment used for installation:
 angstrompro
 ```
 
-When launched from a Spyder IPython console, AngstromPro shares Spyder's Qt
-event loop. Closing the Main Workbench therefore hides the current AngstromPro
-session; launching it again in the same console reopens that session. Restart
-the Spyder kernel after changing AngstromPro or plugin source code so the next
-launch imports the revised classes. When AngstromPro is launched directly
-from a terminal, closing the Main Workbench exits the application.
+Closing the Main Workbench exits the application. Restart AngstromPro after
+changing application or plugin source code to load the revised code.
 
 On first launch, AngstromPro asks you to choose a parent location and creates
 an `angstrompro-user/` folder beneath it. Configuration, interface settings,
@@ -510,8 +501,8 @@ python -m pip install -e "examples/example_plugin"
 After restarting, open **+ New Module → Examples → Example Workflow**. The
 example also includes a read-only `.apdemo` loader and the package entry-point
 configuration. Choose either source-path loading or package installation;
-there is no need to configure both. When running inside Spyder, restart the
-kernel after changing plugin code so that the revised modules are imported.
+there is no need to configure both. Restart AngstromPro after changing plugin
+code so that the revised modules are imported.
 
 Plugins load before the process registry is constructed. Keep component IDs
 stable and namespaced, and use `context.get_plugin_config("example")` for

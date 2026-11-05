@@ -5,13 +5,8 @@
 AngstromPro requires Python 3.10 or newer and a supported Qt Python binding:
 PyQt5, PyQt6, or PySide6.
 
-For users new to Python, we recommend using Spyder with a Python environment
-that already contains PyQt5. This provides an interactive console for checking
-the environment and running AngstromPro without installing another Qt binding.
-See [Using Spyder](#using-spyder).
-
-You can also use a compatible Python environment managed by Conda or another
-tool, or run AngstromPro directly from a terminal.
+Use a compatible Python environment managed by Conda or another tool, and
+run AngstromPro from a terminal.
 
 The instructions below install directly from a GitHub ZIP archive; Git and
 manual downloading or extraction are not required. To install from a cloned
@@ -20,10 +15,9 @@ or downloaded source directory instead, see
 
 ## Check your Python environment
 
-A computer can contain several Python installations. The Python used by a
-terminal may differ from the interpreter selected in Spyder or another IDE.
-Some environments also already contain a Qt binding, such as PyQt5 in many
-Spyder environments.
+A computer can contain several Python installations, and some environments
+already contain a supported Qt binding. Check the interpreter that will be
+used to install and run AngstromPro.
 
 Before installing, run these commands in the terminal for your intended
 environment:
@@ -36,9 +30,7 @@ python -c "import importlib.util as u; print([n for n in ('PyQt6','PyQt5','PySid
 
 On macOS or Linux, use `python3` instead of `python` if that is the command
 for your intended interpreter. In an activated Conda environment, `python`
-normally selects the environment's interpreter. For equivalent checks inside
-Spyder's IPython Console, see
-[Spyder environment troubleshooting](troubleshooting.md#spyder-check-the-console-environment).
+normally selects the environment's interpreter.
 
 These commands show:
 
@@ -51,9 +43,6 @@ PyQt5 uses Qt 5, whereas PyQt6 uses Qt 6. Their Qt objects cannot be used
 interchangeably in the same application. Adding PyQt6 to an environment
 already using PyQt5 does not upgrade that application to Qt 6 and can lead
 to binding-selection or library-loading conflicts.
-
-For example, if the Spyder console environment already uses PyQt5, install
-AngstromPro without a Qt extra so that it can reuse PyQt5.
 
 Use the check results as follows:
 
@@ -70,8 +59,8 @@ environment. Use `python3` instead of `python` where appropriate.
 The Qt check detects package availability; it does not test whether the
 underlying libraries can load successfully.
 
-AngstromPro prefers a binding already loaded in the current Python process,
-as may happen in Spyder. When no binding is loaded, its preference among
+AngstromPro prefers a binding already loaded in the current Python process.
+When no binding is loaded, its preference among
 the three supported choices is PyQt6, then PyQt5, then PySide6.
 
 If your current Python environment does not meet the requirements or has
@@ -196,48 +185,6 @@ From the same environment, within a graphical desktop session:
 angstrompro
 ```
 
-## Using Spyder
-
-These instructions apply to Spyder connected to a user-managed Python
-environment, such as an Anaconda or Conda environment, with Python 3.10 or
-newer and PyQt5 installed. You can use either Spyder included with Anaconda
-or a standalone installation of Spyder connected to that environment.
-
-Spyder normally installs or includes PyQt5 by default for its own graphical
-interface. Its IPython Console can, however, use a different Python environment,
-so this binding is not necessarily available in every connected interpreter.
-
-In the compatible environment described above, run the following in Spyder's
-IPython Console. It installs AngstromPro into the console kernel's environment
-without adding another Qt binding:
-
-```python
-%pip install "angstrompro @ https://github.com/jhyan2018/AngstromPro/archive/refs/heads/main.zip"
-```
-
-Restart the kernel after installation, then enable Qt event-loop integration
-and start AngstromPro:
-
-```python
-%gui qt5
-from angstrompro.app.main import main
-app, window = main(external_namespace=globals(), start_event_loop=False)
-```
-
-Alternatively, if you have cloned or downloaded and extracted the AngstromPro
-repository, open the `main.py` file in its root folder in Spyder's editor.
-After enabling Qt event-loop integration in the IPython Console as above
-with `%gui qt5`, run the entire file using Spyder's **Run file** button
-or **F5**. This launches AngstromPro without entering the import and `main(...)`
-call manually; the same installation requirement applies. The ZIP-address installation alone does not
-create a local source folder; see [Installing from a local copy](#installing-from-a-local-copy)
-if you need one. To run changes made in that local copy, use its editable
-installation rather than a separately installed version.
-
-If installation or launch fails, or you need guidance on other Qt bindings,
-interpreter compatibility, or standalone Spyder environments, see
-[Spyder troubleshooting](troubleshooting.md#spyder-check-the-console-environment).
-
 ## Optional dependencies
 
 The `[full]` extra adds scikit-image for optional image-processing features.
@@ -283,13 +230,9 @@ of `pyqt5`. For optional image-processing features, use
 `python -m pip install ".[full]"` with an existing Qt binding, or
 `python -m pip install ".[pyqt5,full]"` if one is needed.
 
-In Spyder, set the IPython Console's working directory to this source directory
-and use `%pip install .` (or `%pip install ".[pyqt5]"` if a binding is needed)
-to install into the console kernel's environment.
-
 Normal installation is intended for users. Developers who edit the source
 can use `python -m pip install -e .`; editable installation uses the working
-source tree. Restart the application or Spyder kernel after source changes.
+source tree. Restart the application after source changes.
 
 ## Creating a separate environment
 
@@ -359,19 +302,8 @@ After activation, install AngstromPro using the appropriate instructions above.
 angstrompro
 ```
 
-### Running from Spyder
-
-AngstromPro shares the Qt event loop owned by Spyder's IPython kernel. Closing
-the Main Workbench hides all AngstromPro windows but preserves the session;
-launching AngstromPro again from the same console reopens the existing module
-instances and windows.
-
-Restart the Spyder kernel before launching again after changing AngstromPro or
-plugin source code. A live session retains its already imported classes, so it
-is not a safe way to test revised code. This hosted behavior is specific to
-Spyder and similar interactive Qt consoles: when started with the standalone
-`angstrompro` command, closing the Main Workbench closes the modules and exits
-the process.
+Closing the Main Workbench closes the modules and exits the application.
+Restart AngstromPro after changing application or plugin source code.
 
 On first launch, choose a parent location. AngstromPro creates a dedicated
 `angstrompro-user/` folder there with this structure:
@@ -412,7 +344,8 @@ window forward; **Remove** on that card closes that instance.
    or **+ New Module → Basic → Curve Stack Viewer** for spectra. Click **Show**
    on its Main Workbench card if the module is already open.
 2. In the viewer, choose **File → Open…**, select your file, and choose the
-   required channels when prompted. To find a file by preview, follow the
+   required channels when prompted (channel settings are available in the
+   Main Workbench under **Preferences… → Channels**). To find a file by preview, follow the
    [Data Browser tutorial](data-browser.md#tutorial-browse-and-send-a-measurement).
 3. Show **View → Workspace** and **View → Inspector**. Single-click the
    desired channel item and verify its source, dimensions, axes, and units.

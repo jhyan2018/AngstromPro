@@ -299,10 +299,8 @@ be persisted.</p>
 location. AngstromPro creates or uses <code>&lt;parent&gt;/angstrompro-user/</code>. At the next
 new application session it copies the existing user data to the new location
 before switching the pointer. The obsolete <code>cache/snapshots/</code> folder is not
-copied, and the original folder is retained as a backup. For a standalone
-launch, fully exit and launch AngstromPro again. In Spyder, restart the kernel
-and launch AngstromPro again; merely reopening the hidden hosted session is
-still the same runtime.</p>
+copied, and the original folder is retained as a backup. Fully exit and launch
+AngstromPro again to apply the change.</p>
 <p>While a change is queued, a temporary pending record is stored beside the
 OS-managed pointer. After the next session adopts the change, that record is
 removed and <code>datapath.txt</code> contains only the new absolute path.</p>

@@ -29,12 +29,8 @@ Click **Add plugin** and, for the supplied example, enter
 `angstrompro_example` as the module name. Replace `<repository>` with the
 absolute path to your checkout. Save the preference and restart AngstromPro.
 
-When testing from Spyder, closing the Main Workbench only hides the hosted
-AngstromPro session so it can be reopened without rebuilding Qt. Restart the
-Spyder kernel after changing plugin source; reopening the existing session does
-not reload already imported plugin modules or replace their live widget
-classes. A standalone AngstromPro process can instead be closed and launched
-again normally.
+After changing plugin source, fully exit and restart AngstromPro so the
+revised modules and widget classes are imported.
 
 ## Installed plugin
 

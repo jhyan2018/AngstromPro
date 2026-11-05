@@ -24,20 +24,17 @@ python -m pip install -e ".[pyqt5,full]"
 
 The example uses PyQt5. You can replace `pyqt5` with `pyqt6` or `pyside6`;
 choose only one Qt extra. If the development environment
-already uses PyQt5, such as a compatible Spyder console environment,
+already uses PyQt5,
 reuse it rather than adding PyQt6.
 
 Editable installation uses the working source tree. Restart AngstromPro
-or the Spyder kernel after changing source code.
+after changing source code.
 
 Launch from a terminal:
 
 ```text
 angstrompro
 ```
-
-For launch within Spyder, follow
-[Using Spyder](../user-guide/getting-started.md#using-spyder).
 
 When Markdown documentation changes, rebuild the packaged offline HTML:
 

@@ -44,12 +44,8 @@ module. The module's imports must trigger every required registration.</p>
 <code>&lt;repository&gt;/examples/example_plugin/src</code> as the path and
 <code>angstrompro_example</code> as the module name. Replace <code>&lt;repository&gt;</code> with the
 absolute path to your checkout. Save the preference and restart AngstromPro.</p>
-<p>When testing from Spyder, closing the Main Workbench only hides the hosted
-AngstromPro session so it can be reopened without rebuilding Qt. Restart the
-Spyder kernel after changing plugin source; reopening the existing session does
-not reload already imported plugin modules or replace their live widget
-classes. A standalone AngstromPro process can instead be closed and launched
-again normally.</p>
+<p>After changing plugin source, fully exit and restart AngstromPro so the
+revised modules and widget classes are imported.</p>
 <h2 id="installed-plugin">Installed plugin</h2>
 <p>An installable package should expose an entry point in <code>pyproject.toml</code>:</p>
 <pre><code class="language-toml">[project.entry-points.&quot;angstrompro.plugins&quot;]

@@ -36,15 +36,13 @@ with the optional image-processing dependencies:</p>
 </code></pre>
 <p>The example uses PyQt5. You can replace <code>pyqt5</code> with <code>pyqt6</code> or <code>pyside6</code>;
 choose only one Qt extra. If the development environment
-already uses PyQt5, such as a compatible Spyder console environment,
+already uses PyQt5,
 reuse it rather than adding PyQt6.</p>
 <p>Editable installation uses the working source tree. Restart AngstromPro
-or the Spyder kernel after changing source code.</p>
+after changing source code.</p>
 <p>Launch from a terminal:</p>
 <pre><code class="language-text">angstrompro
 </code></pre>
-<p>For launch within Spyder, follow
-<a href="../user-guide/getting-started.html#using-spyder">Using Spyder</a>.</p>
 <p>When Markdown documentation changes, rebuild the packaged offline HTML:</p>
 <pre><code class="language-text">python -m pip install -e &quot;.[docs]&quot;
 python tools/build_docs.py
