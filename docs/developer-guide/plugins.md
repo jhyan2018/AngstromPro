@@ -1,5 +1,9 @@
 # Plugins
 
+Start with the working plugin in `AngstromPro/examples/example_plugin/`.
+Its [README](../../examples/example_plugin/README.md) provides installation
+instructions and a workflow for checking that the registered components load.
+
 Plugins extend AngstromPro by importing code that registers processes, modules,
 or file-format handlers. They load before the process registry is constructed.
 
@@ -14,9 +18,28 @@ A plugin may also define new `WorkspaceData` payload types. Doing so lets its
 modules participate in the standard workspace, sending, compatibility, and
 Inspector infrastructure. See [Runtime data and workspaces](workspaces.md).
 
+## Choose the extension points you need
+
+The extension points are independent; a plugin can provide any subset.
+
+| Requirement | Extension | Integration |
+| --- | --- | --- |
+| A new interaction or visualisation model | `AGuiModule` with `register_module` | Main Workbench's **+ New Module** menu |
+| A new numerical algorithm or generator | `register_process` or `register_simulation` | Process Browser and compatible Process menus, or Simulate menus |
+| A new acquisition or native file format | `register_ext_loader` or `register_io` | File loading and, where implemented, saving |
+| A richer analysis object | A `WorkspaceData` subclass with its own `type_id` | Workspace storage, transfer, and inspection; compatible consumers are still required |
+| A preview for a new payload | `register_thumbnail_renderer` | Headless Data Browser thumbnail rendering |
+
+For example, an algorithm acting on ordinary UDS data needs a process but not
+a new viewer. A new instrument reader can reuse UDS viewers and renderers.
+A composite object can retain several UDS datasets and additional state, but
+its class definition alone supplies neither a viewer nor file persistence.
+See [I/O handlers](io-handlers.md) for file and preview integration.
+
 ## Local source plugin
 
-During development, open the Main Workbench's File menu and add an entry under **File → Preferences… → Plugins** containing:
+During development, open the Main Workbench's **File → Preferences… → Plugins**
+(on macOS, open **Preferences…** from the application menu). Add an entry containing:
 
 - The absolute path to the plugin's `src/` directory
 - Its importable top-level module name
@@ -27,7 +50,7 @@ module. The module's imports must trigger every required registration.
 Click **Add plugin** and, for the supplied example, enter
 `<repository>/examples/example_plugin/src` as the path and
 `angstrompro_example` as the module name. Replace `<repository>` with the
-absolute path to your checkout. Save the preference and restart AngstromPro.
+absolute path to your checkout. Click **Save as default** and restart AngstromPro.
 
 After changing plugin source, fully exit and restart AngstromPro so the
 revised modules and widget classes are imported.
@@ -72,6 +95,13 @@ angstrompro-example/
 `__init__.py` can import the three registration modules. Use a consistent
 namespace for module and process IDs.
 
+For the supplied example, the actual filename is `module.py` (singular).
+Its `__init__.py` imports `io`, `processes`, and `module`, so all registrations
+run when `angstrompro_example` is imported. Import any additional renderer or
+I/O registration files in the same way. The entry-point loader imports the
+target; it does not automatically call a separate setup function returned by
+that import, or discover every Python file in the package.
+
 ## Configuration
 
 Call `context.get_plugin_config("example")` for isolated settings. Namespaced
@@ -101,3 +131,18 @@ module, process, simulation, and raw file loader. It uses synthetic data and
 executes its operations through the normal task-backed process path. Its README
 also gives the exact **File → Preferences… → Plugins** values for loading the example
 directly from its `src/` folder during development.
+
+Read the example in this order; paths below are relative to
+`examples/example_plugin/`:
+
+| File | What it demonstrates |
+| --- | --- |
+| `pyproject.toml` and `src/angstrompro_example/__init__.py` | Package discovery and registration imports |
+| `src/angstrompro_example/io.py` and `sample.apdemo` | Raw JSON parsing, input validation, and UDS axes |
+| `src/angstrompro_example/processes.py` | A no-input simulation and an input-preserving scaling process |
+| `src/angstrompro_example/module.py` | Central controls, input staging, and task-backed submission |
+
+The example does not define a new payload type or custom thumbnail renderer;
+those optional interfaces are described in the
+[workspace](workspaces.md#adding-a-payload-type) and
+[I/O](io-handlers.md#thumbnail-renderers) guides.

@@ -26,17 +26,17 @@ size sets the spatial grid.
 
 ## Continue through AngstromPro
 
-1. Select the generated item in the Planewave Synthesiser's Workspace dock.
-2. Single-click the new workspace item so it is highlighted, then click
+1. In the Planewave Synthesiser's Workspace dock, single-click the generated
+   item so it is highlighted, then click
    the **Send…** button below the Workspace list and select an open
    **Image Stack Viewer**. Open one first using Main Workbench's
    **+ New Module → Basic → Image Stack Viewer** if needed.
-3. In the receiving viewer, open **View → Workspace** and double-click the
+2. In the receiving viewer, open **View → Workspace** and double-click the
    received item to display it. Use the panel's **Layer** and **Palette**
    controls; right-click the image to pick points.
-4. Add a compatible operation through **Process → Configure Process Menu…**,
+3. Add a compatible operation through **Process → Configure Process Menu…**,
    then run it from **Process → your configured submenu → operation**.
-5. Inspect the returned workspace item or send it to another compatible module.
+4. Inspect the returned workspace item or send it to another compatible module.
 
 ## Preferences
 

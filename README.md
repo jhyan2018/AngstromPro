@@ -113,12 +113,13 @@ To analyse your own measurements:
    mappings, including those used to generate thumbnails.
 
 1. Open a file in **Image Stack Viewer** (maps) or **Curve Stack Viewer**
-   (spectra) using **File → Open…** in that viewer. Alternatively, locate its
+   (spectra) using **File → Open…** in that viewer, and choose the required
+   channels when prompted. Alternatively, locate the desired channel's
    thumbnail in **Data Browser**, right-click the data image, and choose
    **Send to module…** from the context menu. Single-click the destination
    module in the dialog and click **OK** (or double-click the destination).
-2. Select the required measurement channels. Open **View → Inspector** and
-   single-click a workspace item to check its axes and units. Inspector is a
+2. Open **View → Inspector** and single-click a workspace item to check its
+   axes and units. Inspector is a
    dockable panel that can also float as a separate window. Depending on the
    current layout, it may appear separately or share a tabbed panel with
    **Workspace**. If they share a panel, use the **Workspace** and **Inspector**
@@ -136,10 +137,12 @@ To analyse your own measurements:
    associated FFT) and displays it in **Reference Image**.
    Check **Active Processing Slots** below the Workspace list, then select
    the required algorithm from the appropriate submenu in the **Process**
-   menu configured above.
+   menu configured above. In its dialog, check **Inputs** and any required
+   **Annotations**, adjust the parameters, and click **Run**.
 4. After processing is complete, the result appears as a new item in
-   **Workspace**. Preserve numerical data
-   with **File → Save…**, or save the collection with **File → Save Workspace…**.
+   **Workspace**. Single-click the result and choose **File → Save…** to
+   preserve its numerical data, or save the collection with **File → Save
+   Workspace…**.
 5. Export images, videos, or figures, and save editable plots as needed:
 
    - In **Image Stack Viewer**, choose **File → Export Image…** to export
@@ -246,10 +249,12 @@ passes. Choose scanned formats in the same dialog's **Watched formats** section.
 ### Image Stack Viewer
 
 The Image Stack Viewer lets you visualise, compare, and process spatial image
-stacks, such as dI/dV maps acquired at different energies. Two-dimensional
-data, such as topographic images or dI/dV maps at a single energy, are treated
-as single-layer stacks: three-dimensional datasets with a stack dimension of
-size one. The viewer displays data in side-by-side **Primary** and
+stacks, such as dI/dV maps acquired at different energies. Image readers
+represent topographic images and single-energy dI/dV maps as single-layer
+stacks: three-dimensional datasets shaped `(1, rows, columns)`. Generic array
+files must already have this stack dimension to display as images; see
+[data-shape requirements](docs/user-guide/file-formats.md#tutorial-open-and-verify-a-measurement).
+The viewer displays data in side-by-side **Primary** and
 **Reference Image** panels.
 
 You can move through the layers while reading their physical-axis values,
@@ -276,10 +281,12 @@ required peaks there and choose **Points → Set Bragg Peaks from Reference**,
 **Points → Set Filter Points from Reference**, or **Points → Set Lock-in Peak
 from Reference**, as appropriate.
 
-Data-processing operations act on the data displayed in **Primary**. Points
-assigned through the **Points** menu are therefore stored as annotations
-beneath that data item in **Workspace**. When **Reference Image** displays
-the FFT of the current Primary data, select Bragg or lock-in peaks on that
+Data-processing operations use the data displayed in **Primary** as their
+first input; two-input operations also use the staged reference. In the
+real-space/FFT workflow above, points assigned through the **Points** menu
+are stored as annotations beneath the Primary data item in **Workspace**.
+When **Reference Image** displays the FFT of the current Primary data,
+select Bragg or lock-in peaks on that
 FFT and use **Points → Set Bragg Peaks from Reference** or **Points → Set
 Lock-in Peak from Reference**. The saved peak information appears beneath
 the current **Primary** data item in **Workspace**, not beneath the FFT item:
@@ -290,9 +297,9 @@ previous values. Moving or removing points on the canvas does not update an
 already saved annotation: use the appropriate **Points** menu command again
 to save the revised selection.
 
-Run compatible algorithms from the
-**Process** menu, inspect the resulting workspace items, and send results to
-other modules for further analysis. Use **File → Export Image…** to save or
+Run compatible algorithms from the **Process** menu, inspect the resulting
+workspace items, and send results to other modules for further analysis.
+Use **File → Export Image…** to save or
 copy an image, or **File → Export Video…** to export a sequence of layers as
 video frames.
 
@@ -300,9 +307,11 @@ video frames.
 
 The Curve Stack Viewer lets you visualise and compare spectroscopy and
 line-scan datasets as curve stacks. A one-dimensional spectrum acquired at a
-single point is treated as a single-curve stack: a two-dimensional dataset
-with a stack dimension of size one. The viewer also lets you prepare styled
-figures for presentation while preserving an editable version of the plot.
+single point is displayed as a single-curve stack, conceptually shaped
+`(1, points)`. The viewer also accepts a one-dimensional array directly;
+displaying it does not convert the stored data into a two-dimensional stack.
+The viewer lets you prepare styled figures for presentation while preserving
+an editable version of the plot.
 
 Double-click a workspace item to display it as the primary dataset, or
 right-click another item and choose **Add to plot** to overlay it on the
@@ -312,8 +321,9 @@ Curve styles and colours, axis limits and scales, labels, and grids can be
 adjusted to make comparisons clearer.
 
 Open the corresponding dock panels through **View → Curve Style** and
-**View → Axes**. Double-click the intended data item in **Workspace** to
-display it if it is not already plotted. In the **Datasets / Curves** panel,
+**View → Axes**. If the item is not yet plotted, double-click it in
+**Workspace** to start a new plot, or use **Add to plot** to preserve the
+current figure and add it. In the **Datasets / Curves** panel,
 click the triangle beside the dataset to expand its curve list, then
 single-click the curve you want to edit. Adjust its line style, colour, and
 other appearance settings in **Curve Style**; use **Axes** to adjust the
@@ -345,10 +355,18 @@ In the channel table, **Display name** is the label used in AngstromPro, while
 **Exact aliases** contains the original channel names stored in your measurement
 files. If you used custom channel names during acquisition, enter those names
 here; separate multiple alternative names with semicolons.
+
 **Load by default** is a checkbox for each channel in this table. When checked,
 a matching channel is preselected in the file-opening dialog and included when
 Data Browser generates thumbnails. It does not, by itself, skip the
 channel-selection dialog.
+
+You can check **Load by default** for multiple channels within the same file
+format; it is not limited to one channel. All matching checked channels are
+preselected when you open a file of that format. If **Auto-load defaults for
+this format** is enabled, those channels load together automatically from
+the same file.
+
 The separate **Auto-load defaults for this format (skip selection dialog)**
 checkbox above the table applies to the selected file format. Enable it to load
 matched default channels without showing the normal selection dialog. If a
@@ -361,9 +379,10 @@ application-wide mappings.
 ## Processes
 
 Processes are registered analysis operations that act on data in a module's
-workspace. Compatible processes can be run from that module's **Process** menu;
-AngstromPro asks for any required inputs and parameters, runs the work in the
-background, and adds the result to the workspace. Previously used parameter
+workspace. Compatible processes can be run from that module's **Process** menu.
+Activate the required input data before selecting an operation, then review
+its inputs and parameters in the dialog. AngstromPro runs the work in the
+background and adds the result to the workspace. Previously used parameter
 values are remembered for later runs.
 
 Each module also provides two tools in its **Process** menu:
@@ -373,8 +392,8 @@ Each module also provides two tools in its **Process** menu:
   outputs, and parameters.
 - **Process → Configure Process Menu…** creates user-named submenus, adds or removes
   registered processes, and controls the order of both submenus and entries.
-  A new layout starts empty; every process remains available through Process
-  Browser.
+  A new layout starts empty; every registered process can still be inspected
+  through **Process → Process Browser…**.
 
 ## Supported file formats
 
@@ -384,7 +403,7 @@ The built-in input/output registry currently includes:
 | --- | :---: | :---: | --- |
 | `.uds` | Yes | Yes | Native scientific data; legacy UDS files can be imported and upgraded |
 | `.scplot` | Yes | Yes | Saved plot scene |
-| `.npy` | Yes | Yes | NumPy array |
+| `.npy` | Yes | Low-level API only | NumPy array |
 | `.sxm` | Yes | No | Nanonis map |
 | `.3ds` | Yes | No | Nanonis grid spectroscopy |
 | `.dat` | Yes | No | Nanonis point spectroscopy |
@@ -393,10 +412,20 @@ The built-in input/output registry currently includes:
 | `.mat` | Yes | No | MATLAB data |
 | `.txt` | Yes | No | Whitespace-delimited numeric data |
 
-Open **Help → Supported Formats…** in AngstromPro for the formats registered at
-runtime, including formats supplied by plugins.
+NumPy writing is available through the low-level API, not the viewer's
+**File → Save…** command. Save scientific datasets as `.uds` from the interface;
+see [File I/O](docs/user-guide/file-formats.md#built-in-formats) for details.
+
+In the **Main Workbench**, open **Help → Supported Formats…** for the formats
+registered at runtime, including formats supplied by plugins.
 
 ## Extending AngstromPro
+
+Working extension examples are provided in `AngstromPro/examples/`. Start with
+the [example plugin](examples/example_plugin/README.md), which demonstrates a
+GUI module, a process, a simulation, and a read-only file loader. The
+[Developer Guide](docs/README.md#developer-guide) explains their interfaces
+and how they fit into the application architecture.
 
 AngstromPro separates extension components from the mechanism used to load
 them. GUI modules provide interactive tools, processes provide analysis
@@ -485,7 +514,7 @@ There are two supported loading mechanisms:
   click **Add plugin**, and enter the absolute path to the plugin's `src/`
   folder and its importable module name. For the supplied example, use
   `<repository>/examples/example_plugin/src` and `angstrompro_example`.
-  Save the preference and restart AngstromPro.
+  Click **Save as default** and restart AngstromPro.
 - For installed packages, expose the plugin through the `angstrompro.plugins`
   Python package entry-point group in `pyproject.toml`. Install the package in
   the same Python environment as AngstromPro and restart the application;

@@ -70,12 +70,18 @@ shows physical axes consistent with your acquisition.</p>
 <td><code>(curves, points)</code></td>
 <td>Curve Stack Viewer, one or more spectra</td>
 </tr>
+<tr>
+<td><code>(points,)</code></td>
+<td>Curve Stack Viewer, a single spectrum</td>
+</tr>
 </tbody>
 </table>
 <p>A two-dimensional array is treated as curve-stack data, not automatically as a
 single image. For generic array files, confirm the dimensionality and coordinate
 metadata before interpreting the result. Use the instrument reader when it
-provides the physical axes you need.</p>
+provides the physical axes you need. A one-dimensional spectrum can be plotted
+directly, but an algorithm that declares a two-dimensional curve-stack input
+still requires data shaped <code>(curves, points)</code>.</p>
 <p><strong>If the expected channel is absent:</strong> inspect the raw name/source shown by the
 loader and follow <a href="preferences.html#tutorial-configure-a-measurement-channel">channel mapping</a>.
 For unmatched channels, select the correct raw channel in the resolution dialog;
@@ -114,7 +120,7 @@ or <a href="curve-stack-viewer.html#tutorial-compare-and-style-spectra">compare 
 <tr>
 <td><code>.npy</code></td>
 <td style="text-align: center;">Yes</td>
-<td style="text-align: center;">Yes</td>
+<td style="text-align: center;">Low-level API only</td>
 <td>NumPy array</td>
 </tr>
 <tr>
@@ -161,8 +167,14 @@ or <a href="curve-stack-viewer.html#tutorial-compare-and-style-spectra">compare 
 </tr>
 </tbody>
 </table>
-<p>Open <strong>Help → Supported Formats…</strong> for the runtime registry. This view also
-includes formats supplied by installed plugins.</p>
+<p>NumPy writing is available through the low-level
+<code>angstrompro.io.formats.npy_io.save(path, uds)</code> function, not through the
+viewer's <strong>File → Save…</strong> command. That command saves UDS datasets in their
+native <code>.uds</code> format. Changing the filename suffix to <code>.npy</code> does not convert
+the file to NumPy format. The low-level NumPy writer stores only the numerical
+array, without axes, metadata, annotations, or processing history.</p>
+<p>In the <strong>Main Workbench</strong>, open <strong>Help → Supported Formats…</strong> for the runtime
+registry. This view also includes formats supplied by installed plugins.</p>
 <h2 id="native-data">Native data</h2>
 <p>Current <code>.uds</code> files use HDF5 and retain AngstromPro data, axes, metadata,
 annotations, and processing history. Legacy binary <code>.uds</code> files are imported
@@ -175,7 +187,8 @@ extensions or payload versions. Older files without workspace-item metadata
 still open; their alias and annotations start empty, and they receive a new
 item identity. Reopening an item whose name or identity is already in the
 workspace keeps the existing item and gives the imported one a distinct name
-or identity. Plain <code>.npy</code> exports do not store workspace-item metadata.</p>
+or identity. Arrays written through the low-level <code>.npy</code> writer do not store
+workspace-item metadata.</p>
 <p><code>.scplot</code> is also HDF5-based and stores complete <code>ScenePlot</code> data. Style-only
 <code>.scet</code> templates are created and managed by the Curve Stack Viewer and can be
 selected by both the Curve Stack Viewer and Data Browser when rendering fresh
@@ -224,6 +237,8 @@ mappings; single-channel formats do not require them.</p>
   loads the matched default rows immediately. If a default alias does not
   match, an <strong>Unmatched channels</strong> dialog still appears.</li>
 </ul>
+<p>You can check <strong>Load by default</strong> for several channels of the same format.
+They load as separate workspace items, not as merged signals.</p>
 <p>Aliases are exact and case-sensitive, not partial searches. Configure them in
 Main Workbench or Data Browser Preferences; both locations edit the same
 application-wide Channel Manager. See

@@ -113,13 +113,13 @@ used for its preview. From a card's context menu you can:
 
 The Channel Manager shown under **File → Preferences… → Channels** is
 application-wide; it edits the same mappings available in Main Workbench
-Preferences. For `.3ds`, `.sxm`, and `.dat` files, the browser creates cards
-only for logical channels that:
-
-1. are marked **Load by default** for that file format, and
-2. have an exact, case-sensitive alias matching the configured source in the
-   file. For `.3ds`, that source may be **Channels** or **Experiment
-   parameters**.
+Preferences. For `.3ds`, `.sxm`, and `.dat` files, the browser creates a card
+for each logical channel marked **Load by default** for that file format.
+Several channels can be enabled for the same file. A preview is rendered when
+an exact, case-sensitive alias matches the configured source in the file;
+otherwise, the card indicates that the channel was not found and cannot be
+sent to a module. For `.3ds`, the source may be **Channels** or **Experiment
+parameters**.
 
 The format-level **Auto-load defaults** checkbox does not control thumbnails.
 It controls whether interactive file opening skips the normal channel-selection

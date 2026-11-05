@@ -37,11 +37,14 @@ shows physical axes consistent with your acquisition.
 | `(1, rows, columns)` | Image Stack Viewer, one-layer topography |
 | `(layers, rows, columns)` | Image Stack Viewer, for example energy-resolved maps |
 | `(curves, points)` | Curve Stack Viewer, one or more spectra |
+| `(points,)` | Curve Stack Viewer, a single spectrum |
 
 A two-dimensional array is treated as curve-stack data, not automatically as a
 single image. For generic array files, confirm the dimensionality and coordinate
 metadata before interpreting the result. Use the instrument reader when it
-provides the physical axes you need.
+provides the physical axes you need. A one-dimensional spectrum can be plotted
+directly, but an algorithm that declares a two-dimensional curve-stack input
+still requires data shaped `(curves, points)`.
 
 **If the expected channel is absent:** inspect the raw name/source shown by the
 loader and follow [channel mapping](preferences.md#tutorial-configure-a-measurement-channel).
@@ -58,7 +61,7 @@ or [compare spectra](curve-stack-viewer.md#tutorial-compare-and-style-spectra).
 | `.uds` | Yes | Yes | Native HDF5 scientific data |
 | `.scplot` | Yes | Yes | Curve Stack Viewer scene |
 | `.apws` | Yes | Yes | HDF5 archive of one module workspace |
-| `.npy` | Yes | Yes | NumPy array |
+| `.npy` | Yes | Low-level API only | NumPy array |
 | `.sxm` | Yes | No | Nanonis map |
 | `.3ds` | Yes | No | Nanonis grid spectroscopy |
 | `.dat` | Yes | No | Nanonis point spectroscopy |
@@ -67,8 +70,15 @@ or [compare spectra](curve-stack-viewer.md#tutorial-compare-and-style-spectra).
 | `.mat` | Yes | No | MATLAB data |
 | `.txt` | Yes | No | Whitespace-delimited numeric data |
 
-Open **Help → Supported Formats…** for the runtime registry. This view also
-includes formats supplied by installed plugins.
+NumPy writing is available through the low-level
+`angstrompro.io.formats.npy_io.save(path, uds)` function, not through the
+viewer's **File → Save…** command. That command saves UDS datasets in their
+native `.uds` format. Changing the filename suffix to `.npy` does not convert
+the file to NumPy format. The low-level NumPy writer stores only the numerical
+array, without axes, metadata, annotations, or processing history.
+
+In the **Main Workbench**, open **Help → Supported Formats…** for the runtime
+registry. This view also includes formats supplied by installed plugins.
 
 ## Native data
 
@@ -84,7 +94,8 @@ extensions or payload versions. Older files without workspace-item metadata
 still open; their alias and annotations start empty, and they receive a new
 item identity. Reopening an item whose name or identity is already in the
 workspace keeps the existing item and gives the imported one a distinct name
-or identity. Plain `.npy` exports do not store workspace-item metadata.
+or identity. Arrays written through the low-level `.npy` writer do not store
+workspace-item metadata.
 
 `.scplot` is also HDF5-based and stores complete `ScenePlot` data. Style-only
 `.scet` templates are created and managed by the Curve Stack Viewer and can be
@@ -140,6 +151,9 @@ Each file format has two independent levels of configuration:
 - **Auto-load defaults for this format** skips the normal selection dialog and
   loads the matched default rows immediately. If a default alias does not
   match, an **Unmatched channels** dialog still appears.
+
+You can check **Load by default** for several channels of the same format.
+They load as separate workspace items, not as merged signals.
 
 Aliases are exact and case-sensitive, not partial searches. Configure them in
 Main Workbench or Data Browser Preferences; both locations edit the same

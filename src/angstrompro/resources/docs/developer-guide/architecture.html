@@ -21,6 +21,34 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
              color: #52636d; }
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="architecture">Architecture</h1>
+<p>Working examples are provided in <code>AngstromPro/examples/</code>. The
+<a href="https://github.com/jhyan2018/AngstromPro/tree/main/examples/example_plugin">example plugin</a> connects a GUI module,
+process, simulation, and file loader through the same interfaces used by
+built-in components. Use it alongside this guide; an extension does not have
+to implement all of these components.</p>
+<p>The design described in Section 2 and Figures 1–4 of the accompanying
+<a href="https://arxiv.org/abs/2604.18962v2">software paper</a> separates data management,
+visualisation, scientific processing, and
+on-disk storage. This guide maps those concepts to the current implementation.</p>
+<h2 id="separation-of-responsibilities">Separation of responsibilities</h2>
+<p>A module is an independent interaction context, not the owner of a private
+algorithm library. Its central widget defines how users view or manipulate
+data; its Workspace provides the common item-management interface. Multiple
+instances of the same module type can coexist with independent display state
+and process inputs. An optional shared workspace shares data, not those
+module-local controls.</p>
+<p>Scientific algorithms operate on data payloads rather than viewer widgets or
+instrument files. They are registered once and can be exposed in any module
+whose declared input requirements are compatible. File readers translate
+instrument-specific structures into these payloads before visualisation or
+processing; writers handle persistence separately.</p>
+<p>Keep three kinds of state distinct: the selected Workspace row, the datasets
+currently displayed, and the items staged in <code>process_inputs</code>. For example,
+Curve Stack Viewer's <strong>Add to plot</strong> changes the displayed set without changing
+the processing inputs. Image Stack Viewer deliberately maps its Primary and
+Reference panels to those inputs, but that mapping is not a general rule for
+new modules.</p>
+<h2 id="startup">Startup</h2>
 <p>AngstromPro uses a <code>src</code>-layout Python package. The console command calls
 <code>angstrompro.app.main:main</code>, which creates Qt, obtains the user-data folder,
 loads configuration and appearance resources, constructs the application
@@ -53,7 +81,7 @@ context, registers built-in modules, and opens the main workbench.</p>
 </tr>
 <tr>
 <td><code>WorkspaceManager</code></td>
-<td>Per-module workspaces</td>
+<td>Private and shared workspaces, attachments, and transfers</td>
 </tr>
 <tr>
 <td><code>AModuleManager</code></td>
@@ -103,12 +131,22 @@ angstrompro.algorithms      built-in registered processes
 <h2 id="runtime-flow">Runtime flow</h2>
 <ol>
 <li>A loader or simulation creates an extensible <code>WorkspaceData</code> payload.</li>
-<li>A module wraps it in a <code>WorkspaceItem</code> inside its workspace.</li>
-<li>The user stages workspace items as process inputs.</li>
-<li><code>ProcessRunner</code> validates the schema and submits work to <code>TaskManager</code>.</li>
-<li>The registry records processing history on supported results.</li>
-<li>The result returns to the source module's workspace.</li>
+<li>A module adds it as a <code>WorkspaceItem</code> to its current output workspace.</li>
+<li>The user stages workspace items as process inputs; the GUI checks the
+   required input count, types, and dimensions before opening the process dialog.</li>
+<li><code>ProcessRunner</code> maps the ordered items to named payload inputs, resolves
+   annotations from the primary item, merges parameter defaults, and submits
+   the operation through the registry to <code>TaskManager</code>.</li>
+<li>The worker calls the algorithm without accessing GUI widgets. The registry
+   records processing history on results that support it.</li>
+<li>The module's result handler adds the returned payloads to its current output
+   workspace: private by default, or shared while attached.</li>
 </ol>
+<p>The file-preview path uses the same loaded payloads but sends them to a
+headless thumbnail renderer instead of a viewer. A cached thumbnail is only a
+presentation image; Data Browser reloads the scientific data when sending a
+file to a module. See <a href="io-handlers.html">I/O handlers</a> for the reading, writing,
+and preview boundaries.</p>
 <p>See <a href="workspaces.html">Runtime data and workspaces</a> for the platform-level payload
 contract, composite data types, transfer behavior, and generic inspection.</p>
 <p>GUI components should not perform expensive scientific work directly on the

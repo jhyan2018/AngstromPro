@@ -48,8 +48,9 @@ can choose a different submenu name; all subsequent tutorials mean the submenu
 you configured, not a built-in category.</p>
 <p><strong>If an operation is unavailable:</strong> load a compatible item and check its shape.
 Image-stack operations expect <code>ndim=3</code>, including a single image stored as
-<code>(1, rows, columns)</code>. Curve-stack operations expect <code>ndim=2</code>. Search the
-Process Browser to distinguish an unregistered operation from a missing menu
+<code>(1, rows, columns)</code>. Curve-stack operations normally expect <code>ndim=2</code>, even
+though the Curve Stack Viewer can also display a one-dimensional spectrum.
+Search the Process Browser to distinguish an unregistered operation from a missing menu
 shortcut. Compatibility settings can hide or disable unsuitable operations.</p>
 <h2 id="tutorial-run-background-subtraction">Tutorial: run background subtraction</h2>
 <p><strong>Goal:</strong> remove a fitted background from a topographic image while retaining
@@ -122,10 +123,18 @@ Inspector</strong>. Expand the data/history nodes using their disclosure arrows.
 Double-click the row in Workspace when you want to display the result.</p>
 <h2 id="run-a-process">Run a process</h2>
 <ol>
-<li>Load or select the required workspace data.</li>
-<li>Choose an operation from the module's <strong>Process</strong> menu.</li>
-<li>Supply any additional inputs and parameters requested by the dialog.</li>
-<li>Start the process.</li>
+<li>Double-click the intended workspace item to activate the primary input.
+   For a two-input operation, also assign its reference. In Image Stack
+   Viewer, single-click the reference item and click <strong>Select Variable</strong> in
+   <strong>Reference Image</strong>. In Curve Stack Viewer, right-click the reference
+   item and choose <strong>Set as Reference</strong>.</li>
+<li>Check <strong>Active Processing Slots</strong>, then choose an operation from the
+   module's configured <strong>Process</strong> submenu. Required inputs must already be
+   assigned and have compatible types and dimensions for its dialog to open.</li>
+<li>In the dialog, review <strong>Inputs</strong> and <strong>Annotations</strong>, choose any editable
+   additional inputs, and set the parameters. The first input is fixed to
+   the staged primary item.</li>
+<li>Click <strong>Run</strong> and wait for the new result item or items in <strong>Workspace</strong>.</li>
 </ol>
 <p>Long-running operations execute through the task system so the interface can
 remain responsive. Successful results are added to the module workspace and

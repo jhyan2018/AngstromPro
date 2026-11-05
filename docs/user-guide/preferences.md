@@ -37,9 +37,9 @@ The three buttons have different scopes:
 | **Save as default** | Applies the values and stores them in the active user-data folder. New module instances and later application sessions use them. |
 | **Reset to default** | Restores AngstromPro's built-in values in the fields and current session. Use **Save as default** afterward to remove saved overrides. Channel mappings are independent and are not changed by this bulk reset. |
 
-Settings concerned with startup or plugin discovery naturally take full effect
-on the next launch. Data Browser display and scanner settings, viewer display
-settings, and colormap palettes are applied to the open module.
+For settings concerned with startup or plugin discovery, click **Save as
+default** and restart AngstromPro. Data Browser display and scanner settings,
+viewer display settings, and colormap palettes are applied to the open module.
 
 ## Application settings
 
@@ -72,9 +72,9 @@ Each table row describes one logical AngstromPro channel:
 
 - **Display name** is the stable name used for the loaded dataset and Data
   Browser card.
-- **Load by default** is a checkbox in each channel row. It preselects a matched channel in the normal file-open
-  dialog. It also determines which channels the Data Browser renders as
-  thumbnails.
+- **Load by default** is a checkbox in each channel row. It preselects a
+  matched channel in the normal file-open dialog. It also determines which
+  channels the Data Browser renders as thumbnails.
 - **Exact aliases** are semicolon-separated raw channel names. Matching is
   exact and case-sensitive; their order determines which match wins first.
 - **Source (.3ds)** distinguishes swept **Channels** from per-pixel
@@ -86,6 +86,14 @@ Each table row describes one logical AngstromPro channel:
 - **Auto-load defaults for this format (skip selection dialog)** is a separate
   checkbox above the table, applying to the selected file format.
   It skips the normal selection dialog and loads the matched default rows.
+
+For a given **File format**, you can check **Load by default** for multiple
+channel rows, not just one. For example, select both topography and dI/dV if
+both are available in your files. When opening a file, all matching checked
+channels are preselected in the selection dialog. If **Auto-load defaults for
+this format** is enabled, they load together automatically from that file.
+This selects multiple channels; it is different from entering multiple
+**Exact aliases**, which are alternative names for a single logical channel.
 
 These two default controls work together as follows:
 
@@ -110,9 +118,11 @@ Experiment parameters contain one value per grid pixel, so each loads as a
 single-layer image rather than a bias-sweep stack.
 
 The format-level auto-load option does not change thumbnail selection: Data
-Browser always renders matched channels marked **Load by default**. Existing
-cached thumbnails are not rewritten merely because mappings changed; use
-**Re-render all** or re-render an individual card.
+Browser renders matched channels marked **Load by default** and shows a
+missing-channel card when a default channel has no match. Existing cached
+thumbnails are not rewritten merely because mappings changed; right-click
+the affected card and choose **Re-render thumbnail**, or open Data Browser's
+**File → Preferences… → Cache** and click **Re-render all…**.
 
 ## Tutorial: configure a measurement channel
 

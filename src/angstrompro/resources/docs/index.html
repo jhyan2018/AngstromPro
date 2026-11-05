@@ -55,6 +55,17 @@ switching between Workspace and Inspector tabs.</p>
 <li><a href="user-guide/troubleshooting.html">Troubleshooting</a></li>
 </ol>
 <h2 id="developer-guide">Developer guide</h2>
+<p>Working examples are available in the repository's <code>AngstromPro/examples/</code>
+folder. Start with <code>examples/example_plugin/</code>, introduced in the
+<a href="developer-guide/plugins.html#complete-example">example plugin guide</a>. Its README
+explains installation and a complete workflow, while its source
+demonstrates a GUI module, a registered process, a simulation, and a read-only
+file loader.</p>
+<p>Read <a href="developer-guide/architecture.html">Architecture</a> for the separation of
+data management, visualisation, processing, and I/O. Then choose the relevant
+extension guide below. GUI modules and processes implement functionality;
+plugins organise and load those components. You do not need a new GUI module
+for every new algorithm or file format.</p>
 <ol>
 <li><a href="developer-guide/architecture.html">Architecture</a></li>
 <li><a href="developer-guide/workspaces.html">Runtime data and workspaces</a></li>
@@ -67,8 +78,8 @@ switching between Workspace and Inspector tabs.</p>
 <li><a href="developer-guide/configuration.html">Configuration</a></li>
 <li><a href="developer-guide/contributing.html">Contributing</a></li>
 </ol>
-<p>The guides describe the current <code>src/angstrompro</code> application and expand on
-the repository README's quick start. GUI modules and processes are extension
-components; plugins organise and load those components. Start with the
-module and process guides to implement functionality, then the plugin guide
-to package it or configure its loading.</p></body></html>
+<p>The guides describe the current <code>src/angstrompro</code> application. The accompanying
+<a href="https://arxiv.org/abs/2604.18962v2">software paper</a>, Section 2 and Figures 1–4,
+explains the architectural design;
+the interfaces and examples here follow the current code. For environment
+setup and validation commands, see <a href="developer-guide/contributing.html">Contributing</a>.</p></body></html>

@@ -31,8 +31,9 @@ you configured, not a built-in category.
 
 **If an operation is unavailable:** load a compatible item and check its shape.
 Image-stack operations expect `ndim=3`, including a single image stored as
-`(1, rows, columns)`. Curve-stack operations expect `ndim=2`. Search the
-Process Browser to distinguish an unregistered operation from a missing menu
+`(1, rows, columns)`. Curve-stack operations normally expect `ndim=2`, even
+though the Curve Stack Viewer can also display a one-dimensional spectrum.
+Search the Process Browser to distinguish an unregistered operation from a missing menu
 shortcut. Compatibility settings can hide or disable unsuitable operations.
 
 ## Tutorial: run background subtraction
@@ -117,10 +118,18 @@ Double-click the row in Workspace when you want to display the result.
 
 ## Run a process
 
-1. Load or select the required workspace data.
-2. Choose an operation from the module's **Process** menu.
-3. Supply any additional inputs and parameters requested by the dialog.
-4. Start the process.
+1. Double-click the intended workspace item to activate the primary input.
+   For a two-input operation, also assign its reference. In Image Stack
+   Viewer, single-click the reference item and click **Select Variable** in
+   **Reference Image**. In Curve Stack Viewer, right-click the reference
+   item and choose **Set as Reference**.
+2. Check **Active Processing Slots**, then choose an operation from the
+   module's configured **Process** submenu. Required inputs must already be
+   assigned and have compatible types and dimensions for its dialog to open.
+3. In the dialog, review **Inputs** and **Annotations**, choose any editable
+   additional inputs, and set the parameters. The first input is fixed to
+   the staged primary item.
+4. Click **Run** and wait for the new result item or items in **Workspace**.
 
 Long-running operations execute through the task system so the interface can
 remain responsive. Successful results are added to the module workspace and

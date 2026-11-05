@@ -117,14 +117,13 @@ used for its preview. From a card's context menu you can:</p>
 <h2 id="multichannel-thumbnails">Multichannel thumbnails</h2>
 <p>The Channel Manager shown under <strong>File → Preferences… → Channels</strong> is
 application-wide; it edits the same mappings available in Main Workbench
-Preferences. For <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> files, the browser creates cards
-only for logical channels that:</p>
-<ol>
-<li>are marked <strong>Load by default</strong> for that file format, and</li>
-<li>have an exact, case-sensitive alias matching the configured source in the
-   file. For <code>.3ds</code>, that source may be <strong>Channels</strong> or <strong>Experiment
-   parameters</strong>.</li>
-</ol>
+Preferences. For <code>.3ds</code>, <code>.sxm</code>, and <code>.dat</code> files, the browser creates a card
+for each logical channel marked <strong>Load by default</strong> for that file format.
+Several channels can be enabled for the same file. A preview is rendered when
+an exact, case-sensitive alias matches the configured source in the file;
+otherwise, the card indicates that the channel was not found and cannot be
+sent to a module. For <code>.3ds</code>, the source may be <strong>Channels</strong> or <strong>Experiment
+parameters</strong>.</p>
 <p>The format-level <strong>Auto-load defaults</strong> checkbox does not control thumbnails.
 It controls whether interactive file opening skips the normal channel-selection
 dialog. See <a href="preferences.html#channel-mappings">Preferences</a> for the complete

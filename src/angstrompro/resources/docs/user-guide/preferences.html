@@ -68,9 +68,9 @@ from the Main Workbench instead.</p>
 </tr>
 </tbody>
 </table>
-<p>Settings concerned with startup or plugin discovery naturally take full effect
-on the next launch. Data Browser display and scanner settings, viewer display
-settings, and colormap palettes are applied to the open module.</p>
+<p>For settings concerned with startup or plugin discovery, click <strong>Save as
+default</strong> and restart AngstromPro. Data Browser display and scanner settings,
+viewer display settings, and colormap palettes are applied to the open module.</p>
 <h2 id="application-settings">Application settings</h2>
 <p>Open <strong>File → Preferences…</strong> from the Main Workbench for these sections:</p>
 <ul>
@@ -99,9 +99,9 @@ Each table row describes one logical AngstromPro channel:</p>
 <ul>
 <li><strong>Display name</strong> is the stable name used for the loaded dataset and Data
   Browser card.</li>
-<li><strong>Load by default</strong> is a checkbox in each channel row. It preselects a matched channel in the normal file-open
-  dialog. It also determines which channels the Data Browser renders as
-  thumbnails.</li>
+<li><strong>Load by default</strong> is a checkbox in each channel row. It preselects a
+  matched channel in the normal file-open dialog. It also determines which
+  channels the Data Browser renders as thumbnails.</li>
 <li><strong>Exact aliases</strong> are semicolon-separated raw channel names. Matching is
   exact and case-sensitive; their order determines which match wins first.</li>
 <li><strong>Source (.3ds)</strong> distinguishes swept <strong>Channels</strong> from per-pixel
@@ -114,6 +114,13 @@ Each table row describes one logical AngstromPro channel:</p>
   checkbox above the table, applying to the selected file format.
   It skips the normal selection dialog and loads the matched default rows.</li>
 </ul>
+<p>For a given <strong>File format</strong>, you can check <strong>Load by default</strong> for multiple
+channel rows, not just one. For example, select both topography and dI/dV if
+both are available in your files. When opening a file, all matching checked
+channels are preselected in the selection dialog. If <strong>Auto-load defaults for
+this format</strong> is enabled, they load together automatically from that file.
+This selects multiple channels; it is different from entering multiple
+<strong>Exact aliases</strong>, which are alternative names for a single logical channel.</p>
 <p>These two default controls work together as follows:</p>
 <table>
 <thead>
@@ -158,9 +165,11 @@ multiple candidates, such as <strong>Z (m)</strong> and <strong>Scan:Z (m)</stro
 Experiment parameters contain one value per grid pixel, so each loads as a
 single-layer image rather than a bias-sweep stack.</p>
 <p>The format-level auto-load option does not change thumbnail selection: Data
-Browser always renders matched channels marked <strong>Load by default</strong>. Existing
-cached thumbnails are not rewritten merely because mappings changed; use
-<strong>Re-render all</strong> or re-render an individual card.</p>
+Browser renders matched channels marked <strong>Load by default</strong> and shows a
+missing-channel card when a default channel has no match. Existing cached
+thumbnails are not rewritten merely because mappings changed; right-click
+the affected card and choose <strong>Re-render thumbnail</strong>, or open Data Browser's
+<strong>File → Preferences… → Cache</strong> and click <strong>Re-render all…</strong>.</p>
 <h2 id="tutorial-configure-a-measurement-channel">Tutorial: configure a measurement channel</h2>
 <p>Before importing your first measurement, check the mappings for <code>nanonis_3ds</code>,
 <code>nanonis_sxm</code>, or <code>nanonis_dat</code>, as appropriate. For example, the default

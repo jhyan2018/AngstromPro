@@ -46,20 +46,29 @@ Viewer.
 4. Double-click the intended workspace item to activate it. Merely opening a
    file or highlighting a row does not necessarily display it.
 5. Check the displayed item name and **Active Processing Slots** below the
-   Workspace list before each operation.
+   Workspace list before each operation. Assign a compatible reference as
+   well when the algorithm needs two inputs; see [Run a process](processes.md#run-a-process).
+6. In the viewer, open **Process → Configure Process Menu…** to choose the
+   data-processing algorithms you need and organise them into custom submenus.
+   Save the configuration, then select an algorithm through **Process → your
+   configured submenu → operation**. In the dialog that opens, check **Inputs**
+   and **Annotations** where applicable, edit the parameter fields, and click
+   the **Run** button at the bottom to start processing.
 
 Each tutorial specifies its input, numbered steps, expected result, and checks
 to make when that result does not appear. Interface labels are shown in **bold**.
 Names such as `topography_raw` are suggested aliases, not supplied datasets.
 Tutorial submenu names such as **Basic analysis** are created by you; they are
-not assumed to exist in a fresh installation.
+not assumed to exist in a fresh installation. **Process → Process Browser…**
+only displays information about algorithms; it does not run them.
 
 ## How to find controls and use the mouse
 
 Menu paths such as **File → Open…** start in the menu bar of the window named
 in the step. On macOS, bring that window to the front before using the system
-menu bar. An arrow into a Preferences section means open **File → Preferences…**
-and find that section inside the dialog, not another menu-bar submenu.
+menu bar; **Preferences…** is in the application menu. An arrow into a
+Preferences section means open the Preferences dialog and find that section
+inside it, not another menu-bar submenu.
 
 - **Buttons and fields:** single left-click a button, checkbox, tab, or list
   entry. For a dropdown, click it and select a value. Parameter names refer
@@ -70,8 +79,8 @@ and find that section inside the dialog, not another menu-bar submenu.
 - **Data Browser thumbnails:** right-click the image/card for **Send to
   module…**, **Set thumbnail layer…**, **Rating**, and **Re-render thumbnail**.
   These are not File-menu commands.
-- **Image-viewer canvas:** right-click picks a point; it does not open the
-  Data Browser menu. Single-click a point-list entry before clicking
+- **Image-viewer canvas:** right-click to pick a point. Single-click a
+  point-list entry before clicking
   **Remove Point**. Save process annotations using the viewer's **Points** menu.
 - **Tree rows:** click the small disclosure arrow beside a row to expand its
   children. Clicking a checkbox changes visibility or selection for that
@@ -81,12 +90,6 @@ and find that section inside the dialog, not another menu-bar submenu.
   **Workspace** / **Inspector** tabs at the bottom when they share an area.
   Drag a panel's title bar to float or redock it.
 
-Process names do not imply built-in submenus. First add an operation through
-**Process → Configure Process Menu…**, then run it from **Process → your
-configured submenu → operation**. In its dialog, check **Inputs** and
-**Annotations**, edit the parameter fields, and click the **Run** button
-at the bottom. **Process → Process Browser…** only displays information.
-
 ## Four distinctions that prevent common mistakes
 
 | Distinction | What to do |
@@ -95,10 +98,6 @@ at the bottom. **Process → Process Browser…** only displays information.
 | File channel versus file | One acquisition file can produce several independent workspace items. Confirm the channel, units, and axes, not just the filename. |
 | Display setting versus analysis | Changing a colour range, plot offset, or preview does not create processed data. Run a registered process to create a result with processing history. |
 | Saved data versus exported figure | Save `.uds`, `.scplot`, or `.apws` for later analysis; export images or figures for presentation. |
-
-The **Process Browser** describes registered operations. To run one from a
-module, first [add it to that module's Process menu](processes.md#tutorial-configure-a-process-menu).
-A fresh menu can be empty.
 
 The procedures describe the current application. The accompanying software
 article provides the architectural background: separate module workspaces,

@@ -24,7 +24,8 @@ img { max-width: 100%; height: auto; }
 <p>All payloads placed in a workspace derive from <code>WorkspaceData</code>. The base class
 defines type, display, summary, and inspection contracts; concrete payloads own
 their domain-specific metadata and content. <code>WorkspaceItem</code> supplies runtime
-identity, source information, and annotations around the payload.</p>
+identity, an alias, and annotations around the payload. UDS source information
+is kept in the payload's <code>info</code> dictionary.</p>
 <p>For the complete container hierarchy and extension contract, see
 <a href="workspaces.html">Runtime data and workspaces</a>.</p>
 <h2 id="scientific-arrays">Scientific arrays</h2>
@@ -33,12 +34,37 @@ array with one <code>Axis</code> per array dimension. Axes carry physical coordi
 units, labels, and semantic axis types where known.</p>
 <p>Dimensional conventions used by the current viewers are:</p>
 <ul>
-<li><code>ndim=2</code>: curve stacks for the Curve Stack Viewer</li>
-<li><code>ndim=3</code>: image stacks for the Image Stack Viewer</li>
+<li><code>ndim=1</code>: a single curve, accepted directly by the Curve Stack Viewer</li>
+<li><code>ndim=2</code>: curve stacks shaped <code>(curves, points)</code> for the Curve Stack Viewer</li>
+<li><code>ndim=3</code>: image stacks shaped <code>(layers, rows, columns)</code> for the Image Stack Viewer</li>
 </ul>
 <p>These names describe the visualised signal rather than the total number of
-physical coordinates. Processes should declare exact dimensional requirements
-with <code>InputSpec.ndim</code> and may provide axis-type hints.</p>
+physical coordinates. Display support does not imply process compatibility:
+plotting a one-dimensional array does not convert its stored shape to
+<code>(1, points)</code>. Processes should declare exact dimensional requirements with
+<code>InputSpec.ndim</code> and may provide axis-type hints.</p>
+<h2 id="coordinates-channels-and-metadata">Coordinates, channels, and metadata</h2>
+<p>UDS means Uniform Data Structure. One UDS object represents one numerical
+dataset with a coherent set of physical coordinates; an acquisition file can
+produce several objects, one for each independently usable channel. Do not
+combine different channels merely because they were acquired in one file.</p>
+<p>Before combining datasets or doing pointwise arithmetic, compare the axes as
+well as the array shapes: their values, ordering, labels, and units must be
+consistent. Two equally sized images can cover different spatial grids, and
+two equally long spectra can have different bias values. Keep such datasets
+separate, or perform an explicit, scientifically justified alignment or
+resampling step. The generic workspace and process schema do not automatically
+align physical coordinates.</p>
+<p>When constructing a result, preserve axes for unchanged dimensions and update
+them for cropped, transposed, resampled, or transformed dimensions. The
+<code>gaussian_stack()</code> function in <code>examples/example_plugin/src/angstrompro_example/processes.py</code>
+shows how the order of the Layer, Y, and X axes follows the array dimensions.
+The example loader in <code>io.py</code> demonstrates the same convention for imported data.</p>
+<p>Use <code>info</code> for additional experimental metadata, not as a replacement for
+physical axes or named annotations. For an imported UDS object, the
+<code>file_source(path)</code> helper supplies a canonical source path. Processing history
+and source propagation are handled by the registered execution path; a direct
+call to an algorithm function bypasses that bookkeeping.</p>
 <h2 id="annotations">Annotations</h2>
 <p>Annotations attach structured selections to data without modifying the array.
 Built-in types include point sets, regions, and lines. Named roles such as
@@ -53,6 +79,12 @@ specifications may contain one or more UDS datasets (<code>UdsDataStru</code> in
 and other elementary plot data.
 It uses the <code>scene_plot</code> type ID, and <code>.scplot</code> persistence is handled through
 the normal I/O registry.</p>
+<p>Prefer composition when extra structure belongs to a complete analysis object:
+retain its UDS datasets with their own axes and store the additional
+relationships or presentation settings in a separate <code>WorkspaceData</code> type.
+Do not enlarge every UDS object with fields needed by only one specialised
+module. See <a href="workspaces.html#adding-a-payload-type">Adding a payload type</a> for
+the runtime contract; saving and preview rendering are separate extensions.</p>
 <h2 id="workspace-ownership">Workspace ownership</h2>
 <p>Each live module has its own workspace. Sending an item coordinates a transfer
 between module workspaces; algorithms should operate on the payload rather than

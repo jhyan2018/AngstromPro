@@ -6,9 +6,11 @@ right-hand area that switches between **Reference Image** and **Curve Preview**
 without clearing either view. It also maintains a workspace for source data
 and results.
 
-Two-dimensional topographic images and single-energy dI/dV maps are treated
-as single-layer stacks: three-dimensional data with a stack dimension of size
-one, normally shaped `(1, rows, columns)`.
+Image readers represent topographic images and single-energy dI/dV maps as
+single-layer stacks, shaped `(1, rows, columns)`. **File → Import → Image…**
+also adds this stack dimension when importing an ordinary image. Generic array
+files must already be three-dimensional to display here; a two-dimensional
+array is treated as curve-stack data, not automatically as an image.
 
 ## Locate the image controls
 
@@ -72,7 +74,8 @@ RT-ColorMap (Primary)** and **View → RT-ColorMap (Reference)**.
    Inspect both layer labels after the change.
 7. To calculate an FFT with explicit settings, add **FFT 2D** to the Process
    menu, activate the real-space item, and run it with your chosen **Window**
-   and **Normalize** settings. Select the new result explicitly for comparison.
+   and **Normalize** settings. Single-click the new result and click
+   **Select Variable** in **Reference Image** to compare it with Primary.
 
 **Expected result:** Primary shows your measurement and Reference shows its FFT,
 with names, layer values, and display types that you have checked.

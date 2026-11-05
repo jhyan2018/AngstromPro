@@ -112,18 +112,27 @@ Viewer.</p>
 <li>Double-click the intended workspace item to activate it. Merely opening a
    file or highlighting a row does not necessarily display it.</li>
 <li>Check the displayed item name and <strong>Active Processing Slots</strong> below the
-   Workspace list before each operation.</li>
+   Workspace list before each operation. Assign a compatible reference as
+   well when the algorithm needs two inputs; see <a href="processes.html#run-a-process">Run a process</a>.</li>
+<li>In the viewer, open <strong>Process → Configure Process Menu…</strong> to choose the
+   data-processing algorithms you need and organise them into custom submenus.
+   Save the configuration, then select an algorithm through <strong>Process → your
+   configured submenu → operation</strong>. In the dialog that opens, check <strong>Inputs</strong>
+   and <strong>Annotations</strong> where applicable, edit the parameter fields, and click
+   the <strong>Run</strong> button at the bottom to start processing.</li>
 </ol>
 <p>Each tutorial specifies its input, numbered steps, expected result, and checks
 to make when that result does not appear. Interface labels are shown in <strong>bold</strong>.
 Names such as <code>topography_raw</code> are suggested aliases, not supplied datasets.
 Tutorial submenu names such as <strong>Basic analysis</strong> are created by you; they are
-not assumed to exist in a fresh installation.</p>
+not assumed to exist in a fresh installation. <strong>Process → Process Browser…</strong>
+only displays information about algorithms; it does not run them.</p>
 <h2 id="how-to-find-controls-and-use-the-mouse">How to find controls and use the mouse</h2>
 <p>Menu paths such as <strong>File → Open…</strong> start in the menu bar of the window named
 in the step. On macOS, bring that window to the front before using the system
-menu bar. An arrow into a Preferences section means open <strong>File → Preferences…</strong>
-and find that section inside the dialog, not another menu-bar submenu.</p>
+menu bar; <strong>Preferences…</strong> is in the application menu. An arrow into a
+Preferences section means open the Preferences dialog and find that section
+inside it, not another menu-bar submenu.</p>
 <ul>
 <li><strong>Buttons and fields:</strong> single left-click a button, checkbox, tab, or list
   entry. For a dropdown, click it and select a value. Parameter names refer
@@ -134,8 +143,8 @@ and find that section inside the dialog, not another menu-bar submenu.</p>
 <li><strong>Data Browser thumbnails:</strong> right-click the image/card for <strong>Send to
   module…</strong>, <strong>Set thumbnail layer…</strong>, <strong>Rating</strong>, and <strong>Re-render thumbnail</strong>.
   These are not File-menu commands.</li>
-<li><strong>Image-viewer canvas:</strong> right-click picks a point; it does not open the
-  Data Browser menu. Single-click a point-list entry before clicking
+<li><strong>Image-viewer canvas:</strong> right-click to pick a point. Single-click a
+  point-list entry before clicking
   <strong>Remove Point</strong>. Save process annotations using the viewer's <strong>Points</strong> menu.</li>
 <li><strong>Tree rows:</strong> click the small disclosure arrow beside a row to expand its
   children. Clicking a checkbox changes visibility or selection for that
@@ -145,11 +154,6 @@ and find that section inside the dialog, not another menu-bar submenu.</p>
   <strong>Workspace</strong> / <strong>Inspector</strong> tabs at the bottom when they share an area.
   Drag a panel's title bar to float or redock it.</li>
 </ul>
-<p>Process names do not imply built-in submenus. First add an operation through
-<strong>Process → Configure Process Menu…</strong>, then run it from <strong>Process → your
-configured submenu → operation</strong>. In its dialog, check <strong>Inputs</strong> and
-<strong>Annotations</strong>, edit the parameter fields, and click the <strong>Run</strong> button
-at the bottom. <strong>Process → Process Browser…</strong> only displays information.</p>
 <h2 id="four-distinctions-that-prevent-common-mistakes">Four distinctions that prevent common mistakes</h2>
 <table>
 <thead>
@@ -177,9 +181,6 @@ at the bottom. <strong>Process → Process Browser…</strong> only displays inf
 </tr>
 </tbody>
 </table>
-<p>The <strong>Process Browser</strong> describes registered operations. To run one from a
-module, first <a href="processes.html#tutorial-configure-a-process-menu">add it to that module's Process menu</a>.
-A fresh menu can be empty.</p>
 <p>The procedures describe the current application. The accompanying software
 article provides the architectural background: separate module workspaces,
 explicit process inputs, and separate data-saving and figure-export workflows.</p></body></html>

@@ -5,8 +5,9 @@
 AngstromPro requires Python 3.10 or newer and a supported Qt Python binding:
 PyQt5, PyQt6, or PySide6.
 
-Use a compatible Python environment managed by Conda or another tool, and
-run AngstromPro from a terminal.
+Use your current Python environment if it meets these requirements, or an
+environment managed by Conda or another tool. Run the installation commands
+and launch AngstromPro from a system terminal, not a Python console.
 
 The instructions below install directly from a GitHub ZIP archive; Git and
 manual downloading or extraction are not required. To install from a cloned
@@ -311,7 +312,7 @@ On first launch, choose a parent location. AngstromPro creates a dedicated
 ```text
 angstrompro-user/
   config/   application preferences and interface state
-  cache/    thumbnail and snapshot data
+  cache/    regenerable thumbnail data
   logs/     diagnostic logs
 ```
 
@@ -325,7 +326,7 @@ AngstromPro opens three modules by default:
 
 - **Data Browser** for finding measurement files.
 - **Image Stack Viewer** for three-dimensional image stacks.
-- **Curve Stack Viewer** for two-dimensional curve stacks.
+- **Curve Stack Viewer** for curve stacks and individual spectra.
 
 Change startup modules in the Main Workbench through
 **File → Preferences… → Startup**, then click **Save as default** in that dialog.
@@ -356,12 +357,16 @@ window forward; **Remove** on that card closes that instance.
 5. In Image Stack Viewer, inspect the layer, colour range, and automatic FFT.
    In Curve Stack Viewer, inspect the sweep axis and select the curves to show.
 6. Add your required operation through **Process → Configure Process Menu…**.
+   Save the menu configuration, select the algorithm from its configured
+   submenu, check its inputs and parameters, and click **Run**.
    Follow [background subtraction](processes.md#tutorial-run-background-subtraction)
    for a first topographic operation, or
    [curve comparison](curve-stack-viewer.md#tutorial-compare-and-style-spectra)
    for a spectroscopy workflow.
-7. Inspect the result and save the numerical data or editable scene. Export
-   presentation figures separately.
+7. Single-click the result and use **File → Save…** to preserve numerical
+   data. For an editable curve plot, first use **Scene → Save as Scene…**,
+   then select and save that scene item as `.scplot`. Export presentation
+   figures separately.
 
 **Expected result:** a verified measurement channel, a displayed or processed
 result, and a saved file you can reopen.

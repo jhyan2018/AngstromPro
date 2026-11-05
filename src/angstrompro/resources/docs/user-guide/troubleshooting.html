@@ -85,7 +85,7 @@ guidance above if loading fails.</p>
 Cancelling the dialog cancels application startup.</p>
 <h2 id="a-file-or-channel-is-missing">A file or channel is missing</h2>
 <ol>
-<li>Check <strong>Help → Supported Formats…</strong>.</li>
+<li>In the <strong>Main Workbench</strong>, check <strong>Help → Supported Formats…</strong>.</li>
 <li>In Data Browser, open <strong>File → Preferences… → Watched formats</strong> and
    confirm that the format is checked.</li>
 <li>Review <strong>File → Preferences… → Channels</strong> in Main Workbench or Data Browser.</li>
@@ -98,11 +98,15 @@ Cancelling the dialog cancels application startup.</p>
 also be hidden when strict compatibility filtering determines that its input
 requirements do not match the module.</p>
 <h2 id="a-plugin-does-not-load">A plugin does not load</h2>
-<p>In Main Workbench, open <strong>File → Preferences… → Plugins</strong> and confirm
-that it contains the plugin's <code>src/</code> folder and its importable
-top-level module name. Restart AngstromPro, then inspect the application log for
-the import error. After editing plugin code, fully exit and restart the
-application to load the revised modules.</p>
+<p>For a local source plugin, open <strong>File → Preferences… → Plugins</strong> in Main
+Workbench and confirm the absolute <code>src/</code> path and importable top-level module
+name. Click <strong>Save as default</strong>, then restart AngstromPro.</p>
+<p>For an installed plugin, confirm that its package is installed in the same
+Python environment as AngstromPro and exposes an <code>angstrompro.plugins</code> entry
+point. This method does not require a source-path preference.</p>
+<p>Inspect the application log for import errors. After editing plugin code,
+fully exit and restart the application to load the revised modules. See
+<a href="../developer-guide/plugins.html">Plugins</a> for both loading methods.</p>
 <h2 id="logs-and-cache">Logs and cache</h2>
 <p>Diagnostic logs are stored in <code>&lt;UserDataFolder&gt;/logs/angstrompro.log</code> with
 rotating backups. Thumbnail data under <code>&lt;UserDataFolder&gt;/cache/</code> is

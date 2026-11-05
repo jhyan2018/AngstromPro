@@ -23,9 +23,8 @@ python -m pip install -e ".[pyqt5,full]"
 ```
 
 The example uses PyQt5. You can replace `pyqt5` with `pyqt6` or `pyside6`;
-choose only one Qt extra. If the development environment
-already uses PyQt5,
-reuse it rather than adding PyQt6.
+choose only one Qt extra. Reuse an existing supported binding rather than
+adding another one.
 
 Editable installation uses the working source tree. Restart AngstromPro
 after changing source code.
@@ -44,7 +43,8 @@ python tools/build_docs.py
 ```
 
 The generated files under `src/angstrompro/resources/docs/` are displayed
-by **Help → Documentation…** and must remain synchronized with `docs/`.
+by **Help → Documentation…** in the **Main Workbench** and must remain
+synchronized with `docs/`.
 
 ## Design expectations
 
@@ -61,9 +61,8 @@ by **Help → Documentation…** and must remain synchronized with `docs/`.
 ## Documentation
 
 User documentation should describe observable behavior and workflows. Developer
-documentation should describe contracts and extension points. Avoid copying
-instructions from the historical README unless they have been verified against
-the current implementation.
+documentation should describe contracts and extension points. Verify menu
+paths, control names, and operation sequences against the current implementation.
 
 Update the relevant guide whenever a menu name, file format, preference, or
 public extension contract changes. Keep the root README short and link to the
@@ -79,6 +78,21 @@ detailed guide.
    browsers.
 5. Validate Markdown links and update documentation.
 6. Confirm new files contain no credentials, personal data, or generated cache.
+
+For an extension, check its complete route through the application, not only
+the numerical function:
+
+- **Module:** open two instances and confirm that display state and process
+  inputs are independent. Test private and shared output workspaces.
+- **Process:** verify input immutability, result dimensions and axes, handling
+  of invalid inputs, and history through the registered execution path.
+- **Reader/writer:** test representative and malformed files, then round-trip
+  every field the format promises to preserve. Test workspace archives
+  separately if a group-level codec is provided.
+- **Preview:** render without a viewer window and check that the payload is
+  unchanged. A thumbnail must not replace the scientific data sent to a module.
+- **Plugin:** confirm discovery after restarting, using one loading method at
+  a time. A successful import does not prove that every component was registered.
 
 ## Run the automated tests
 

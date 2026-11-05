@@ -38,6 +38,19 @@ switching between Workspace and Inspector tabs.
 
 ## Developer guide
 
+Working examples are available in the repository's `AngstromPro/examples/`
+folder. Start with `examples/example_plugin/`, introduced in the
+[example plugin guide](developer-guide/plugins.md#complete-example). Its README
+explains installation and a complete workflow, while its source
+demonstrates a GUI module, a registered process, a simulation, and a read-only
+file loader.
+
+Read [Architecture](developer-guide/architecture.md) for the separation of
+data management, visualisation, processing, and I/O. Then choose the relevant
+extension guide below. GUI modules and processes implement functionality;
+plugins organise and load those components. You do not need a new GUI module
+for every new algorithm or file format.
+
 1. [Architecture](developer-guide/architecture.md)
 2. [Runtime data and workspaces](developer-guide/workspaces.md)
 3. [Data model](developer-guide/data-model.md)
@@ -49,8 +62,8 @@ switching between Workspace and Inspector tabs.
 9. [Configuration](developer-guide/configuration.md)
 10. [Contributing](developer-guide/contributing.md)
 
-The guides describe the current `src/angstrompro` application and expand on
-the repository README's quick start. GUI modules and processes are extension
-components; plugins organise and load those components. Start with the
-module and process guides to implement functionality, then the plugin guide
-to package it or configure its loading.
+The guides describe the current `src/angstrompro` application. The accompanying
+[software paper](https://arxiv.org/abs/2604.18962v2), Section 2 and Figures 1–4,
+explains the architectural design;
+the interfaces and examples here follow the current code. For environment
+setup and validation commands, see [Contributing](developer-guide/contributing.md).

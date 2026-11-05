@@ -101,7 +101,7 @@ Cancelling the dialog cancels application startup.
 
 ## A file or channel is missing
 
-1. Check **Help → Supported Formats…**.
+1. In the **Main Workbench**, check **Help → Supported Formats…**.
 2. In Data Browser, open **File → Preferences… → Watched formats** and
    confirm that the format is checked.
 3. Review **File → Preferences… → Channels** in Main Workbench or Data Browser.
@@ -117,11 +117,17 @@ requirements do not match the module.
 
 ## A plugin does not load
 
-In Main Workbench, open **File → Preferences… → Plugins** and confirm
-that it contains the plugin's `src/` folder and its importable
-top-level module name. Restart AngstromPro, then inspect the application log for
-the import error. After editing plugin code, fully exit and restart the
-application to load the revised modules.
+For a local source plugin, open **File → Preferences… → Plugins** in Main
+Workbench and confirm the absolute `src/` path and importable top-level module
+name. Click **Save as default**, then restart AngstromPro.
+
+For an installed plugin, confirm that its package is installed in the same
+Python environment as AngstromPro and exposes an `angstrompro.plugins` entry
+point. This method does not require a source-path preference.
+
+Inspect the application log for import errors. After editing plugin code,
+fully exit and restart the application to load the revised modules. See
+[Plugins](../developer-guide/plugins.md) for both loading methods.
 
 ## Logs and cache
 

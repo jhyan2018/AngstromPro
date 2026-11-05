@@ -1,12 +1,14 @@
 # Curve Stack Viewer
 
-The Curve Stack Viewer displays two-dimensional spectroscopy and line-scan data
-as a matplotlib figure containing a stack of curves.
+The Curve Stack Viewer displays spectroscopy and line-scan data as a
+matplotlib figure containing a stack of curves.
 
 A one-dimensional single-point spectrum is treated as a single-curve stack:
-conceptually a two-dimensional dataset with a stack dimension of size one.
-The viewer supports comparison, styling, figure export, and editable scene
-saving without requiring multiple curves.
+conceptually a two-dimensional dataset shaped `(1, points)`. The viewer
+accepts both one- and two-dimensional arrays; displaying a one-dimensional
+array does not change its stored shape. The viewer supports comparison,
+styling, figure export, and editable scene saving without requiring multiple
+curves. Processing still requires the dimensionality declared by each algorithm.
 
 ## Locate the plot controls
 
@@ -47,18 +49,16 @@ a [line-cut result](image-stack-viewer.md#tutorial-create-a-line-cut).
 3. To overlay another dataset, right-click its workspace row and choose
    **Add to plot**. Do not double-click it for this purpose: double-clicking a
    raw UDS starts a new primary plot and clears the previous displayed set.
-4. Expand **Datasets / Curves** to select individual traces. Use **Mode =
-   Stack** to view curves. Start with **Offset = 0** for a direct comparison;
-   use a nonzero **Offset** when traces overlap, and record that presentation
+4. Use **Mode = Stack** to view curves. Start with **Offset = 0** for a direct
+   comparison; use a nonzero **Offset** when traces overlap, and record that presentation
    offset in the figure description. **Y Auto** fits the visible curves.
-5. Select a trace and open **View → Curve Style** to adjust its line appearance.
-   Open **View → Axes** to set the title, axis labels, limits, scales, grid,
-   and legend.
-   Click the triangle beside the dataset in **Datasets / Curves**, then
-   single-click the required curve before changing its style. **Curve Style**
-   controls that curve's appearance; **Axes** controls the plot's axes and
-   affects curves sharing those axes, not just the selected curve. If the
-   docks overlap, switch using their **Curve Style** and **Axes** tabs.
+5. Click the triangle beside the dataset in **Datasets / Curves**, then
+   single-click the required curve. Open **View → Curve Style** to adjust
+   its line appearance. Open **View → Axes** to set the title, axis labels,
+   limits, scales, grid, and legend. **Curve Style** controls the selected
+   curve's appearance; **Axes** affects curves sharing those axes, not just
+   the selected curve. If the docks overlap, switch using their **Curve Style**
+   and **Axes** tabs.
 6. Check **X factor** and **Y factor** before finalising unit labels. For
    example, a factor of `1e3` applied to an axis stored in volts displays
    millivolts. These are display multipliers; do not also relabel the stored

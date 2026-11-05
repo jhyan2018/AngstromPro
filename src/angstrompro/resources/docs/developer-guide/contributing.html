@@ -35,9 +35,8 @@ with the optional image-processing dependencies:</p>
 <pre><code class="language-text">python -m pip install -e &quot;.[pyqt5,full]&quot;
 </code></pre>
 <p>The example uses PyQt5. You can replace <code>pyqt5</code> with <code>pyqt6</code> or <code>pyside6</code>;
-choose only one Qt extra. If the development environment
-already uses PyQt5,
-reuse it rather than adding PyQt6.</p>
+choose only one Qt extra. Reuse an existing supported binding rather than
+adding another one.</p>
 <p>Editable installation uses the working source tree. Restart AngstromPro
 after changing source code.</p>
 <p>Launch from a terminal:</p>
@@ -48,7 +47,8 @@ after changing source code.</p>
 python tools/build_docs.py
 </code></pre>
 <p>The generated files under <code>src/angstrompro/resources/docs/</code> are displayed
-by <strong>Help → Documentation…</strong> and must remain synchronized with <code>docs/</code>.</p>
+by <strong>Help → Documentation…</strong> in the <strong>Main Workbench</strong> and must remain
+synchronized with <code>docs/</code>.</p>
 <h2 id="design-expectations">Design expectations</h2>
 <ul>
 <li>Keep scientific algorithms independent from Qt widgets.</li>
@@ -63,9 +63,8 @@ by <strong>Help → Documentation…</strong> and must remain synchronized with 
 </ul>
 <h2 id="documentation">Documentation</h2>
 <p>User documentation should describe observable behavior and workflows. Developer
-documentation should describe contracts and extension points. Avoid copying
-instructions from the historical README unless they have been verified against
-the current implementation.</p>
+documentation should describe contracts and extension points. Verify menu
+paths, control names, and operation sequences against the current implementation.</p>
 <p>Update the relevant guide whenever a menu name, file format, preference, or
 public extension contract changes. Keep the root README short and link to the
 detailed guide.</p>
@@ -80,6 +79,21 @@ detailed guide.</p>
 <li>Validate Markdown links and update documentation.</li>
 <li>Confirm new files contain no credentials, personal data, or generated cache.</li>
 </ol>
+<p>For an extension, check its complete route through the application, not only
+the numerical function:</p>
+<ul>
+<li><strong>Module:</strong> open two instances and confirm that display state and process
+  inputs are independent. Test private and shared output workspaces.</li>
+<li><strong>Process:</strong> verify input immutability, result dimensions and axes, handling
+  of invalid inputs, and history through the registered execution path.</li>
+<li><strong>Reader/writer:</strong> test representative and malformed files, then round-trip
+  every field the format promises to preserve. Test workspace archives
+  separately if a group-level codec is provided.</li>
+<li><strong>Preview:</strong> render without a viewer window and check that the payload is
+  unchanged. A thumbnail must not replace the scientific data sent to a module.</li>
+<li><strong>Plugin:</strong> confirm discovery after restarting, using one loading method at
+  a time. A successful import does not prove that every component was registered.</li>
+</ul>
 <h2 id="run-the-automated-tests">Run the automated tests</h2>
 <p>Complete the editable development installation above, including a working Qt
 binding and the optional image-processing dependencies. Install pytest in the

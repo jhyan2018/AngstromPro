@@ -21,12 +21,14 @@ blockquote { margin-left: 0; padding-left: 16px; border-left: 4px solid #0788a3;
              color: #52636d; }
 img { max-width: 100%; height: auto; }
 </style></head><body><h1 id="curve-stack-viewer">Curve Stack Viewer</h1>
-<p>The Curve Stack Viewer displays two-dimensional spectroscopy and line-scan data
-as a matplotlib figure containing a stack of curves.</p>
+<p>The Curve Stack Viewer displays spectroscopy and line-scan data as a
+matplotlib figure containing a stack of curves.</p>
 <p>A one-dimensional single-point spectrum is treated as a single-curve stack:
-conceptually a two-dimensional dataset with a stack dimension of size one.
-The viewer supports comparison, styling, figure export, and editable scene
-saving without requiring multiple curves.</p>
+conceptually a two-dimensional dataset shaped <code>(1, points)</code>. The viewer
+accepts both one- and two-dimensional arrays; displaying a one-dimensional
+array does not change its stored shape. The viewer supports comparison,
+styling, figure export, and editable scene saving without requiring multiple
+curves. Processing still requires the dimensionality declared by each algorithm.</p>
 <h2 id="locate-the-plot-controls">Locate the plot controls</h2>
 <p>Open this module from Main Workbench with <strong>+ New Module → Basic → Curve Stack
 Viewer</strong>, or click <strong>Show</strong> on its existing card.</p>
@@ -63,18 +65,16 @@ a <a href="image-stack-viewer.html#tutorial-create-a-line-cut">line-cut result</
 <li>To overlay another dataset, right-click its workspace row and choose
    <strong>Add to plot</strong>. Do not double-click it for this purpose: double-clicking a
    raw UDS starts a new primary plot and clears the previous displayed set.</li>
-<li>Expand <strong>Datasets / Curves</strong> to select individual traces. Use <strong>Mode =
-   Stack</strong> to view curves. Start with <strong>Offset = 0</strong> for a direct comparison;
-   use a nonzero <strong>Offset</strong> when traces overlap, and record that presentation
+<li>Use <strong>Mode = Stack</strong> to view curves. Start with <strong>Offset = 0</strong> for a direct
+   comparison; use a nonzero <strong>Offset</strong> when traces overlap, and record that presentation
    offset in the figure description. <strong>Y Auto</strong> fits the visible curves.</li>
-<li>Select a trace and open <strong>View → Curve Style</strong> to adjust its line appearance.
-   Open <strong>View → Axes</strong> to set the title, axis labels, limits, scales, grid,
-   and legend.
-   Click the triangle beside the dataset in <strong>Datasets / Curves</strong>, then
-   single-click the required curve before changing its style. <strong>Curve Style</strong>
-   controls that curve's appearance; <strong>Axes</strong> controls the plot's axes and
-   affects curves sharing those axes, not just the selected curve. If the
-   docks overlap, switch using their <strong>Curve Style</strong> and <strong>Axes</strong> tabs.</li>
+<li>Click the triangle beside the dataset in <strong>Datasets / Curves</strong>, then
+   single-click the required curve. Open <strong>View → Curve Style</strong> to adjust
+   its line appearance. Open <strong>View → Axes</strong> to set the title, axis labels,
+   limits, scales, grid, and legend. <strong>Curve Style</strong> controls the selected
+   curve's appearance; <strong>Axes</strong> affects curves sharing those axes, not just
+   the selected curve. If the docks overlap, switch using their <strong>Curve Style</strong>
+   and <strong>Axes</strong> tabs.</li>
 <li>Check <strong>X factor</strong> and <strong>Y factor</strong> before finalising unit labels. For
    example, a factor of <code>1e3</code> applied to an axis stored in volts displays
    millivolts. These are display multipliers; do not also relabel the stored
